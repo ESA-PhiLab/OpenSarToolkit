@@ -1,0 +1,78 @@
+<graph id="Graph">
+  <version>1.0</version>
+<node id="ProductSet-Reader">
+    <operator>ProductSet-Reader</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <fileList>${filelist}</fileList>
+    </parameters>
+  </node>
+  <node id="CreateStack">
+    <operator>CreateStack</operator>
+    <sources>
+      <sourceProduct.3 refid="ProductSet-Reader"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <masterBands/>
+      <sourceBands/>
+      <resamplingType>BILINEAR_INTERPOLATION</resamplingType>
+      <extent>Minimum</extent>
+      <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
+    </parameters>
+  </node>
+  <node id="BandSelect">
+    <operator>BandSelect</operator>
+    <sources>
+      <sourceProduct refid="CreateStack"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <selectedPolarisations>${pol}</selectedPolarisations>
+      <sourceBands/>
+      <bandNamePattern/>
+    </parameters>
+  </node>
+  <node id="Subset">
+    <operator>Subset</operator>
+    <sources>
+      <sourceProduct refid="BandSelect"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <sourceBands/>
+      <region>0,0,0,0</region>
+      <geoRegion>${wkt}</geoRegion>
+      <subSamplingX>1</subSamplingX>
+      <subSamplingY>1</subSamplingY>
+      <fullSwath>false</fullSwath>
+      <tiePointGridNames/>
+      <copyMetadata>true</copyMetadata>
+    </parameters>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources>
+      <sourceProduct refid="Subset"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${output}</file>
+      <formatName>BEAM-DIMAP</formatName>
+    </parameters>
+  </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="ProductSet-Reader">
+      <displayPosition x="48.0" y="63.0"/>
+    </node>
+    <node id="CreateStack">
+      <displayPosition x="198.0" y="107.0"/>
+    </node>
+    <node id="BandSelect">
+      <displayPosition x="300.0" y="143.0"/>
+    </node>
+    <node id="Subset">
+      <displayPosition x="415.0" y="172.0"/>
+    </node>
+    <node id="Write">
+            <displayPosition x="517.0" y="212.0"/>
+    </node>
+  </applicationData>
+</graph>

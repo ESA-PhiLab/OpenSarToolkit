@@ -1,0 +1,62 @@
+<graph id="Graph">
+  <version>1.0</version>
+  <node id="Read">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${input}</file>
+    </parameters>
+  </node>
+  <node id="TOPSAR-Deburst">
+    <operator>TOPSAR-Deburst</operator>
+    <sources>
+      <sourceProduct refid="Read"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <selectedPolarisations/>
+    </parameters>
+  </node>
+  <node id="Polarimetric-Decomposition">
+    <operator>Polarimetric-Decomposition</operator>
+    <sources>
+      <sourceProduct refid="TOPSAR-Deburst"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <decomposition>H-Alpha Dual Pol Decomposition</decomposition>
+      <windowSize>5</windowSize>
+      <outputHAAlpha>true</outputHAAlpha>
+      <outputBetaDeltaGammaLambda>false</outputBetaDeltaGammaLambda>
+      <outputAlpha123>false</outputAlpha123>
+      <outputLambda123>false</outputLambda123>
+      <outputTouziParamSet0>true</outputTouziParamSet0>
+      <outputTouziParamSet1>false</outputTouziParamSet1>
+      <outputTouziParamSet2>false</outputTouziParamSet2>
+      <outputTouziParamSet3>false</outputTouziParamSet3>
+    </parameters>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources>
+      <sourceProduct refid="Polarimetric-Decomposition"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${output}</file>
+      <formatName>BEAM-DIMAP</formatName>
+    </parameters>
+  </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="Read">
+            <displayPosition x="29.0" y="46.0"/>
+    </node>
+    <node id="TOPSAR-Deburst">
+      <displayPosition x="126.0" y="81.0"/>
+    </node>
+    <node id="Polarimetric-Decomposition">
+      <displayPosition x="278.0" y="146.0"/>
+    </node>
+    <node id="Write">
+            <displayPosition x="474.0" y="209.0"/>
+    </node>
+  </applicationData>
+</graph>

@@ -1,0 +1,11 @@
+numpy
+tqdm
+requests
+gdal
+rtree
+pandas
+geopandas
+fiona
+shapely
+rasterio
+psycopg2 

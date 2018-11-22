@@ -1,0 +1,71 @@
+<graph id="Graph">
+  <version>1.0</version>
+  <node id="ProductSet-Reader">
+    <operator>ProductSet-Reader</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <fileList>${filelist}</fileList>
+    </parameters>
+  </node>
+  <node id="Back-Geocoding">
+    <operator>Back-Geocoding</operator>
+    <sources>
+      <sourceProduct.2 refid="ProductSet-Reader"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <demName>SRTM 3Sec</demName>
+      <demResamplingMethod>BICUBIC_INTERPOLATION</demResamplingMethod>
+      <externalDEMFile/>
+      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <resamplingType>BISINC_5_POINT_INTERPOLATION</resamplingType>
+      <maskOutAreaWithoutElevation>true</maskOutAreaWithoutElevation>
+      <outputRangeAzimuthOffset>false</outputRangeAzimuthOffset>
+      <outputDerampDemodPhase>false</outputDerampDemodPhase>
+      <disableReramp>false</disableReramp>
+    </parameters>
+  </node>
+  <node id="Enhanced-Spectral-Diversity">
+    <operator>Enhanced-Spectral-Diversity</operator>
+    <sources>
+      <sourceProduct refid="Back-Geocoding"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <fineWinWidthStr>512</fineWinWidthStr>
+      <fineWinHeightStr>512</fineWinHeightStr>
+      <fineWinAccAzimuth>16</fineWinAccAzimuth>
+      <fineWinAccRange>16</fineWinAccRange>
+      <fineWinOversampling>128</fineWinOversampling>
+      <xCorrThreshold>0.1</xCorrThreshold>
+      <cohThreshold>0.15</cohThreshold>
+      <numBlocksPerOverlap>10</numBlocksPerOverlap>
+      <useSuppliedShifts>false</useSuppliedShifts>
+      <overallAzimuthShift>0.0</overallAzimuthShift>
+      <overallRangeShift>0.0</overallRangeShift>
+    </parameters>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources>
+      <sourceProduct refid="Enhanced-Spectral-Diversity"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${output}</file>
+      <formatName>BEAM-DIMAP</formatName>
+    </parameters>
+  </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="Write">
+      <displayPosition x="446.0" y="182.0"/>
+    </node>
+    <node id="ProductSet-Reader">
+      <displayPosition x="18.0" y="27.0"/>
+    </node>
+    <node id="Back-Geocoding">
+      <displayPosition x="105.0" y="76.0"/>
+    </node>
+    <node id="Enhanced-Spectral-Diversity">
+      <displayPosition x="187.0" y="123.0"/>
+    </node>
+    </applicationData>
+</graph>
