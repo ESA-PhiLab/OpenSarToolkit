@@ -5,6 +5,7 @@ with open("README.md", "r") as fh:
 
 
 setup(name='ost',
+      packages=find_packages(),
       include_package_data=True,
       version='0.1',
       description='High-level functionality for the inventory, download '
@@ -13,7 +14,6 @@ setup(name='ost',
       long_description_content_type="text/markdown",
       install_requires=['numpy',
                         'tqdm',
-                        'descartes',
                         'matplotlib',
                         'psycopg2',
                         'requests',
@@ -33,6 +33,5 @@ setup(name='ost',
       author='Andreas Vollrath',
       author_email='andreas.vollrath[at]esa.int',
       license='MIT License',
-      packages=find_packages(),
       keywords=['Sentinel-1', 'ESA', 'SAR', 'radar', 'Earth Observation'],
       zip_safe=False)
