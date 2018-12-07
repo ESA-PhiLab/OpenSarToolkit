@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 
-setup(name='ostpy',
+setup(name='ost',
       include_package_data=True,
       version='0.1dev',
       description='High-level functionality for the inventory, download '

@@ -19,16 +19,54 @@ For the moment, Sentinel-1 data inventory and download routines, as well as a GR
 OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested much on other OS and python versions,
 but should in principle work on any OS and any python version >= 3.5.
 
-You can install in your global site packages like this:
+Before it can work, some dependencies need to be installed:
+
+### Dependencies
+#### Sentinel Application Toolbox (SNAP)
+
+OST bases mainly on the freely available SNAP toolbox for the SAR-specific processing routines. You can download SNAP from:
+
+http://step.esa.int/main/download/
+
+If you install SNAP into the standard directory, OST should have no problems to find the SNAP command line executable. Otherwise you need to define the path to the gpt file on your own during processing.
+
+#### Orfeo Toolbox
+
+If you want to create mosaics between different swaths, OST will rely on the otbcli_Mosaic command from The Orfeo Toolbox. You download Orfeo from:
+
+https://www.orfeo-toolbox.org/download/
+
+Make sure that the Orfeo bin folder is within your PATH variable to allow execution from command line.
+
+#### Pip, git and gdal-dev on Ubuntu Linux
+
+In order to allow the installation for OST, run the following line on the terminal:
 
 ```
-pip3 install git+git://github.com/ESA-PhiLab/OpenSarToolkit
+sudo apt install python3-pip git libgdal-dev
 ```
 
-or in your local home folder like this:
+#### Pip, git and gdal-dev on Mac OS
+
+There are many options to get python running on Mac OS. One is to install the package manager homebrew (https://brew.sh)
+and then:
 
 ```
-pip3 install git+git://github.com/ESA-PhiLab/OpenSarToolkit
+brew install python3 gdal2 gdal2-python
+```
+
+### OST Installation
+
+You can install OST now in your global site packages:
+
+```
+sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
+```
+
+or in your local home folder:
+
+```
+pip3 install --user git++https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 ## Examples
