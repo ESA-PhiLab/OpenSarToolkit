@@ -12,7 +12,7 @@ This python package lowers the entry barrier for pre-processing Sentinel-1 data 
 
 ## Functionality
 
-For the moment, supported data sets are the ALOS Kyoto & Carbon mosaics and Sentinel-1 GRD products. The former are freely available for non-commercial use, and OST eases the access and preparation of the data tiles provided by JAXA (user account is necessary). For Sentinel-1, data inventory and download routines, as well as a GRD to RTC processor allows for the rapid generation of radiometrically terrain corrected (RTC) imagery that is ready for subsequent analysis tasks such as land cover classification. More advanced and processing intensive data products, such as time-series and timescan imagery can be easily produced as well in a fully automatic manner. Ultimately, mosaicking generates seamless wide-area data sets. Alongside the processing routines, accompanying demos and capacity building material provide the user a gentle entry into the world of radar remote sensing for land applications and refer to a wealth of relevant literature and websites for a more profound study of the subject.
+For the moment, Sentinel-1 data inventory and download routines, as well as a GRD to RTC processor allows for the rapid generation of radiometrically terrain corrected (RTC) imagery that is ready for subsequent analysis tasks such as land cover classification. More advanced and processing intensive data products, such as time-series and timescan imagery can be easily produced as well in a fully automatic manner. Ultimately, mosaicking generates seamless wide-area data sets.
 
 ## Installation
 
