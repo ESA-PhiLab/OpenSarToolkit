@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(name='ost',
       include_package_data=True,
-      version='0.1dev',
+      version='0.1',
       description='High-level functionality for the inventory, download '
                   'and pre-processing of Sentinel-1 data',
       long_description=long_description,
@@ -17,7 +17,6 @@ setup(name='ost',
                         'matplotlib',
                         'psycopg2',
                         'requests',
-                        'gdal',
                         'fiona',
                         'shapely',
                         'rtree',

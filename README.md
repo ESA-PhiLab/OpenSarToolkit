@@ -38,17 +38,17 @@ https://www.orfeo-toolbox.org/download/
 
 Make sure that the Orfeo bin folder is within your PATH variable to allow execution from command line.
 
-#### Pip, git and gdal-dev on Ubuntu Linux
+#### Pip, git and gdal on Ubuntu Linux
 
 In order to allow the installation for OST, run the following line on the terminal:
 
 ```
-sudo apt install python3-pip git libgdal-dev
+sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev
 ```
 
 #### Pip, git and gdal-dev on Mac OS
 
-There are many options to get python running on Mac OS. One is to install the package manager homebrew (https://brew.sh)
+There are many options to get python3 running on Mac OS. One is to install the package manager homebrew (https://brew.sh)
 and then:
 
 ```
