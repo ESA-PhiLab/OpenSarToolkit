@@ -1,2 +1,2 @@
 recursive-include ost/graphs *.xml
-recursive-include bin *sh
+recursive-include ost/bin *sh
