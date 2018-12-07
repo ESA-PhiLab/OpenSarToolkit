@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 
 setup(name='ost',
-      packages=find_packages(),
+      packages=['ost'],
       include_package_data=True,
       version='0.1',
       description='High-level functionality for the inventory, download '
