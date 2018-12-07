@@ -8,4 +8,6 @@ geopandas
 fiona
 shapely
 rasterio
-psycopg2 
+psycopg2
+descartes
+matplotlib 
