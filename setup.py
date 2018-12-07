@@ -13,6 +13,7 @@ setup(name='ost',
                         'fiona',
                         'shapely',
                         'rtree',
+                        'rasterio',
                         'descartes',
                         'pandas',
                         'geopandas'
