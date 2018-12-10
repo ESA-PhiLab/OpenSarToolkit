@@ -16,12 +16,11 @@ For the moment, Sentinel-1 data inventory and download routines, as well as a GR
 
 ## Installation
 
-OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested much on other OS and python versions,
-but should in principle work on any OS and any python version >= 3.5.
+OST is rather a meta-package of the Sentinel-1 toolbox than a full-flavoured software. 
+In order to make 
 
-Before it can work, some dependencies need to be installed:
+### Dependencies (OS independent)
 
-### Dependencies
 #### Sentinel Application Toolbox (SNAP)
 
 OST bases mainly on the freely available SNAP toolbox for the SAR-specific processing routines. You can download SNAP from:
@@ -38,35 +37,62 @@ https://www.orfeo-toolbox.org/download/
 
 Make sure that the Orfeo bin folder is within your PATH variable to allow execution from command line.
 
-#### Pip, git and gdal on Ubuntu Linux
 
-In order to allow the installation for OST, run the following line on the terminal:
+OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested much on other OS and python versions,
+but should in principle work on any OS and any python version >= 3.5.
+
+Before it can work, some dependencies need to be installed:
+
+
+### Ubuntu/Debian Linux (using pip)
+
+Before installation of OST, run the following line on the terminal:
 
 ```
 sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev
 ```
 
-#### Pip, git and gdal-dev on Mac OS
-
-There are many options to get python3 running on Mac OS. One is to install the package manager homebrew (https://brew.sh)
-and then:
-
-```
-brew install python3 gdal2 gdal2-python
-```
-
-### OST Installation
-
-You can install OST now in your global site packages:
+then isntall OST as a global package (for all users, admin rights needed):
 
 ```
 sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
-or in your local home folder:
+or as local package within your home folder (no admin rights needed):
 
 ```
 pip3 install --user git++https://github.com/ESA-PhiLab/OpenSarToolkit.git
+```
+
+
+### Mac OS (using homebrew/pip)
+
+If not already installed, install homebrew as explained on https://brew.sh
+
+After installation of homebrew, open the terminal and execute this:
+```
+brew install python3 gdal2 gdal2-python git
+```
+
+and this:
+```
+pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
+```
+
+
+### Conda Installation (Windows, Mac, Linux)
+
+Download miniconda3 (python version 3) from https://conda.io/miniconda.html 
+and install it.
+
+Run: 
+```
+conda install git pip jupyter
+```
+
+and then 
+```
+pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 ## Examples
