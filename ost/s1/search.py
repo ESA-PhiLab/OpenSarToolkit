@@ -73,7 +73,6 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
 # import stdlib modules
 import os
 import sys
-import getpass
 import datetime
 #import urllib
 from urllib.error import URLError
@@ -189,10 +188,10 @@ def getS1Cat2Gdf(apihub, opener, query):
 def gdfS1Inv2Shp(gdf, outPath):
     
     # check if file is there
-    if os.path.isfile(outPath) is True:
+    #if os.path.isfile(outPath) is True:
         
-        print(' ERROR: Output file already exists.')
-        sys.exit()
+     #   print(' ERROR: Output file already exists.')
+     #  sys.exit()
         
 #        maxid = 0
 #        # in case check for maximum id
@@ -210,18 +209,18 @@ def gdfS1Inv2Shp(gdf, outPath):
 #                                                   maxid + 2 + len(gdf)))
 #        gdf.to_file(outPath, mode='a')
 #   
-    else:
+    #else:
     
-        # calculate new index
-        gdf.insert(loc=0, column='id', value=range(1, 1 + len(gdf)))
-        # write to new file
-        
-        try:
-            os.remove(outPath)
-        except OSError:
-            pass
-        
-        gdf.to_file(outPath)
+    # calculate new index
+    gdf.insert(loc=0, column='id', value=range(1, 1 + len(gdf)))
+    # write to new file
+    
+    try:
+        os.remove(outPath)
+    except OSError:
+        pass
+    
+    gdf.to_file(outPath)
   
     
 def gdfS1Inv2Pg(gdf, dbConnect, outTable):
@@ -303,19 +302,10 @@ def gdfS1Inv2Pg(gdf, dbConnect, outTable):
     
 def s1Scihub(query, output, uname=None, pword=None):
     
-    # ask for username and password in case you have not defined as command line options
-    if uname == None:
-        print(' If you do not have a Copernicus Scihub user'
-              ' account go to: https://scihub.copernicus.eu')
-        uname = input(' Your Copernicus Scihub Username:')
-    
-    if pword == None:
-        pword = getpass.getpass(' Your Copernicus Scihub Password:')
-
     # get connected to scihub
     baseURL = 'https://scihub.copernicus.eu/apihub/'
     opener = scihub.scihubConnect(baseURL, uname, pword)
-    action = "search?q="
+    action = 'search?q='
     apihub = baseURL + action
     
     # get the catalogue in a dict

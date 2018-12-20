@@ -13,7 +13,7 @@ from shapely.wkt import loads
 from urllib.error import URLError
 
 from ost.s1 import search
-
+from ost.helpers import scihub
 
 class s1Metadata:
     """
@@ -77,6 +77,7 @@ class s1Metadata:
         # increment class variable for every scene read
         s1Metadata.num_of_scenes += 1
 
+
     def s1Info(self):
 
         print(" -------------------------------------------------")
@@ -92,6 +93,7 @@ class s1Metadata:
         print(" Absolute Orbit:          " + str(self.abs_orbit))
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
+
 
     def s1IPTpath(self, basePath='/eodata/Sentinel-1'):
 
@@ -109,6 +111,7 @@ class s1Metadata:
                                                    self.day, self.scene_id)
 
         return path
+
 
     def s1EsaUuidFromId(self, opener):
 
@@ -165,6 +168,68 @@ class s1Metadata:
                                                                 uuid)
         return urlDownload
 
+
+    def checkOnlineStatus(self, opener):
+        
+        uuid = self.s1EsaUuidFromId(opener)
+        scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        
+        url = '{}(\'{}\')/Online/$value'.format(scihubURL, uuid)
+        
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as e:
+            if hasattr(e, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', e.reason)
+                sys.exit()
+            elif hasattr(e, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', e.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            response = req.read().decode('utf-8')
+            
+            if response is 'true':
+                response = True
+            elif response is 'false':
+                response = False
+            
+        return response
+    
+      
+    def triggerScihubProduction(self, opener):
+          
+          uuid = self.s1EsaUuidFromId(opener)
+          scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        
+          url = '{}(\'{}\')/$value'.format(scihubURL, uuid)
+          
+          try:
+            # get the request
+            req = opener.open(url)
+           
+          except URLError as e:
+            if hasattr(e, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', e.reason)
+                sys.exit()
+            elif hasattr(e, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', e.code)
+                sys.exit()
+            else:
+                # write the request to to the response variable
+                # (i.e. the xml coming back from scihub)
+                 code = req.getcode()
+                 if code is 202:
+                     print(' Production of {} successfully requested.'.format(self.scene_id))
+          return code
+
+          
     def s1EsaAnnoUrl(self, opener):
 
         uuid = self.s1EsaUuidFromId(opener)
@@ -172,10 +237,10 @@ class s1Metadata:
         print(' INFO: Getting URLS of annotation files'
               ' for S1 product: {}.'.format(self.scene_id))
         scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        annoPath1 = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
+        annoPath = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
                      'Nodes'.format(uuid, self.scene_id))
-        url = scihubURL + annoPath1
-
+        url = scihubURL + annoPath
+        print(url)
         try:
             # get the request
             req = opener.open(url)
@@ -207,6 +272,7 @@ class s1Metadata:
 
         return urlList
 
+
     def s1IPTAnno(self):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
@@ -222,6 +288,7 @@ class s1Metadata:
 
         return gdfFull.drop_duplicates(['BurstID'], keep='first')
 
+
     def s1EsaAnno(self, uname=None, pword=None):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
@@ -229,18 +296,9 @@ class s1Metadata:
         gdfFull = gpd.GeoDataFrame(columns=colNames)
 
         baseURL = "https://scihub.copernicus.eu/apihub/"
-        # ask for username and password in case you have
-        # not defined as command line options
-
-        if uname is None:
-            print(' If you do not have a Copernicus Scihub user'
-                  ' account go to: https://scihub.copernicus.eu')
-            uname = input(' Your Copernicus Scihub Username:')
-        if pword is None:
-            pword = getpass.getpass(' Your Copernicus Scihub Password:')
 
         # get connected to scihub
-        opener = search.scihubConnect(baseURL, uname, pword)
+        opener = scihub.scihubConnect(baseURL, uname, pword)
 
         annoList = self.s1EsaAnnoUrl(opener)
 
@@ -270,6 +328,7 @@ class s1Metadata:
                 gdfFull = gdfFull.append(gdf)
 
         return gdfFull.drop_duplicates(['BurstID'], keep='first')
+
 
     def s1BurstInfo(self, ETroot):
         '''

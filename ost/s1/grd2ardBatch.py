@@ -59,7 +59,7 @@ def grd2ArdBatch(inputData, dwnDir, prcDir, tmpDir, outResolution, prdType, lsMa
     
     # 1) we convert input to a geopandas GeoDataFrame object
     fpDataFrame = refine.readS1Inventory(inputData) # function to convert the input to GeoDataFrame
-    procDict = refine.createProcDict(fpDataFrame[fpDataFrame.relativeorbit == '44'])
+    procDict = refine.createProcDict(fpDataFrame)
 
     for track, allScenes in procDict.items():
         for sceneList in procDict[track]:

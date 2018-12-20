@@ -17,11 +17,18 @@ def askScihubCreds():
     return uname, pword
 
 
-def scihubConnect(baseURL, uname, pword):
+def scihubConnect(baseURL, uname=None, pword=None):
     """
     Connect and authenticate to the scihub server.
     """
-
+    if uname == None:
+        print(' If you do not have a Copernicus Scihub user'
+              ' account go to: https://scihub.copernicus.eu')
+        uname = input(' Your Copernicus Scihub Username:')
+    
+    if pword == None:
+        pword = getpass.getpass(' Your Copernicus Scihub Password:')
+        
     # open a connection to the scihub
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
     manager.add_password(None, baseURL, uname, pword)
