@@ -72,7 +72,7 @@ def slcBurstImport(inFile, outPrefix, logFile,
     :return
     """
 
-    graph = ('/'.join(('graphs', 'S1_SLCARD', 'S1_SLC_BurstSplit_AO.xml')))
+    graph = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')))
     graph = pkg_resources.resource_filename(package, graph)
 
     print(' INFO: Importing Burst {} from Swath {}'
@@ -154,14 +154,19 @@ def slcCoreg(fileList, outFile, logFile):
     based on the backgeocoding and the Enhanced-Spectral-Diversity (ESD).
     """
 
-    SLC_coreg_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_BGD.xml')))
+    SLC_coreg_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')))
     SLC_coreg_xml = pkg_resources.resource_filename(package, SLC_coreg_xml)
 
     print(' INFO: Co-registering {}'.format(fileList[0]))
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, os.cpu_count(), fileList, outFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    coregCmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, os.cpu_count(), fileList, outFile)
+    rc = helpers.runCmd(coregCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully coregistered product')
+    else:
+        print(' ERROR: Co-registration exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(112)
 
 
 def slcCoregESD(fileList, outFile, logFile):
@@ -170,7 +175,7 @@ def slcCoregESD(fileList, outFile, logFile):
     based on the backgeocoding and the Enhanced-Spectral-Diversity (ESD).
     """
 
-    SLC_coreg_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_BGD_ESD.xml')))
+    SLC_coreg_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_BGD_ESD.xml')))
     SLC_coreg_xml = pkg_resources.resource_filename(package, SLC_coreg_xml)
 
     print(" INFO: Co-registering with Enhanced Spectral Diversity")
@@ -180,7 +185,7 @@ def slcCoregESD(fileList, outFile, logFile):
     helpers.timer(currtime)
 
 
-def slcBackscatter(inFile, outFile, tmpdir, logFile, prType='GTCgamma', reGrid=False):
+def slcBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
     """
     This function is a wrapper function of the SNAP toolbox for the creation of
     radiometrically terrain corrected product.
@@ -188,35 +193,39 @@ def slcBackscatter(inFile, outFile, tmpdir, logFile, prType='GTCgamma', reGrid=F
 
     # define path to xml file based on product type
     if prType == 'RTC':
-        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC', 'S1_SLC_TNR_Calbeta_Deb.xml'))
-        SLC_calibrate_xml = pkg_resources.resource_filename(package, SLC_calibrate_xml)
-        outTmpFile = '{}/beta'.format(tmpdir)
+        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_TNR_Calbeta_Deb.xml'))
     elif prType == 'GTCgamma':
-        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC', 'S1_SLC_TNR_CalGamma_Deb.xml'))
-        SLC_calibrate_xml = pkg_resources.resource_filename(package, SLC_calibrate_xml)
-        outTmpFile = outFile
+        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_TNR_CalGamma_Deb.xml'))
     elif prType == 'GTCsigma':
-        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC', 'S1_SLC_TNR_CalSigma_Deb.xml'))
-        SLC_calibrate_xml = pkg_resources.resource_filename(package, SLC_calibrate_xml)
-        outTmpFile = outFile
-
+        SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_TNR_CalSigma_Deb.xml'))
+        
+    SLC_calibrate_xml = pkg_resources.resource_filename(package, SLC_calibrate_xml)
+    
     print(" INFO: Removing thermal noise, calibrating and debursting")
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_calibrate_xml, os.cpu_count(), inFile, outTmpFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    calCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_calibrate_xml, os.cpu_count(), inFile, outFile)
+    rc = helpers.runCmd(calCmd, logFile)
 
-    if prType == 'RTC':
-        print(' INFO: Correcting for the illumination along slopes (Terrain Flattening).')
-        currtime = time.time()
-        cmd = '{} Terrain-Flattening -x -q {} -PreGridMethod={} \
-              -t {} {}'.format(gpt_file, os.cpu_count(), reGrid, outFile, '{}.dim'.format(outTmpFile))
-        os.system(cmd)
-        helpers.timer(currtime)
-        print(" Removing Tmp files")
+    if rc == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Frame import exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(121)
 
-        os.remove('{}.dim'.format(outTmpFile))
-        shutil.rmtree('{}.data'.format(outTmpFile))
+
+def slcTerrainFlattening(inFile, outFile, logFile, reGrid=False):
+    
+    print(' INFO: Correcting for the illumination along slopes (Terrain Flattening).')
+    tfCmd = '{} Terrain-Flattening -x -q {} -PreGridMethod={} \
+          -t {} {}'.format(gpt_file, os.cpu_count(), reGrid, outFile, inFile)
+    rc = helpers.runCmd(tfCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Terrain Flattening exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(121)
 
 
 def slcLSMap(inFile, outFile, logFile, resol=20):
@@ -226,7 +235,7 @@ def slcLSMap(inFile, outFile, logFile, resol=20):
     """
 
     # define path to xml file
-    SLC_ls_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_LS_TC.xml')))
+    SLC_ls_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')))
     SLC_ls_xml = pkg_resources.resource_filename(package, SLC_ls_xml)
 
     print(" INFO: Compute Layover/Shadow mask")
@@ -244,14 +253,19 @@ def slcCoherence(inFile, outFile, logFile):
     """
 
     # define path to xml file
-    SLC_coh_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_Coh_Deb.xml')))
+    SLC_coh_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')))
     SLC_coh_xml = pkg_resources.resource_filename(package, SLC_coh_xml)
 
     print(' INFO: Coherence estimation')
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_coh_xml, os.cpu_count(), inFile, outFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    cohCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_coh_xml, os.cpu_count(), inFile, outFile)
+    rc = helpers.runCmd(cohCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully created Coherence product')
+    else:
+        print(' ERROR: Coherence exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(121)
 
 
 def slcHalpha(inFile, outFile, logFile):
@@ -262,30 +276,40 @@ def slcHalpha(inFile, outFile, logFile):
     """
 
     #SLC_pol_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_Deb_Spk_Halpha.xml')))
-    SLC_pol_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_Deb_Halpha.xml')))
+    SLC_pol_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_Deb_Halpha.xml')))
     SLC_pol_xml = pkg_resources.resource_filename(package, SLC_pol_xml)
 
     print(" INFO: Calculating the H-alpha dual polarisation")
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_pol_xml, os.cpu_count(), inFile, outFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    alphaCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_pol_xml, os.cpu_count(), inFile, outFile)
+    rc = helpers.runCmd(alphaCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully created H/Alpha product')
+    else:
+        print(' ERROR: H/Alpha exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(121)
 
 
-def slcTC(inFile, outFile, resolution=20):
+def slcTC(inFile, outFile, logFile, resolution=20):
     """
     This is a wrapper of S1TBX for the creation of a multi-looked, terrain-corrected product.
     """
 
-    SLC_tc_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_ML_TC.xml')))
+    SLC_tc_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_ML_TC.xml')))
     SLC_tc_xml = pkg_resources.resource_filename(package, SLC_tc_xml)
 
     print(" INFO: Multilook and terrain-correcting input scene")
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_tc_xml, os.cpu_count(),
+    tcCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_tc_xml, os.cpu_count(),
                                                                     inFile, resolution, outFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    rc = helpers.runCmd(tcCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Geocoding exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(122)
 
 
 def texture(inFile, outFile):
@@ -294,7 +318,7 @@ def texture(inFile, outFile):
     Input should be an GTC or RTC product,
     """
 
-    SLC_tex_xml = ('/'.join(('graphs', 'S1_SLC', 'S1_SLC_Tex.xml')))
+    SLC_tex_xml = ('/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_Tex.xml')))
     SLC_tex_xml = pkg_resources.resource_filename(package, SLC_tex_xml)
 
     print(" INFO: Calculating texture measures")
@@ -302,7 +326,6 @@ def texture(inFile, outFile):
     cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_tex_xml, os.cpu_count(), inFile, outFile)
     os.system(cmd)
     helpers.timer(currtime)
-
 
 
 def slcImp2Coh(masterDate, slaveDate, outDir, tmpDir, subswath, outResolution=20):

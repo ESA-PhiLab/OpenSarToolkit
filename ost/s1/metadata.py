@@ -2,8 +2,9 @@ __author__ = "Andreas Vollrath"
 
 import sys
 import glob
-import getpass
 import urllib
+import zipfile
+import fnmatch
 import xml.dom.minidom
 import numpy as np
 import geopandas as gpd
@@ -12,7 +13,6 @@ import xml.etree.ElementTree as ET
 from shapely.wkt import loads
 from urllib.error import URLError
 
-from ost.s1 import search
 from ost.helpers import scihub
 
 class s1Metadata:
@@ -150,6 +150,7 @@ class s1Metadata:
 
         return uuid
 
+
     def s1EsaSceneUrl(self, opener):
 
         uuid = self.s1EsaUuidFromId(opener)
@@ -159,6 +160,7 @@ class s1Metadata:
         urlDownload = '{}(\'{}\')/$value'.format(scihubURL, uuid)
 
         return urlDownload
+
 
     def s1EsaMd5Url(self, opener):
 
@@ -193,9 +195,9 @@ class s1Metadata:
             # (i.e. the xml coming back from scihub)
             response = req.read().decode('utf-8')
             
-            if response is 'true':
+            if response == 'true':
                 response = True
-            elif response is 'false':
+            elif response == 'false':
                 response = False
             
         return response
@@ -272,7 +274,32 @@ class s1Metadata:
 
         return urlList
 
+    def s1DwnAnno(self, dwnDir):
 
+        colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+                    'BurstNr', 'geometry']
+        
+        # crs for empty dataframe
+        crs = {'init': 'epsg:4326'}
+        gdfFull = gpd.GeoDataFrame(columns=colNames, crs=crs)
+
+        file = self.s1DwnPath(dwnDir)
+        
+        # extract info from archive
+        archive = zipfile.ZipFile(file, 'r')
+        nameList= archive.namelist()
+        xmlFiles = fnmatch.filter(nameList,"*/annotation/s*.xml")
+        
+        # loop through xml annotation files
+        for xmlFile in xmlFiles:
+            xml = archive.open(xmlFile)
+
+            gdf = self.s1BurstInfo(ET.parse(xml))
+            gdfFull = gdfFull.append(gdf)
+            
+        return gdfFull.drop_duplicates(['BurstID'], keep='first')
+    
+    
     def s1IPTAnno(self):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
@@ -421,6 +448,7 @@ class s1Metadata:
             gdf = gdf.append(gDict, ignore_index=True)
 
         return gdf
+
 
     def s1ASFURL(self):
 
