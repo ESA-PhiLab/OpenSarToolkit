@@ -319,8 +319,8 @@ def batchDownloadPeps(fpDataFrame, dwnDir, uname, pword, concurrent=10):
                     scene = s1Metadata(sceneID)
                     dwnFile = scene.s1DwnPath(dwnDir)
                     # put all info to the pepslist for parallelised download
-                    pepsList.append([fpDataFrame['pepsUrl'].tolist()[0], dwnFile, uname, pword])
-
+                    pepsList.append([fpDataFrame.pepsUrl[fpDataFrame.identifier == sceneID].tolist()[0], dwnFile, uname, pword])
+                
                 # parallelised download
                 pool = multiprocessing.Pool(processes=concurrent)
                 pool.map(s1PepsDownload, pepsList)
