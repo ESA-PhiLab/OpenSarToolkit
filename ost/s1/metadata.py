@@ -1,7 +1,11 @@
 __author__ = "Andreas Vollrath"
 
+import os
 import sys
+import json
 import glob
+import getpass
+import requests
 import urllib
 import zipfile
 import fnmatch
@@ -106,11 +110,16 @@ class s1Metadata:
     
     def s1DwnPath(self, dwnDir):
 
-        path = '{}/SAR/{}/{}/{}/{}/{}.zip'.format(dwnDir, self.product_type,
+        dlPath = '{}/SAR/{}/{}/{}/{}/'.format(dwnDir, self.product_type,
                                                    self.year, self.month,
-                                                   self.day, self.scene_id)
+                                                   self.day)
+        
+        if os.path.isdir(dlPath) is False:
+                os.makedirs(dlPath)
+                
+        filePath = '{}/{}.zip'.format(dlPath, self.scene_id)
 
-        return path
+        return filePath 
 
 
     def s1EsaUuidFromId(self, opener):
@@ -209,7 +218,7 @@ class s1Metadata:
           scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
         
           url = '{}(\'{}\')/$value'.format(scihubURL, uuid)
-          
+          print(url)
           try:
             # get the request
             req = opener.open(url)
@@ -223,12 +232,13 @@ class s1Metadata:
                 print(' The server couldn\'t fulfill the request.')
                 print(' Error code: ', e.code)
                 sys.exit()
-            else:
-                # write the request to to the response variable
-                # (i.e. the xml coming back from scihub)
-                 code = req.getcode()
-                 if code is 202:
-                     print(' Production of {} successfully requested.'.format(self.scene_id))
+        
+          # write the request to to the response variable
+          # (i.e. the xml coming back from scihub)
+          code = req.getcode()
+          if code is 202:
+              print(' Production of {} successfully requested.'.format(self.scene_id))
+          
           return code
 
           
@@ -273,7 +283,8 @@ class s1Metadata:
                     urlList.append('{}/$value'.format(downloadURL))
 
         return urlList
-
+    
+    
     def s1DwnAnno(self, dwnDir):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
@@ -467,3 +478,56 @@ class s1Metadata:
         productURL = '{}/{}/{}/{}.zip'.format(asfURL, pType,
                                               mission, self.scene_id)
         return productURL
+
+
+    def s1PepsUuid(self, uname, pword):
+
+        url = 'https://peps.cnes.fr/resto/api/collections/S1/search.json?q={}'.format(self.scene_id)
+        response = requests.get(url, stream=True, auth=(uname, pword))
+        
+        # check response
+        if response.status_code == 401:
+            raise ValueError(' ERROR: Username/Password are incorrect.')
+        elif response.status_code != 200:
+            response.raise_for_status()
+        
+        data = json.loads(response.text)
+        pepsUuid = data['features'][0]['id']
+        dwnUrl = data['features'][0]['properties']['services']['download']['url']
+        
+        return pepsUuid, dwnUrl
+    
+    
+    def s1PepsStatus(self, uname, pword):
+
+        """
+        This function will download S1 products from CNES Peps mirror.
+    
+        :param url: the url to the file you want to download
+        :param fileName: the absolute path to where the downloaded file should be written to
+        :param uname: ESA's scihub username
+        :param pword: ESA's scihub password
+        :return:
+        """
+        
+        uuid, url = self.s1PepsUuid(uname, pword)
+        # define url
+        #url = 'https://peps.cnes.fr/resto/collections/S1/{}/download/?issuerId=peps'.format(uuid)
+        #url = 'https://peps.cnes.fr/resto/collections/S1/{}/download'.format(uuid)
+        
+        response = requests.get(url, stream=True, auth=(uname, pword))
+        status = response.status_code
+        
+        # check response
+        if status == 401:
+            raise ValueError(' ERROR: Username/Password are incorrect.')
+        elif status == 404:
+            raise ValueError(' ERROR: File not found.')
+        elif status == 200:
+             status = 'online'
+        elif status == 202:
+             status = 'onTape'
+        else:
+            response.raise_for_status()
+        
+        return status, url

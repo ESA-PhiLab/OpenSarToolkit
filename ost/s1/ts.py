@@ -2,7 +2,11 @@
 # import stdlib modules
 import os
 import sys
+import glob
 import pkg_resources
+from datetime import datetime
+
+
 
 from ost.helpers import helpers
 
@@ -78,3 +82,13 @@ def mtSpeckle(inStack, outStack, logFile):
         sys.exit(202)
 
 
+def createDateList(tsPath):
+
+    files = glob.glob('{}*VV*tif'.format(tsPath))
+    dates = sorted([os.path.basename(file).split('.')[1] for file in files])
+    #outDates = [datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d') ]
+    f = open('{}/datelist.txt'.format(tsPath), 'w')
+    for date in dates:
+        f.write(str(datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d')) + ' \n')        
+    f.close()
+    

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
 import os
+import time
+import zipfile
 import getpass
 import requests
 import multiprocessing
@@ -199,77 +201,142 @@ def checkPepsConn(uname, pword):
 
 
 def s1PepsDownload(argumentList):
-
     """
     This function will download S1 products from CNES Peps mirror.
 
     :param url: the url to the file you want to download
     :param fileName: the absolute path to where the downloaded file should be written to
-    :param uname: ESA's scihub username
-    :param pword: ESA's scihub password
+    :param uname: CNES Peps username
+    :param pword: CNES Peps password
     :return:
     """
 
-    uuid = argumentList[0]
+    url = argumentList[0]
     fileName = argumentList[1]
     uname = argumentList[2]
     pword = argumentList[3]
 
-    # ask for username and password in case you have not defined as command line options
-    if uname == None:
-        print(' If you do not have a Copernicus Scihub user account go to: https://scihub.copernicus.eu')
-        uname = input(' Your Copernicus Scihub Username:')
-    if pword == None:
-        pword = getpass.getpass(' Your Copernicus Scihub Password:')
-
-    # define url
-    url = 'https://peps.cnes.fr/resto/collections/S1/{}/download/?issuerId=peps'.format(uuid)
-
-    # get first response for file Size
-    response = requests.get(url, stream=True, auth=(uname, pword))
-
-    # check response
-    if response.status_code == 401:
-        raise ValueError(' ERROR: Username/Password are incorrect.')
-    elif response.status_code != 200:
-        response.raise_for_status()
-
-    # get download size
-    totalLength = int(response.headers.get('content-length', 0))
-
-    # define chunksize
-    chunkSize = 1024
-
-    # check if file is partially downloaded
-    if os.path.exists(fileName):
-        firstByte = os.path.getsize(fileName)
-    else:
-        firstByte = 0
-
-    if firstByte >= totalLength:
-        return totalLength
-
-    # get byte offset for already downloaded file
-    header = {"Range": "bytes={}-{}".format(firstByte, totalLength)}
-
-    print(' INFO: Downloading scene to: {}'.format(fileName))
-    response = requests.get(url, headers=header, stream=True, auth=(uname, pword))
-
-    # actual download
-    with open(fileName, "ab") as f:
-
-        if totalLength is None:
-            f.write(response.content)
+    downloaded = False
+    
+    while downloaded is False:
+        
+        # get first response for file Size
+        response = requests.get(url, stream=True, auth=(uname, pword))
+    
+        # get download size
+        totalLength = int(response.headers.get('content-length', 0))
+    
+        # define chunksize
+        chunkSize = 1024
+    
+        # check if file is partially downloaded
+        if os.path.exists(fileName):
+            
+            firstByte = os.path.getsize(fileName)
+            if firstByte == totalLength:
+                print(' INFO: {} already downloaded.'.format(fileName))
+            else:
+                print(' INFO: Continue downloading scene to: {}'.format(fileName))
+                
         else:
-            pbar = tqdm.tqdm(total=totalLength, initial=firstByte, unit='B',
-                            unit_scale=True, desc=' INFO: Downloading: ')
-            for chunk in response.iter_content(chunkSize):
-                if chunk:
-                    f.write(chunk)
-                    pbar.update(chunkSize)
-    pbar.close()
+            print(' INFO: Downloading scene to: {}'.format(fileName))
+            firstByte = 0
+    
+        if firstByte >= totalLength:
+            return totalLength
+    
+        # get byte offset for already downloaded file
+        header = {"Range": "bytes={}-{}".format(firstByte, totalLength)}
+        response = requests.get(url, headers=header, stream=True, auth=(uname, pword))
+    
+        # actual download
+        with open(fileName, "ab") as f:
+    
+            if totalLength is None:
+                f.write(response.content)
+            else:
+                pbar = tqdm.tqdm(total=totalLength, initial=firstByte, unit='B',
+                                unit_scale=True, desc=' INFO: Downloading: ')
+                for chunk in response.iter_content(chunkSize):
+                    if chunk:
+                        f.write(chunk)
+                        pbar.update(chunkSize)
+        pbar.close()
+    
+        # zipFile check
+        print(' INFO: Checking the zip archive of {} for inconsistency'.format(fileName))
+        zipArchive = zipfile.ZipFile(fileName)
+        zipTest = zipArchive.testzip()
+    
+        # if it did not pass the test, remove the file 
+        # in the while loop it will be downlaoded again
+        if zipTest is not None:
+            print(' INFO: {} did not pass the zip test. Re-downloading the full scene.'.format(fileName))
+            os.remove(fileName)
+        # otherwise we change the status to True
+        else:
+            print(' INFO: {} passed the zip test.'.format(fileName))
+            downloaded = True
+        
 
+def batchDownloadPeps(fpDataFrame, dwnDir, uname, pword, concurrent=10):
 
+        print(' INFO: Getting the storage status (online/onTape) of each scene on the Peps server.')
+        print(' INFO: This may take a while.')
+        
+        # this function does not just check, 
+        # but it already triggers the production of the S1 scene
+        fpDataFrame['pepsStatus'], fpDataFrame['pepsUrl'] = (
+            zip(*[s1Metadata(x).s1PepsStatus(uname, pword) 
+                  for x in fpDataFrame.identifier.tolist()]))
+        
+        # as long as there are any scenes left for downloading, loop
+        while len(fpDataFrame[fpDataFrame['pepsStatus'] != 'downloaded']) > 0:
+ 
+            # excluded downlaoded scenes
+            fpDataFrame = fpDataFrame[fpDataFrame['pepsStatus'] != 'downloaded']
+            
+            # recheck for status
+            fpDataFrame['pepsStatus'], fpDataFrame['pepsUrl'] = (
+            zip(*[s1Metadata(x).s1PepsStatus(uname, pword) 
+                  for x in fpDataFrame.identifier.tolist()]))
+    
+            # if all scenes to download are on Tape, we wait for a minute 
+            if len(fpDataFrame[fpDataFrame['pepsStatus'] == 'online']) == 0:
+                print('INFO: Imagery still on tape, we will wait for 1 minute and try again.')
+                time.sleep(60)
+            
+            # else we start downloading
+            else:
+                
+                # create the pepslist for parallel download
+                pepsList = []
+                for index, row in fpDataFrame[fpDataFrame['pepsStatus'] == 'online'].iterrows():   
+
+                    # get scene identifier
+                    sceneID = row.identifier
+                    # construct download path
+                    scene = s1Metadata(sceneID)
+                    dwnFile = scene.s1DwnPath(dwnDir)
+                    # put all info to the pepslist for parallelised download
+                    pepsList.append([fpDataFrame['pepsUrl'].tolist()[0], dwnFile, uname, pword])
+
+                # parallelised download
+                pool = multiprocessing.Pool(processes=concurrent)
+                pool.map(s1PepsDownload, pepsList)
+
+                # routine to check if the file has been downloaded
+                for index, row in fpDataFrame[fpDataFrame['pepsStatus'] == 'online'].iterrows():   
+
+                    # get scene identifier
+                    sceneID = row.identifier
+                    # construct download path
+                    scene = s1Metadata(sceneID)
+                    dwnFile = scene.s1DwnPath(dwnDir)
+                    if os.path.exists(dwnFile):
+                        fpDataFrame.at[index, 'pepsStatus'] = 'downloaded'
+
+                      
 # we need this class for earthdata access
 class SessionWithHeaderRedirection(requests.Session):
 
@@ -386,11 +453,11 @@ def downloadS1(inputGDF, dwnDir, concurrent=4):
 
     print(' INFO: One or more of your scenes need to be downloaded.')
     print(' Select the server from where you want to download:')
-    print(' (1) Copernicus Apihub (ESA, full archive)')
+    print(' (1) Copernicus Apihub (ESA, rolling archive)')
     print(' (2) Alaska Satellite Facility (NASA, full archive)')
-    #print(' (3) PEPS (CNES, 1 year rolling archive)')
+    print(' (3) PEPS (CNES, 1 year rolling archive)')
     #mirror = input(' Type 1, 2 or 3: ')
-    mirror = input(' Type 1 or 2: ')
+    mirror = input(' Type 1, 2 or 3: ')
 
     print(' Please provide username and password for the selected server')
     uname = input(' Username:')
@@ -404,45 +471,45 @@ def downloadS1(inputGDF, dwnDir, concurrent=4):
     elif mirror == '3':
         errCode = checkPepsConn(uname, pword)
 
-    # check response
-    if errCode == 401:
-        raise ValueError(' ERROR: Username/Password are incorrect.')
-        exit(401)
-    elif errCode != 200:
-        raise ValueError(' Some connection error.')
-        exit(401)
-            
-    # check if all scenes exist
-    scenes = inputGDF['identifier'].tolist()
-
-    dowList = []
-    asfList = []
-
-    for sceneID in scenes:
-        scene = s1Metadata(sceneID)
-        dlPath = '{}/SAR/{}/{}/{}/{}'.format(dwnDir, scene.product_type,
-                                                     scene.year, scene.month, scene.day)
-
-        fileName = '{}.zip'.format(scene.scene_id)
-
-        uuid = inputGDF['uuid'][inputGDF['identifier'] == sceneID].tolist()
-            
-        if os.path.isdir(dlPath) is False:
-            os.makedirs(dlPath)
-
-        # in case the data has been downloaded before
-        #if os.path.exists('{}/{}'.format(dlPath, fileName)) is False:
-        # create list objects for download
-        dowList.append([uuid[0], '{}/{}'.format(dlPath, fileName), uname, pword])
-        asfList.append([scene.s1ASFURL(), '{}/{}'.format(dlPath, fileName), uname, pword])
-
-            # download in parallel
-    if mirror == '1': # scihub
-        pool = multiprocessing.Pool(processes=2)
-        pool.map(s1ApihubDownload, dowList)
-    elif mirror == '2': # ASF
-        pool = multiprocessing.Pool(processes=concurrent)
-        pool.map(s1ASFDownload, asfList)
-    elif mirror == '3': # PEPS
-        pool = multiprocessing.Pool(processes=2)
-        pool.map(s1PepsDownload, dowList)
+    if mirror is not '3':
+        # check response
+        if errCode == 401:
+            raise ValueError(' ERROR: Username/Password are incorrect.')
+            exit(401)
+        elif errCode != 200:
+            raise ValueError(' Some connection error.')
+            exit(401)
+                
+        # check if all scenes exist
+        scenes = inputGDF['identifier'].tolist()
+    
+        dowList = []
+        asfList = []
+    
+        for sceneID in scenes:
+            scene = s1Metadata(sceneID)
+            dlPath = '{}/SAR/{}/{}/{}/{}'.format(dwnDir, scene.product_type,
+                                                         scene.year, scene.month, scene.day)
+    
+            fileName = '{}.zip'.format(scene.scene_id)
+    
+            uuid = inputGDF['uuid'][inputGDF['identifier'] == sceneID].tolist()
+                
+            if os.path.isdir(dlPath) is False:
+                os.makedirs(dlPath)
+    
+            # in case the data has been downloaded before
+            #if os.path.exists('{}/{}'.format(dlPath, fileName)) is False:
+            # create list objects for download
+            dowList.append([uuid[0], '{}/{}'.format(dlPath, fileName), uname, pword])
+            asfList.append([scene.s1ASFURL(), '{}/{}'.format(dlPath, fileName), uname, pword])
+    
+                # download in parallel
+        if mirror == '1': # scihub
+            pool = multiprocessing.Pool(processes=2)
+            pool.map(s1ApihubDownload, dowList)
+        elif mirror == '2': # ASF
+            pool = multiprocessing.Pool(processes=concurrent)
+            pool.map(s1ASFDownload, asfList)
+    elif mirror is '3': # PEPS
+        batchDownloadPeps(inputGDF, dwnDir, uname, pword, concurrent)

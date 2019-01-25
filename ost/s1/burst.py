@@ -54,6 +54,26 @@ def createBurstGdfOffline(footprintGdf, dwnDir):
     return gdfFull
 
 
+def createBurstGdfIpt(footprintGdf):
+    
+    # create column names for empty data frame
+    colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+                'BurstNr', 'geometry']
+    
+    # crs for empty dataframe
+    crs = {'init': 'epsg:4326'}
+    # create empty dataframe
+    gdfFull = gpd.GeoDataFrame(columns=colNames, crs=crs)
+    
+    for sceneId in footprintGdf.identifier:
+        print(sceneId)
+        s = metadata.s1Metadata(sceneId)
+        print(s.s1IPTAnno())
+        gdfFull = gdfFull.append(s.s1IPTAnno())
+        
+    return gdfFull
+
+
 def refineBurstGdf(aoi, burstGdf):
     
     # turn aoi into a geodataframe

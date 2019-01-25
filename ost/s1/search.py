@@ -270,7 +270,7 @@ def gdfS1Inv2Pg(gdf, dbConnect, outTable):
         result = dbConnect.pgSQL('SELECT uuid FROM {} WHERE '
                                  'uuid = \'{}\''.format(outTable, uuid))
         try:
-            _test_query = result[0][0]
+            test_query = result[0][0]
         except IndexError:
             print('Inserting scene {} to {}'.format(identifier, outTable))
             dbConnect.pgInsert(outTable, line)

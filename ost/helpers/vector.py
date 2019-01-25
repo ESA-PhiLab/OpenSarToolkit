@@ -1,4 +1,5 @@
 import os
+import sys
 import ogr
 import fiona
 from osgeo import osr
@@ -156,8 +157,22 @@ def aoi2Gdf(aoi):
     
     # load AOI as GDF
     if aoi.split('.')[-1] == 'shp':
+        
         gdfAoi = gpd.GeoDataFrame.from_file(aoi)
-        #### check for EPSG and retransform if necessary
+        
+        if gdfAoi.geom_type.values[0] is not 'Polygon':
+            print(' ERROR: aoi file needs to be a polygon shapefile')
+        #    sys.exit()
+            
+        prjfile = aoi[:-4] + '.prj'
+        proj4 = getProj4(prjfile)
+        
+        if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
+            print(' INFO: reprojecting AOI layer to WGS84.')
+            # reproject
+            gdfAoi.crs = (proj4)
+            gdfAoi = gdfAoi.to_crs({'init': 'epsg:4326'})
+            
     else:
         # load a world_file
         world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
@@ -181,7 +196,7 @@ def gdfInv2Shp(fpDataFrame, outFile):
     fpDataFrame.to_file(outFile)
     
 
-def plotInv(aoi, footprintGdf):
+def plotInv(aoi, footprintGdf, transperancy=0.05):
     
     import matplotlib.pyplot as plt 
 
@@ -201,7 +216,7 @@ def plotInv(aoi, footprintGdf):
     gdfAoi.plot(ax=base, color='None', edgecolor='black')
 
     # plot footprints
-    footprintGdf.plot(ax=base, alpha = 0.05)
+    footprintGdf.plot(ax=base, alpha=transperancy)
 
     # set bounds
     plt.xlim([bounds.minx.min()-2, bounds.maxx.max()+2])

@@ -81,12 +81,9 @@ def removeDoubleEntries(footprintGdf):
     return gdf
     
 
-def removeNonAoiOverlap(aoi, footprintGdf):
+def removeNonAoiOverlap(gdfAoi, footprintGdf):
     '''
     '''
-    
-    # turn aoi into a geodataframe
-    gdfAoi = vec.aoi2Gdf(aoi)
     
     # get columns of input dataframe for later return function
     cols = footprintGdf.columns
@@ -135,7 +132,7 @@ def restructureEquatorCrossing(footprintGdf):
     return footprintGdf
 
     
-def removeNonAoiTracks(aoi, fpDataFrame):
+def removeNonAoiTracks(gdfAoi, fpDataFrame):
     '''
     This function takes the AOI and the footprint inventory
     and checks if any of the tracks are unnecessary, i.e. 
@@ -144,10 +141,7 @@ def removeNonAoiTracks(aoi, fpDataFrame):
     The output will be a subset of the given dataframe, 
     including only the relevant tracks.
     '''
-    
-    # read aoi into a gdf
-    gdfAoi = vec.aoi2Gdf(aoi)
-    
+      
     # get Area of AOI
     aoiArea = gdfAoi.area.sum()
     
@@ -160,16 +154,14 @@ def removeNonAoiTracks(aoi, fpDataFrame):
         interTrack = gdfAoi.geometry.intersection(trackUnion).area.sum()
 
         if interTrack >= aoiArea - 0.1:
+            print(' INFO: excluding track {}'.format(track))
             fpDataFrame = fpDataFrame[fpDataFrame['relativeorbit'] != track]
     
     print(' INFO: {} frames remain after non-AOI overlap'.format(len(fpDataFrame)))
     return fpDataFrame
 
 
-def removeNonFullSwath(aoi, footprintGdf):
-    
-    # read aoi into a gdf
-    gdfAoi = vec.aoi2Gdf(aoi)
+def removeNonFullSwath(gdfAoi, footprintGdf):
     
     # define final output gdf
     outFrame = gpd.GeoDataFrame(columns = footprintGdf.columns)
@@ -390,8 +382,6 @@ def backwardCoverage(gdfAOI, fpDataFrame, dateList, areaReduce=0):
     return gpd.GeoDataFrame(outFrame, geometry='geometry', crs={'init': 'epsg:4326'})
 
 
-
-
 def searchRefinement(aoi, footprintGdf, invDir,
                      marginalTracks=False, 
                      fullCrossAoi=True, 
@@ -434,16 +424,16 @@ def searchRefinement(aoi, footprintGdf, invDir,
             # apply the different sorting steps
             footprintsRef = removeDoubleEntries(footprintGdfSort)
             
-            footprintsRef = removeNonAoiOverlap(aoi, footprintsRef)
+            footprintsRef = removeNonAoiOverlap(gdfAoi, footprintsRef)
 
             if orb == 'ASCENDING':
                 footprintsRef = restructureEquatorCrossing(footprintsRef)
 
             if marginalTracks is False:
-                footprintsRef = removeNonAoiTracks(aoi, footprintsRef)
+                footprintsRef = removeNonAoiTracks(gdfAoi, footprintsRef)
 
             if fullCrossAoi is True:
-                footprintsRef = removeNonFullSwath(aoi, footprintsRef)
+                footprintsRef = removeNonFullSwath(gdfAoi, footprintsRef)
 
             footprintsRef = checkNonContinousSwath(footprintsRef)
 

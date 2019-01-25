@@ -239,11 +239,16 @@ def slcLSMap(inFile, outFile, logFile, resol=20):
     SLC_ls_xml = pkg_resources.resource_filename(package, SLC_ls_xml)
 
     print(" INFO: Compute Layover/Shadow mask")
-    currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_ls_xml, os.cpu_count(),
+    lsCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_ls_xml, os.cpu_count(),
                                                                     inFile, resol, outFile)
-    os.system(cmd)
-    helpers.timer(currtime)
+    rc = helpers.runCmd(lsCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully created Layover/Shadow mask')
+    else:
+        print(' ERROR: Layover/Shadow mask creation exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(121)
 
 
 def slcCoherence(inFile, outFile, logFile):

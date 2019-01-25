@@ -289,7 +289,7 @@ def grdBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
     # create system command
     graph = pkg_resources.resource_filename(package, graph)
     calibrationCmd = '{} {} -x -q {} -Pinput={} \
-                      -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
+                      -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                           inFile, outFile)
 
     rc = helpers.runCmd(calibrationCmd, logFile)
@@ -306,7 +306,7 @@ def grdSpkFlt(inFile, outFile, logFile):
 
     print(" INFO: Applying the Lee-Sigma Speckle Filter")
     spkCmd = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-           -t {} {}'.format(gpt_file, os.cpu_count(), outFile, inFile)
+           -t {} {}'.format(gpt_file, 2 * os.cpu_count(), outFile, inFile)
     rc = helpers.runCmd(spkCmd, logFile)
 
     if rc == 0:
@@ -327,7 +327,7 @@ def grdLSMap(inFile, lsFile, logFile, resol):
     graph = pkg_resources.resource_filename(package, graph)
 
     lsCmd = '{} {} -x -q {} -Pinput={} -Presol={} \
-             -Poutput={}'.format(gpt_file, graph, os.cpu_count(), inFile,
+             -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(), inFile,
                                  resol, lsFile)
     rc = helpers.runCmd(lsCmd, logFile)
 
@@ -352,7 +352,7 @@ def grdTC(inFile, outFile, logFile, resol):
     graph = pkg_resources.resource_filename(package, graph)
 
     geocodeCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Pml={} \
-                 -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
+                 -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                      inFile, resol, mlFactor, outFile)
     rc = helpers.runCmd(geocodeCmd, logFile)
 
@@ -364,7 +364,7 @@ def grdTC(inFile, outFile, logFile, resol):
         sys.exit(112)
 
 
-def grd2ard(fileList, outDir, fileID, tmpDir, outResolution,
+def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
             prdType='GTCgamma', lsMap=True, spkFlt=True, polar='VV,VH,HH,HV'):
     '''
     :param fileList: must be a list object with one or more absolute
@@ -377,7 +377,7 @@ def grd2ard(fileList, outDir, fileID, tmpDir, outResolution,
     :param spkFlt: speckle filtering (Boolean)
     :return: no explicit return value, since output file is our actual return
     '''
-    print(prdType)
+    
     # slice assembly if more than one scene
     if len(fileList) > 1:
 
@@ -390,6 +390,9 @@ def grd2ard(fileList, outDir, fileID, tmpDir, outResolution,
             grdFrameImport(file, grdImport, logFile)      
 
         sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
+        #print(sceneList)
+        #sceneList = sorted(sceneList)
+        #print(sceneList)
         grdImport = '{}/{}_imported'.format(tmpDir, fileID)
         logFile = '{}/{}.SliceAssembly.errLog'.format(outDir, fileID)
         sliceAssembly(sceneList, grdImport, logFile)
