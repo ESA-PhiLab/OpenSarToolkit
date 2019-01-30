@@ -86,7 +86,8 @@ def ard2Ts(inputDf, prjDir, tmpDir, toDB, dType, lsMap=True, mtSpkFlt=True):
     
     # 1) we convert input to a geopandas GeoDataFrame object
     procDict = refine.createProcDict(inputDf)
-    
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+        
     for track, allScenes in procDict.items():
 
         trackDir = '{}/{}'.format(prjDir, track)
@@ -94,13 +95,8 @@ def ard2Ts(inputDf, prjDir, tmpDir, toDB, dType, lsMap=True, mtSpkFlt=True):
         # 1) get minimum valid extent (i.e. assure value fo each pixel throughout the whole time-series)
         print(' INFO: Calculating the minimum extent.')
         listOfScenes = glob.glob('{}/*/*data/*img'.format(trackDir))
-        vrt_options = gdal.BuildVRTOptions(srcNodata=0)
+        listOfScenes = [x for x in listOfScenes if not 'layover' in x] # exclude the layovers and create a string
         gdal.BuildVRT('{}/extent.vrt'.format(tmpDir), listOfScenes, options=vrt_options)
-        
-        #listOfScenes = ' '.join([x for x in listOfScenes if not 'layover' in x]) # exclude the layovers and create a string
-        #cmd = 'gdalbuildvrt -separate -srcnodata 0 {}/extent.vrt {}'.format(tmpDir, listOfScenes)
-        #os.system(cmd)
-
         ras.outline('{}/extent.vrt'.format(tmpDir), '{}/extent.shp'.format(tmpDir), 0, True)
 
         # create a list of dimap files and format to comma-separated list
@@ -163,9 +159,7 @@ def ard2Ts(inputDf, prjDir, tmpDir, toDB, dType, lsMap=True, mtSpkFlt=True):
         # join LS maps
         if lsMap is True:
             print(' INFO: Calculating the LS map.')
-
             listOfLS = glob.glob('{}/*/*LS.data/*img'.format(trackDir))
-            vrt_options = gdal.BuildVRTOptions(srcNodata=0)
             gdal.BuildVRT('{}/LSstack.vrt'.format(tmpDir), listOfLS, options=vrt_options)  
             
             #ts.mtMetrics('{}/LSstack.vrt'.format(tmpDir))
