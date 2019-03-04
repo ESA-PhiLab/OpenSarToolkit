@@ -61,7 +61,7 @@ sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 or as local package within your home folder (no admin rights needed):
 
 ```
-pip3 install --user git++https://github.com/ESA-PhiLab/OpenSarToolkit.git
+pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 

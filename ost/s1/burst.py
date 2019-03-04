@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import zipfile
 import geopandas as gpd
 
 from ost.helpers import vector as vec

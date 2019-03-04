@@ -66,35 +66,39 @@ def readFile(rasterfn):
 
     # we return a dict of all relevant values
     return {'xB': x_block_size, 'yB': y_block_size, 'cols': cols, 'rows': rows,
-            'bands': bands, 'dt': data_type, 'dtn': data_type_name, 'ndv': ndv,
-            'gtr': geotransform, 'oX': originX, 'oY': originY,
+            'bands': bands, 'dType': data_type, 'dTypeName': data_type_name, 
+            'ndv': ndv, 'gtr': geotransform, 'oX': originX, 'oY': originY,
             'pW': pixelWidth, 'pH': pixelHeight, 'driver': driver,
             'outR': outRasterSRS}
 
 
-def createFile(newRasterfn, cols, rows, bands, data_type, originX, originY,
-               pixelWidth, pixelHeight, outRasterSRS, driver, ndv):
+def createFile(newRasterfn, geoDict, bands, compression='None'):
 
-    outRaster = driver.Create(newRasterfn, cols, rows, bands, data_type,
+      
+    outRaster = geoDict['driver'].Create(newRasterfn, geoDict['cols'], 
+                                         geoDict['rows'], bands, 
+                                         geoDict['dType'],
                               options=[
                                       'TILED=YES',
                                       'BIGTIFF=IF_SAFER',
-                                      'BLOCKXSIZE=128',
-                                      'BLOCKYSIZE=128',
-                                      'COMPRESS=LZW'
+                                      'BLOCKXSIZE={}'.format(geoDict['xB']),
+                                      'BLOCKYSIZE={}'.format(geoDict['yB']),
+                                      'COMPRESS={}'.format(compression)
                                       ])
 
-    outRaster.SetGeoTransform((originX, pixelWidth, 0, originY,
-                               0, pixelHeight))
-    outRaster.SetProjection(outRasterSRS.ExportToWkt())
-    if ndv is not None:
-        outRaster.GetRasterBand(1).SetNoDataValue(ndv)
+    outRaster.SetGeoTransform((geoDict['oX'], geoDict['pW'], 0, geoDict['oY'],
+                               0, geoDict['pH']))
+    
+    outRaster.SetProjection(geoDict['outR'].ExportToWkt())
+    
+    if geoDict['ndv'] is not None:
+        outRaster.GetRasterBand(1).SetNoDataValue(geoDict['ndv'])
 
     return outRaster
 
 
 # write chunks of arrays to an already existent raster
-def chunk2raster(outRasterfn, array_chunk, ndv, x, y, z):
+def chunk2Raster(outRasterfn, array_chunk, ndv, x, y, z):
 
     outRaster = gdal.Open(outRasterfn, gdal.GA_Update)
     outband = outRaster.GetRasterBand(z)
@@ -181,13 +185,10 @@ def outline(inFile, outFile, ndv=0, ltOption=False):
     '''
 
     # get all the metadata from the stack
-    geo_list = readFile(inFile)
+    geoDict = readFile(inFile)
 
     # create a temporary rasterfile which will be our mask
-    createFile('{}.tif'.format(outFile), geo_list['cols'], geo_list['rows'],
-               1, gdal.GDT_Byte, geo_list['oX'], geo_list['oY'],
-               geo_list['pW'], geo_list['pH'], geo_list['outR'],
-               gdal.GetDriverByName('GTiff'), ndv)
+    createFile('{}.tif'.format(outFile),geoDict, 1, 'LZW')
 
     raster = gdal.Open(inFile)
     myBlockSize = raster.GetRasterBand(1).GetBlockSize()
@@ -235,7 +236,7 @@ def outline(inFile, outFile, ndv=0, ltOption=False):
 
             minArray[minArray != 0] = 1
 
-            chunk2raster('{}.tif'.format(outFile), minArray, 0, x, y, 1)
+            chunk2Raster('{}.tif'.format(outFile), minArray, 0, x, y, 1)
 
     # now let's polygonize
     polygonize2Shp('{}.tif'.format(outFile), outFile, 4326, '{}.tif'.format(
@@ -317,7 +318,40 @@ def maskByShape(inFile, outFile, shpFile, toDB=False, dType='float32',
 
     outMeta.update({'driver': 'GTiff', 'height': outImage.shape[1],
                     'width': outImage.shape[2], 'transform': outTransform,
-                    'nodata': ndv, 'dtype': dType})
+                    'nodata': ndv, 'dtype': dType, 'tiled': True,
+                    'blockxsize':128, 'blockysize':128})
 
     with rasterio.open(outFile, 'w', **outMeta) as dest:
-        dest.write(outImage)
+        dest.write(outImage.filled(ndv))
+
+
+# the outlier removal, needs revision (e.g. use something profound)
+def outlierRemoval(arrayin):
+
+    # calculate percentiles
+    p95 = np.percentile(arrayin, 95, axis=0)
+    p5 = np.percentile(arrayin, 5, axis=0)
+
+    # we mask out the percetile outliers for std dev calculation
+    masked_array = np.ma.MaskedArray(
+                    arrayin,
+                    mask = np.logical_or(
+                    arrayin > p95,
+                    arrayin < p5
+                    )
+    )
+
+    # we calculate new std and mean
+    masked_std = np.std(masked_array, axis=0)
+    masked_mean = np.mean(masked_array, axis=0)
+
+    # we mask based on mean +- 3 * stddev
+    array_out = np.ma.MaskedArray(
+                    arrayin,
+                    mask = np.logical_or(
+                    arrayin > masked_mean + masked_std * 3,
+                    arrayin < masked_mean - masked_std * 3,
+                    )
+    )
+
+    return array_out

@@ -1,5 +1,4 @@
 import os
-import sys
 import ogr
 import fiona
 from osgeo import osr
@@ -8,6 +7,7 @@ import geopandas as gpd
 from shapely.geometry import mapping
 from shapely.wkt import loads
 from fiona import collection
+from fiona.crs import from_epsg
 
 
 def getEPSG(prjfile):
@@ -147,9 +147,9 @@ def llPoint2shp(lon, lat, shpFile):
     
     wkt = loads('POINT ({} {})'.format(lon, lat))
     
-    with collection(shpFile, "w", "ESRI Shapefile", schema) as output:
-        output.write({'properties': {'id': '1'},
-                      'geometry': mapping(wkt)
+    with collection(shpFile, "w", crs=from_epsg(4326), driver="ESRI Shapefile", schema=schema) as output:
+        output.write({'geometry': mapping(wkt),
+                'properties': {'id': '1'}                      
                 })
         
         

@@ -132,7 +132,7 @@ def restructureEquatorCrossing(footprintGdf):
     return footprintGdf
 
     
-def removeNonAoiTracks(gdfAoi, fpDataFrame):
+def removeNonAoiTracks(gdfAoi, fpDataFrame, areaReduce=0.1):
     '''
     This function takes the AOI and the footprint inventory
     and checks if any of the tracks are unnecessary, i.e. 
@@ -153,7 +153,7 @@ def removeNonAoiTracks(gdfAoi, fpDataFrame):
         trackUnion = fpDataFrame.geometry[fpDataFrame['relativeorbit'] != track].unary_union
         interTrack = gdfAoi.geometry.intersection(trackUnion).area.sum()
 
-        if interTrack >= aoiArea - 0.1:
+        if interTrack >= aoiArea - areaReduce:
             print(' INFO: excluding track {}'.format(track))
             fpDataFrame = fpDataFrame[fpDataFrame['relativeorbit'] != track]
     
@@ -386,7 +386,7 @@ def searchRefinement(aoi, footprintGdf, invDir,
                      marginalTracks=False, 
                      fullCrossAoi=True, 
                      mosaicRefine=True, 
-                     areaReduce=0.1):
+                     areaReduce=0.05):
 
     # creat AOI GeoDataframe and calulate area
     gdfAoi = vec.aoi2Gdf(aoi)
@@ -430,7 +430,7 @@ def searchRefinement(aoi, footprintGdf, invDir,
                 footprintsRef = restructureEquatorCrossing(footprintsRef)
 
             if marginalTracks is False:
-                footprintsRef = removeNonAoiTracks(gdfAoi, footprintsRef)
+                footprintsRef = removeNonAoiTracks(gdfAoi, footprintsRef, areaReduce)
 
             if fullCrossAoi is True:
                 footprintsRef = removeNonFullSwath(gdfAoi, footprintsRef)
@@ -438,8 +438,8 @@ def searchRefinement(aoi, footprintGdf, invDir,
             footprintsRef = checkNonContinousSwath(footprintsRef)
 
             if mosaicRefine is True:
-                dateList, footprintsRef  = forwardCoverage(gdfAoi, footprintsRef, 0.1)
-                footprintsRef = backwardCoverage(gdfAoi, footprintsRef, dateList, 0.1)
+                dateList, footprintsRef  = forwardCoverage(gdfAoi, footprintsRef, areaReduce)
+                footprintsRef = backwardCoverage(gdfAoi, footprintsRef, dateList,areaReduce)
 
             if footprintsRef is not None:
                 vec.gdfInv2Shp(footprintsRef, '{}/{}_{}_{}.shp'.format(invDir, len(dateList), orb, ''.join(pol.split())))
