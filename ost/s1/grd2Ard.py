@@ -595,15 +595,15 @@ def grd2RGB(inDir, fileName, outDir):
     geo_list = ras.readFile(VV[0])
 
     ras.createFile(newRasterVV, geo_list['cols'], geo_list['rows'], 1,
-                   geo_list['dt'], geo_list['oX'], geo_list['oY'],
+                   geo_list['dType'], geo_list['oX'], geo_list['oY'],
                    geo_list['pW'], geo_list['pH'], geo_list['outR'],
                    geo_list['driver'], 0)
     ras.createFile(newRasterVH, geo_list['cols'], geo_list['rows'], 1,
-                   geo_list['dt'], geo_list['oX'], geo_list['oY'],
+                   geo_list['dType'], geo_list['oX'], geo_list['oY'],
                    geo_list['pW'], geo_list['pH'], geo_list['outR'],
                    geo_list['driver'], 0)
     ras.createFile(newRasterVVVH, geo_list['cols'], geo_list['rows'],
-                   1, geo_list['dt'], geo_list['oX'], geo_list['oY'],
+                   1, geo_list['dType'], geo_list['oX'], geo_list['oY'],
                    geo_list['pW'], geo_list['pH'], geo_list['outR'],
                    geo_list['driver'], 0)
 

@@ -87,7 +87,7 @@ and install it.
 
 Run: 
 ```
-conda install git pip jupyter
+conda install git pip gcc gdal jupyter
 ```
 
 and then 
