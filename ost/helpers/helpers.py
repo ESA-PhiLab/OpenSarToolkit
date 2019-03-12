@@ -34,7 +34,7 @@ def getGPT():
     if os.name is 'nt':
         #if os.path.isfile('C:\\Program Files\\snap\\bin\\gpt.exe'):
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
-            Path(r'c:/Program Files/snap/bin/gpt.exe').is_file()
+            gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
         else:
             gptfile = input(' Please provide the full path to the'
                             ' SNAP gpt command line executable'

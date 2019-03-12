@@ -361,3 +361,21 @@ def outlierRemoval(arrayin):
     )
 
     return array_out
+
+def norm(band):
+    band_min, band_max = np.percentile(band, 2), np.percentile(band, 98)
+    return ((band - band_min)/(band_max - band_min))
+
+def visualizeRGB(filePath):
+    
+    import matplotlib.pyplot as plt 
+    
+    with rasterio.open(filePath) as src:
+        array = src.read()
+
+    r = norm(scale2Int(array[0], -18, 0, 'uint8'))
+    g = norm(scale2Int(array[1], -25, -5, 'uint8'))
+    b = norm(scale2Int(array[2], 1, 15, 'uint8'))
+    img = np.dstack((r,g,b))
+
+    plt.imshow(img)
