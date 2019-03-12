@@ -123,7 +123,11 @@ def timer(start):
 def runCmd(cmd, logFile):
 
     currtime = time.time()
-    process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
+    print(cmd)
+    if os.name is 'nt':
+        process = subprocess.run(cmd, stderr=subprocess.PIPE)
+    else:
+        process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
 
     if process.returncode != 0:
         with open(logFile, 'w') as f:
