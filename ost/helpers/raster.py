@@ -74,17 +74,23 @@ def readFile(rasterfn):
 
 def createFile(newRasterfn, geoDict, bands, compression='None'):
 
-      
+    xB = 'BLOCKXSIZE={}'.format(geoDict['xB'])
+    yB = 'BLOCKYSIZE={}'.format(geoDict['yB'])
+    comp = 'COMPRESS={}'.format(compression)
+    if yB == xB:
+        tiled = 'YES'
+    else:
+        tiled = 'NO'
+    
+    if compression is None:
+        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB]
+    else: 
+        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB, comp]
+        
     outRaster = geoDict['driver'].Create(newRasterfn, geoDict['cols'], 
                                          geoDict['rows'], bands, 
-                                         geoDict['dType'],
-                              options=[
-                                      'TILED=YES',
-                                      'BIGTIFF=IF_SAFER',
-                                      'BLOCKXSIZE={}'.format(geoDict['xB']),
-                                      'BLOCKYSIZE={}'.format(geoDict['yB']),
-                                      'COMPRESS={}'.format(compression)
-                                      ])
+                                         geoDict['dType'], options=opts)
+                              
 
     outRaster.SetGeoTransform((geoDict['oX'], geoDict['pW'], 0, geoDict['oY'],
                                0, geoDict['pH']))

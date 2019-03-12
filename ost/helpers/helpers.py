@@ -1,15 +1,18 @@
 #! /usr/bin/env python
 """
-This script provides core functionalities for the phiSAR package.
+This script provides core functionalities for the OST package.
 """
 
 # import stdlib modules
 import os
+import sys
 import shlex
+import shutil
 import subprocess
 import time
 import datetime
 from datetime import timedelta
+from pathlib import Path
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -28,13 +31,19 @@ def getGPT():
     is stored and returns its path.
     """
 
-    if os.name == 'nt':
-        if os.path.isfile('C:\\Program Files\\snap\\bin\\gpt'):
-            gptfile = 'C:\\Program Files\\snap\\bin\\gpt'
+    if os.name is 'nt':
+        #if os.path.isfile('C:\\Program Files\\snap\\bin\\gpt.exe'):
+        if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
+            Path(r'c:/Program Files/snap/bin/gpt.exe').is_file()
         else:
             gptfile = input(' Please provide the full path to the'
                             ' SNAP gpt command line executable'
-                            ' (e.g. C:\\path\\to\snap\\bin\gpt)')
+                            ' (e.g. C:\path\to\snap\bin\gpt.exe)')
+            gptfile = Path(gptfile)
+            
+            if gptfile.is_file() is False:
+                print( ' ERROR: path to gpt file is incorrect. No such file.')
+                sys.exit()
     else:
         homedir = os.getenv("HOME")
         if os.path.isfile('{}/.ost/gpt'.format(homedir)):
@@ -55,8 +64,13 @@ def getGPT():
             gptfile = input(' Please provide the full path to the SNAP'
                             ' gpt command line executable'
                             ' (e.g. /path/to/snap/bin/gpt')
-
-    print(' INFO: using SNAP CL executable at {}'.format(gptfile))
+                            
+            if gptfile.is_file() is False:
+                print( ' ERROR: path to gpt file is incorrect. No such file.')
+                sys.exit()
+                
+            shutil.copy(gptfile, '{}/.ost/gpt'.format(homedir))
+    #print(' INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
 
 # def get TMP():
@@ -118,3 +132,12 @@ def runCmd(cmd, logFile):
 
     timer(currtime)
     return process.returncode
+
+
+def delDimap(filePrefix):
+    '''
+    Removes both dim and data from a Snap dimap file
+    '''
+
+    shutil.rmtree('{}.data'.format(filePrefix))
+    Path('{}.dim'.format(filePrefix)).unlink()
