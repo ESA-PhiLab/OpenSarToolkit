@@ -161,7 +161,7 @@ def grdFrameImport(inFile, outFile, logFile, polar='VV,VH,HH,HV'):
     
     # construct command
     frameImportCmd = '{} {} -x -q {} -Pinput=\'{}\' -Ppolar={} \
-                      -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
+                      -Poutput=\'{}\''.format(gpt_file, graph, os.cpu_count(),
                                           inFile, polar, outFile)
     
     # run command
