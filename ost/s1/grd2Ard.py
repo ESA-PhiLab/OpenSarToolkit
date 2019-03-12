@@ -126,8 +126,8 @@ def grdSubsetRegion(inFile, outFile, logFile, region):
     gpt_file = h.getGPT()
     region = ','.join([str(int(x)) for x in region])
     # extract window from scene
-    subsetCmd = '{} Subset -x -q {} -Pregion={} -t {}\
-                 {}'.format(gpt_file, os.cpu_count(), region, outFile, inFile)
+    subsetCmd = '{} Subset -x -q {} -Pregion={} -t \'{}\'\
+                 \'{}\''.format(gpt_file, os.cpu_count(), region, outFile, inFile)
 
     rc = h.runCmd(subsetCmd, logFile)
     rc=0
@@ -311,8 +311,8 @@ def grdBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
     # create system command
     #graph = pkg_resources.resource_filename(package, graph)
     # construct command sring
-    calibrationCmd = '{} {} -x -q {} -Pinput={} \
-                      -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+    calibrationCmd = '{} {} -x -q {} -Pinput=\'{}\' \
+                      -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                           inFile, outFile)
     # run command
     rc = h.runCmd(calibrationCmd, logFile)
@@ -335,7 +335,8 @@ def grdSpkFlt(inFile, outFile, logFile):
     print(" INFO: Applying the Lee-Sigma Speckle Filter")
     # contrcut command string
     spkCmd = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-           -t {} {}'.format(gpt_file, 2 * os.cpu_count(), outFile, inFile)
+              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(), 
+                                       outFile, inFile)
     
     # run command
     rc = h.runCmd(spkCmd, logFile)
@@ -368,8 +369,8 @@ def grdLSMap(inFile, lsFile, logFile, resol):
     graph = str(Path('{}/graphs/S1_GRD2ARD/3_LSmap.xml'.format(rootPath)))
     
     # construct command string
-    lsCmd = '{} {} -x -q {} -Pinput={} -Presol={} \
-             -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(), inFile,
+    lsCmd = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} \
+             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(), inFile,
                                  resol, lsFile)
              
     # run command
@@ -403,8 +404,8 @@ def grdTC(inFile, outFile, logFile, resol):
     graph = str(Path('{}/graphs/S1_GRD2ARD/3_ML_TC.xml'.format(rootPath)))
     
     # construct command string
-    geocodeCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Pml={} \
-                 -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+    geocodeCmd = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} \
+                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                      inFile, resol, mlFactor, outFile)
     
     # run command
