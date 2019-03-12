@@ -122,6 +122,7 @@ def sliceAssembly(fileList, outFile, logFile, polar='VV,VH,HH,HV'):
 
 def grdSubsetRegion(inFile, outFile, logFile, region):
     
+    # get Snap's gpt file
     gpt_file = h.getGPT()
     region = ','.join([str(int(x)) for x in region])
     # extract window from scene
@@ -159,7 +160,7 @@ def grdFrameImport(inFile, outFile, logFile, polar='VV,VH,HH,HV'):
     graph = str(Path('{}/graphs/S1_GRD2ARD/1_AO_TNR.xml'.format(rootPath)))
     
     # construct command
-    frameImportCmd = '{} {} -x -q {} -Pinput={} -Ppolar={} \
+    frameImportCmd = '{} {} -x -q {} -Pinput=\'{}\' -Ppolar={} \
                       -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
                                           inFile, polar, outFile)
     

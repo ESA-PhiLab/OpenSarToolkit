@@ -4,7 +4,8 @@ import os
 import sys
 import json
 import glob
-import getpass
+#import getpass
+from pathlib import Path
 import requests
 import urllib
 import zipfile
@@ -110,14 +111,13 @@ class s1Metadata:
     
     def s1DwnPath(self, dwnDir):
 
-        dlPath = '{}/SAR/{}/{}/{}/{}/'.format(dwnDir, self.product_type,
+        dlPath = Path('{}/SAR/{}/{}/{}/{}/'.format(dwnDir, self.product_type,
                                                    self.year, self.month,
-                                                   self.day)
-        
-        if os.path.isdir(dlPath) is False:
-                os.makedirs(dlPath)
-                
-        filePath = '{}/{}.zip'.format(dlPath, self.scene_id)
+                                                   self.day))
+        # make dir if not existent
+        os.makedirs(dlPath, exist_ok=True)
+        # get filePath
+        filePath = dlPath / '{}.zip'.format(self.scene_id)
 
         return filePath 
 
