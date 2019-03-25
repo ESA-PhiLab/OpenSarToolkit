@@ -141,6 +141,8 @@ def aoiWKT(shpfile):
 
 def llPoint2shp(lon, lat, shpFile):
     
+    shpFile = str(shpFile)
+
     schema = {'geometry': 'Point',
               'properties': {'id': 'str'}
              }
@@ -154,6 +156,9 @@ def llPoint2shp(lon, lat, shpFile):
         
         
 def aoi2Gdf(aoi):
+    
+    # retranslate Path object to string, in case
+    aoi = str(aoi)
     
     # load AOI as GDF
     if aoi.split('.')[-1] == 'shp':
@@ -186,6 +191,7 @@ def aoi2Gdf(aoi):
 
 def gdfInv2Shp(fpDataFrame, outFile):
 
+    
     # change datetime datatypes
     fpDataFrame['acquisitiondate'] = fpDataFrame['acquisitiondate'].astype(str)
     fpDataFrame['ingestiondate'] = fpDataFrame['ingestiondate'].astype(str)
@@ -197,6 +203,8 @@ def gdfInv2Shp(fpDataFrame, outFile):
     
 
 def plotInv(aoi, footprintGdf, transperancy=0.05):
+    
+    aoi = str(aoi)
     
     import matplotlib.pyplot as plt 
 

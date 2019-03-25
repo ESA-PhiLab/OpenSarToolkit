@@ -302,6 +302,9 @@ def gdfS1Inv2Pg(gdf, dbConnect, outTable):
     
 def s1Scihub(query, output, uname=None, pword=None):
     
+    # retranslate Path object to string
+    output = str(output)
+    
     # get connected to scihub
     baseURL = 'https://scihub.copernicus.eu/apihub/'
     opener = scihub.scihubConnect(baseURL, uname, pword)

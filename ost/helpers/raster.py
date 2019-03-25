@@ -368,6 +368,8 @@ def norm(band):
 
 def visualizeRGB(filePath):
     
+    filePath = str(filePath)
+    
     import matplotlib.pyplot as plt 
     
     with rasterio.open(filePath) as src:

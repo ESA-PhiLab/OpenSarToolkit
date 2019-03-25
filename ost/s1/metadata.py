@@ -115,7 +115,7 @@ class s1Metadata:
                                                    self.year, self.month,
                                                    self.day))
         # make dir if not existent
-        os.makedirs(dlPath, exist_ok=True)
+        os.makedirs(str(dlPath), exist_ok=True)
         # get filePath
         filePath = dlPath / '{}.zip'.format(self.scene_id)
 
