@@ -234,7 +234,9 @@ def grdRemoveBorder(inFile):
     #print(' INFO: Number of colums set to 0 on the left side: '
     #     ' {}'.format(cols_left))
 
-    raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0, 1)
+    #raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0, 1)
+    raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0)
+    
     array_left = None
 
     # create 2d array for the right part of the image (3000 columns and rows)
