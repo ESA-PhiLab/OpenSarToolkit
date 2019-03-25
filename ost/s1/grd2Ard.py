@@ -442,8 +442,8 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
 
         for file in fileList:
         
-            grdImport = tmpDir / '{}_imported'.format(os.path.basename(file)[:-5])
-            logFile = outDir / '{}.Import.errLog'.format(os.path.basename(file)[:-5])
+            grdImport = tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5])
+            logFile = outDir / '{}.Import.errLog'.format(os.path.basename(str(file))[:-5])
             grdFrameImport(file, grdImport, logFile)
 
         # create list of scenes for full acquisition in preparation of slice assembly
