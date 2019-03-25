@@ -123,7 +123,7 @@ def timer(start):
 def runCmd(cmd, logFile):
 
     currtime = time.time()
-    print(cmd)
+
     if os.name is 'nt':
         process = subprocess.run(cmd, stderr=subprocess.PIPE)
     else:
