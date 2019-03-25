@@ -458,7 +458,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
         sliceAssembly(sceneList, grdImport, logFile)
     
         for file in fileList:
-            h.delDimap(str(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5])))
+            h.delDimap(str(tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5])))
     
     else:
         grdImport = str(tmpDir / '{}_imported'.format(fileID))
