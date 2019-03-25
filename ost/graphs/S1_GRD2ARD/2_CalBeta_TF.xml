@@ -34,10 +34,12 @@
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands/>
       <demName>SRTM 3Sec</demName>
-      <demResamplingMethod>BICUBIC_INTERPOLATION</demResamplingMethod>
+      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
       <externalDEMFile/>
       <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
       <outputSimulatedImage>false</outputSimulatedImage>
+      <additionalOverlap>0.2</additionalOverlap>
+      <oversamplingMultiple>1.5</oversamplingMultiple>
       <reGridMethod>false</reGridMethod>
     </parameters>
   </node>
