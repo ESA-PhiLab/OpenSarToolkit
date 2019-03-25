@@ -107,7 +107,7 @@ def sliceAssembly(fileList, outFile, logFile, polar='VV,VH,HH,HV'):
     print(" INFO: Assembling consecutive frames:")
     #print([file for file in os.path.basename(fileList)])
     sliceAssemblyCmd = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
-                       -t \'{}\' \'{}\''.format(gpt_file, os.cpu_count(), polar,
+                       -t \'{}\' {}.format(gpt_file, os.cpu_count(), polar,
                                         outFile, fileList)
 
     rc = h.runCmd(sliceAssemblyCmd, logFile)
@@ -449,6 +449,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
             grdFrameImport(str(file), grdImport, logFile)
 
         # create list of scenes for full acquisition in preparation of slice assembly
+        #sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
         sceneList = ' '.join([str(x) for x in tmpDir.glob('*imported.dim')])
         
         # create file strings
