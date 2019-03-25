@@ -449,7 +449,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
 
         # create list of scenes for full acquisition in preparation of slice assembly
         #sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
-        sceneList = ' '.join([x for x in str(tmpDir).glob('*imported.dim')])
+        sceneList = ' '.join([str(x) for x in tmpDir.glob('*imported.dim')])
         
         # create file strings
         grdImport = tmpDir / '{}_imported'.format(fileID)
