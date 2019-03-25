@@ -441,30 +441,26 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
     # slice assembly if more than one scene
     if len(fileList) > 1:
 
-        for file in fileList:
+        for str(file) in fileList:
         
-            grdImport = tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5])
-            logFile = outDir / '{}.Import.errLog'.format(os.path.basename(str(file))[:-5])
+            grdImport = str(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5]))
+            logFile = str(outDir / '{}.Import.errLog'.format(os.path.basename(file)[:-5]))
             grdFrameImport(str(file), grdImport, logFile)
 
         # create list of scenes for full acquisition in preparation of slice assembly
-        #sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
         sceneList = ' '.join([str(x) for x in tmpDir.glob('*imported.dim')])
         
         # create file strings
-        grdImport = tmpDir / '{}_imported'.format(fileID)
-        logFile = outDir / '{}.SliceAssembly.errLog'.format(fileID)
+        grdImport = str(tmpDir / '{}_imported'.format(fileID))
+        logFile = str(outDir / '{}.SliceAssembly.errLog'.format(fileID))
         sliceAssembly(sceneList, grdImport, logFile)
     
         for file in fileList:
-            h.delDimap(tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5]))
-            
-            #os.remove('{}.dim'.format(grd2Delete))
-            #shutil.rmtree('{}.data'.format(grd2Delete))
+            h.delDimap(str(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5])))
     
     else:
-        grdImport = tmpDir / '{}_imported'.format(fileID)
-        logFile = outDir / '{}.Import.errLog'.format(fileID)
+        grdImport = str(tmpDir / '{}_imported'.format(fileID))
+        logFile = str(outDir / '{}.Import.errLog'.format(fileID))
         grdFrameImport(fileList[0], grdImport, logFile) 
         
     # ---------------------------------------------------------------------
@@ -479,41 +475,39 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
     # -------------------------------------------
     # in case we want to apply Speckle filtering
     if spkFlt is True:
-        inFile = tmpDir / '{}_imported.dim'.format(fileID)
-        logFile = outDir / '{}.Speckle.errLog'.format(fileID)
-        outFile =  tmpDir / '{}_imported_spk'.format(fileID)
+        inFile = str(tmpDir / '{}_imported.dim'.format(fileID))
+        logFile = str(outDir / '{}.Speckle.errLog'.format(fileID))
+        outFile =  str(tmpDir / '{}_imported_spk'.format(fileID))
 
         # run processing
         grdSpkFlt(inFile, outFile, logFile)
 
         # define inFile for next processing step
-        inFile = tmpDir / '{}_imported_spk.dim'.format(fileID)
-        h.delDimap(tmpDir / '{}_imported'.format(fileID))
-                
-        #os.remove('{}/{}_imported.dim'.format(tmpDir, fileID))
-        #shutil.rmtree('{}/{}_imported.data'.format(tmpDir, fileID))
+        inFile = str(tmpDir / '{}_imported_spk.dim'.format(fileID))
+        h.delDimap(str(tmpDir / '{}_imported'.format(fileID)))
+
     else:
         # let's calibrate the data
-        inFile = '{}/{}_imported.dim'.format(tmpDir, fileID)
+        inFile = str(tmpDir / '{}_imported.dim'.format(fileID))
 
     # ----------------------
     # do the calibration
-    outFile = tmpDir / '{}.{}'.format(fileID, prdType)
-    logFile = outDir / '{}.Backscatter.errLog'.format(fileID)
+    outFile = str(tmpDir / '{}.{}'.format(fileID, prdType))
+    logFile = str(outDir / '{}.Backscatter.errLog'.format(fileID))
     grdBackscatter(inFile, outFile, logFile, prdType)
 
-    dataDir = glob.glob('{}/{}*imported*.data'.format(tmpDir, fileID))
+    dataDir = glob.glob('{}/{}*imported*.data'.format(str(tmpDir), fileID))
     h.delDimap(str(dataDir[0])[:-5])
     
     # -----------------------
     # let's geocode the data
-    inFile = tmpDir / '{}.{}.dim'.format(fileID, prdType)
-    outFile = tmpDir / '{}.{}.TC'.format(fileID, prdType)
-    logFile = outDir / '{}.TC.errLog'.format(fileID)
+    inFile = str(tmpDir / '{}.{}.dim'.format(fileID, prdType))
+    outFile = str(tmpDir / '{}.{}.TC'.format(fileID, prdType))
+    logFile = str(outDir / '{}.TC.errLog'.format(fileID))
     grdTC(inFile, outFile, logFile, outResolution)
 
     # move to final destination
-    outFinal = outDir / '{}.{}.TC'.format(fileID, prdType)
+    outFinal = str(outDir / '{}.{}.TC'.format(fileID, prdType))
 
     # remove file if exists
     if os.path.exists(str(outFinal) + '.dim'):
@@ -525,12 +519,12 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
      # ----------------------------------------------
     # let's create a Layover shadow mask if needed
     if lsMap is True:
-        outFile = tmpDir / '{}.lsmap'.format(fileID)
-        logFile = outDir / '{}.lsmap.errLog'.format(fileID)
+        outFile = str(tmpDir / '{}.lsmap'.format(fileID))
+        logFile = str(outDir / '{}.lsmap.errLog'.format(fileID))
         grdLSMap(inFile, outFile, logFile, outResolution)
 
         # move to final destination
-        outFinalLs = outDir / '{}.LS'.format(fileID)
+        outFinalLs = str(outDir / '{}.LS'.format(fileID))
         
         # delete original file sin case they exist
         if os.path.exists(str(outFinalLs) + '.dim'):
@@ -541,9 +535,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
         shutil.move('{}.data'.format(outFile), '{}.data'.format(outFinalLs))
     
     # remove calibrated files
-    h.delDimap(tmpDir / '{}.{}'.format(fileID, prdType))
-    #os.remove(tmpDir / '{}.{}.dim'.format(fileID, prdType))
-    #shutil.rmtree(tmpDir / '{}.{}.data'.format(fileID, prdType))
+    h.delDimap(str(tmpDir / '{}.{}'.format(fileID, prdType)))
 
 
 def grd2ardOld(fileList, outDir, fileID, tmpDir, outResolution,

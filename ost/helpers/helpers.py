@@ -130,7 +130,7 @@ def runCmd(cmd, logFile):
         process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
 
     if process.returncode != 0:
-        with open(logFile, 'w') as f:
+        with open(str(logFile), 'w') as f:
             for line in process.stderr.decode().splitlines():
                 f.write('{}\n'.format(line))
 
