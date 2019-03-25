@@ -437,6 +437,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
     # convert into Path objects
     tmpDir = Path(tmpDir)
     outDir = Path(outDir)
+    
     # slice assembly if more than one scene
     if len(fileList) > 1:
 
@@ -448,7 +449,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
 
         # create list of scenes for full acquisition in preparation of slice assembly
         #sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
-        sceneList = ' '.join([x for x in Path(tmpDir).glob('*imported.dim')])
+        sceneList = ' '.join([x for x in str(tmpDir).glob('*imported.dim')])
         
         # create file strings
         grdImport = tmpDir / '{}_imported'.format(fileID)
@@ -456,7 +457,7 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
         sliceAssembly(sceneList, grdImport, logFile)
     
         for file in fileList:
-            h.delDimap(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5]))
+            h.delDimap(tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5]))
             
             #os.remove('{}.dim'.format(grd2Delete))
             #shutil.rmtree('{}.data'.format(grd2Delete))
