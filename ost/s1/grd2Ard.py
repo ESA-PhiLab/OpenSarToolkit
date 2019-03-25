@@ -441,8 +441,9 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
     # slice assembly if more than one scene
     if len(fileList) > 1:
 
-        for str(file) in fileList:
+        for file in fileList:
         
+            file = str(file)
             grdImport = str(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5]))
             logFile = str(outDir / '{}.Import.errLog'.format(os.path.basename(file)[:-5]))
             grdFrameImport(str(file), grdImport, logFile)
