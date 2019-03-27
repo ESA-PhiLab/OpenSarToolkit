@@ -40,7 +40,7 @@
       <outputSimulatedImage>false</outputSimulatedImage>
       <additionalOverlap>0.2</additionalOverlap>
       <oversamplingMultiple>1.5</oversamplingMultiple>
-      <reGridMethod>false</reGridMethod>
+      <reGridMethod>true</reGridMethod>
     </parameters>
   </node>
   <node id="Write">
