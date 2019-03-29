@@ -14,7 +14,7 @@ def getEPSG(prjfile):
    """
    get the epsg code from a projection file of a shapefile
    """
-   
+
    prj_file = open(prjfile, 'r')
    prj_txt = prj_file.read()
    srs = osr.SpatialReference()
@@ -35,7 +35,7 @@ def getProj4(prjfile):
 
     # Lambert error
     if '\"Lambert_Conformal_Conic\"' in prjTxt:
-        
+
         print(' ERROR: It seems you used an ESRI generated shapefile'
               ' with Lambert Conformal Conic projection. ')
         print(' This one is not compatible with Open Standard OGR/GDAL'
@@ -139,88 +139,111 @@ def aoiWKT(shpfile):
     return wkt
 
 
+def aoiWktBounds(shpfile, buffer=None):
+    """
+    Prepare a wkt geometry for the S1 subset routine
+    """
+
+    # get the shapefile, projection file and epsg
+    shpfile = os.path.abspath(shpfile)
+    prjfile = shpfile[:-4] + '.prj'
+    proj4 = getProj4(prjfile)
+    wkt = wktBoundingFromShapefile(shpfile)
+
+    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
+        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
+        wkt = reprojectGeom(wkt, proj4, 4326)
+
+    if buffer is not None:
+        geom = wkt.Buffer(buffer).GetEnvelope()
+        wkt = 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}, {} {}))'.format(geom[1], geom[3], geom[0], geom[3],
+                                                                   geom[0], geom[2], geom[1], geom[2],
+                                                                   geom[1], geom[3], geom[1], geom[3])
+    return wkt
+
+
 def llPoint2shp(lon, lat, shpFile):
-    
+
     shpFile = str(shpFile)
 
     schema = {'geometry': 'Point',
               'properties': {'id': 'str'}
              }
-    
+
     wkt = loads('POINT ({} {})'.format(lon, lat))
-    
+
     with collection(shpFile, "w", crs=from_epsg(4326), driver="ESRI Shapefile", schema=schema) as output:
         output.write({'geometry': mapping(wkt),
-                'properties': {'id': '1'}                      
+                'properties': {'id': '1'}
                 })
-        
-        
+
+
 def aoi2Gdf(aoi):
-    
+
     # retranslate Path object to string, in case
     aoi = str(aoi)
-    
+
     # load AOI as GDF
     if aoi.split('.')[-1] == 'shp':
-        
+
         gdfAoi = gpd.GeoDataFrame.from_file(aoi)
-        
+
         if gdfAoi.geom_type.values[0] is not 'Polygon':
             print(' ERROR: aoi file needs to be a polygon shapefile')
         #    sys.exit()
-            
+
         prjfile = aoi[:-4] + '.prj'
         proj4 = getProj4(prjfile)
-        
+
         if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
             print(' INFO: reprojecting AOI layer to WGS84.')
             # reproject
             gdfAoi.crs = (proj4)
             gdfAoi = gdfAoi.to_crs({'init': 'epsg:4326'})
-            
+
     else:
         # load a world_file
         world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
         gdfAoi = world[world['iso_a3'] == aoi]
-    
+
     # and set the crs (hardcoded!!!)
-    gdfAoi.crs = fiona.crs.from_epsg(4326) 
-    
+    gdfAoi.crs = fiona.crs.from_epsg(4326)
+
     return gdfAoi
 
 
 def gdfInv2Shp(fpDataFrame, outFile):
 
-    
+
     # change datetime datatypes
     fpDataFrame['acquisitiondate'] = fpDataFrame['acquisitiondate'].astype(str)
     fpDataFrame['ingestiondate'] = fpDataFrame['ingestiondate'].astype(str)
     fpDataFrame['beginposition'] = fpDataFrame['beginposition'].astype(str)
     fpDataFrame['endposition'] = fpDataFrame['endposition'].astype(str)
-    
+
     # write to shapefile
     fpDataFrame.to_file(outFile)
-    
+
 
 def plotInv(aoi, footprintGdf, transperancy=0.05):
-    
+
     aoi = str(aoi)
-    
-    import matplotlib.pyplot as plt 
+
+    import matplotlib.pyplot as plt
 
     # load world borders for background
     world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
     # import aoi as gdf
     gdfAoi = aoi2Gdf(aoi)
-    
+
     # get bounds of AOI
     bounds = footprintGdf.geometry.bounds
 
     # get world map as base
     base = world.plot(color='lightgrey', edgecolor='white')
 
-    # plot aoi 
+    # plot aoi
     gdfAoi.plot(ax=base, color='None', edgecolor='black')
 
     # plot footprints

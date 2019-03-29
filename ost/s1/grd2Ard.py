@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 '''
-Based on a reduced set of processing parameters, this script allows to 
-produce Sentinel-1 backscatter ARD data from GRD products. 
-The script allows to process consecutive frames from one acquisition and 
+Based on a reduced set of processing parameters, this script allows to
+produce Sentinel-1 backscatter ARD data from GRD products.
+The script allows to process consecutive frames from one acquisition and
 outputs a single file.
 
 
@@ -40,9 +40,9 @@ Contributors
 Andreas Vollrath, ESA phi-lab
 -----------------------------------
 August 2018: Original implementation
-September 2018: New workflow adapted to SNAP changes 
+September 2018: New workflow adapted to SNAP changes
                 (i.e. Thermal Noise Removal before Slice Assembly)
-                
+
 ------------------
 Usage
 ------------------
@@ -72,8 +72,8 @@ import time
 import numpy as np
 import gdal
 
-from pathlib import Path
-from ost.helpers import helpers as h, raster as ras
+from os.path import join as opj
+from ost.helpers import helpers as h, raster as ras, vector as vec
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -105,7 +105,6 @@ def sliceAssembly(fileList, outFile, logFile, polar='VV,VH,HH,HV'):
 
     gpt_file = h.getGPT()
     print(" INFO: Assembling consecutive frames:")
-    #print([file for file in os.path.basename(fileList)])
     sliceAssemblyCmd = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
                        -t \'{}\' {}'.format(gpt_file, os.cpu_count(), polar,
                                         outFile, fileList)
@@ -121,7 +120,7 @@ def sliceAssembly(fileList, outFile, logFile, polar='VV,VH,HH,HV'):
 
 
 def grdSubsetRegion(inFile, outFile, logFile, region):
-    
+
     # get Snap's gpt file
     gpt_file = h.getGPT()
     region = ','.join([str(int(x)) for x in region])
@@ -130,7 +129,7 @@ def grdSubsetRegion(inFile, outFile, logFile, region):
                  \'{}\''.format(gpt_file, os.cpu_count(), region, outFile, inFile)
 
     rc = h.runCmd(subsetCmd, logFile)
-    rc=0
+
     if rc == 0:
         print(' INFO: Succesfully subsetted product')
     else:
@@ -148,22 +147,22 @@ def grdFrameImport(inFile, outFile, logFile, polar='VV,VH,HH,HV'):
     :return:
     '''
 
-    
+
     print(' INFO: Importing {} by applying precise orbit file and'
           ' removing thermal noise'.format(os.path.basename(inFile)))
 
     # get gpt file
     gpt_file = h.getGPT()
-    
+
     # get path to graph
-    rootPath = str(Path(imp.find_module('ost')[1]))
-    graph = str(Path('{}/graphs/S1_GRD2ARD/1_AO_TNR.xml'.format(rootPath)))
-    
+    rootPath = imp.find_module('ost')[1]
+    graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
+
     # construct command
     frameImportCmd = '{} {} -x -q {} -Pinput=\'{}\' -Ppolar={} \
                       -Poutput=\'{}\''.format(gpt_file, graph, os.cpu_count(),
                                           inFile, polar, outFile)
-    
+
     # run command
     rc = h.runCmd(frameImportCmd, logFile)
 
@@ -174,6 +173,62 @@ def grdFrameImport(inFile, outFile, logFile, polar='VV,VH,HH,HV'):
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logFile))
         sys.exit(102)
+
+
+def grdFrameImportSubset(inFile, outFile, region, logFile, polar='VV,VH,HH,HV'):
+    '''
+    Import a single S1 GRD acquisition
+
+    :param inFile: original file (zip or manifest) or swath assembled product
+    :param outFile:
+    :return:
+    '''
+
+
+    print(' INFO: Importing {} by applying precise orbit file and'
+          ' removing thermal noise, as well as subsetting to AOI'.format(os.path.basename(inFile)))
+
+    # get gpt file
+    gpt_file = h.getGPT()
+
+    # get path to graph
+    rootPath = imp.find_module('ost')[1]
+    graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
+
+    # construct command
+    frameImportCmd = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolar={} \
+                      -Poutput=\'{}\''.format(gpt_file, graph, os.cpu_count(),
+                                          inFile, region, polar, outFile)
+    print(frameImportCmd)
+    # run command
+    rc = h.runCmd(frameImportCmd, logFile)
+
+    # handle errors and logs
+    if rc == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Frame import exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(102)
+
+
+def grdSubsetGeoRegion(inFile, outFile, logFile, geoRegion):
+
+    # get Snap's gpt file
+    gpt_file = h.getGPT()
+
+    # extract window from scene
+    subsetCmd = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' -PcopyMetadata=true \
+                 -PgeoRegion=\'{}\''.format(gpt_file, os.cpu_count(), inFile, outFile, geoRegion)
+
+    rc = h.runCmd(subsetCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully subsetted product')
+    else:
+        print(' ERROR: Subsetting exited with an error. \
+                See {} for Snap Error output'.format(logFile))
+        sys.exit(107)
 
 
 def grdRemoveBorder(inFile):
@@ -236,7 +291,7 @@ def grdRemoveBorder(inFile):
 
     #raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0, 1)
     raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0)
-    
+
     array_left = None
 
     # create 2d array for the right part of the image (3000 columns and rows)
@@ -291,22 +346,19 @@ def grdBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
 
     # get gpt file
     gpt_file = h.getGPT()
-    
+
     # get path to graph
-    rootPath = str(Path(imp.find_module('ost')[1]))
-    
+    rootPath = imp.find_module('ost')[1]
+
     if prType == 'RTC':
         print(' INFO: Calibrating the product to a RTC product.')
-        #graph = ('/'.join(('graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')))
-        graph = str(Path('{}/graphs/S1_GRD2ARD/2_CalBeta_TF.xml'.format(rootPath)))
+        graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
     elif prType == 'GTCgamma':
         print(' INFO: Calibrating the product to a GTC product (Gamma0).')
-        #graph = ('/'.join(('graphs', 'S1_GRD2ARD', '2_CalGamma.xml')))
-        graph = str(Path('{}/graphs/S1_GRD2ARD/2_CalGamma.xml'.format(rootPath)))
+        graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
     elif prType == 'GTCsigma':
         print(' INFO: Calibrating the product to a GTC product (Sigma0).')
-        #graph = ('/'.join(('graphs', 'S1_GRD2ARD', '2_CalSigma.xml')))
-        graph = str(Path('{}/graphs/S1_GRD2ARD/2_CalSigma.xml'.format(rootPath)))
+        graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
     else:
         print(' ERROR: Wrong product type selected.')
         exit
@@ -330,16 +382,16 @@ def grdBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
 
 def grdSpkFlt(inFile, outFile, logFile):
 
-    
+
     # get gpt file
     gpt_file = h.getGPT()
-    
+
     print(" INFO: Applying the Lee-Sigma Speckle Filter")
     # contrcut command string
     spkCmd = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(), 
+              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
                                        outFile, inFile)
-    
+
     # run command
     rc = h.runCmd(spkCmd, logFile)
 
@@ -356,25 +408,22 @@ def grdLSMap(inFile, lsFile, logFile, resol):
     '''
 
     '''
-    
+
     # get gpt file
     gpt_file = h.getGPT()
-    
+
     # get path to graph
-    rootPath = str(Path(imp.find_module('ost')[1]))
-    
+    rootPath = imp.find_module('ost')[1]
+
     print(" INFO: Creating the Layover/Shadow mask")
-    #graph = ('/'.join(('graphs', 'S1_GRD2ARD', '3_LSmap.xml')))
-    #graph = pkg_resources.resource_filename(package, graph)
-    
     # get path to workflow xml
-    graph = str(Path('{}/graphs/S1_GRD2ARD/3_LSmap.xml'.format(rootPath)))
-    
+    graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
+
     # construct command string
     lsCmd = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} \
              -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(), inFile,
                                  resol, lsFile)
-             
+
     # run command
     rc = h.runCmd(lsCmd, logFile)
 
@@ -394,22 +443,20 @@ def grdTC(inFile, outFile, logFile, resol):
 
     # get gpt file
     gpt_file = h.getGPT()
-    
+
     # get path to graph
-    rootPath = str(Path(imp.find_module('ost')[1]))
+    rootPath = imp.find_module('ost')[1]
     print(" INFO: Geocoding the calibrated product")
     # calculate the multi-look factor
     mlFactor = int(int(resol) / 10)
 
-    #graph = ('/'.join(('graphs', 'S1_GRD2ARD', '3_ML_TC.xml')))
-    #graph = pkg_resources.resource_filename(package, graph)
-    graph = str(Path('{}/graphs/S1_GRD2ARD/3_ML_TC.xml'.format(rootPath)))
-    
+    graph = opj(rootPath, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
+
     # construct command string
     geocodeCmd = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                      inFile, resol, mlFactor, outFile)
-    
+
     # run command
     rc = h.runCmd(geocodeCmd, logFile)
 
@@ -423,7 +470,8 @@ def grdTC(inFile, outFile, logFile, resol):
 
 
 def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
-            prdType='GTCgamma', lsMap=True, spkFlt=True, polar='VV,VH,HH,HV'):
+            prdType='GTCgamma', lsMap=True, spkFlt=True,
+            subset = None, polar='VV,VH,HH,HV',):
     '''
     :param fileList: must be a list object with one or more absolute
            paths to GRD scene(s)
@@ -435,111 +483,127 @@ def grd2Ard(fileList, outDir, fileID, tmpDir, outResolution,
     :param spkFlt: speckle filtering (Boolean)
     :return: no explicit return value, since output file is our actual return
     '''
-    
-    # convert into Path objects
-    tmpDir = Path(tmpDir)
-    outDir = Path(outDir)
-    
+
     # slice assembly if more than one scene
     if len(fileList) > 1:
 
         for file in fileList:
-        
-            file = str(file)
-            grdImport = str(tmpDir / '{}_imported'.format(os.path.basename(file)[:-5]))
-            logFile = str(outDir / '{}.Import.errLog'.format(os.path.basename(file)[:-5]))
-            grdFrameImport(str(file), grdImport, logFile)
+
+            file = file
+            grdImport = opj(tmpDir, '{}_imported'.format(os.path.basename(file)[:-5]))
+            logFile = opj(outDir, '{}.Import.errLog'.format(os.path.basename(file)[:-5]))
+            grdFrameImport(file, grdImport, logFile)
 
         # create list of scenes for full acquisition in preparation of slice assembly
-        #sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
-        sceneList = ' '.join([str(x) for x in tmpDir.glob('*imported.dim')])
-        
+        sceneList = ' '.join(glob.glob('{}/*imported.dim'.format(tmpDir)))
+        #sceneList = ' '.join([str(x) for x in tmpDir.glob('*imported.dim')])
+
         # create file strings
-        grdImport = str(tmpDir / '{}_imported'.format(fileID))
-        logFile = str(outDir / '{}.SliceAssembly.errLog'.format(fileID))
+        grdImport = opj(tmpDir, '{}_imported'.format(fileID))
+        logFile = opj(outDir, '{}.SliceAssembly.errLog'.format(fileID))
         sliceAssembly(sceneList, grdImport, logFile)
-    
+
         for file in fileList:
-            h.delDimap(str(tmpDir / '{}_imported'.format(os.path.basename(str(file))[:-5])))
-    
+            h.delDimap(opj(tmpDir, '{}_imported'.format(
+                        os.path.basename(str(file))[:-5])))
+
+        if subset is not None:
+            grdSubset = opj(tmpDir, '{}_imported_subset'.format(fileID))
+            geoRegion = vec.aoiWktBounds(subset, buffer = 0.1)
+            grdSubsetGeoRegion('{}.dim'.format(grdImport), grdSubset, logFile, geoRegion)
+
+            # delete slice assembly
+            h.delDimap(grdImport)
+            glob.glob('{}/{}*imported*.data'.format(tmpDir, fileID))
+
+
     else:
-        grdImport = str(tmpDir / '{}_imported'.format(fileID))
-        logFile = str(outDir / '{}.Import.errLog'.format(fileID))
-        grdFrameImport(fileList[0], grdImport, logFile) 
-        
+        grdImport = opj(tmpDir, '{}_imported'.format(fileID))
+        logFile = opj(outDir,  '{}.Import.errLog'.format(fileID))
+
+        if subset is None:
+            print('here')
+            grdFrameImport(fileList[0], grdImport, logFile)
+        else:
+            print('there')
+            geoRegion = vec.aoiWktBounds(subset, buffer = 0.1)
+            grdFrameImportSubset(fileList[0], grdImport, geoRegion, logFile, polar='VV,VH,HH,HV')
     # ---------------------------------------------------------------------
     # Remove the grd border noise from existent channels (OST routine)
     for p in ['VV', 'VH', 'HH', 'HV']:
 
-        inFile = tmpDir / '{}_imported.data/Intensity_{}.img'.format(fileID, p)
-        if inFile.is_file():
+        inFile = glob.glob(opj(tmpDir, '{}_imported*data'.format(fileID),
+                                       'Intensity_{}.img'.format(p)))
+
+        if len(inFile) == 1:
             # run grd Border Remove
-            grdRemoveBorder(str(inFile))
-    
+            grdRemoveBorder(inFile[0])
+
     # -------------------------------------------
     # in case we want to apply Speckle filtering
     if spkFlt is True:
-        inFile = str(tmpDir / '{}_imported.dim'.format(fileID))
-        logFile = str(outDir / '{}.Speckle.errLog'.format(fileID))
-        outFile =  str(tmpDir / '{}_imported_spk'.format(fileID))
+        inFile = glob.glob(opj(tmpDir, '{}_imported*dim'.format(fileID)))[0]
+        logFile = opj(tmpDir, '{}.Speckle.errLog'.format(fileID))
+        outFile =  opj(tmpDir, '{}_imported_spk'.format(fileID))
 
         # run processing
         grdSpkFlt(inFile, outFile, logFile)
 
         # define inFile for next processing step
-        inFile = str(tmpDir / '{}_imported_spk.dim'.format(fileID))
-        h.delDimap(str(tmpDir / '{}_imported'.format(fileID)))
+        inFile = opj(tmpDir, '{}_imported_spk.dim'.format(fileID))
+        dataDir = glob.glob(opj(tmpDir, '{}*imported*.data'.format(fileID)))
+        h.delDimap(str(dataDir[0])[:-5])
 
     else:
         # let's calibrate the data
-        inFile = str(tmpDir / '{}_imported.dim'.format(fileID))
+        inFile = glob.glob(opj(tmpDir, '{}_imported*dim'.format(fileID)))[0]
 
     # ----------------------
     # do the calibration
-    outFile = str(tmpDir / '{}.{}'.format(fileID, prdType))
-    logFile = str(outDir / '{}.Backscatter.errLog'.format(fileID))
+    outFile = opj(tmpDir, '{}.{}'.format(fileID, prdType))
+    logFile = opj(outDir, '{}.Backscatter.errLog'.format(fileID))
     grdBackscatter(inFile, outFile, logFile, prdType)
 
-    dataDir = glob.glob('{}/{}*imported*.data'.format(str(tmpDir), fileID))
+    dataDir = glob.glob(opj(tmpDir, '{}*imported*.data'.format(fileID)))
     h.delDimap(str(dataDir[0])[:-5])
-    
+
     # -----------------------
     # let's geocode the data
-    inFile = str(tmpDir / '{}.{}.dim'.format(fileID, prdType))
-    outFile = str(tmpDir / '{}.{}.TC'.format(fileID, prdType))
-    logFile = str(outDir / '{}.TC.errLog'.format(fileID))
+    inFile = opj(tmpDir, '{}.{}.dim'.format(fileID, prdType))
+    outFile = opj(tmpDir, '{}.{}.TC'.format(fileID, prdType))
+    logFile = opj(outDir,  '{}.TC.errLog'.format(fileID))
     grdTC(inFile, outFile, logFile, outResolution)
 
     # move to final destination
-    outFinal = str(outDir / '{}.{}.TC'.format(fileID, prdType))
+    outFinal = opj(outDir, '{}.{}.TC'.format(fileID, prdType))
 
     # remove file if exists
-    if os.path.exists(str(outFinal) + '.dim'):
+    if os.path.exists(outFinal + '.dim'):
         h.delDimap(outFinal)
-    
+
     shutil.move('{}.dim'.format(outFile), '{}.dim'.format(outFinal))
     shutil.move('{}.data'.format(outFile), '{}.data'.format(outFinal))
 
      # ----------------------------------------------
     # let's create a Layover shadow mask if needed
     if lsMap is True:
-        outFile = str(tmpDir / '{}.lsmap'.format(fileID))
-        logFile = str(outDir / '{}.lsmap.errLog'.format(fileID))
+        outFile = opj(tmpDir, '{}.lsmap'.format(fileID))
+        logFile = opj(outDir, '{}.lsmap.errLog'.format(fileID))
         grdLSMap(inFile, outFile, logFile, outResolution)
 
         # move to final destination
-        outFinalLs = str(outDir / '{}.LS'.format(fileID))
-        
+        outFinalLs = opj(outDir, '{}.LS'.format(fileID))
+
         # delete original file sin case they exist
         if os.path.exists(str(outFinalLs) + '.dim'):
             h.delDimap(outFinalLs)
-        
+
         # move out of temp
         shutil.move('{}.dim'.format(outFile), '{}.dim'.format(outFinalLs))
         shutil.move('{}.data'.format(outFile), '{}.data'.format(outFinalLs))
-    
+
     # remove calibrated files
-    h.delDimap(str(tmpDir / '{}.{}'.format(fileID, prdType)))
+    h.delDimap(opj(tmpDir,  '{}.{}'.format(fileID, prdType)))
 
 
 def grd2ardOld(fileList, outDir, fileID, tmpDir, outResolution,

@@ -40,7 +40,7 @@ def getGPT():
                             ' SNAP gpt command line executable'
                             ' (e.g. C:\path\to\snap\bin\gpt.exe)')
             gptfile = Path(gptfile)
-            
+
             if gptfile.is_file() is False:
                 print( ' ERROR: path to gpt file is incorrect. No such file.')
                 sys.exit()
@@ -64,11 +64,11 @@ def getGPT():
             gptfile = input(' Please provide the full path to the SNAP'
                             ' gpt command line executable'
                             ' (e.g. /path/to/snap/bin/gpt')
-                            
+
             if gptfile.is_file() is False:
                 print( ' ERROR: path to gpt file is incorrect. No such file.')
                 sys.exit()
-                
+
             shutil.copy(gptfile, '{}/.ost/gpt'.format(homedir))
     #print(' INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
@@ -123,7 +123,7 @@ def timer(start):
 def runCmd(cmd, logFile):
 
     currtime = time.time()
-    
+
 #    print('-----------------------------------------------------')
 #    print('SNAP OUTPUT:')
     if os.name is 'nt':
@@ -131,9 +131,9 @@ def runCmd(cmd, logFile):
     else:
         process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
         rc = process.returncode
-        
+
         #process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
-        
+
 #        while True:
 #            #print(process.poll())
 #            output = process.stdout.read(1000).decode()
@@ -142,19 +142,19 @@ def runCmd(cmd, logFile):
 #                break
 #            if output:
 #                print(output.strip())
-#            
+#
 #        rc = process.poll()
-#    
+#
 #    print('-----------------------------------------------------')
 #    print('')
-#    
+#
     if rc != 0:
     #if process.returncode != 0:
         with open(str(logFile), 'w') as f:
             for line in process.stderr.decode().splitlines():
                 f.write('{}\n'.format(line))
-    
-    
+
+
     timer(currtime)
     return process.returncode
 
@@ -165,4 +165,4 @@ def delDimap(filePrefix):
     '''
 
     shutil.rmtree('{}.data'.format(filePrefix))
-    Path('{}.dim'.format(filePrefix)).unlink()
+    os.remove('{}.dim'.format(filePrefix))

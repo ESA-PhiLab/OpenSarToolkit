@@ -4,8 +4,7 @@ import os
 import sys
 import json
 import glob
-#import getpass
-from pathlib import Path
+
 import requests
 import urllib
 import zipfile
@@ -17,6 +16,7 @@ import xml.etree.ElementTree as ET
 
 from shapely.wkt import loads
 from urllib.error import URLError
+from os.path import join as opj
 
 from ost.helpers import scihub
 
@@ -100,26 +100,16 @@ class s1Metadata:
         print(" -------------------------------------------------")
 
 
-    def s1IPTpath(self, basePath='/eodata/Sentinel-1'):
-
-        path = '{}/SAR/{}/{}/{}/{}/{}.SAFE'.format(basePath, self.product_type,
-                                                   self.year, self.month,
-                                                   self.day, self.scene_id)
-
-        return path
-    
-    
     def s1DwnPath(self, dwnDir):
 
-        dlPath = Path('{}/SAR/{}/{}/{}/{}/'.format(dwnDir, self.product_type,
-                                                   self.year, self.month,
-                                                   self.day))
+        dlPath = opj(dwnDir, 'SAR', self.product_type, self.year,
+                                                self.month, self.day)
         # make dir if not existent
-        os.makedirs(str(dlPath), exist_ok=True)
+        os.makedirs(dlPath, exist_ok=True)
         # get filePath
-        filePath = dlPath / '{}.zip'.format(self.scene_id)
+        filePath = opj(dlPath, '{}.zip'.format(self.scene_id))
 
-        return filePath 
+        return filePath
 
 
     def s1EsaUuidFromId(self, opener):
@@ -181,12 +171,12 @@ class s1Metadata:
 
 
     def checkOnlineStatus(self, opener):
-        
+
         uuid = self.s1EsaUuidFromId(opener)
         scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        
+
         url = '{}(\'{}\')/Online/$value'.format(scihubURL, uuid)
-        
+
         try:
             # get the request
             req = opener.open(url)
@@ -203,26 +193,26 @@ class s1Metadata:
             # write the request to to the response variable
             # (i.e. the xml coming back from scihub)
             response = req.read().decode('utf-8')
-            
+
             if response == 'true':
                 response = True
             elif response == 'false':
                 response = False
-            
+
         return response
-    
-      
+
+
     def triggerScihubProduction(self, opener):
-          
+
           uuid = self.s1EsaUuidFromId(opener)
           scihubURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        
+
           url = '{}(\'{}\')/$value'.format(scihubURL, uuid)
           print(url)
           try:
             # get the request
             req = opener.open(url)
-           
+
           except URLError as e:
             if hasattr(e, 'reason'):
                 print(' We failed to connect to the server.')
@@ -232,16 +222,16 @@ class s1Metadata:
                 print(' The server couldn\'t fulfill the request.')
                 print(' Error code: ', e.code)
                 sys.exit()
-        
+
           # write the request to to the response variable
           # (i.e. the xml coming back from scihub)
           code = req.getcode()
           if code is 202:
               print(' Production of {} successfully requested.'.format(self.scene_id))
-          
+
           return code
 
-          
+
     def s1EsaAnnoUrl(self, opener):
 
         uuid = self.s1EsaUuidFromId(opener)
@@ -283,35 +273,43 @@ class s1Metadata:
                     urlList.append('{}/$value'.format(downloadURL))
 
         return urlList
-    
-    
+
+
     def s1DwnAnno(self, dwnDir):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
                     'BurstNr', 'geometry']
-        
+
         # crs for empty dataframe
         crs = {'init': 'epsg:4326'}
         gdfFull = gpd.GeoDataFrame(columns=colNames, crs=crs)
 
         file = self.s1DwnPath(dwnDir)
-        
+
         # extract info from archive
         archive = zipfile.ZipFile(file, 'r')
         nameList= archive.namelist()
         xmlFiles = fnmatch.filter(nameList,"*/annotation/s*.xml")
-        
+
         # loop through xml annotation files
         for xmlFile in xmlFiles:
             xml = archive.open(xmlFile)
 
             gdf = self.s1BurstInfo(ET.parse(xml))
             gdfFull = gdfFull.append(gdf)
-            
+
         return gdfFull.drop_duplicates(['BurstID'], keep='first')
-    
-    
-    def s1IPTAnno(self):
+
+
+    def s1CreoPath(self, basePath='/eodata/Sentinel-1'):
+
+        path = opj(basePath, 'SAR', self.product_type, self.year, self.month,
+                                self.day, '{}.SAFE'.format(self.scene_id))
+
+        return path
+
+
+    def s1CreoAnno(self):
 
         colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
                     'BurstNr', 'geometry']
@@ -484,40 +482,40 @@ class s1Metadata:
 
         url = 'https://peps.cnes.fr/resto/api/collections/S1/search.json?q={}'.format(self.scene_id)
         response = requests.get(url, stream=True, auth=(uname, pword))
-        
+
         # check response
         if response.status_code == 401:
             raise ValueError(' ERROR: Username/Password are incorrect.')
         elif response.status_code != 200:
             response.raise_for_status()
-        
+
         data = json.loads(response.text)
         pepsUuid = data['features'][0]['id']
         dwnUrl = data['features'][0]['properties']['services']['download']['url']
-        
+
         return pepsUuid, dwnUrl
-    
-    
+
+
     def s1PepsStatus(self, uname, pword):
 
         """
         This function will download S1 products from CNES Peps mirror.
-    
+
         :param url: the url to the file you want to download
         :param fileName: the absolute path to where the downloaded file should be written to
         :param uname: ESA's scihub username
         :param pword: ESA's scihub password
         :return:
         """
-        
+
         uuid, url = self.s1PepsUuid(uname, pword)
         # define url
         #url = 'https://peps.cnes.fr/resto/collections/S1/{}/download/?issuerId=peps'.format(uuid)
         #url = 'https://peps.cnes.fr/resto/collections/S1/{}/download'.format(uuid)
-        
+
         response = requests.get(url, stream=True, auth=(uname, pword))
         status = response.status_code
-        
+
         # check response
         if status == 401:
             raise ValueError(' ERROR: Username/Password are incorrect.')
@@ -529,5 +527,5 @@ class s1Metadata:
              status = 'onTape'
         else:
             response.raise_for_status()
-        
+
         return status, url
