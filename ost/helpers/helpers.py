@@ -123,17 +123,38 @@ def timer(start):
 def runCmd(cmd, logFile):
 
     currtime = time.time()
-
+    
+#    print('-----------------------------------------------------')
+#    print('SNAP OUTPUT:')
     if os.name is 'nt':
         process = subprocess.run(cmd, stderr=subprocess.PIPE)
     else:
         process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
-
-    if process.returncode != 0:
+        rc = process.returncode
+        
+        #process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
+        
+#        while True:
+#            #print(process.poll())
+#            output = process.stdout.read(1000).decode()
+#            #print(output)
+#            if process.poll() is not None:
+#                break
+#            if output:
+#                print(output.strip())
+#            
+#        rc = process.poll()
+#    
+#    print('-----------------------------------------------------')
+#    print('')
+#    
+    if rc != 0:
+    #if process.returncode != 0:
         with open(str(logFile), 'w') as f:
             for line in process.stderr.decode().splitlines():
                 f.write('{}\n'.format(line))
-
+    
+    
     timer(currtime)
     return process.returncode
 
