@@ -316,7 +316,7 @@ class s1Metadata:
         gdfFull = gpd.GeoDataFrame(columns=colNames)
 
         for annoFile in glob.glob(
-                '{}/annotation/*xml'.format(self.s1IPTpath())):
+                '{}/annotation/*xml'.format(self.s1CreoPath())):
             # parse the xml page from the response
             gdf = self.s1BurstInfo(ET.parse(annoFile))
 

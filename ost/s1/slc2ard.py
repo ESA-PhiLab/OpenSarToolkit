@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 """
-This script provides wrapper functions of the S1 Toolbox 
+This script provides wrapper functions of the S1 Toolbox
 for processing Sentinel-1 products.
 """
 
@@ -31,12 +31,12 @@ gpt_file = helpers.getGPT()
 
 # define the resource package for getting the xml workflow files
 global package
-package = 'ost' 
+package = 'ost'
 
 
 def sliceAssembly(fileList, outFile, logFile, polar='VV,VH,HH,HV'):
     """
-    This function assembles consecutive frames acquired at the same date. 
+    This function assembles consecutive frames acquired at the same date.
     Can be either GRD or SLC products
 
     :param fileList: a list of the frames to be assembled
@@ -66,7 +66,7 @@ def slcBurstImport(inFile, outPrefix, logFile,
     This function imports a raw SLC file,
     applies the precise orbit file (if available)
     and splits the subswaths into separate files for further processing.
-    
+
     :param
     :param
     :return
@@ -77,12 +77,12 @@ def slcBurstImport(inFile, outPrefix, logFile,
 
     print(' INFO: Importing Burst {} from Swath {}'
           ' from scene {}'.format(burst, swath, os.path.basename(inFile)))
-    
+
     burstImportCmd = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
            -Pburst={} -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
-                                          inFile, polar, swath, burst, 
+                                          inFile, polar, swath, burst,
                                           outPrefix)
-    
+
     rc = helpers.runCmd(burstImportCmd, logFile)
 
     if rc == 0:
@@ -91,7 +91,7 @@ def slcBurstImport(inFile, outPrefix, logFile,
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logFile))
         sys.exit(119)
-        
+
 
 def slcFrameImport(inFile, outPrefix, logFile, polar='VV,VH,HH,HV'):
     """
@@ -107,10 +107,10 @@ def slcFrameImport(inFile, outPrefix, logFile, polar='VV,VH,HH,HV'):
           ' split into the subswaths'.format(os.path.basename(inFile)))
     frameImportCmd = '{} {} -x -q {} -Pinput={} -Ppolar={} -Piw1={}_iw1 \
                       -Piw2={}_iw2 -Piw3={}_iw3'.format(
-                                 gpt_file, graph, os.cpu_count(), 
+                                 gpt_file, graph, os.cpu_count(),
                                  inFile, polar, outPrefix, outPrefix, outPrefix
                                 )
-         
+
     rc = helpers.runCmd(frameImportCmd, logFile)
 
     if rc == 0:
@@ -135,10 +135,10 @@ def slcFrameImportDeb(inFile, outPrefix, logFile, polar='VV,VH,HH,HV'):
           ' split into the subswaths'.format(os.path.basename(inFile)))
     frameImportCmd = '{} {} -x -q {} -Pinput={} -Ppolar={} -Piw1={}_iw1 \
                       -Piw2={}_iw2 -Piw3={}_iw3'.format(
-                                 gpt_file, graph, os.cpu_count(), 
+                                 gpt_file, graph, os.cpu_count(),
                                  inFile, polar, outPrefix, outPrefix, outPrefix
                                 )
-         
+
     rc = helpers.runCmd(frameImportCmd, logFile)
 
     if rc == 0:
@@ -147,7 +147,7 @@ def slcFrameImportDeb(inFile, outPrefix, logFile, polar='VV,VH,HH,HV'):
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logFile))
         sys.exit(112)
-        
+
 def slcCoreg(fileList, outFile, logFile):
     """
     This function co-registers a set of Sentinel-1 images (or subswaths)
@@ -158,7 +158,7 @@ def slcCoreg(fileList, outFile, logFile):
     SLC_coreg_xml = pkg_resources.resource_filename(package, SLC_coreg_xml)
 
     print(' INFO: Co-registering {}'.format(fileList[0]))
-    coregCmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, os.cpu_count(), fileList, outFile)
+    coregCmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, 2 * os.cpu_count(), fileList, outFile)
     rc = helpers.runCmd(coregCmd, logFile)
 
     if rc == 0:
@@ -180,7 +180,7 @@ def slcCoregESD(fileList, outFile, logFile):
 
     print(" INFO: Co-registering with Enhanced Spectral Diversity")
     currtime = time.time()
-    cmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, os.cpu_count(), fileList, outFile)
+    cmd = '{} {} -x -q {} -Pfilelist={} -Poutput={}'.format(gpt_file, SLC_coreg_xml, 2 * os.cpu_count(), fileList, outFile)
     os.system(cmd)
     helpers.timer(currtime)
 
@@ -198,11 +198,11 @@ def slcBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
         SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_TNR_CalGamma_Deb.xml'))
     elif prType == 'GTCsigma':
         SLC_calibrate_xml = '/'.join(('graphs', 'S1_SLC2ARD', 'S1_SLC_TNR_CalSigma_Deb.xml'))
-        
+
     SLC_calibrate_xml = pkg_resources.resource_filename(package, SLC_calibrate_xml)
-    
+
     print(" INFO: Removing thermal noise, calibrating and debursting")
-    calCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_calibrate_xml, os.cpu_count(), inFile, outFile)
+    calCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_calibrate_xml, 2 * os.cpu_count(), inFile, outFile)
     rc = helpers.runCmd(calCmd, logFile)
 
     if rc == 0:
@@ -213,11 +213,12 @@ def slcBackscatter(inFile, outFile, logFile, prType='GTCgamma'):
         sys.exit(121)
 
 
-def slcTerrainFlattening(inFile, outFile, logFile, reGrid=False):
-    
+def slcTerrainFlattening(inFile, outFile, logFile, reGrid=True):
+
     print(' INFO: Correcting for the illumination along slopes (Terrain Flattening).')
     tfCmd = '{} Terrain-Flattening -x -q {} -PreGridMethod={} \
-          -t {} {}'.format(gpt_file, os.cpu_count(), reGrid, outFile, inFile)
+             -PadditionalOverlap=0.2 -PoversamplingMultiple=1.5 \
+             -t {} {}'.format(gpt_file, 2 * os.cpu_count(), reGrid, outFile, inFile)
     rc = helpers.runCmd(tfCmd, logFile)
 
     if rc == 0:
@@ -239,7 +240,7 @@ def slcLSMap(inFile, outFile, logFile, resol=20):
     SLC_ls_xml = pkg_resources.resource_filename(package, SLC_ls_xml)
 
     print(" INFO: Compute Layover/Shadow mask")
-    lsCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_ls_xml, os.cpu_count(),
+    lsCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_ls_xml, 2 * os.cpu_count(),
                                                                     inFile, resol, outFile)
     rc = helpers.runCmd(lsCmd, logFile)
 
@@ -262,7 +263,7 @@ def slcCoherence(inFile, outFile, logFile):
     SLC_coh_xml = pkg_resources.resource_filename(package, SLC_coh_xml)
 
     print(' INFO: Coherence estimation')
-    cohCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_coh_xml, os.cpu_count(), inFile, outFile)
+    cohCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_coh_xml, 2 * os.cpu_count(), inFile, outFile)
     rc = helpers.runCmd(cohCmd, logFile)
 
     if rc == 0:
@@ -285,7 +286,7 @@ def slcHalpha(inFile, outFile, logFile):
     SLC_pol_xml = pkg_resources.resource_filename(package, SLC_pol_xml)
 
     print(" INFO: Calculating the H-alpha dual polarisation")
-    alphaCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_pol_xml, os.cpu_count(), inFile, outFile)
+    alphaCmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_pol_xml, 2 * os.cpu_count(), inFile, outFile)
     rc = helpers.runCmd(alphaCmd, logFile)
 
     if rc == 0:
@@ -305,7 +306,7 @@ def slcTC(inFile, outFile, logFile, resolution=20):
     SLC_tc_xml = pkg_resources.resource_filename(package, SLC_tc_xml)
 
     print(" INFO: Multilook and terrain-correcting input scene")
-    tcCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_tc_xml, os.cpu_count(),
+    tcCmd = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={}'.format(gpt_file, SLC_tc_xml, 2 * os.cpu_count(),
                                                                     inFile, resolution, outFile)
     rc = helpers.runCmd(tcCmd, logFile)
 
@@ -328,7 +329,7 @@ def texture(inFile, outFile):
 
     print(" INFO: Calculating texture measures")
     currtime = time.time()
-    cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_tex_xml, os.cpu_count(), inFile, outFile)
+    cmd = '{} {} -x -q {} -Pinput={} -Poutput={}'.format(gpt_file, SLC_tex_xml, 2 * os.cpu_count(), inFile, outFile)
     os.system(cmd)
     helpers.timer(currtime)
 
@@ -369,17 +370,17 @@ def slcImp2Coh(masterDate, slaveDate, outDir, tmpDir, subswath, outResolution=20
 
 # =============================================================================
 # def slc2CohRGB(inDir, mstFileID, slvFileID, subswath, outDir, tmpDir):
-# 
+#
 #     mstInt = (glob.glob('{}/{}*{}*/*VV*img'.format(inDir, mstFileID, subswath)))
 #     slvInt = (glob.glob('{}/{}*{}*/*VV*img'.format(inDir, slvFileID, subswath)))
 #     coh = (glob.glob('{}/{}_{}*{}*/*VV*img'.format(inDir, mstFileID, slvFileID, subswath)))
-# 
-# 
+#
+#
 #     cmd = 'gdalbuildvrt -separate -srcnodata 0 {}/stack.vrt {} {} {}'.format(tmpDir, mstInt, slvInt, coh)
 #     os.system(cmd)
 #     ras.outline('{}/stack.vrt'.format(tmpDir), '{}/min.tif'.format(tmpDir), 0, True)
 #     ras.polygonize2Shp('{}/min.tif'.format(tmpDir), '{}/min.shp'.format(tmpDir))
-#     
+#
 #     newRasterAvg = '{}/{}.{}.avg.tif'.format(outDir, mstFileID, slvFileID)
 #     newRasterDiff = '{}/{}.{}.diff.tif'.format(outDir, mstFileID, slvFileID)
 #     newRasterCoh = '{}/{}.{}.coh.tif'.format(outDir, mstFileID, slvFileID)
