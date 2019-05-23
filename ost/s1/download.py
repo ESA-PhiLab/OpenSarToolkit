@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
 import os
+import glob
 import time
 import zipfile
 import getpass
@@ -24,6 +25,24 @@ __email__ = ''
 __status__ = 'Production'
 
 
+def restoreDwnDir(inDir, dwnDir):
+    
+    for scene in glob.glob('{}/*zip'.format(inDir)):
+        
+        # get scene id
+        sceneId = os.path.basename(scene)[:-4]
+        scene = s1Metadata(sceneId)
+        
+        # create download path and file
+        dlPath = '{}/SAR/{}/{}/{}/{}'.format(dwnDir, scene.product_type,
+                                                         scene.year, scene.month, scene.day)
+        os.makedirs(dlPath, exist_ok=True)
+        outFile = '{}/{}.zip'.format(dlPath, scene.scene_id)
+        
+        # move file
+        os.rename(scene, outFile)
+        
+        
 def checkSceneAvailability(inputGDF, dwnDir, cloudProvider=None):
     '''
     This function checks for the availability of scenes inside a geodataframe

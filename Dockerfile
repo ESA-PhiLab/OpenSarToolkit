@@ -1,26 +1,54 @@
-FROM ubuntu:bionic
+FROM ubuntu:18.04
 
 MAINTAINER Andreas Vollrath 
 
+LABEL OpenSARToolkit='0.1'
+
+RUN groupadd -r ost \
+    && useradd -r -g ost ost\
+    && mkdir /home/ost
+    
+    
 # install python dependencies and wget
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
     python3 \
-    python3-geopandas \
-    python3-psycopg2 \
-    python3-rtree \
-    python3-rasterio \
-    python3-shapely \
-    python3-fiona \
-    python3-requests \
-    python3-tqdm \
+    python3-pip \
+    git \
+    libgdal-dev \
     python3-gdal \
-    wget
+    libspatialindex-dev \
+    wget \
+    && rm -fr /var/lib/apt/lists/*
 
-# add the OST python package to the site packages
-ADD . /usr/lib/python3/dist-packages/ost/
+# update variables
+ENV \ 
+  TBX="esa-snap_sentinel_unix_6_0.sh" \
+  SNAP_URL="http://step.esa.int/downloads/6.0/installers" \
+  HOME=/home/ost
 
-# install dependencies 
-RUN sh /usr/lib/python3/dist-packages/ost/bin/install.sh
+# set work directory to home and download snap
+WORKDIR /home/ost
 
-# create custom gpt file with dynamic heap size and tile cache
-RUN bash /usr/lib/python3/dist-packages/ost/bin/createGpt.sh /usr/local/snap/ /usr/bin/gpt && chmod +x /usr/bin/gpt
+RUN wget $SNAP_URL/$TBX \ 
+  && chmod +x $TBX
+   
+# get OST
+RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
+
+# install jupyter lab
+RUN python3 -m pip install jupyterlab
+
+COPY snap6.varfile $HOME
+
+RUN ./$TBX -q -varfile snap6.varfile \
+  && rm $TBX \
+  && rm snap6.varfile
+
+# ENV PATH=$PATH:/home/worker/snap/bin \
+#          SNAP_PATH=/home/worker/snap/bin
+
+#RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --list --refresh
+#RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all
+
+EXPOSE 8888
+CMD ["jupyter", "lab", "--ip='0.0.0.0'", "--port=8888", "--no-browser", "--allow-root"]

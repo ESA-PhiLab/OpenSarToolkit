@@ -277,7 +277,7 @@ class s1Metadata:
 
     def s1DwnAnno(self, dwnDir):
 
-        colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+        colNames = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                     'BurstNr', 'geometry']
 
         # crs for empty dataframe
@@ -298,7 +298,7 @@ class s1Metadata:
             gdf = self.s1BurstInfo(ET.parse(xml))
             gdfFull = gdfFull.append(gdf)
 
-        return gdfFull.drop_duplicates(['BurstID'], keep='first')
+        return gdfFull.drop_duplicates(['AnxTime'], keep='first')
 
 
     def s1CreoPath(self, basePath='/eodata/Sentinel-1'):
@@ -308,10 +308,10 @@ class s1Metadata:
 
         return path
 
-
+    
     def s1CreoAnno(self):
 
-        colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+        colNames = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                     'BurstNr', 'geometry']
         gdfFull = gpd.GeoDataFrame(columns=colNames)
 
@@ -322,12 +322,12 @@ class s1Metadata:
 
             gdfFull = gdfFull.append(gdf)
 
-        return gdfFull.drop_duplicates(['BurstID'], keep='first')
+        return gdfFull.drop_duplicates(['AnxTime'], keep='first')
 
 
     def s1EsaAnno(self, uname=None, pword=None):
 
-        colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+        colNames = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                     'BurstNr', 'geometry']
         gdfFull = gpd.GeoDataFrame(columns=colNames)
 
@@ -363,9 +363,10 @@ class s1Metadata:
 
                 gdfFull = gdfFull.append(gdf)
 
-        return gdfFull.drop_duplicates(['BurstID'], keep='first')
+        return gdfFull.drop_duplicates(['AnxTime'], keep='first')
 
 
+    
     def s1BurstInfo(self, ETroot):
         '''
         This functions expects an xml string from a Sentinel-1 SLC
@@ -376,8 +377,11 @@ class s1Metadata:
         package (once upon a time on github).
         '''
 
-        colNames = ['SceneID', 'Date', 'SwathID',
-                    'BurstID', 'BurstNr', 'geometry']
+        #colNames = ['SceneID', 'Date', 'SwathID',
+        #            'BurstID', 'BurstNr', 'geometry']
+        
+        colNames = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
+                    'BurstNr', 'geometry']
         gdf = gpd.GeoDataFrame(columns=colNames)
 
         track = self.rel_orbit
@@ -409,8 +413,8 @@ class s1Metadata:
             firstline = str(i*linesPerBurst)
             lastline = str((i+1)*linesPerBurst)
             aziAnxTime = np.float32(b.find('azimuthAnxTime').text)
-            burstid = np.int32(np.round(aziAnxTime*10))
-            burstid = 'T{}_{}_{}'.format(track, swath, burstid)
+            aziAnxTime = np.int32(np.round(aziAnxTime*10))
+            #burstid = 'T{}_{}_{}'.format(track, swath, burstid)
             # first and lastline sometimes shifts by 1 for some reason?
             try:
                 firstthis = first[firstline]
@@ -451,9 +455,15 @@ class s1Metadata:
                         np.around(float(corners[0, 1]), 3),
                         np.around(float(corners[0, 0]), 3))
 
-            gDict = {'SceneID': self.scene_id, 'Date': acqDate,
-                     'SwathID': swath, 'BurstID': burstid,
-                     'BurstNr': i+1, 'geometry': loads(wkt)}
+            #gDict = {'SceneID': self.scene_id, 'Date': acqDate,
+            #         'SwathID': swath, 'BurstID': burstid,
+            #         'BurstNr': i+1, 'geometry': loads(wkt)}
+            
+            gDict = {'SceneID': self.scene_id, 'Track': track,
+                     'Date': acqDate, 'SwathID': swath, 
+                     'AnxTime': aziAnxTime, 'BurstNr': i+1,
+                     'geometry': loads(wkt)}
+            
             gdf = gdf.append(gDict, ignore_index=True)
 
         return gdf

@@ -6,10 +6,10 @@ from ost.helpers import vector as vec
 from ost.s1 import metadata
 
 
-def createBurstGdf(footprintGdf, uname=None, pword=None):
+def createBurstGdf(footprintGdf, dwnDir=os.getenv('HOME'), uname=None, pword=None):
 
     # create column names for empty data frame
-    colNames = ['SceneID', 'Date', 'SwathID', 'BurstID',
+    colNames = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                 'BurstNr', 'geometry']
 
     # crs for empty dataframe
@@ -21,17 +21,37 @@ def createBurstGdf(footprintGdf, uname=None, pword=None):
     for sceneId in footprintGdf.identifier:
         #print(metadata.s1Metadata(sceneId).s1IPTpath())
         s = metadata.s1Metadata(sceneId)
-        if os.path.exists(s.s1CreoPath()):
-            #print('here')
+        if os.path.exists(s.s1DwnPath(dwnDir)):
+            print(' Getting burst info from downloaded files')
+            gdfFull = gdfFull.append(s.s1DwnAnno(dwnDir))
+        elif os.path.exists(s.s1CreoPath()):
+            print(' Getting burst info from Creodias eodata store')
             gdfFull = gdfFull.append(s.s1CreoAnno())
         else:
+            print(' Getting burst info from scihub (need to download xml files)')
             if s.checkOnlineStatus is False:
                 print(' INFO: Product needs to be online to create a burst database.')
                 print(' INFO: Download the product first and do the burst list from the local data.')
             else:
                 gdfFull = gdfFull.append(s.s1EsaAnno(uname, pword))
 
-    gdfFull.BurstID = gdfFull.BurstID.map(lambda x: str(x)[:-1])
+    gdfFull = gdfFull.reset_index(drop=True)
+    
+    for i in gdfFull['AnxTime'].unique():
+    
+        # get similar burst times
+        idx = gdfFull.index[(gdfFull.AnxTime >= i - 1) & 
+                            (gdfFull.AnxTime <= i + 1) & 
+                            (gdfFull.AnxTime != i)].unique().values
+
+        # reset all to first value
+        for j in idx:
+            gdfFull.at[j, 'AnxTime'] = i
+
+    gdfFull['bid'] = 'T' + gdfFull.Track.astype(str) + '_' + \
+                  gdfFull.SwathID.astype(str) + '_' + \
+                  gdfFull.AnxTime.astype(str)
+            
     return gdfFull
 
 

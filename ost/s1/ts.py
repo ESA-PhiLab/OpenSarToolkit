@@ -60,6 +60,44 @@ def createStackPol(fileList, polarisation, outStack, logFile, wkt=None):
         sys.exit(201)
 
 
+def createStackPattern(fileList, bandPattern, outStack, logFile, wkt=None):
+    '''
+
+    :param fileList: list of single Files (space separated)
+    :param outFile: the stack that is generated
+    :return:
+    '''
+
+    if wkt is None:
+        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')))
+        graph = pkg_resources.resource_filename(package, graph)
+
+        print(" INFO: Creating multi-temporal stack of images")
+        stackCmd = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
+               -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
+                                   fileList, bandPattern, outStack)
+    else:
+        # does not work with gpt at the moment
+        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')))
+        graph = pkg_resources.resource_filename(package, graph)
+
+        print(" INFO: Creating multi-temporal stack of images")
+        stackCmd = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
+               -Pwkt=\'{}\' -Poutput={}'.format(gpt_file, graph,
+                                                2 * os.cpu_count(), fileList,
+                                                bandPattern, wkt, outStack)
+                                            
+    #print(stackCmd)
+    rc = helpers.runCmd(stackCmd, logFile)
+
+    if rc == 0:
+        print(' INFO: Succesfully created multi-temporal stack')
+    else:
+        print(' ERROR: Stack creation exited with an error.'
+              ' See {} for Snap Error output'.format(logFile))
+        sys.exit(201)
+
+
 def mtSpeckle(inStack, outStack, logFile):
     """
 
@@ -73,7 +111,7 @@ def mtSpeckle(inStack, outStack, logFile):
 
     print(" INFO: Applying the multi-temporal speckle-filtering")
     mtSpkFltCmd = '{} {} -x -q {} -Pinput={} \
-                   -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
+                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                        inStack, outStack)
 
     rc = helpers.runCmd(mtSpkFltCmd, logFile)

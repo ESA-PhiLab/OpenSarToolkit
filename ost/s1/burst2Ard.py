@@ -1,171 +1,165 @@
 # -*- coding: utf-8 -*-
 import os
+from os.path import join as opj
 import shutil 
 
 from ost.s1 import slc2Ard
+from ost.helpers import helpers as h
 
-
-def slcBurst2CohPolArd(mstFile, slvFile, swath, burstMst, burstSlv, 
-                       outDir, logFile, fileIdMst, fileIdSlv, 
-                       tmpDir, prdType='GTCgamma', outResolution=20):
+def slcBurst2CohPolArd(mstFile, slvFile, logFile,
+                       swath, burstMst, burstSlv, 
+                       outDir, fileIdMst, fileIdSlv, 
+                       tmpDir, prdType='GTCgamma', outResolution=20, 
+                       removeSlvImport=False):
 
     # import master
-    importMst = '{}/{}_import'.format(tmpDir, fileIdMst)
+    importMst = opj(tmpDir, '{}_import'.format(fileIdMst))
     
     if not os.path.exists('{}.dim'.format(importMst)):
         slc2Ard.slcBurstImport(mstFile, importMst, logFile, swath, burstMst)
     
     # create HAalpha file
-    outH = '{}/{}_h'.format(tmpDir, fileIdMst)
+    outH = opj(tmpDir, '{}_h'.format(fileIdMst))
     slc2Ard.slcHalpha('{}.dim'.format(importMst), outH, logFile)
     
     # geo code HAalpha
-    outHTc = '{}/{}_hTc'.format(tmpDir, fileIdMst)
-    slc2Ard.slcTC('{}.dim'.format(outH), outHTc, logFile)
+    outHTc = opj(tmpDir, '{}_HAalpha'.format(fileIdMst))
+    slc2Ard.slcTC('{}.dim'.format(outH), outHTc, logFile, outResolution)
     
     # move them to the outDir
-    shutil.move('{}.data'.format(outHTc), '{}/{}_HAalpha.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outHTc), '{}/{}_HAalpha.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outHTc), opj(outDir, '{}_HAalpha.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outHTc), opj(outDir, '{}_HAalpha.dim'.format(fileIdMst)))
     
     # remove HAalpha tmp files
-    os.remove('{}.dim'.format(outH))
-    shutil.rmtree('{}.data'.format(outH))
+    h.delDimap(outH)
     
     # calibrate
-    outCal = '{}/{}_cal'.format(tmpDir, fileIdMst)
+    outCal = opj(tmpDir, '{}_cal'.format(fileIdMst))
     slc2Ard.slcBackscatter('{}.dim'.format(importMst), outCal, logFile, prdType)
     
     # do terrain flattening in case it is selected
     if prdType == 'RTC':
         # define outfile
-        outRtc = '{}/{}_rtc'.format(tmpDir, fileIdMst)
+        outRtc = opj(tmpDir, '{}_rtc'.format(fileIdMst))
         # do the TF
         slc2Ard.slcTerrainFlattening('{}.dim'.format(outCal), outRtc, logFile)
         # remove tmp files
-        os.remove('{}.dim'.format(outCal))
-        shutil.rmtree('{}.data'.format(outCal))
+        h.delDimap(outCal)
         # set outRtc to outCal for further processing
         outCal = outRtc
     
     # geo code backscatter products
-    outTc = '{}/{}_tc'.format(tmpDir, fileIdMst)
-    slc2Ard.slcTC('{}.dim'.format(outCal), outTc, logFile)
+    outTc = opj(tmpDir, '{}_BS'.format(fileIdMst))
+    slc2Ard.slcTC('{}.dim'.format(outCal), outTc, logFile, outResolution)
     
     # move them to the outfolder
-    shutil.move('{}.data'.format(outTc), '{}/{}_BS.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outTc), '{}/{}_BS.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outTc), opj(outDir, '{}_BS.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outTc), opj(outDir, '{}_BS.dim'.format(fileIdMst)))
     
     # create LS map
-    outLs = '{}/{}_ls'.format(tmpDir, fileIdMst)
+    outLs = opj(tmpDir, '{}_LS'.format(fileIdMst))
     slc2Ard.slcLSMap('{}.dim'.format(outCal), outLs, logFile, outResolution)
     
     # move LS map to out folder
-    shutil.move('{}.data'.format(outLs), '{}/{}_LS.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outLs), '{}/{}_LS.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outLs), opj(outDir, '{}_LS.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outLs), opj(outDir, '{}_LS.dim'.format(fileIdMst)))
     
     # remove calibrated files
-    os.remove('{}.dim'.format(outCal))
-    shutil.rmtree('{}.data'.format(outCal))
+    h.delDimap(outCal)
     
     # import slave
-    importSlv = '{}/{}_import'.format(tmpDir, fileIdSlv)
+    importSlv = opj(tmpDir, '{}_import'.format(fileIdSlv))
     slc2Ard.slcBurstImport(slvFile, importSlv, logFile, swath, burstSlv)
     
     # co-registration
     fileList = ['{}.dim'.format(importMst), '{}.dim'.format(importSlv)]
     fileList = '\'{}\''.format(','.join(fileList))
-    outCoreg = '{}/{}_coreg'.format(tmpDir, fileIdMst)
+    outCoreg = opj(tmpDir, '{}_coreg'.format(fileIdMst))
     slc2Ard.slcCoreg(fileList, outCoreg, logFile)
 
     #  remove imports
-    os.remove('{}.dim'.format(importMst))
-    shutil.rmtree('{}.data'.format(importMst))
-    
-    #os.remove('{}.dim'.format(importSlv))
-    #shutil.rmtree('{}.data'.format(importSlv))
-
+    h.delDimap(importMst)
+        
+    if removeSlvImport is True:
+        h.delDimap(importSlv)
+        
     # calculate coherence and deburst
-    outCoh = '{}/{}_coh'.format(tmpDir, fileIdMst)
+    outCoh = opj(tmpDir, '{}_c'.format(fileIdMst))
     slc2Ard.slcCoherence('{}.dim'.format(outCoreg), outCoh, logFile)
                        
     # remove coreg tmp files
-    os.remove('{}.dim'.format(outCoreg))
-    shutil.rmtree('{}.data'.format(outCoreg))
-
+    h.delDimap(outCoreg)
+    
     # geocode
-    outTc = '{}/{}_cohTc'.format(tmpDir, fileIdMst)
-    slc2Ard.slcTC('{}.dim'.format(outCoh),outTc, logFile)
+    outTc = opj(tmpDir, '{}_coh'.format(fileIdMst))
+    slc2Ard.slcTC('{}.dim'.format(outCoh),outTc, logFile, outResolution)
 
-    shutil.move('{}.data'.format(outTc), '{}/{}_Coh.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outTc), '{}/{}_Coh.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outTc), opj(outDir, '{}_coh.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outTc), opj(outDir, '{}_coh.dim'.format(fileIdMst)))
     
     # remove tmp files
-    os.remove('{}.dim'.format(outCoh))
-    shutil.rmtree('{}.data'.format(outCoh))
+    h.delDimap(outCoh)
     
     
-def slcBurst2PolArd(mstFile, swath, burstMst, 
-                    outDir, logFile, fileIdMst, 
+def slcBurst2PolArd(mstFile, logFile, 
+                    swath, burstMst, 
+                    outDir, fileIdMst, 
                     tmpDir, prdType='GTCgamma', outResolution=20):
     
-    # import master
-    importMst = '{}/{}_import'.format(tmpDir, fileIdMst)
+       # import master
+    importMst = opj(tmpDir, '{}_import'.format(fileIdMst))
     
     if not os.path.exists('{}.dim'.format(importMst)):
         slc2Ard.slcBurstImport(mstFile, importMst, logFile, swath, burstMst)
     
     # create HAalpha file
-    outH = '{}/{}_h'.format(tmpDir, fileIdMst)
+    outH = opj(tmpDir, '{}_h'.format(fileIdMst))
     slc2Ard.slcHalpha('{}.dim'.format(importMst), outH, logFile)
     
     # geo code HAalpha
-    outHTc = '{}/{}_hTc'.format(tmpDir, fileIdMst)
-    slc2Ard.slcTC('{}.dim'.format(outH), outHTc, logFile)
+    outHTc = opj(tmpDir, '{}_HAalpha'.format(fileIdMst))
+    slc2Ard.slcTC('{}.dim'.format(outH), outHTc, logFile, outResolution)
     
     # move them to the outDir
-    shutil.move('{}.data'.format(outHTc), '{}/{}_HAalpha.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outHTc), '{}/{}_HAalpha.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outHTc), opj(outDir, '{}_HAalpha.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outHTc), opj(outDir, '{}_HAalpha.dim'.format(fileIdMst)))
     
     # remove HAalpha tmp files
-    os.remove('{}.dim'.format(outH))
-    shutil.rmtree('{}.data'.format(outH))
+    h.delDimap(outH)
     
     # calibrate
-    outCal = '{}/{}_cal'.format(tmpDir, fileIdMst)
+    outCal = opj(tmpDir, '{}_cal'.format(fileIdMst))
     slc2Ard.slcBackscatter('{}.dim'.format(importMst), outCal, logFile, prdType)
     
-    # remove import
-    os.remove('{}.dim'.format(importMst))
-    shutil.rmtree('{}.data'.format(importMst))
-        
+    #  remove import
+    h.delDimap(importMst)
+    
     # do terrain flattening in case it is selected
     if prdType == 'RTC':
         # define outfile
-        outRtc = '{}/{}_rtc'.format(tmpDir, fileIdMst)
+        outRtc = opj(tmpDir, '{}_rtc'.format(fileIdMst))
         # do the TF
         slc2Ard.slcTerrainFlattening('{}.dim'.format(outCal), outRtc, logFile)
         # remove tmp files
-        os.remove('{}.dim'.format(outCal))
-        shutil.rmtree('{}.data'.format(outCal))
+        h.delDimap(outCal)
         # set outRtc to outCal for further processing
         outCal = outRtc
     
     # geo code backscatter products
-    outTc = '{}/{}_tc'.format(tmpDir, fileIdMst)
-    slc2Ard.slcTC('{}.dim'.format(outCal), outTc, logFile)
+    outTc = opj(tmpDir, '{}_BS'.format(fileIdMst))
+    slc2Ard.slcTC('{}.dim'.format(outCal), outTc, logFile, outResolution)
     
     # move them to the outfolder
-    shutil.move('{}.data'.format(outTc), '{}/{}_BS.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outTc), '{}/{}_BS.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outTc), opj(outDir, '{}_BS.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outTc), opj(outDir, '{}_BS.dim'.format(fileIdMst)))
     
     # create LS map
-    outLs = '{}/{}_ls'.format(tmpDir, fileIdMst)
+    outLs = opj(tmpDir, '{}_LS'.format(fileIdMst))
     slc2Ard.slcLSMap('{}.dim'.format(outCal), outLs, logFile, outResolution)
     
     # move LS map to out folder
-    shutil.move('{}.data'.format(outLs), '{}/{}_LS.data'.format(outDir, fileIdMst))
-    shutil.move('{}.dim'.format(outLs), '{}/{}_LS.dim'.format(outDir, fileIdMst))
+    shutil.move('{}.data'.format(outLs), opj(outDir, '{}_LS.data'.format(fileIdMst)))
+    shutil.move('{}.dim'.format(outLs), opj(outDir, '{}_LS.dim'.format(fileIdMst)))
     
     # remove calibrated files
-    os.remove('{}.dim'.format(outCal))
-    shutil.rmtree('{}.data'.format(outCal))
+    h.delDimap(outCal)
