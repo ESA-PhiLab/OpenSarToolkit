@@ -66,7 +66,7 @@ def readFile(rasterfn):
 
     # we return a dict of all relevant values
     return {'xB': x_block_size, 'yB': y_block_size, 'cols': cols, 'rows': rows,
-            'bands': bands, 'dType': data_type, 'dTypeName': data_type_name, 
+            'bands': bands, 'dType': data_type, 'dTypeName': data_type_name,
             'ndv': ndv, 'gtr': geotransform, 'oX': originX, 'oY': originY,
             'pW': pixelWidth, 'pH': pixelHeight, 'driver': driver,
             'outR': outRasterSRS}
@@ -81,22 +81,22 @@ def createFile(newRasterfn, geoDict, bands, compression='None'):
         tiled = 'YES'
     else:
         tiled = 'NO'
-    
+
     if compression is None:
         opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB]
-    else: 
+    else:
         opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB, comp]
-        
-    outRaster = geoDict['driver'].Create(newRasterfn, geoDict['cols'], 
-                                         geoDict['rows'], bands, 
+
+    outRaster = geoDict['driver'].Create(newRasterfn, geoDict['cols'],
+                                         geoDict['rows'], bands,
                                          geoDict['dType'], options=opts)
-                              
+
 
     outRaster.SetGeoTransform((geoDict['oX'], geoDict['pW'], 0, geoDict['oY'],
                                0, geoDict['pH']))
-    
+
     outRaster.SetProjection(geoDict['outR'].ExportToWkt())
-    
+
     if geoDict['ndv'] is not None:
         outRaster.GetRasterBand(1).SetNoDataValue(geoDict['ndv'])
 
@@ -332,7 +332,7 @@ def maskByShape(inFile, outFile, shpFile, toDB=False, dType='float32',
 
 
 # the outlier removal, needs revision (e.g. use something profound)
-def outlierRemoval(arrayin):
+def outlierRemoval(arrayin, sd=3):
 
     # calculate percentiles
     p95 = np.percentile(arrayin, 95, axis=0)
@@ -355,8 +355,8 @@ def outlierRemoval(arrayin):
     array_out = np.ma.MaskedArray(
                     arrayin,
                     mask = np.logical_or(
-                    arrayin > masked_mean + masked_std * 3,
-                    arrayin < masked_mean - masked_std * 3,
+                    arrayin > masked_mean + masked_std * sd,
+                    arrayin < masked_mean - masked_std * sd,
                     )
     )
 
@@ -367,11 +367,11 @@ def norm(band):
     return ((band - band_min)/(band_max - band_min))
 
 def visualizeRGB(filePath):
-    
+
     filePath = str(filePath)
-    
-    import matplotlib.pyplot as plt 
-    
+
+    import matplotlib.pyplot as plt
+
     with rasterio.open(filePath) as src:
         array = src.read()
 

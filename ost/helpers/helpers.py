@@ -159,7 +159,7 @@ def runCmd(cmd, logFile):
     return process.returncode
 
 
-def delDimap(filePrefix):
+    def delDimap(filePrefix):
     '''
     Removes both dim and data from a Snap dimap file
     '''
