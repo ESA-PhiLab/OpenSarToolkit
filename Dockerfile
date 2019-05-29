@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
-MAINTAINER Andreas Vollrath 
 
+LABEL maintainer="Andreas Vollrath, ESA phi-lab"
 LABEL OpenSARToolkit='0.1'
 
 RUN groupadd -r ost \
@@ -51,4 +51,4 @@ RUN ./$TBX -q -varfile snap6.varfile \
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all
 
 EXPOSE 8888
-CMD ["jupyter", "lab", "--ip='0.0.0.0'", "--port=8888", "--no-browser", "--allow-root"]
+CMD jupyter lab --ip='0.0.0.0' --port=8888 --no-browser --allow-root
