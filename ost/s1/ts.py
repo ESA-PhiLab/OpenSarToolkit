@@ -4,22 +4,73 @@ import os
 import sys
 import glob
 import gdal
+import time
 import pkg_resources
 import rasterio
 import numpy as np
-from ost.helpers import raster as ras
+
+from os.path import join as opj
 from datetime import datetime
 
-
-
-from ost.helpers import helpers
+from ..helpers import helpers as h
+from ..helpers import raster as ras
 
 # get the SNAP CL executable
 global gpt_file
-gpt_file = helpers.getGPT()
+gpt_file = h.getGPT()
 # define the resource package for getting the xml workflow files
 global package
 package = 'ost'
+
+
+def mtLayover(listOfLayover, outDir, tmpDir):
+
+    start = time.time()
+    outFile = '{}/LSmask.tif'.format(outDir)
+
+    print('Creating common Layover/ShadowMask')
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    gdal.BuildVRT(opj(tmpDir, 'ls.vrt'), listOfLayover, options=vrt_options)
+
+    with rasterio.open(opj(tmpDir, 'ls.vrt')) as src:
+
+        # get metadata
+        meta = src.meta
+        # update driver and reduced band count
+        meta.update(driver='GTiff', count=1)
+
+        # create outfiles
+        outMin = rasterio.open(outFile, 'w', **meta)
+
+        # loop through blocks
+        for i, window in src.block_windows(1):
+
+            # read array with all bands
+            stack = src.read(range(1, src.count + 1), window=window)
+
+            # get stats
+            minArr = np.nanmin(stack, axis=0)
+            arr = minArr / minArr
+
+            outMin.write(np.uint8(arr), window=window, indexes=1)
+
+        h.timer(start)
+        return outFile
+
+
+def mtExtent(listOfScenes, outDir):
+
+        extent = opj(outDir, 'extent.shp')
+        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+        gdal.BuildVRT(opj(outDir, 'extent.vrt'), listOfScenes, options=vrt_options)
+
+        print(' INFO: Creating shapefile of common extent.')
+        start = time.time()
+        ras.outline(opj(outDir, 'extent.vrt'), extent , 0, True)
+        os.remove(opj(outDir, 'extent.vrt'))
+        h.timer(start)
+
+        return extent
 
 
 def createStackPol(fileList, polarisation, outStack, logFile, wkt=None):
@@ -48,9 +99,9 @@ def createStackPol(fileList, polarisation, outStack, logFile, wkt=None):
                -Pwkt=\'{}\' -Poutput={}'.format(gpt_file, graph,
                                                 os.cpu_count(), fileList,
                                                 polarisation, wkt, outStack)
-                                            
+
     #print(stackCmd)
-    rc = helpers.runCmd(stackCmd, logFile)
+    rc = h.runCmd(stackCmd, logFile)
 
     if rc == 0:
         print(' INFO: Succesfully created multi-temporal stack')
@@ -86,9 +137,9 @@ def createStackPattern(fileList, bandPattern, outStack, logFile, wkt=None):
                -Pwkt=\'{}\' -Poutput={}'.format(gpt_file, graph,
                                                 2 * os.cpu_count(), fileList,
                                                 bandPattern, wkt, outStack)
-                                            
+
     #print(stackCmd)
-    rc = helpers.runCmd(stackCmd, logFile)
+    rc = h.runCmd(stackCmd, logFile)
 
     if rc == 0:
         print(' INFO: Succesfully created multi-temporal stack')
@@ -114,7 +165,7 @@ def mtSpeckle(inStack, outStack, logFile):
                    -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                        inStack, outStack)
 
-    rc = helpers.runCmd(mtSpkFltCmd, logFile)
+    rc = h.runCmd(mtSpkFltCmd, logFile)
 
     if rc == 0:
         print(' INFO: Succesfully applied multi-temporal speckle filtering')
@@ -235,7 +286,7 @@ def mtMetrics(rasterfn, newRasterfn, metrics, geoDict, toPower=True, rescale=Tru
             # Coefficient of Variation (aka amplitude dispersion)
             if 'cov' in metrics:
                 # calulate the max
-                
+
                 #metric = scipy.stats.variation(stacked_array, axis=0)
                 cv =  lambda x: np.std(x) / np.mean(x)
                 metric = np.apply_along_axis(cv, axis=0, arr=stacked_array)
@@ -318,13 +369,13 @@ def mtMetricsMain(rasterfn, newRasterfn, metrics, toPower, rescale, outlier):
     # we create our empty output files
     print(" INFO: Creating output files.")
     for metric in metrics:
-        
+
         ras.createFile('{}.{}.tif'.format(newRasterfn, metric), geoDict, 1, 'None')
-        
+
     print(" INFO: Calculating the multi-temporal metrics and write them to the respective output files.")
     # calculate the multi temporal metrics by looping over blocksize
     mtMetrics(rasterfn, newRasterfn, metrics, geoDict, toPower, rescale, outlier)
-    
+
 
 def createDateList(tsPath):
 
@@ -333,10 +384,10 @@ def createDateList(tsPath):
     #outDates = [datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d') ]
     f = open('{}/datelist.txt'.format(tsPath), 'w')
     for date in dates:
-        f.write(str(datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d')) + ' \n')        
+        f.write(str(datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d')) + ' \n')
     f.close()
-    
-    
+
+
 def createTsAnimation(tsFolder, tmpDir, outFile, percSize):
 
     for file in sorted(glob.glob('{}/*VV.tif'.format(tsFolder))):
@@ -391,6 +442,3 @@ def createTsAnimation(tsFolder, tmpDir, outFile, percSize):
 
     for file in glob.glob('{}/*jpg'.format(tmpDir)):
         os.remove(file)
-        
-    
-    

@@ -14,6 +14,7 @@ import ogr
 import fiona
 import rasterio
 import rasterio.mask
+from rasterio.features import shapes
 
 
 # script infos
@@ -149,6 +150,80 @@ def replaceValue(rasterfn, repValue, newValue):
         raster.GetRasterBand(1).WriteArray(rasterArray, x, y)
 
 
+def polygonizeRaster(inFile, outFile, maskValue=1, driver='ESRI Shapefile'):
+
+    with rasterio.open(inFile) as src:
+
+        image = src.read(1)
+
+        if maskValue is not None:
+            mask = image == maskValue
+        else:
+            mask = None
+
+        results = (
+            {'properties': {'raster_val': v}, 'geometry': s}
+            for i, (s, v)
+            in enumerate(
+                shapes(image, mask=mask, transform=src.transform)))
+
+        with fiona.open(
+                outFile, 'w',
+                driver=driver,
+                crs=src.crs,
+                schema={'properties': [('raster_val', 'int')],
+                        'geometry': 'Polygon'}) as dst:
+            dst.writerecords(results)
+
+
+def outline(inFile, outFile, ndv=0, ltOption=False):
+    '''
+    This function returns the valid areas (i.e. non no-data areas) of a
+    raster file as a shapefile.
+
+    :param inFile: inpute raster file
+    :param outFile: output shapefile
+    :param ndv: no data value of the input raster
+    :return:
+    '''
+
+    with rasterio.open(inFile) as src:
+
+        # get metadata
+        meta = src.meta
+
+        # update driver, datatype and reduced band count
+        meta.update(driver='GTiff', dtype='uint8', count=1)
+        # we update the meta for more efficient looping due to hardcoded vrt blocksizes
+        meta.update(blockxsize=src.shape[1], blockysize=1)
+
+        # create outfiles
+        with rasterio.open('{}.tif'.format(outFile[:-4]), 'w', **meta) as outMin:
+
+            # loop through blocks
+            for i, window in outMin.block_windows(1):
+
+                # read array with all bands
+                stack = src.read(range(1, src.count + 1), window=window)
+
+                # get stats
+                minArr = np.nanmin(stack, axis=0)
+
+                if ltOption is True:
+                    minArr[minArr <= ndv] = 0
+                else:
+                    minArr[minArr == ndv] = 0
+
+                minArr[minArr != ndv] = 1
+
+                # write to dest
+                outMin.write(np.uint8(minArr), window=window, indexes=1)
+
+    # now let's polygonize
+    polygonizeRaster('{}.tif'.format(outFile[:-4]), outFile)
+    os.remove('{}.tif'.format(outFile[:-4]))
+
+
 def polygonize2Shp(inRaster, outShp, outEPSG=4326, mask=None):
     """
     This function takes an input raster and polygonizes it.
@@ -179,7 +254,7 @@ def polygonize2Shp(inRaster, outShp, outEPSG=4326, mask=None):
     gdal.Polygonize(srcBand, maskBand, dstLayer, -1, [], callback=None)
 
 
-def outline(inFile, outFile, ndv=0, ltOption=False):
+def outlineOld(inFile, outFile, ndv=0, ltOption=False):
     '''
     This function returns the valid areas (i.e. non no-data areas) of a
     raster file as a shapefile.
@@ -362,9 +437,11 @@ def outlierRemoval(arrayin, sd=3):
 
     return array_out
 
+
 def norm(band):
     band_min, band_max = np.percentile(band, 2), np.percentile(band, 98)
     return ((band - band_min)/(band_max - band_min))
+
 
 def visualizeRGB(filePath):
 
