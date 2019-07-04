@@ -233,6 +233,18 @@ class S1Project(OSTProject):
 
         return geodataframe
 
+    def download_size(self, inventory_df=None):
+
+        if inventory_df:
+            download_size = inventory_df[
+                'size'].str.replace(' GB', '').astype('float32').sum()
+        else:
+            download_size = self.inventory[
+                'size'].str.replace(' GB', '').astype('float32').sum()
+
+        print(' INFO: There are about {} GB need to be downloaded.'.format(
+                download_size))
+
     def refine(self,
                exclude_marginal=True,
                full_aoi_crossing=True,

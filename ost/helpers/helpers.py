@@ -148,9 +148,10 @@ def run_command(command, logfile):
         process = subprocess.run(command, stderr=subprocess.PIPE)
     else:
         process = subprocess.run(shlex.split(command), stderr=subprocess.PIPE)
-        retrun_code = process.returncode
 
-    if retrun_code != 0:
+    return_code = process.returncode
+
+    if return_code != 0:
         with open(str(logfile), 'w') as file:
             for line in process.stderr.decode().splitlines():
                 file.write('{}\n'.format(line))
