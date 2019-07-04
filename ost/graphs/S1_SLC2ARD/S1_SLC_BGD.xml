@@ -13,7 +13,7 @@
       <sourceProduct.2 refid="ProductSet-Reader"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <demName>SRTM 3Sec</demName>
+      <demName>${dem}</demName>
       <demResamplingMethod>BICUBIC_INTERPOLATION</demResamplingMethod>
       <externalDEMFile/>
       <externalDEMNoDataValue>0.0</externalDEMNoDataValue>

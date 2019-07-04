@@ -4,12 +4,10 @@ This script allows to sort Sentinel-1 data for homogeneous large-scale mapping.
 """
 
 # import stdlib modules
-import os
-import itertools 
+import itertools
 
 # some more libs for plotting and DB connection
 import fiona
-import pandas as pd
 import geopandas as gpd
 
 from shapely.ops import unary_union
@@ -17,8 +15,6 @@ from shapely.ops import unary_union
 # import internal modules
 from ost.helpers.db import pgHandler
 from ost.helpers import vector as vec
-from ost.s1.metadata import s1Metadata
-
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -31,451 +27,613 @@ __email__ = ''
 __status__ = 'Production'
 
 
-#--------------------------------------------------------------------
-def readS1Inventory(inputData):
+def read_s1_inventory(inputfile):
+    '''Reads a Sentinel-1 OST conform inventory shapefile into GeoDataFrame
+
+    This function intends to transform different spatial formats in which
+    inventory can be stored to transform into a geopandas GeoDataFrame
+    that will be handled by all other methods.
+
+
+    Args:
+        inputfile (str or path): path to an OST compliant invetory shapefile
+
+    Returns:
+        GeoDataFrame ():
     '''
-    This function intends to transform different spatial formats in which inventory can be stored
-    to transform into a geopandas GeoDataFrame that will be handled by all other methods.
-    
-    param: inputData
-    returns: GeoDataFrame
-    '''
-        
-    if inputData[-4:] == '.shp':
-        print(' INFO: Importing Sentinel-1 inventory data from ESRI shapefile:\n {}'.format(inputData))
-        colNames = ['id','identifier', 'polarisationmode', 'orbitdirection', 
-                'acquisitiondate', 'relativeorbit', 'orbitnumber', 
-                'producttype','slicenumber', 'size', 'beginposition', 
-                'endposition', 'lastrelativeorbitnumber', 'lastorbitnumber',
-                'uuid', 'platformidentifier', 'missiondatatakeid',
-                'swathidentifier', 'ingestiondate','sensoroperationalmode',
-                'geometry']
-        
-        outFrame = gpd.read_file(inputData)
-        outFrame.columns = colNames
-        
-    elif inputData[-7:] == '.sqlite':
-        print(' INFO: Importing Sentinel-1 inventory data from spatialite DB file:\n {}'.format(inputData))
+
+    if inputfile[-4:] == '.shp':
+        print(' INFO: Importing Sentinel-1 inventory data from ESRI '
+              ' shapefile:\n {}'.format(inputfile))
+        column_names = ['id', 'identifier', 'polarisationmode',
+                        'orbitdirection', 'acquisitiondate', 'relativeorbit',
+                        'orbitnumber', 'producttype', 'slicenumber', 'size',
+                        'beginposition', 'endposition',
+                        'lastrelativeorbitnumber', 'lastorbitnumber', 'uuid',
+                        'platformidentifier', 'missiondatatakeid',
+                        'swathidentifier', 'ingestiondate',
+                        'sensoroperationalmode', 'geometry']
+
+        out_frame = gpd.read_file(inputfile)
+        out_frame.columns = column_names
+
+    elif inputfile[-7:] == '.sqlite':
+        print(' INFO: Importing Sentinel-1 inventory data from spatialite '
+              ' DB file:\n {}'.format(inputfile))
         # needs to be added
     else:
-        print(' INFO: Importing Sentinel-1 inventory data from PostGreSQL DB table:\n {}'.format(inputData))
-        dbConnect = pgHandler()
-        sql = 'select * from {}'.format(inputData)
-        outFrame = gpd.GeoDataFrame.from_postgis(sql, dbConnect.connection, geom_col='geometry')
-    
-    if len(outFrame) >= 0:
-        print(' INFO: Succesfully converted inventory data into a GeoPandas Geo-Dataframe.')
-    
-    return outFrame
+        print(' INFO: Importing Sentinel-1 inventory data from PostGreSQL DB '
+              ' table:\n {}'.format(inputfile))
+        db_connect = pgHandler()
+        sql = 'select * from {}'.format(inputfile)
+        out_frame = gpd.GeoDataFrame.from_postgis(sql, db_connect.connection,
+                                                  geom_col='geometry')
+
+    if len(out_frame) >= 0:
+        print(' INFO: Succesfully converted inventory data into a'
+              ' GeoPandas Geo-Dataframe.')
+
+    return out_frame
 
 
-def removeDoubleEntries(footprintGdf):
-    
-    # filter footprint data frame for obit direction and polarisation & get unqiue entries 
-    idx = footprintGdf.groupby(footprintGdf['identifier'].str.slice(0,63))['ingestiondate'].transform(max) == footprintGdf['ingestiondate']
-    
+def _remove_double_entries(inventory_df):
+    '''Removing acquisitions that appear twice in the inventory
+
+    Sometimes acquisitions are processed more than once. The last 4 digits of
+    the re-processed scene identifier then change. When searching for data,
+    both scenes will be found, even though they are the same.
+
+    This routine checks of such appearance and selects the latest product.
+
+    Args:
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
+    '''
+
+    # filter footprint data frame for obit direction and polarisation &
+    # get unqiue entries
+    idx = inventory_df.groupby(
+        inventory_df['identifier'].str.slice(0, 63))[
+            'ingestiondate'].transform(max) == inventory_df['ingestiondate']
+
     # re-initialize GDF geometry due to groupby function
-    crs = fiona.crs.from_epsg(4326)  
-    gdf = gpd.GeoDataFrame(footprintGdf[idx], geometry='geometry', crs=crs)
-    print(' INFO: {} frames remain after double entry removal'.format(len(footprintGdf[idx])))
+    crs = fiona.crs.from_epsg(4326)
+    gdf = gpd.GeoDataFrame(inventory_df[idx], geometry='geometry', crs=crs)
+    print(' INFO: {} frames remain after double entry removal'.format(
+        len(inventory_df[idx])))
     return gdf
-    
 
-def removeNonAoiOverlap(gdfAoi, footprintGdf):
+
+def _remove_outside_aoi(aoi_gdf, inventory_df):
+    '''Removes scenes that are located outside the AOI
+
+    The search routine works over a simplified representation of the AOI.
+    This may then include acquistions that do not overlap with the AOI.
+
+    In this step we sort out the scenes that are completely outside the
+    actual AOI.
+
+    Args:
+        aoi_gdf (gdf): the aoi as an GeoDataFrame
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
     '''
-    '''
-    
+
     # get columns of input dataframe for later return function
-    cols = footprintGdf.columns
-   
+    cols = inventory_df.columns
+
     # 1) get only intersecting footprints (double, since we do this before)
-    footprintGdf = gpd.sjoin(footprintGdf, gdfAoi, how='inner',op='intersects')
-    
+    inventory_df = gpd.sjoin(inventory_df, aoi_gdf,
+                             how='inner', op='intersects')
+
     # if aoi  gdf has an id field we need to rename the changed id_left field
-    if 'id_left' in footprintGdf.columns.tolist():
-        #rename id_left to id
-        footprintGdf.columns = ['id' if x == 'id_left' else x for x in footprintGdf.columns.tolist()]
-        
-    return footprintGdf[cols]
+    if 'id_left' in inventory_df.columns.tolist():
+        # rename id_left to id
+        inventory_df.columns = [
+            'id' if x == 'id_left' else x
+            for x in inventory_df.columns.tolist()]
+
+    return inventory_df[cols]
 
 
-def restructureEquatorCrossing(footprintGdf):
+def _handle_equator_crossing(inventory_df):
+    '''Adjustment of track number when crossing the equator
 
-    #get the relativeorbitnumbers that change with equator crossing
-    tracks = footprintGdf.lastrelativeorbitnumber[footprintGdf['relativeorbit'] != footprintGdf['lastrelativeorbitnumber']].unique().tolist()
+    OST relies on unique numbers of relative orbit. For ascending tracks
+    crossing the equator the relative orbit will increase by 1.
+
+    This routine checks for the appearance of such kind and unifies the
+    relativeorbitnumbers so that the inventory is complinat with the
+    subsequent batch processing routines of OST
+
+    Args:
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
+    '''
+
+    # get the relativeorbitnumbers that change with equator crossing
+    tracks = inventory_df.lastrelativeorbitnumber[
+        inventory_df['relativeorbit'] != inventory_df[
+            'lastrelativeorbitnumber']].unique().tolist()
 
     for track in tracks:
-        
-        # get dates 
-        dates = footprintGdf.acquisitiondate[(footprintGdf['relativeorbit'] == track)].unique()
+
+        # get dates
+        dates = inventory_df.acquisitiondate[
+            (inventory_df['relativeorbit'] == track)].unique()
         for date in dates:
-#
-#            #----------------------------------------------------
-#            #### NEEDS TO BE ADDED THE CHECK
-#            # check if consecutive orbitnumers are from the same track
-#            subdf = footprintGdf[(footprintGdf['acquisitiondate'] == date) &
-#                                 (footprintGdf['relativeorbit'] == track) |
-#                                 (footprintGdf['acquisitiondate'] == date) &
-#                                 (footprintGdf['relativeorbit'] == 
-#                                  str(int(track) - 1))].sort_values(['beginposition'])
-#            
-#            for row in subdf.iterrows():
-#            #----------------------------------------------------
-            
-            # get index of 
-            idx = footprintGdf[(footprintGdf['acquisitiondate'] == date) &
-                               (footprintGdf['relativeorbit'] == track)].index
+
+            # ----------------------------------------------------
+            # ### NEEDS TO BE ADDED THE CHECK
+            # check if consecutive orbitnumers are from the same track
+            # subdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
+            #                     (inventory_df['relativeorbit'] == track) |
+            #                     (inventory_df['acquisitiondate'] == date) &
+            #                     (inventory_df['relativeorbit'] ==
+            #             str(int(track) - 1))].sort_values(['beginposition'])
+            #
+            # for row in subdf.iterrows():
+            # ----------------------------------------------------
+
+            # get index of
+            idx = inventory_df[(inventory_df['acquisitiondate'] == date) &
+                               (inventory_df['relativeorbit'] == track)].index
 
             # reset relative orbit number
-            footprintGdf.set_value(idx, 'relativeorbit', str(int(track) - 1))
+            inventory_df.set_value(idx, 'relativeorbit', str(int(track) - 1))
 
-    return footprintGdf
+    return inventory_df
 
-    
-def removeNonAoiTracks(gdfAoi, fpDataFrame, areaReduce=0.1):
+
+def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
     '''
     This function takes the AOI and the footprint inventory
-    and checks if any of the tracks are unnecessary, i.e. 
+    and checks if any of the tracks are unnecessary, i.e.
     if the AOI can be covered by all the remaining tracks.
-    
-    The output will be a subset of the given dataframe, 
+
+    The output will be a subset of the given dataframe,
     including only the relevant tracks.
+
+    Args:
+        aoi_gdf (gdf): the aoi as an GeoDataFrame
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+        area_reduce (float): reduction of AOI by square degrees
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
     '''
-      
+
     # get Area of AOI
-    aoiArea = gdfAoi.area.sum()
-    
-    # create a list of tracks for that date (sometimes more than one)    
-    trackList = fpDataFrame['relativeorbit'].unique()
-    
-    for track in trackList:
-        
-        trackUnion = fpDataFrame.geometry[fpDataFrame['relativeorbit'] != track].unary_union
-        interTrack = gdfAoi.geometry.intersection(trackUnion).area.sum()
+    aoi_area = aoi_gdf.area.sum()
 
-        if interTrack >= aoiArea - areaReduce:
+    # create a list of tracks for that date (sometimes more than one)
+    tracklist = inventory_df['relativeorbit'].unique()
+
+    for track in tracklist:
+
+        trackunion = inventory_df.geometry[
+            inventory_df['relativeorbit'] != track].unary_union
+        intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
+
+        if intersect_track >= aoi_area - area_reduce:
             print(' INFO: excluding track {}'.format(track))
-            fpDataFrame = fpDataFrame[fpDataFrame['relativeorbit'] != track]
-    
-    print(' INFO: {} frames remain after non-AOI overlap'.format(len(fpDataFrame)))
-    return fpDataFrame
+            inventory_refined = inventory_df[
+                inventory_df['relativeorbit'] != track]
+
+    # see if there is actually any marginal track
+    try:
+        inventory_df = inventory_refined
+        print(' INFO: {} frames remain after non-AOI overlap'.format(
+            len(inventory_df)))
+    except NameError:
+        pass
+    else:
+        print(' INFO: All tracks fully overlap the AOI. Not removing anything')
+    return inventory_df
 
 
-def removeNonFullSwath(gdfAoi, footprintGdf):
-    
+def _remove_incomplete_tracks(aoi_gdf, inventory_df):
+    '''Removes incomplete tracks with respect to the AOI
+
+    Sentinel-1 follows an operational acquisition scheme where .
+    However, in some cases, a complete acquisition was not possible, which may
+    result in only a partial overlap with the AOI. For subsequent batch
+    processing this is unwanted, since it affects the length of the time-series
+    within the AOI.
+
+    This function excludes tracks that do not fully cross the AOI.
+
+    Args:
+        aoi_gdf (gdf): the aoi as an GeoDataFrame
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
+    '''
+
     # define final output gdf
-    outFrame = gpd.GeoDataFrame(columns = footprintGdf.columns)
-    
-    # create a list of tracks for that date (sometimes more than one)    
-    trackList = footprintGdf['relativeorbit'].unique()
-    
-    for track in trackList:
-        
+    out_frame = gpd.GeoDataFrame(columns=inventory_df.columns)
+
+    # create a list of tracks for that date (sometimes more than one)
+    tracklist = inventory_df['relativeorbit'].unique()
+
+    for track in tracklist:
+
         # get area of AOI intersect for all acq.s of this track
-        trackUnion = footprintGdf['geometry'][footprintGdf['relativeorbit'] == track].unary_union
-        interTrack = gdfAoi.geometry.intersection(trackUnion).area.sum()
-       
+        trackunion = inventory_df['geometry'][
+            inventory_df['relativeorbit'] == track].unary_union
+        intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
+
         # loop through dates
-        for date in sorted(footprintGdf['acquisitiondate'][footprintGdf['relativeorbit'] == track].unique(), reverse=False):
-        
-            gdfDate = footprintGdf[(footprintGdf['relativeorbit'] == track) &
-                          (footprintGdf['acquisitiondate'] == date)]
-            
+        for date in sorted(inventory_df['acquisitiondate'][
+                inventory_df['relativeorbit'] == track].unique(),
+                           reverse=False):
+
+            gdf_date = inventory_df[(inventory_df['relativeorbit'] == track) &
+                                    (inventory_df['acquisitiondate'] == date)]
+
             # get area of AOI intersect for all acq.s of this track
-            dateUnion = gdfDate.geometry.unary_union
-            interDate = gdfAoi.geometry.intersection(dateUnion).area.sum()
+            date_union = gdf_date.geometry.unary_union
+            intersect_date = aoi_gdf.geometry.intersection(
+                date_union).area.sum()
 
-    
-            if interTrack <= interDate + 0.15:
-                outFrame = outFrame.append(gdfDate)          
-    
-    print(' INFO: {} frames remain after removal of non-full AOI crossing'.format(len(outFrame)))
-    return outFrame
+            if intersect_track <= intersect_date + 0.15:
+                out_frame = out_frame.append(gdf_date)
+
+    print(' INFO: {} frames remain after removal of non-full AOI crossing'
+          .format(len(out_frame)))
+    return out_frame
 
 
-def checkNonContinousSwath(footprintGdf):
+def _handle_non_continous_swath(inventory_df):
+    '''Removes incomplete tracks with respect to the AOI
 
-    tracks = footprintGdf.lastrelativeorbitnumber.unique()
-    footprintGdf['slicenumber'] = footprintGdf['slicenumber'].astype(int)
+    In some cases the AOI is covered by 2 different parts of the same track.
+    OST assumes that acquisitions with the same "relative orbit" (i.e. track)
+    should be merged. However, SNAP will fail when slices of acquisitions
+    are missing in between. Therefore this routine renames the tracks into
+    XXX_1, XXX_2, XXX_n, dependent on the number of segments.
+
+    Args:
+        inventory_df (gdf): an OST compliant Sentinel-1 inventory GeoDataFrame
+
+    Returns:
+        inventory_df (gdf): the manipulated inventory GeodataFrame
+
+    '''
+
+    tracks = inventory_df.lastrelativeorbitnumber.unique()
+    inventory_df['slicenumber'] = inventory_df['slicenumber'].astype(int)
 
     for track in tracks:
 
-        dates = footprintGdf.acquisitiondate[footprintGdf['relativeorbit'] == track].unique()
+        dates = inventory_df.acquisitiondate[
+            inventory_df['relativeorbit'] == track].unique()
 
         for date in dates:
 
-            subdf = footprintGdf[(footprintGdf['acquisitiondate'] == date) &
-                                 (footprintGdf['relativeorbit'] == track)].sort_values('slicenumber')
-            
-            if len(subdf) <= int(subdf.slicenumber.max()) - int(subdf.slicenumber.min()):
+            subdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
+                                 (inventory_df['relativeorbit'] == track)
+                                ].sort_values('slicenumber')
+
+            if (len(subdf) <= int(subdf.slicenumber.max()) -
+                    int(subdf.slicenumber.min())):
 
                 i = 1
-                lastSlice = int(subdf.slicenumber.min()) - 1
-                
-                for index, row in subdf.iterrows():
+                last_slice = int(subdf.slicenumber.min()) - 1
 
-                    if int(row.slicenumber) - int(lastSlice) > 1:    
+                for _, row in subdf.iterrows():
+
+                    if int(row.slicenumber) - int(last_slice) > 1:
                         i += 1
 
                     uuid = row.uuid
-                    newId = '{}.{}'.format(row.relativeorbit, i)
-                    idx = footprintGdf[footprintGdf['uuid'] == uuid].index
-                    footprintGdf.set_value(idx, 'relativeorbit', newId)
-                    lastSlice = row.slicenumber
-            
-    return footprintGdf
+                    new_id = '{}.{}'.format(row.relativeorbit, i)
+                    idx = inventory_df[inventory_df['uuid'] == uuid].index
+                    inventory_df.set_value(idx, 'relativeorbit', new_id)
+                    last_slice = row.slicenumber
+
+    return inventory_df
 
 
-def forwardCoverage(gdfAOI, fpDataFrame, areaReduce=0):
+def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
     '''
-    This functions loops through the acquisition dates and 
+    This functions loops through the acquisition dates and
     identifies the time interval needed to create full coverages.
     '''
-    
-    
-    # get AOI area 
-    aoiArea = gdfAOI.area.sum()
-    
+
+    # get AOI area
+    aoi_area = aoi_gdf.area.sum()
+
     # initialize some stuff for subsequent for-loop
-    intArea, i = 0, 0
-    dateList = []
-    gdfUnion = None
-    dateStart = None
-    outFrame = gpd.GeoDataFrame(columns = fpDataFrame.columns)
-    
+    intersect_area, i = 0, 0
+    datelist = []
+    gdf_union = None
+    start_date = None
+    out_frame = gpd.GeoDataFrame(columns=inventory_df.columns)
+
     # loop through dates
-    for date in sorted(fpDataFrame['acquisitiondate'].unique(), reverse=False):
-    
+    for date in sorted(inventory_df['acquisitiondate'].unique(),
+                       reverse=False):
+
         # set starting date for curent mosaic
-        if dateStart is None:
-            dateStart = date
-        
+        if start_date is None:
+            start_date = date
+
             # ofr th emoment, just take the first mosaic
             if i != 0:
                 break
-            
-        # create a list of tracks for that date (sometimes more than one)    
-        trackList = fpDataFrame['relativeorbit'][(fpDataFrame['acquisitiondate'] == date)].unique()
-        
-        for track in trackList:
-            
+
+        # create a list of tracks for that date (sometimes more than one)
+        tracklist = inventory_df['relativeorbit'][
+            (inventory_df['acquisitiondate'] == date)].unique()
+
+        for track in tracklist:
+
             # get all footprints for each date
-            gdf = fpDataFrame[(fpDataFrame['acquisitiondate'] == date) &
-                              (fpDataFrame['relativeorbit'] == track)]
-        
+            gdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
+                               (inventory_df['relativeorbit'] == track)]
+
             # get a unified geometry for date/track combination
-            geomUnion = gdf.geometry.unary_union
-        
-            # add to overall union and to outFrame
-            outFrame = outFrame.append(gdf)
+            union = gdf.geometry.unary_union
+
+            # add to overall union and to out_frame
+            out_frame = out_frame.append(gdf)
 
             # just for first loop
-            if gdfUnion is None:
+            if gdf_union is None:
                 # create new overall union
-                gdfUnion = geomUnion
+                gdf_union = union
             else:
                 # union of unified footprints and footprints before
-                polys = [gdfUnion, geomUnion]
-                gdfUnion = unary_union(polys) 
+                polys = [gdf_union, union]
+                gdf_union = unary_union(polys)
 
             # get intersection with aoi and calculate area
-            inter = gdfAOI.geometry.intersection(gdfUnion)
-            intArea = inter.area.sum()
-            
-            # for the dateList, we reset some stuff for next mosaic                                   
-            if intArea >= aoiArea - areaReduce:
-                dateList.append([dateStart, date])
-                dateStart = None
-                gdfUnion = None
-                
-        #i += 1
+            inter = aoi_gdf.geometry.intersection(gdf_union)
+            intersect_area = inter.area.sum()
 
-    return dateList, gpd.GeoDataFrame(outFrame, geometry='geometry')
+            # for the datelist, we reset some stuff for next mosaic
+            if intersect_area >= aoi_area - area_reduce:
+                datelist.append([start_date, date])
+                start_date = None
+                gdf_union = None
+
+    return datelist, gpd.GeoDataFrame(out_frame, geometry='geometry')
 
 
-def backwardCoverage(gdfAOI, fpDataFrame, dateList, areaReduce=0):
+def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
     '''
     This function takes the footprint dataframe and the datelist
-    created by the forwardCoverage function to sort out
+    created by the _forward_search function to sort out
     duplicate tracks apparent in the mosaics.
     It searches from the last acqusiition date backwards
     in order to assure minimum time gap between the acquisitions of
     different swaths.
     '''
-    
-    import geopandas as gpd
-    from shapely.ops import unary_union
+
     # get AOI area
-    aoiArea = gdfAOI.area.sum()
-    
+    aoi_area = aoi_gdf.area.sum()
+
     # create empty dataFrame for output
-    tmpFrame = gpd.GeoDataFrame(columns = fpDataFrame.columns)
-    outFrame = gpd.GeoDataFrame(columns = fpDataFrame.columns)
-    gdfUnion, intArea = None, 0
-    
-    # sort the single full coverages from forwardCoverage
-    for dates in dateList:
-        
-        #print(dates[0], dates[1])
-        
+    temp_df = gpd.GeoDataFrame(columns=inventory_df.columns)
+    out_frame = gpd.GeoDataFrame(columns=inventory_df.columns)
+    gdf_union, intersect_area = None, 0
+
+    # sort the single full coverages from _forward_search
+    for dates in datelist:
+
         # extract scenes for single mosaics
-        gdf = fpDataFrame[(fpDataFrame['acquisitiondate'] <= dates[1]) &
-                          (fpDataFrame['acquisitiondate'] >= dates[0])]
-       
-        # we create an emtpy list and fill with tracks used for the mosaic, so they are not used twice
-        tracksIncluded = []
-        
+        gdf = inventory_df[(inventory_df['acquisitiondate'] <= dates[1]) &
+                           (inventory_df['acquisitiondate'] >= dates[0])]
+
+        # we create an emtpy list and fill with tracks used for the mosaic,
+        # so they are not used twice
+        included_tracks = []
+
         # loop through dates backwards
         for date in sorted(gdf['acquisitiondate'].unique(), reverse=True):
-            
-            # create a list of tracks for that date (sometimes more than one)    
-            trackList = gdf['relativeorbit'][(gdf['acquisitiondate'] == date)].unique()
-   
-            for track in trackList:
 
-                 # we want every track just once, so we check 
-                if track not in tracksIncluded:
-                    
-                    tracksIncluded.append(track)
-                    
+            # create a list of tracks for that date (sometimes more than one)
+            tracklist = gdf['relativeorbit'][
+                (gdf['acquisitiondate'] == date)].unique()
+
+            for track in tracklist:
+
+                # we want every track just once, so we check
+                if track not in included_tracks:
+
+                    included_tracks.append(track)
+
                     # get all footprints for each date and track
-                    gdfTrack = gdf[(gdf['acquisitiondate'] == date) &
-                                   (gdf['relativeorbit'] == track)]
+                    track_gdf = gdf[(gdf['acquisitiondate'] == date) &
+                                    (gdf['relativeorbit'] == track)]
 
                     # re-initialize GDF due to groupby fucntion
-                    gdfTrack = gpd.GeoDataFrame(gdfTrack, geometry='geometry')
+                    track_gdf = gpd.GeoDataFrame(track_gdf,
+                                                 geometry='geometry')
 
                     # get a unified geometry for date/track combination
-                    geomUnion = gdfTrack.geometry.unary_union
+                    union = track_gdf.geometry.unary_union
 
-                    # add to overall union and to outFrame
-                    tmpFrame = tmpFrame.append(gdfTrack)
+                    # add to overall union and to out_frame
+                    temp_df = temp_df.append(track_gdf)
 
                     # just for first loop
-                    if gdfUnion is None:
+                    if gdf_union is None:
                         # create new overall union
-                        gdfUnion = geomUnion
+                        gdf_union = union
                     else:
                         # union of unified footprints and footprints before
-                        polys = [gdfUnion, geomUnion]
-                        gdfUnion = unary_union(polys) 
+                        polys = [gdf_union, union]
+                        gdf_union = unary_union(polys)
 
                     # get intersection with aoi and calulate area
-                    inter = gdfAOI.geometry.intersection(gdfUnion)
-                    intArea = inter.area.sum()
+                    inter = aoi_gdf.geometry.intersection(gdf_union)
+                    intersect_area = inter.area.sum()
 
-                    # we break the loop if we found enough                              
-                    if intArea >= aoiArea - areaReduce:
+                    # we break the loop if we found enough
+                    if intersect_area >= aoi_area - area_reduce:
 
-                        # cleanup scenes 
-                        #tmpFrame = gpd.GeoDataFrame(tmpFrame, geometry='geometry')
-                        outFrame = outFrame.append(tmpFrame)
-                        tmpFrame = gpd.GeoDataFrame(columns = fpDataFrame.columns)
-                        gdfUnion = None
+                        # cleanup scenes
+                        out_frame = out_frame.append(temp_df)
+                        temp_df = gpd.GeoDataFrame(
+                            columns=inventory_df.columns)
+                        gdf_union = None
+
                         # stop for loop
                         break
 
-            # we break the loop if we found enough                                
-            if intArea >= aoiArea - areaReduce:
+            # we break the loop if we found enough
+            if intersect_area >= aoi_area - area_reduce:
                 break
 
-    return gpd.GeoDataFrame(outFrame, geometry='geometry', crs={'init': 'epsg:4326'})
+    return gpd.GeoDataFrame(out_frame, geometry='geometry',
+                            crs={'init': 'epsg:4326', 'no_defs': True})
 
 
-def searchRefinement(aoi, footprintGdf, invDir,
-                     marginalTracks=False, 
-                     fullCrossAoi=True, 
-                     mosaicRefine=True, 
-                     areaReduce=0.05):
+def search_refinement(aoi, inventory_df, inventory_dir,
+                      exclude_marginal=True,
+                      full_aoi_crossing=True,
+                      mosaic_refine=True,
+                      area_reduce=0.05):
+    '''A function to refine the Sentinel-1 search by certain criteria
 
+    Args:
+        aoi (WKT str):
+        inventory_df (GeoDataFrame):
+        inventory_dir (str or path):
+
+    Returns:
+        refined inventory (dictionary):
+        coverages (dictionary):
+
+    '''
     # creat AOI GeoDataframe and calulate area
-    gdfAoi = vec.aoi2Gdf(aoi)
-    aoiArea = gdfAoi.area.sum()
+    aoi_gdf = vec.wkt_to_gdf(aoi)
+    aoi_area = aoi_gdf.area.sum()
     # get all polarisations apparent in the inventory
-    pols = footprintGdf['polarisationmode'].unique()
-    
+    pols = inventory_df['polarisationmode'].unique()
+
     # get orbit directions apparent in the inventory
-    orbitDirs = footprintGdf['orbitdirection'].unique()
-    
+    orbit_directions = inventory_df['orbitdirection'].unique()
+
     # create inventoryDict
-    invDict = {}
-    covDict = {}
-    
+    inventory_dict = {}
+    coverage_dict = {}
+
     # loop through all possible combinations
-    for pol, orb in itertools.product(pols, orbitDirs):
-    #for orb in orbitDirs: 
+    for pol, orb in itertools.product(pols, orbit_directions):
 
-        print(' INFO: Coverage analysis for {} tracks in {} polarisation.'.format(orb, pol))
-        # subset the footprint for orbit direction
-        #footprintGdfSort = footprintGdf[footprintGdf['orbitdirection'] == orb]
-        footprintGdfSort = footprintGdf[(footprintGdf['polarisationmode'] == pol) &
-                                        (footprintGdf['orbitdirection'] == orb)]
+        print(' INFO: Coverage analysis for {} tracks in {} polarisation.'
+              .format(orb, pol))
 
-        print(' INFO: {} frames for {} tracks in {} polarisation.'.format(len(footprintGdfSort), orb, pol))
+        # subset the footprint for orbit direction and polarisations
+        inv_df_sorted = inventory_df[
+            (inventory_df['polarisationmode'] == pol) &
+            (inventory_df['orbitdirection'] == orb)]
+
+        print(' INFO: {} frames for {} tracks in {} polarisation.'.format(
+            len(inv_df_sorted), orb, pol))
+
         # calculate intersected area
-        inter = gdfAoi.geometry.intersection(footprintGdfSort.unary_union)
-        intArea = inter.area.sum()
+        inter = aoi_gdf.geometry.intersection(inv_df_sorted.unary_union)
+        intersect_area = inter.area.sum()
 
-        if intArea <= aoiArea - areaReduce:
+        # we do a first check if the scenes do not fully cover the AOI
+        if intersect_area <= aoi_area - area_reduce:
             print(' WARNING: Set of footprints does not fully cover AOI. ')
 
+        # otherwise we go on
         else:
 
             # apply the different sorting steps
-            footprintsRef = removeDoubleEntries(footprintGdfSort)
-            
-            footprintsRef = removeNonAoiOverlap(gdfAoi, footprintsRef)
+            inventory_refined = _remove_double_entries(inv_df_sorted)
+
+            inventory_refined = _remove_outside_aoi(aoi_gdf, inventory_refined)
 
             if orb == 'ASCENDING':
-                footprintsRef = restructureEquatorCrossing(footprintsRef)
+                inventory_refined = _handle_equator_crossing(inventory_refined)
 
-            if marginalTracks is False:
-                footprintsRef = removeNonAoiTracks(gdfAoi, footprintsRef, areaReduce)
+            if exclude_marginal is True:
+                inventory_refined = _exclude_marginal_tracks(
+                    aoi_gdf, inventory_refined, area_reduce)
 
-            if fullCrossAoi is True:
-                footprintsRef = removeNonFullSwath(gdfAoi, footprintsRef)
+            if full_aoi_crossing is True:
+                inventory_refined = _remove_incomplete_tracks(
+                    aoi_gdf, inventory_refined)
 
-            footprintsRef = checkNonContinousSwath(footprintsRef)
+            inventory_refined = _handle_non_continous_swath(inventory_refined)
 
-            if mosaicRefine is True:
-                dateList, footprintsRef  = forwardCoverage(gdfAoi, footprintsRef, areaReduce)
-                footprintsRef = backwardCoverage(gdfAoi, footprintsRef, dateList,areaReduce)
+            if mosaic_refine is True:
+                datelist, inventory_refined = _forward_search(
+                    aoi_gdf, inventory_refined, area_reduce)
+                inventory_refined = _backward_search(
+                    aoi_gdf, inventory_refined, datelist, area_reduce)
 
-            if footprintsRef is not None:
-                vec.gdfInv2Shp(footprintsRef, '{}/{}_{}_{}.shp'.format(invDir, len(dateList), orb, ''.join(pol.split())))
-                invDict['{}_{}'.format(orb, ''.join(pol.split()))] = footprintsRef
-                covDict['{}_{}'.format(orb, ''.join(pol.split()))] = len(dateList)
-                
-            print(' INFO: Found {} full coverage mosaics for {}.'.format(len(dateList), aoi))
-            
-    return invDict, covDict
+            if inventory_refined is not None:
+                vec.inventory_to_shp(
+                    inventory_refined, '{}/{}_{}_{}.shp'.format(
+                        inventory_dir, len(datelist), orb, ''.join(pol.split())
+                        )
+                    )
+                inventory_dict['{}_{}'.format(
+                    orb, ''.join(pol.split()))] = inventory_refined
+                coverage_dict['{}_{}'.format(
+                    orb, ''.join(pol.split()))] = len(datelist)
+
+            print(' INFO: Found {} full coverage mosaics.'
+                  .format(len(datelist)))
+
+    return inventory_dict, coverage_dict
 
 
-def createProcDict(inputFrame):
-    
+def create_processing_dict(inventory_df):
+    ''' This function might be obsolete?
+
+    '''
+
+
     # initialize empty dictionary
-    dictScenes = {}
-    
+    dict_scenes = {}
+
     # get relative orbits and loop through each
-    trackList = inputFrame['relativeorbit'].unique()
-    for track in trackList:
-        
-        # initialize an empty list that will be filled by list of scenes per acq. date
-        allIDs = []
-        
+    tracklist = inventory_df['relativeorbit'].unique()
+    for track in tracklist:
+
+        # initialize an empty list that will be filled by
+        # list of scenes per acq. date
+        all_ids = []
+
         # get acquisition dates and loop through each
-        acqdates = inputFrame['acquisitiondate'][inputFrame['relativeorbit'] == track].unique()
+        acqdates = inventory_df['acquisitiondate'][
+            inventory_df['relativeorbit'] == track].unique()
+
+        # loop through dates
         for acqdate in acqdates:
-                                
+
             # get the scene ids per acqdate and write into a list
-            singleIDs=[]
-            singleIDs.append(inputFrame['identifier'][(inputFrame['relativeorbit'] == track) &
-                                                      (inputFrame['acquisitiondate'] == acqdate)].tolist())
-            
+            single_id = []
+            single_id.append(inventory_df['identifier'][
+                (inventory_df['relativeorbit'] == track) &
+                (inventory_df['acquisitiondate'] == acqdate)].tolist())
+
             # append the list of scenes to the list of scenes per track
-            allIDs.append(singleIDs[0])
-            
-        # add this list to the dctionary and associate the track number as dict key
-        dictScenes[track] = allIDs
-        
-    return dictScenes
+            all_ids.append(single_id[0])
+
+        # add this list to the dctionary and associate the track number
+        # as dict key
+        dict_scenes[track] = all_ids
+
+    return dict_scenes

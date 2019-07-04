@@ -14,7 +14,7 @@
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands/>
-      <demName>SRTM 3Sec</demName>
+      <demName>${dem}</demName>
       <externalDEMFile/>
       <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
@@ -22,12 +22,12 @@
       <imgResamplingMethod>BILINEAR_INTERPOLATION</imgResamplingMethod>
       <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>
       <pixelSpacingInDegree>0.0</pixelSpacingInDegree>
-      <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;, 
-  DATUM[&quot;WGS84&quot;, 
-    SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]], 
-  PRIMEM[&quot;Greenwich&quot;, 0.0], 
-  UNIT[&quot;degree&quot;, 0.017453292519943295], 
-  AXIS[&quot;Geodetic longitude&quot;, EAST], 
+      <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,
+  DATUM[&quot;WGS84&quot;,
+    SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]],
+  PRIMEM[&quot;Greenwich&quot;, 0.0],
+  UNIT[&quot;degree&quot;, 0.017453292519943295],
+  AXIS[&quot;Geodetic longitude&quot;, EAST],
   AXIS[&quot;Geodetic latitude&quot;, NORTH]]</mapProjection>
       <alignToStandardGrid>false</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>

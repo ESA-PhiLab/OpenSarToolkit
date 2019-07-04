@@ -1,18 +1,24 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# standard libs
 import os
-import shutil
 import glob
 import datetime
 import gdal
 
+# import for os independent path handling
 from os.path import join as opj
 
+# ost imports
+from . import ts
+from ost import S1Scene
+from . import burst2Ard
 from ..helpers import raster as ras
-from .. import ts
+from ..helpers import helpers as h
 
-def createProcParamDict(
+
+def createParamDict(
                     aoi, outResolution, lsMask, spkFlt, outPrdType,
                     mtSpkFlt, metrics, toDB, dType,
                     subset=None, polarisation='VV,VH,HH,HV',
@@ -41,73 +47,109 @@ def createProcParamDict(
     return procParams
 
 
-def burst2ArdBatch(inputDf, dwnDir, prcDir, tmpDir, procParams):
+def get_scene_path(scene_id):
+
+    scene = S1Scene(scene_id)
+
+    if scene.creodias_path():
+        path = scene.creodias_path()
+    elif scene.mundi_path():
+        path = scene.mundi_path()
+    elif scene.onda_path():
+        path = scene.onda_path()
+    elif scene.download_path():
+        path = scene.download_path()
+
+    return path
 
 
-    for burst in inputDf.bid.unique():
+def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
+                       temp_dir, ard_parameters):
+    '''
+
+    '''
+
+    resolution = ard_parameters['resolution']
+    border_noise = ard_parameters['border_noise']
+    prdType = ard_parameters['product_type']
+    spkFlt = ard_parameters['speckle_filter']
+    ls_mask = ard_parameters['ls_mask']
+    to_db = ard_parameters['to_db']
+    dem = ard_parameters['dem']
+    coherence = ard_parameters['coherence']
+    polarimetry = ard_parameters['polarimetry']
+
+    for burst in burst_inventory.bid.unique():
 
         # create a list of dates over which we loop
-        dates = inputDf.Date[inputDf.bid == burst].sort_values().tolist()
+        dates = burst_inventory.Date[
+                burst_inventory.bid == burst].sort_values().tolist()
 
         # loop through dates
         for idx, date in enumerate(dates):
 
             # get master date
-            dateMst = dates[idx]
+            master_date = dates[idx]
             end = False
 
             # try to get slave date
             try:
-                dateSlv = dates[idx + 1] # here we will jave problems for the last one
+                slave_date = dates[idx + 1] # here we will jave problems for the last one
             except:
                 print(' Reached the end of the time-series')
-                end = True
+
 
             # read master burst
-            brstMst = inputDf[(inputDf.Date == dateMst) &
-                              (inputDf.bid == burst)]
+            master_burst = burst_inventory[
+                (burst_inventory.Date == master_date) &
+                (burst_inventory.bid == burst)]
+
+            master_scene = S1Scene(master_burst.SceneID.values[0])
 
             # get path to file
-            inFileMst = metadata.s1Metadata(brstMst.SceneID.values[0]).s1CreoPath() #(dwnDir)
+            master_file = master_scene.get_scene_path()
             # get subswath
-            subSwath = brstMst.SwathID.values[0]
+            subswath = master_burst.SwathID.values[0]
             # get burst number in file
-            burstMst = brstMst.BurstNr.values[0]
+            master_burst_nr = master_burst.BurstNr.values[0]
             # create a fileId
-            fileIdMst = '{}_{}'.format(dateMst, brstMst.bid.values[0])
+            master_id = '{}_{}'.format(master_date, master_burst.bid.values[0])
             # create logFile
-            logFile = '{}.errLog'.format(fileIdMst)
+            logFile = '{}.errLog'.format(master_id)
 
             # create out folder
-            out = '{}/{}/{}'.format(outDir, burst, date)
+            out = '{}/{}/{}'.format(processing_dir, burst, date)
             os.makedirs(out, exist_ok=True)
 
             if end is True:
-                # run the single burst routine (i.e. without coherence)
-                burst2Ard.slcBurst2PolArd(inFileMst, logFile,
-                                subSwath, burstMst, out, fileIdMst,
-                                tmpDir, prdType, outResolution)
-
+                coherence=False
             else:
                 # read slave burst
-                brstSlv = inputDf[(inputDf.Date == dateSlv) &
-                                  (inputDf.bid == burst)]
+                slave_burst = burst_inventory[
+                        (burst_inventory.Date == slave_date) &
+                        (burst_inventory.bid == burst)]
+
+                slave_scene = S1Scene(slave_burst.SceneID.values[0])
 
                 # get path to slave file
-                inFileSlv = metadata.s1Metadata(brstSlv.SceneID.values[0]).s1CreoPath() #dwnDir)
-                # burst number in slave file (subSwath is same)
-                burstSlv = brstSlv.BurstNr.values[0]
+                slave_file = slave_scene.get_scene_path()
+
+                # burst number in slave file (subswath is same)
+                slave_burst_nr = slave_burst.BurstNr.values[0]
+
                 # outFile name
-                fileIdSlv = '{}_{}'.format(dateSlv, brstSlv.bid.values[0])
+                slave_id = '{}_{}'.format(slave_date,
+                    slave_burst.bid.values[0])
 
-                # run routine
-                burst2Ard.slcBurst2CohPolArd(inFileMst, inFileSlv, logFile,
-                                   subSwath, burstMst, burstSlv,
-                                   out, fileIdMst, fileIdSlv,
-                                   tmpDir, prdType, outResolution)
+            # run routine
+            burst2Ard.slcBurst2CohPolArd(
+                    master_file, slave_file, logFile,
+                    subswath, master_burst_nr, slave_burst_nr,
+                    out, master_id, slave_id,
+                    temp_dir, prdType, resolution)
 
 
-def ard2Ts(burstDf, prcDir, tmpDir, procDict):
+def ard2Ts(burstDf, processing_dir, temp_dir, procDict):
 
     for burst in burstDf.bid.unique():
 
@@ -120,20 +162,20 @@ def ard2Ts(burstDf, prcDir, tmpDir, procDict):
             for pol in ['VV', 'VH', 'HH', 'HV']:
 
                 # see if there is actually any imagery
-                prdList = sorted(glob.glob(opj(prcDir, burst, '20*', '*data*', '{}*{}*img'.format(pName, pol))))
+                prdList = sorted(glob.glob(opj(processing_dir, burst, '20*', '*data*', '{}*{}*img'.format(pName, pol))))
 
                 if len(prdList) > 1:
 
                     # check for all datafiles of this product type
-                    prdList = sorted(glob.glob(opj(prcDir, burst, '20*/', '*{}*dim'.format(p))))
+                    prdList = sorted(glob.glob(opj(processing_dir, burst, '20*/', '*{}*dim'.format(p))))
                     prdList = '\'{}\''.format(','.join(prdList))
 
                     # define outDir for stacking routine
-                    outDir = '{}/{}/Timeseries'.format(prcDir, burst)
+                    outDir = '{}/{}/Timeseries'.format(processing_dir, burst)
                     os.makedirs(outDir, exist_ok=True)
 
                     # create namespaces
-                    tmpStack = '{}/{}_{}_{}_mt'.format(tmpDir, burst, p, pol)
+                    tmpStack = '{}/{}_{}_{}_mt'.format(temp_dir, burst, p, pol)
                     outStack = '{}/{}_{}_{}_mtF'.format(outDir, burst, p, pol)
 
                     # run stacking routines
@@ -221,18 +263,18 @@ def ard2Ts(burstDf, prcDir, tmpDir, procDict):
 
         for pol in ['Alpha', 'Entropy', 'Anisotropy']:
 
-            prdList = sorted(glob.glob(opj(prcDir, burst, '20*', '*{}*'.format(p), '*{}.img'.format(pol))))
+            prdList = sorted(glob.glob(opj(processing_dir, burst, '20*', '*{}*'.format(p), '*{}.img'.format(pol))))
 
             if len(prdList) > 1:
 
-                prdList = sorted(glob.glob(opj(prcDir, burst, '20*/', '*{}*dim'.format(p))))
+                prdList = sorted(glob.glob(opj(processing_dir, burst, '20*/', '*{}*dim'.format(p))))
                 prdList = '\'{}\''.format(','.join(prdList))
 
                 #print(prdList)
-                outDir = '{}/{}/Timeseries'.format(prcDir, burst)
+                outDir = '{}/{}/Timeseries'.format(processing_dir, burst)
                 os.makedirs(outDir, exist_ok=True)
 
-                tmpStack = '{}/{}_{}_mt'.format(tmpDir, burst, pol)
+                tmpStack = '{}/{}_{}_mt'.format(temp_dir, burst, pol)
                 outStack = '{}/{}_{}_mt'.format(outDir, burst, pol)
 
                 # processing routines

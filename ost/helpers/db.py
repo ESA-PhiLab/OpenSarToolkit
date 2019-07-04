@@ -2,8 +2,9 @@
 """
 This script allows for the search of Sentinel-1 data on scihub.
 
-Based on some search parameters the script will create a query on www.scihub.copernicus.eu
-and return the results either as shapefile, sqlite, or PostGreSQL database.
+Based on some search parameters the script will create a query on
+www.scihub.copernicus.eu and return the results either as shapefile,
+sqlite, or PostGreSQL database.
 """
 
 # import modules
@@ -12,7 +13,7 @@ import os
 import ogr
 import psycopg2 as pg
 
-from ost.helpers.vector import getProj4, reprojectGeom
+from ost.helpers.vector import get_proj4, reproject_geometry
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -82,11 +83,18 @@ class pgConnect:
             print(" Cannot connect to database")
 
     def pgCreateS1(self, tablename):
-     
-        f_list = "id serial PRIMARY KEY, identifier varchar(100), polarisation varchar(100), orbitdirection varchar(12), acquisitiondate date,\
-        relativeorbit smallint,orbitnumber integer, producttype varchar(4), slicenumber smallint, size varchar(12), beginposition timestamp,\
-        endposition timestamp, lastrelativeorbitnumber smallint, lastorbitnumber int, uuid varchar(40), platformidentifier varchar(10), missiondatatakeid integer,\
-        swathidentifer varchar(21), ingestiondate timestamp, sensoroperationalmode varchar(3), geometry geometry"
+
+        f_list = ('id serial PRIMARY KEY, identifier varchar(100), \
+                   polarisation varchar(100), orbitdirection varchar(12), \
+                   acquisitiondate date, relativeorbit smallint, \
+                   orbitnumber integer, producttype varchar(4), \
+                   slicenumber smallint, size varchar(12), \
+                   beginposition timestamp, endposition timestamp, \
+                   lastrelativeorbitnumber smallint, lastorbitnumber int, \
+                   uuid varchar(40), platformidentifier varchar(10), \
+                   missiondatatakeid integer, swathidentifer varchar(21), \
+                   ingestiondate timestamp, sensoroperationalmode varchar(3), \
+                   geometry geometry')
 
         sql_cmd = 'CREATE TABLE {} ({})'.format(tablename, f_list)
         self.cursor.execute(sql_cmd)
@@ -135,7 +143,7 @@ class pgConnect:
         self.cursor.execute(sqlCmd)
 
         prjFile = '{}.prj'.format(aoi[:-4])
-        inProj4 = getProj4(prjFile)
+        inProj4 = get_proj4(prjFile)
 
         sf = ogr.Open(aoi)
         layer = sf.GetLayer(0)
@@ -144,7 +152,7 @@ class pgConnect:
             wkt = feature.GetGeometryRef().ExportToWkt()
 
             if inProj4 is not '+proj=longlat +datum=WGS84 +no_defs':
-                wkt = reprojectGeom(wkt, inProj4, 4326)
+                wkt = reproject_geometry(wkt, inProj4, 4326)
 
             wkt = 'St_GeomFromText(\'{}\', 4326)'.format(wkt)
             values = '(\'{}\', {})'.format(i, wkt)

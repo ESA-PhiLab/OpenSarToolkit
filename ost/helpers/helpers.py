@@ -5,6 +5,7 @@ This script provides core functionalities for the OST package.
 
 # import stdlib modules
 import os
+from os.path import join as opj
 import sys
 import shlex
 import shutil
@@ -13,6 +14,7 @@ import time
 import datetime
 from datetime import timedelta
 from pathlib import Path
+
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -25,58 +27,62 @@ __email__ = ''
 __status__ = 'Production'
 
 
-def getGPT():
-    """
+def gpt_path():
+    '''An automatic finder for SNAP'S gpt command line executable
+
     This function looks for the most common places where SNAP's gpt executable
     is stored and returns its path.
-    """
 
-    if os.name is 'nt':
-        #if os.path.isfile('C:\\Program Files\\snap\\bin\\gpt.exe'):
+    If no file could be found, it will ask for the location.
+
+    Returns:
+        path to SNAP's gpt command line executable
+    '''
+
+    if os.name == 'nt':
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
             gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
         else:
-            gptfile = input(' Please provide the full path to the'
-                            ' SNAP gpt command line executable'
-                            ' (e.g. C:\path\to\snap\bin\gpt.exe)')
+            gptfile = input(r' Please provide the full path to the'
+                            r' SNAP gpt command line executable'
+                            r' (e.g. C:\path\to\snap\bin\gpt.exe)')
             gptfile = Path(gptfile)
 
             if gptfile.is_file() is False:
-                print( ' ERROR: path to gpt file is incorrect. No such file.')
+                print(' ERROR: path to gpt file is incorrect. No such file.')
                 sys.exit()
     else:
         homedir = os.getenv("HOME")
-        if os.path.isfile('{}/.ost/gpt'.format(homedir)):
-            gptfile = '{}/.ost/gpt'.format(homedir)
-        elif os.path.isfile('/usr/bin/gpt'):
-            gptfile = '/usr/bin/gpt'
-        elif os.path.isfile('/opt/snap/bin/gpt'):
-            gptfile = '/opt/snap/bin/gpt'
-        elif os.path.isfile('/usr/local/snap/bin/gpt'):
-            gptfile = '/usr/local/snap/bin/gpt'
-        elif os.path.isfile('/usr/local/lib/snap/bin/gpt'):
-            gptfile = '/usr/local/lib/snap/bin/gpt'
-        elif os.path.isfile('{}/snap/bin/gpt'.format(homedir)):
-            gptfile = '{}/snap/bin/gpt'.format(homedir)
-        elif os.path.isfile('/Applications/snap/bin/gpt'):
-            gptfile = '/Applications/snap/bin/gpt'
-        else:
-            gptfile = input(' Please provide the full path to the SNAP'
-                            ' gpt command line executable'
-                            ' (e.g. /path/to/snap/bin/gpt')
+        # possible UNIX paths
+        paths = [
+            '{}/.ost/gpt'.format(homedir),
+            '/usr/bin/gpt',
+            '/opt/snap/bin/gpt',
+            '/usr/local/snap/bin/gpt',
+            '/usr/local/lib/snap/bin/gpt',
+            '{}/snap/bin/gpt'.format(homedir),
+            '/Applications/snap/bin/gpt'
+            ]
 
-            if gptfile.is_file() is False:
-                print( ' ERROR: path to gpt file is incorrect. No such file.')
-                sys.exit()
+        for path in paths:
+            if os.path.isfile(path):
+                gptfile = path
+                break
+            else:
+                gptfile = None
 
-            shutil.copy(gptfile, '{}/.ost/gpt'.format(homedir))
-    #print(' INFO: using SNAP CL executable at {}'.format(gptfile))
+    if not gptfile:
+        gptfile = input(' Please provide the full path to the SNAP'
+                        ' gpt command line executable'
+                        ' (e.g. /path/to/snap/bin/gpt')
+        shutil.copy(gptfile, opj(homedir, '.ost', 'gpt'))   # take care if .ost exists
+
+    if os.path.isfile(gptfile) is False:
+        print(' ERROR: path to gpt file is incorrect. No such file.')
+        sys.exit()
+
+    # print(' INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
-
-# def get TMP():
-#     """
-#     This functions looks for the best temp folder.
-#     """
 
 
 def is_valid_directory(parser, arg):
@@ -116,53 +122,60 @@ def is_valid_aoi(parser, arg):
 
 
 def timer(start):
+    ''' A helper function to print a time elapsed statement
+
+    Args:
+        start (time): a time class object for the start time
+
+    '''
+
     elapsed = time.time() - start
     print(' INFO: Time elapsed: {}'.format(timedelta(seconds=elapsed)))
 
 
-def runCmd(cmd, logFile):
+def run_command(command, logfile):
+    ''' A helper function to execute a command line command
+
+    Args:
+        command (str): the command to execute
+        logfile (str): path to the logfile in case of errors
+
+    '''
 
     currtime = time.time()
 
-#    print('-----------------------------------------------------')
-#    print('SNAP OUTPUT:')
-    if os.name is 'nt':
-        process = subprocess.run(cmd, stderr=subprocess.PIPE)
+    if os.name == 'nt':
+        process = subprocess.run(command, stderr=subprocess.PIPE)
     else:
-        process = subprocess.run(shlex.split(cmd), stderr=subprocess.PIPE)
-        rc = process.returncode
+        process = subprocess.run(shlex.split(command), stderr=subprocess.PIPE)
+        retrun_code = process.returncode
 
-        #process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
-
-#        while True:
-#            #print(process.poll())
-#            output = process.stdout.read(1000).decode()
-#            #print(output)
-#            if process.poll() is not None:
-#                break
-#            if output:
-#                print(output.strip())
-#
-#        rc = process.poll()
-#
-#    print('-----------------------------------------------------')
-#    print('')
-#
-    if rc != 0:
-    #if process.returncode != 0:
-        with open(str(logFile), 'w') as f:
+    if retrun_code != 0:
+        with open(str(logfile), 'w') as file:
             for line in process.stderr.decode().splitlines():
-                f.write('{}\n'.format(line))
-
+                file.write('{}\n'.format(line))
 
     timer(currtime)
     return process.returncode
 
 
-def delDimap(filePrefix):
+def delete_dimap(file_prefix):
     '''
     Removes both dim and data from a Snap dimap file
     '''
 
-    shutil.rmtree('{}.data'.format(filePrefix))
-    os.remove('{}.dim'.format(filePrefix))
+    shutil.rmtree('{}.data'.format(file_prefix))
+    os.remove('{}.dim'.format(file_prefix))
+
+
+def move_dimap(infile_prefix, outfile_prefix):
+
+    if os.path.isdir('{}.data'.format(outfile_prefix)):
+        delete_dimap(outfile_prefix)
+
+    out_dir = os.path.split('{}.data'.format(outfile_prefix))[:-1][0]
+    print(out_dir)
+    # move them to the outfolder
+    shutil.move('{}.data'.format(infile_prefix), out_dir)
+    shutil.move('{}.dim'.format(infile_prefix),
+                '{}.dim'.format(outfile_prefix))

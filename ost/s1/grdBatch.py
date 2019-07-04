@@ -46,16 +46,20 @@ python3 grd2ArdBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
     -o    defines the /path/to/the/output
 '''
 
+# import standard python libs
 import os
-import shutil
 import glob
 import datetime
-from osgeo import gdal
+import gdal
 
+# for os independent paths use opj shortcut
 from os.path import join as opj
-from ost.helpers import raster as ras, helpers as h
-from ost.s1.metadata import s1Metadata
-from ost.s1 import refine, grd2Ard, ts
+
+# import ost libs
+from .metadata import s1Metadata
+from . import refine, grd2Ard, ts
+from ..helpers import raster as ras
+from ..helpers import helpers as h
 
 
 def createProcParamDict(

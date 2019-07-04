@@ -464,9 +464,6 @@ def slcImp2Coh(masterDate, slaveDate, outDir, tmpDir, subswath, outResolution=20
 # =============================================================================
 
 
-
-
-
 def slc2CohRGB(inDir, mstFileID, slvFileID, subswath, outDir):
 
     mstInt = (glob.glob('{}/{}*{}*/*VV*img'.format(inDir, mstFileID, subswath)))

@@ -1,40 +1,55 @@
 import os
+import sys
+from functools import partial
+
 import ogr
-import fiona
-from osgeo import osr
+import pyproj
 import geopandas as gpd
 
-from shapely.geometry import mapping
+from osgeo import osr
+from shapely.ops import transform
 from shapely.wkt import loads
+from shapely.geometry import Point, Polygon, mapping
 from fiona import collection
 from fiona.crs import from_epsg
 
 
-def getEPSG(prjfile):
-   """
-   get the epsg code from a projection file of a shapefile
-   """
+def get_epsg(prjfile):
+    '''Get the epsg code from a projection file of a shapefile
 
-   prj_file = open(prjfile, 'r')
-   prj_txt = prj_file.read()
-   srs = osr.SpatialReference()
-   srs.ImportFromESRI([prj_txt])
-   srs.AutoIdentifyEPSG()
+    Args:
+        prjfile: a .prj file of a shapefile
 
-   # return EPSG code
-   return srs.GetAuthorityCode(None)
+    Returns:
+        str: EPSG code
 
-
-def getProj4(prjfile):
-    """
-    get the proj4 code from a projection file of a shapefile
-    """
+    '''
 
     prj_file = open(prjfile, 'r')
-    prjTxt = prj_file.read()
+    prj_txt = prj_file.read()
+    srs = osr.SpatialReference()
+    srs.ImportFromESRI([prj_txt])
+    srs.AutoIdentifyEPSG()
+    # return EPSG code
+    return srs.GetAuthorityCode(None)
+
+
+def get_proj4(prjfile):
+    '''Get the proj4 string from a projection file of a shapefile
+
+    Args:
+        prjfile: a .prj file of a shapefile
+
+    Returns:
+        str: PROJ4 code
+
+    '''
+
+    prj_file = open(prjfile, 'r')
+    prj_string = prj_file.read()
 
     # Lambert error
-    if '\"Lambert_Conformal_Conic\"' in prjTxt:
+    if '\"Lambert_Conformal_Conic\"' in prj_string:
 
         print(' ERROR: It seems you used an ESRI generated shapefile'
               ' with Lambert Conformal Conic projection. ')
@@ -45,189 +60,244 @@ def getProj4(prjfile):
         exit(1)
 
     srs = osr.SpatialReference()
-    srs.ImportFromESRI([prjTxt])
+    srs.ImportFromESRI([prj_string])
     return srs.ExportToProj4()
 
 
-def wktExtentFromShapefile(shpfile):
-    """
-    get the convex hull extent from a shapefile and return it as a WKT
-    """
+def reproject_geometry(geom, inproj4, out_epsg):
+    '''Reproject a wkt geometry based on EPSG code
 
-    print(' INFO: Calculating the convex hull of the given AOI file.')
-    lyr_name = os.path.basename(shpfile)[:-4]
-    shp = ogr.Open(os.path.abspath(shpfile))
-    lyr = shp.GetLayerByName(lyr_name)
-    geom = ogr.Geometry(ogr.wkbGeometryCollection)
+    Args:
+        geom (ogr-geom): an ogr geom objecct
+        inproj4 (str): a proj4 string
+        out_epsg (str): the EPSG code to which the geometry should transformed
 
-    for feat in lyr:
-       geom.AddGeometry(feat.GetGeometryRef())
+    Returns
+        geom (ogr-geometry object): the transformed geometry
 
-    # create a convex hull
-    geom = geom.ConvexHull()
+    '''
+
+    geom = ogr.CreateGeometryFromWkt(geom)
+    # input SpatialReference
+    spatial_ref_in = osr.SpatialReference()
+    spatial_ref_in.ImportFromProj4(inproj4)
+
+    # output SpatialReference
+    spatial_ref_out = osr.SpatialReference()
+    spatial_ref_out.ImportFromEPSG(int(out_epsg))
+
+    # create the CoordinateTransformation
+    coord_transform = osr.CoordinateTransformation(spatial_ref_in,
+                                                   spatial_ref_out)
+    try:
+        geom.Transform(coord_transform)
+    except:
+        print(' ERROR: Not able to transform the geometry')
+        sys.exit()
+
+    return geom
+
+
+def geodesic_point_buffer(lat, lon, meters, envelope=False):
+
+    # get WGS 84 proj
+    proj_wgs84 = pyproj.Proj(init='epsg:4326')
+
+    # Azimuthal equidistant projection
+    aeqd_proj = '+proj=aeqd +lat_0={lat} +lon_0={lon} +x_0=0 +y_0=0'
+    project = partial(
+        pyproj.transform,
+        pyproj.Proj(aeqd_proj.format(lat=lat, lon=lon)),
+        proj_wgs84)
+
+    buf = Point(0, 0).buffer(meters)  # distance in metres
+
+    if envelope is True:
+        geom = Polygon(transform(project, buf).exterior.coords[:]).envelope
+    else:
+        geom = Polygon(transform(project, buf).exterior.coords[:])
+
+    return geom.to_wkt()
+
+
+def latlon_to_wkt(lat, lon, buffer=None, envelope=False):
+    '''A helper function to create a WKT representation of Lat/Lon pair
+
+    This function takes lat and lon vale and returns the WKT Point
+    representation by default.
+
+    A buffer can be set in metres, which returns a WKT POLYGON. If envelope
+    is set to True, the buffer will be squared by the extent buffer radius.
+
+    Args:
+        lat (str): Latitude (deg) of a point
+        lon (str): Longitude (deg) of a point
+        buffer (float): optional buffer around the point
+        envelope (bool): gives a square instead of a circular buffer
+                         (only applies if bufferis set)
+
+    Returns:
+        wkt (str): WKT string
+
+    '''
+
+    if buffer is None:
+        aoi_wkt = 'POINT ({} {})'.format(lon, lat)
+    else:
+        aoi_wkt = geodesic_point_buffer(lat, lon, buffer, envelope)
+
+    return aoi_wkt
+
+
+def wkt_manipulations(wkt, buffer=None, convex=False, envelope=False):
+
+    geom = ogr.CreateGeometryFromWkt(wkt)
+
+    if buffer:
+        geom = geom.Buffer(buffer)
+
+    if convex:
+        geom = geom.ConvexHull()
+
+    if envelope:
+        geom = geom.GetEnvelope()
+        geom = ogr.CreateGeometryFromWkt(
+            'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}, {} {}))'.format(
+                geom[1], geom[3], geom[0], geom[3], geom[0], geom[2],
+                geom[1], geom[2], geom[1], geom[3], geom[1], geom[3]))
+
     return geom.ExportToWkt()
 
 
-def wktBoundingFromShapefile(shpfile):
-    """
-    get the convex hull extent from a shapefile and return it as a WKT
-    """
+def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
+    '''A helper function to translate a shapefile into WKT
 
-    print(' INFO: Calculating the convex hull of the given AOI file.')
-    lyr_name = os.path.basename(shpfile)[:-4]
-    shp = ogr.Open(os.path.abspath(shpfile))
+
+    '''
+
+    # get filepaths and proj4 string
+    shpfile = os.path.abspath(shapefile)
+    prjfile = shpfile[:-4] + '.prj'
+    proj4 = get_proj4(prjfile)
+
+    lyr_name = os.path.basename(shapefile)[:-4]
+    shp = ogr.Open(os.path.abspath(shapefile))
     lyr = shp.GetLayerByName(lyr_name)
     geom = ogr.Geometry(ogr.wkbGeometryCollection)
 
     for feat in lyr:
-       geom.AddGeometry(feat.GetGeometryRef())
+        geom.AddGeometry(feat.GetGeometryRef())
+        wkt = geom.ExportToWkt()
 
-    # create a convex hull
-    geom = geom.GetEnvelope()
-    wktBounds = 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}, {} {}))'.format(geom[1], geom[3], geom[0], geom[3],
-                                                                       geom[0], geom[2], geom[1], geom[2],
-                                                                       geom[1], geom[3], geom[1], geom[3])
-    return wktBounds
+    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
+        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
+        wkt = reproject_geometry(wkt, proj4, 4326).ExportToWkt()
+
+    # do manipulations if needed
+    wkt = wkt_manipulations(wkt, buffer=buffer, convex=convex,
+                            envelope=envelope)
+
+    return wkt
 
 
-def wktFromKML(kmlfile):
+def kml_to_wkt(kmlfile):
 
     shp = ogr.Open(os.path.abspath(kmlfile))
     lyr = shp.GetLayerByName()
     for feat in lyr:
-       geom = feat.GetGeometryRef()
+        geom = feat.GetGeometryRef()
     wkt = str(geom)
 
     return wkt
 
 
-def reprojectGeom(geom, inProj4, outEPSG):
-    """
-    Reproject a wkt geometry based on EPSG code
-    """
+def latlon_to_shp(lon, lat, shapefile):
 
-    geom = ogr.CreateGeometryFromWkt(geom)
-    # input SpatialReference
-    inSpatialRef = osr.SpatialReference()
-    inSpatialRef.ImportFromProj4(inProj4)
-
-    # output SpatialReference
-    outSpatialRef = osr.SpatialReference()
-    outSpatialRef.ImportFromEPSG(int(outEPSG))
-
-    # create the CoordinateTransformation
-    coordTrans = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
-    geom.Transform(coordTrans)
-    return geom
-
-
-def aoiWKT(shpfile):
-    """
-    Prepare a wkt geometry for the S1 search routine
-    """
-
-    # get the shapefile, projection file and epsg
-    shpfile = os.path.abspath(shpfile)
-    prjfile = shpfile[:-4] + '.prj'
-    proj4 = getProj4(prjfile)
-    wkt = wktExtentFromShapefile(shpfile)
-
-    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
-        wkt = reprojectGeom(wkt, proj4, 4326)
-
-    return wkt
-
-
-def aoiWktBounds(shpfile, buffer=None):
-    """
-    Prepare a wkt geometry for the S1 subset routine
-    """
-
-    # get the shapefile, projection file and epsg
-    shpfile = os.path.abspath(shpfile)
-    prjfile = shpfile[:-4] + '.prj'
-    proj4 = getProj4(prjfile)
-    wkt = wktBoundingFromShapefile(shpfile)
-
-    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
-        wkt = reprojectGeom(wkt, proj4, 4326)
-
-    if buffer is not None:
-        geom = wkt.Buffer(buffer).GetEnvelope()
-        wkt = 'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}, {} {}))'.format(geom[1], geom[3], geom[0], geom[3],
-                                                                   geom[0], geom[2], geom[1], geom[2],
-                                                                   geom[1], geom[3], geom[1], geom[3])
-    return wkt
-
-
-def llPoint2shp(lon, lat, shpFile):
-
-    shpFile = str(shpFile)
+    shapefile = str(shapefile)
 
     schema = {'geometry': 'Point',
-              'properties': {'id': 'str'}
-             }
+              'properties': {'id': 'str'}}
 
     wkt = loads('POINT ({} {})'.format(lon, lat))
 
-    with collection(shpFile, "w", crs=from_epsg(4326), driver="ESRI Shapefile", schema=schema) as output:
+    with collection(shapefile, "w",
+                    crs=from_epsg(4326),
+                    driver="ESRI Shapefile",
+                    schema=schema) as output:
+
         output.write({'geometry': mapping(wkt),
-                'properties': {'id': '1'}
-                })
+                      'properties': {'id': '1'}})
 
 
-def aoi2Gdf(aoi):
+def shp_to_gdf(shapefile):
 
-    # retranslate Path object to string, in case
-    aoi = str(aoi)
+    gdf = gpd.GeoDataFrame.from_file(shapefile)
 
-    # load AOI as GDF
-    if aoi.split('.')[-1] == 'shp':
+    prjfile = shapefile[:-4] + '.prj'
+    proj4 = get_proj4(prjfile)
 
-        gdfAoi = gpd.GeoDataFrame.from_file(aoi)
+    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
+        print(' INFO: reprojecting AOI layer to WGS84.')
+        # reproject
+        gdf.crs = (proj4)
+        gdf = gdf.to_crs({'init': 'epsg:4326'})
 
-        if gdfAoi.geom_type.values[0] is not 'Polygon':
-            print(' ERROR: aoi file needs to be a polygon shapefile')
-        #    sys.exit()
+    return gdf
 
-        prjfile = aoi[:-4] + '.prj'
-        proj4 = getProj4(prjfile)
 
-        if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-            print(' INFO: reprojecting AOI layer to WGS84.')
-            # reproject
-            gdfAoi.crs = (proj4)
-            gdfAoi = gdfAoi.to_crs({'init': 'epsg:4326'})
+def wkt_to_gdf(wkt):
 
+    if loads(wkt).geom_type == 'Point':
+        data = {'id': ['1'],
+                'geometry': loads(wkt).buffer(0.05).envelope}
+        gdf = gpd.GeoDataFrame(data)
+
+    elif loads(wkt).geom_type == 'Polygon':
+        data = {'id': ['1'],
+                'geometry': loads(wkt)}
+        gdf = gpd.GeoDataFrame(data)
+
+    elif loads(wkt).geom_type == 'GeometryCollection' and len(loads(wkt)) == 1:
+
+        data = {'id': ['1'],
+                'geometry': loads(wkt)}
+        gdf = gpd.GeoDataFrame(data)
     else:
-        # load a world_file
-        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-        gdfAoi = world[world['iso_a3'] == aoi]
 
-    # and set the crs (hardcoded!!!)
-    gdfAoi.crs = fiona.crs.from_epsg(4326)
+        i, ids, geoms = 1, [], []
+        for geom in loads(wkt):
+            ids.append(i)
+            geoms.append(geom)
+            i += 1
 
-    return gdfAoi
+        data = {'id': ['1'],
+                'geometry': loads(wkt[0])}
+        gdf = gpd.GeoDataFrame(data)
+
+    gdf.crs = {'init': 'epsg:4326',  'no_defs': True}
+
+    return gdf
 
 
-def gdfInv2Shp(fpDataFrame, outFile):
+def wkt_to_shp(wkt, outfile):
 
+    gdf = wkt_to_gdf(wkt)
+    gdf.to_file(outfile)
+
+
+def inventory_to_shp(inventory_df, outfile):
 
     # change datetime datatypes
-    fpDataFrame['acquisitiondate'] = fpDataFrame['acquisitiondate'].astype(str)
-    fpDataFrame['ingestiondate'] = fpDataFrame['ingestiondate'].astype(str)
-    fpDataFrame['beginposition'] = fpDataFrame['beginposition'].astype(str)
-    fpDataFrame['endposition'] = fpDataFrame['endposition'].astype(str)
+    inventory_df['acquisitiondate'] = inventory_df['acquisitiondate'].astype(str)
+    inventory_df['ingestiondate'] = inventory_df['ingestiondate'].astype(str)
+    inventory_df['beginposition'] = inventory_df['beginposition'].astype(str)
+    inventory_df['endposition'] = inventory_df['endposition'].astype(str)
 
     # write to shapefile
-    fpDataFrame.to_file(outFile)
+    inventory_df.to_file(outfile)
 
 
-def plotInv(aoi, footprintGdf, transperancy=0.05):
-
-    aoi = str(aoi)
+def plot_inventory(aoi, inventory_df, transperancy=0.05):
 
     import matplotlib.pyplot as plt
 
@@ -235,19 +305,19 @@ def plotInv(aoi, footprintGdf, transperancy=0.05):
     world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
     # import aoi as gdf
-    gdfAoi = aoi2Gdf(aoi)
+    aoi_gdf = wkt_to_gdf(aoi)
 
     # get bounds of AOI
-    bounds = footprintGdf.geometry.bounds
+    bounds = inventory_df.geometry.bounds
 
     # get world map as base
     base = world.plot(color='lightgrey', edgecolor='white')
 
     # plot aoi
-    gdfAoi.plot(ax=base, color='None', edgecolor='black')
+    aoi_gdf.plot(ax=base, color='None', edgecolor='black')
 
     # plot footprints
-    footprintGdf.plot(ax=base, alpha=transperancy)
+    inventory_df.plot(ax=base, alpha=transperancy)
 
     # set bounds
     plt.xlim([bounds.minx.min()-2, bounds.maxx.max()+2])

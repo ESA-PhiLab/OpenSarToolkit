@@ -28,15 +28,15 @@ __email__ = ''
 __status__ = 'Production'
 
 
-def readFile(rasterfn):
+def read_file(rasterfn):
 
     # open raster file
     raster = gdal.Open(rasterfn)
 
     # Get blocksizes for iterating over tiles (chuuks)
-    myBlockSize = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = myBlockSize[0]
-    y_block_size = myBlockSize[1]
+    my_block_size = raster.GetRasterBand(1).GetBlockSize()
+    x_block_size = my_block_size[0]
+    y_block_size = my_block_size[1]
 
     # Get image sizes
     cols = raster.RasterXSize
@@ -51,78 +51,83 @@ def readFile(rasterfn):
         data_type_name = "uint8"
 
     print(' INFO: Importing {} bands from {}'.format(raster.RasterCount,
-          rasterfn))
+                                                     rasterfn))
 
     geotransform = raster.GetGeoTransform()
-    originX = geotransform[0]
-    originY = geotransform[3]
-    pixelWidth = geotransform[1]
-    pixelHeight = geotransform[5]
+    origin_x = geotransform[0]
+    origin_y = geotransform[3]
+    pixel_width = geotransform[1]
+    pixel_height = geotransform[5]
     driver = gdal.GetDriverByName('GTiff')  # critical!!!!!!!!!!!!!!!!!!!!!!!
     ndv = raster.GetRasterBand(1).GetNoDataValue()
 
     # we need this for file creation
-    outRasterSRS = osr.SpatialReference()
-    outRasterSRS.ImportFromWkt(raster.GetProjectionRef())
+    outraster_srs = osr.SpatialReference()
+    outraster_srs.ImportFromWkt(raster.GetProjectionRef())
 
     # we return a dict of all relevant values
     return {'xB': x_block_size, 'yB': y_block_size, 'cols': cols, 'rows': rows,
             'bands': bands, 'dType': data_type, 'dTypeName': data_type_name,
-            'ndv': ndv, 'gtr': geotransform, 'oX': originX, 'oY': originY,
-            'pW': pixelWidth, 'pH': pixelHeight, 'driver': driver,
-            'outR': outRasterSRS}
+            'ndv': ndv, 'gtr': geotransform, 'oX': origin_x, 'oY': origin_y,
+            'pW': pixel_width, 'pH': pixel_height, 'driver': driver,
+            'outR': outraster_srs}
 
 
-def createFile(newRasterfn, geoDict, bands, compression='None'):
+def create_file(newraster, geodict, bands, compression='None'):
 
-    xB = 'BLOCKXSIZE={}'.format(geoDict['xB'])
-    yB = 'BLOCKYSIZE={}'.format(geoDict['yB'])
+    blocksize_x = 'BLOCKXSIZE={}'.format(geodict['xB'])
+    blocksize_y = 'BLOCKYSIZE={}'.format(geodict['yB'])
     comp = 'COMPRESS={}'.format(compression)
-    if yB == xB:
+    if blocksize_y == blocksize_x:
         tiled = 'YES'
     else:
         tiled = 'NO'
 
     if compression is None:
-        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB]
+        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER',
+                blocksize_x, blocksize_y]
     else:
-        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER', xB, yB, comp]
+        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER',
+                blocksize_x, blocksize_y, comp]
 
-    outRaster = geoDict['driver'].Create(newRasterfn, geoDict['cols'],
-                                         geoDict['rows'], bands,
-                                         geoDict['dType'], options=opts)
+    outraster = geodict['driver'].Create(newraster, geodict['cols'],
+                                         geodict['rows'], bands,
+                                         geodict['dType'], options=opts)
 
+    outraster.SetGeoTransform((geodict['oX'],
+                               geodict['pW'],
+                               0,
+                               geodict['oY'],
+                               0,
+                               geodict['pH']))
 
-    outRaster.SetGeoTransform((geoDict['oX'], geoDict['pW'], 0, geoDict['oY'],
-                               0, geoDict['pH']))
+    outraster.SetProjection(geodict['outR'].ExportToWkt())
 
-    outRaster.SetProjection(geoDict['outR'].ExportToWkt())
+    if geodict['ndv'] is not None:
+        outraster.GetRasterBand(1).SetNoDataValue(geodict['ndv'])
 
-    if geoDict['ndv'] is not None:
-        outRaster.GetRasterBand(1).SetNoDataValue(geoDict['ndv'])
-
-    return outRaster
+    return outraster
 
 
 # write chunks of arrays to an already existent raster
-def chunk2Raster(outRasterfn, array_chunk, ndv, x, y, z):
+def chunk_to_raster(outraster, array_chunk, ndv, x_pos, y_pos, z_pos):
 
-    outRaster = gdal.Open(outRasterfn, gdal.GA_Update)
-    outband = outRaster.GetRasterBand(z)
+    outraster = gdal.Open(outraster, gdal.GA_Update)
+    outband = outraster.GetRasterBand(z_pos)
 
     # write to array
-    outband.WriteArray(array_chunk, x, y, z)
+    outband.WriteArray(array_chunk, x_pos, y_pos, z_pos)
 
 
-def replaceValue(rasterfn, repValue, newValue):
+def replace_value(rasterfn, value_to_replace, new_value):
 
     # open raster file
     raster = gdal.Open(rasterfn, gdal.GA_Update)
 
     # Get blocksizes for iterating over tiles (chuuks)
-    myBlockSize = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = myBlockSize[0]
-    y_block_size = myBlockSize[1]
+    my_block_size = raster.GetRasterBand(1).GetBlockSize()
+    x_block_size = my_block_size[0]
+    y_block_size = my_block_size[1]
 
     # Get image sizes
     cols = raster.RasterXSize
@@ -142,22 +147,22 @@ def replaceValue(rasterfn, repValue, newValue):
             else:
                 xsize = cols - x
 
-            rasterArray = np.array(raster.GetRasterBand(1).ReadAsArray(x, y,
-                                   xsize, ysize))
-            rasterArray[rasterArray <= np.float32(repValue)] = np.float32(
-                                                                    newValue)
+            raster_array = np.array(raster.GetRasterBand(1).ReadAsArray(
+                x, y, xsize, ysize))
+            raster_array[raster_array <= np.float32(value_to_replace)] = np.float32(
+                new_value)
 
-        raster.GetRasterBand(1).WriteArray(rasterArray, x, y)
+            raster.GetRasterBand(1).WriteArray(raster_array, x, y)
 
 
-def polygonizeRaster(inFile, outFile, maskValue=1, driver='ESRI Shapefile'):
+def polygonize_raster(infile, outfile, mask_value=1, driver='ESRI Shapefile'):
 
-    with rasterio.open(inFile) as src:
+    with rasterio.open(infile) as src:
 
         image = src.read(1)
 
-        if maskValue is not None:
-            mask = image == maskValue
+        if mask_value is not None:
+            mask = image == mask_value
         else:
             mask = None
 
@@ -168,113 +173,116 @@ def polygonizeRaster(inFile, outFile, maskValue=1, driver='ESRI Shapefile'):
                 shapes(image, mask=mask, transform=src.transform)))
 
         with fiona.open(
-                outFile, 'w',
-                driver=driver,
-                crs=src.crs,
-                schema={'properties': [('raster_val', 'int')],
-                        'geometry': 'Polygon'}) as dst:
+            outfile, 'w',
+            driver=driver,
+            crs=src.crs,
+            schema={'properties': [('raster_val', 'int')],
+                    'geometry': 'Polygon'}) as dst:
+
             dst.writerecords(results)
 
 
-def outline(inFile, outFile, ndv=0, ltOption=False):
+def outline(infile, outfile, ndv=0, less_then=False):
     '''
     This function returns the valid areas (i.e. non no-data areas) of a
     raster file as a shapefile.
 
-    :param inFile: inpute raster file
-    :param outFile: output shapefile
+    :param infile: input raster file
+    :param outfile: output shapefile
     :param ndv: no data value of the input raster
     :return:
     '''
 
-    with rasterio.open(inFile) as src:
+    with rasterio.open(infile) as src:
 
         # get metadata
         meta = src.meta
 
         # update driver, datatype and reduced band count
         meta.update(driver='GTiff', dtype='uint8', count=1)
-        # we update the meta for more efficient looping due to hardcoded vrt blocksizes
+        # we update the meta for more efficient looping due to
+        # hardcoded vrt blocksizes
         meta.update(blockxsize=src.shape[1], blockysize=1)
 
         # create outfiles
-        with rasterio.open('{}.tif'.format(outFile[:-4]), 'w', **meta) as outMin:
+        with rasterio.open(
+                '{}.tif'.format(outfile[:-4]), 'w', **meta) as out_min:
 
             # loop through blocks
-            for i, window in outMin.block_windows(1):
+            for _, window in out_min.block_windows(1):
 
                 # read array with all bands
                 stack = src.read(range(1, src.count + 1), window=window)
 
                 # get stats
-                minArr = np.nanmin(stack, axis=0)
+                min_array = np.nanmin(stack, axis=0)
 
-                if ltOption is True:
-                    minArr[minArr <= ndv] = 0
+                if less_then is True:
+                    min_array[min_array <= ndv] = 0
                 else:
-                    minArr[minArr == ndv] = 0
+                    min_array[min_array == ndv] = 0
 
-                minArr[minArr != ndv] = 1
+                min_array[min_array != ndv] = 1
 
                 # write to dest
-                outMin.write(np.uint8(minArr), window=window, indexes=1)
+                out_min.write(np.uint8(min_array), window=window, indexes=1)
 
     # now let's polygonize
-    polygonizeRaster('{}.tif'.format(outFile[:-4]), outFile)
-    os.remove('{}.tif'.format(outFile[:-4]))
+    polygonize_raster('{}.tif'.format(outfile[:-4]), outfile)
+    os.remove('{}.tif'.format(outfile[:-4]))
 
 
-def polygonize2Shp(inRaster, outShp, outEPSG=4326, mask=None):
+def polygonize_to_shape(inraster, out_shape, out_epsg=4326, mask=None):
     """
     This function takes an input raster and polygonizes it.
 
-    :param inRaster: input raster file
+    :param raster: input raster file
     :param mask: mask file
-    :param outShp: output shapefile
+    :param out_shape: output shapefile
     :param srs: spatial reference system in EPSG code
     :return:
     """
 
-    raster = gdal.Open(inRaster)
-    srcBand = raster.GetRasterBand(1)
+    raster = gdal.Open(inraster)
+    src_band = raster.GetRasterBand(1)
 
     if mask is not None:
-        maskFile = gdal.Open(mask)
-        maskBand = maskFile.GetRasterBand(1)
+        mask_file = gdal.Open(mask)
+        mask_band = mask_file.GetRasterBand(1)
     else:
-        maskBand = srcBand
+        mask_band = src_band
 
     srs = osr.SpatialReference()
-    srs.ImportFromEPSG(outEPSG)
+    srs.ImportFromEPSG(out_epsg)
 
-    dstLayername = outShp
+    dst_layername = out_shape
     drv = ogr.GetDriverByName("ESRI Shapefile")
-    dstDs = drv.CreateDataSource(dstLayername)
-    dstLayer = dstDs.CreateLayer(dstLayername, srs=srs)
-    gdal.Polygonize(srcBand, maskBand, dstLayer, -1, [], callback=None)
+    dstfile = drv.CreateDataSource(dst_layername)
+    dst_layer = dstfile.CreateLayer(dst_layername, srs=srs)
+    gdal.Polygonize(src_band, mask_band, dst_layer, -1, [], callback=None)
 
 
-def outlineOld(inFile, outFile, ndv=0, ltOption=False):
+def outline_old(infile, outfile, ndv=0, less_then=False):
     '''
     This function returns the valid areas (i.e. non no-data areas) of a
     raster file as a shapefile.
 
-    :param inFile: inpute raster file
-    :param outFile: output shapefile
+    :param infile: inpute raster file
+    :param outfile: output shapefile
     :param ndv: no data value of the input raster
     :return:
     '''
 
     # get all the metadata from the stack
-    geoDict = readFile(inFile)
+    geodict = read_file(infile)
 
     # create a temporary rasterfile which will be our mask
-    createFile('{}.tif'.format(outFile),geoDict, 1, 'LZW')
+    create_file('{}.tif'.format(outfile), geodict, 1, 'LZW')
 
-    raster = gdal.Open(inFile)
-    myBlockSize = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = myBlockSize[0]
-    y_block_size = myBlockSize[1]
+    raster = gdal.Open(infile)
+    my_block_size = raster.GetRasterBand(1).GetBlockSize()
+    x_block_size = my_block_size[0]
+    y_block_size = my_block_size[1]
 
     # Get image sizes
     cols = raster.RasterXSize
@@ -295,53 +303,53 @@ def outlineOld(inFile, outFile, ndv=0, ltOption=False):
                 xsize = cols - x
 
             # create the blocksized array
-            rasterArray = np.empty((raster.RasterCount, ysize, xsize),
-                                   dtype=np.float32)
+            raster_array = np.empty((raster.RasterCount, ysize, xsize),
+                                    dtype=np.float32)
 
             for i in range(raster.RasterCount):
                 i += 0
-                rasterArray[i, :, :] = np.array(
-                        raster.GetRasterBand(i + 1).ReadAsArray(
-                                x, y, xsize, ysize))
+                raster_array[i, :, :] = np.array(
+                    raster.GetRasterBand(i + 1).ReadAsArray(
+                        x, y, xsize, ysize))
 
             # take care of nans
-            where_are_NaNs = np.isnan(rasterArray)
-            rasterArray[where_are_NaNs] = ndv
+            nan_mask = np.isnan(raster_array)
+            raster_array[nan_mask] = ndv
 
-            minArray = np.min(rasterArray, axis=0)
+            min_array = np.min(raster_array, axis=0)
 
-            if ltOption is True:
-                minArray[minArray <= ndv] = 0
+            if less_then is True:
+                min_array[min_array <= ndv] = 0
             else:
-                minArray[minArray == ndv] = 0
+                min_array[min_array == ndv] = 0
 
-            minArray[minArray != 0] = 1
+            min_array[min_array != 0] = 1
 
-            chunk2Raster('{}.tif'.format(outFile), minArray, 0, x, y, 1)
+            chunk_to_raster('{}.tif'.format(outfile), min_array, 0, x, y, 1)
 
     # now let's polygonize
-    polygonize2Shp('{}.tif'.format(outFile), outFile, 4326, '{}.tif'.format(
-            outFile))
-    os.remove('{}.tif'.format(outFile))
+    polygonize_to_shape('{}.tif'.format(outfile), outfile, 4326,
+                        '{}.tif'.format(outfile))
+    os.remove('{}.tif'.format(outfile))
 
 
 # convert dB to power
-def convert2Pow(dB_array):
+def convert_to_power(db_array):
 
-    pow_array = 10 ** (dB_array / 10)
+    pow_array = 10 ** (db_array / 10)
     return pow_array
 
 
 # convert power to dB
-def convert2DB(pow_array):
+def convert_to_db(pow_array):
 
     pow_array[pow_array < 0] = 0.0000001
-    dB_array = 10 * np.log10(pow_array.clip(min=0.0000000000001))
-    return dB_array
+    db_array = 10 * np.log10(pow_array.clip(min=0.0000000000001))
+    return db_array
 
 
 # rescale sar dB dat ot integer format
-def scale2Int(float_array, minVal, maxVal, datatype):
+def scale_to_int(float_array, min_value, max_value, datatype):
 
     # set output min and max
     display_min = 1.
@@ -350,11 +358,11 @@ def scale2Int(float_array, minVal, maxVal, datatype):
     elif datatype == 'uint16':
         display_max = 65535.
 
-    a = minVal - ((maxVal - minVal)/(display_max - display_min))
-    x = (maxVal - minVal)/(display_max - 1)
+    a = min_value - ((max_value - min_value)/(display_max - display_min))
+    x = (max_value - min_value)/(display_max - 1)
 
-    float_array[float_array > maxVal] = maxVal
-    float_array[float_array < minVal] = minVal
+    float_array[float_array > max_value] = max_value
+    float_array[float_array < min_value] = min_value
 
     int_array = np.round((float_array - a) / x).astype(datatype)
 
@@ -362,65 +370,69 @@ def scale2Int(float_array, minVal, maxVal, datatype):
 
 
 # rescale integer scaled sar data back to dB
-def rescale2Float(int_array, data_type_name):
+def rescale_to_float(int_array, data_type_name):
 
     if data_type_name == 'uint8':
-        float_array = int_array.astype(float) * ( 35. / 254.) + (-30. - (35. / 254.))
+        float_array = (int_array.astype(float)
+                       * (35. / 254.) + (-30. - (35. / 254.)))
     elif data_type_name == 'uint16':
-        float_array = int_array.astype(float) * ( 35. / 65535.) + (-30. - (35. / 65535.))
+        float_array = (int_array.astype(float)
+                       * (35. / 65535.) + (-30. - (35. / 65535.)))
+    else:
+        print(' ERROR: Unknown datatype')
 
     return float_array
 
 
-def maskByShape(inFile, outFile, shpFile, toDB=False, dType='float32',
-                minVal=0.000001, maxVal=1, ndv=None):
+def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
+                  min_value=0.000001, max_value=1, ndv=None):
 
     # import shapefile geometries
-    with fiona.open(shpFile, 'r') as shapefile:
-        features = [feature['geometry'] for feature in shapefile]
+    with fiona.open(shapefile, 'r') as file:
+        features = [feature['geometry'] for feature in file]
 
     # import raster
-    with rasterio.open(inFile) as src:
-        outImage, outTransform = rasterio.mask.mask(src, features, crop=True)
-        outMeta = src.meta.copy()
-        outImage = np.ma.masked_where(outImage == ndv, outImage)
+    with rasterio.open(infile) as src:
+        out_image, out_transform = rasterio.mask.mask(src, features, crop=True)
+        out_meta = src.meta.copy()
+        out_image = np.ma.masked_where(out_image == ndv, out_image)
 
     # if to decibel should be applied
-    if toDB is True:
-        outImage = convert2DB(outImage)
+    if to_db is True:
+        out_image = convert_to_db(out_image)
 
     # if we scale to another d
-    if dType != 'float32':
+    if datatype != 'float32':
 
-        if dType == 'uint8':
-            outImage = scale2Int(outImage, minVal, maxVal, 'uint8')
-        elif dType == 'uint16':
-            outImage = scale2Int(outImage, minVal, maxVal, 'uint16')
+        if datatype == 'uint8':
+            out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
+        elif datatype == 'uint16':
+            out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
 
-    outMeta.update({'driver': 'GTiff', 'height': outImage.shape[1],
-                    'width': outImage.shape[2], 'transform': outTransform,
-                    'nodata': ndv, 'dtype': dType, 'tiled': True,
-                    'blockxsize':128, 'blockysize':128})
+    out_meta.update({'driver': 'GTiff', 'height': out_image.shape[1],
+                     'width': out_image.shape[2], 'transform': out_transform,
+                     'nodata': ndv, 'dtype': datatype, 'tiled': True,
+                     'blockxsize': 128, 'blockysize': 128})
 
-    with rasterio.open(outFile, 'w', **outMeta) as dest:
-        dest.write(outImage.filled(ndv))
+    with rasterio.open(outfile, 'w', **out_meta) as dest:
+        dest.write(out_image.filled(ndv))
 
 
 # the outlier removal, needs revision (e.g. use something profound)
-def outlierRemoval(arrayin, sd=3):
+def outlier_removal(arrayin, stddev=3):
 
     # calculate percentiles
-    p95 = np.percentile(arrayin, 95, axis=0)
-    p5 = np.percentile(arrayin, 5, axis=0)
+    perc95 = np.percentile(arrayin, 95, axis=0)
+    perc5 = np.percentile(arrayin, 5, axis=0)
 
     # we mask out the percetile outliers for std dev calculation
     masked_array = np.ma.MaskedArray(
-                    arrayin,
-                    mask = np.logical_or(
-                    arrayin > p95,
-                    arrayin < p5
-                    )
-    )
+        arrayin,
+        mask=np.logical_or(
+            arrayin > perc95,
+            arrayin < perc5
+            )
+        )
 
     # we calculate new std and mean
     masked_std = np.std(masked_array, axis=0)
@@ -428,33 +440,36 @@ def outlierRemoval(arrayin, sd=3):
 
     # we mask based on mean +- 3 * stddev
     array_out = np.ma.MaskedArray(
-                    arrayin,
-                    mask = np.logical_or(
-                    arrayin > masked_mean + masked_std * sd,
-                    arrayin < masked_mean - masked_std * sd,
-                    )
-    )
+        arrayin,
+        mask=np.logical_or(
+            arrayin > masked_mean + masked_std * stddev,
+            arrayin < masked_mean - masked_std * stddev,
+            )
+        )
 
     return array_out
 
 
 def norm(band):
     band_min, band_max = np.percentile(band, 2), np.percentile(band, 98)
-    return ((band - band_min)/(band_max - band_min))
+    return (band - band_min)/(band_max - band_min)
 
 
-def visualizeRGB(filePath):
-
-    filePath = str(filePath)
+def visualise_rgb(filepath, shrink_factor=25):
 
     import matplotlib.pyplot as plt
 
-    with rasterio.open(filePath) as src:
-        array = src.read()
+    with rasterio.open(filepath) as src:
+        array = src.read(
+                out_shape=(src.count, int(src.height / shrink_factor),
+                           int(src.width / shrink_factor)),
+                resampling=5    # 5 = average
+                )
 
-    r = norm(scale2Int(array[0], -18, 0, 'uint8'))
-    g = norm(scale2Int(array[1], -25, -5, 'uint8'))
-    b = norm(scale2Int(array[2], 1, 15, 'uint8'))
-    img = np.dstack((r,g,b))
-
+    array[array == 0] = np.nan
+    red = norm(scale_to_int(array[0], -18, 0, 'uint8'))
+    green = norm(scale_to_int(array[1], -25, -5, 'uint8'))
+    blue = norm(scale_to_int(array[2], 1, 15, 'uint8'))
+    img = np.dstack((red, green, blue))
+    img[img == 0] = np.nan
     plt.imshow(img)

@@ -1,0 +1,670 @@
+'''This module contains the S1Scene class for handling of a Sentinel-1 product
+
+'''
+import os
+from os.path import join as opj
+import sys
+import json
+import glob
+import urllib
+from urllib.error import URLError
+import zipfile
+import fnmatch
+import xml.dom.minidom
+import xml.etree.ElementTree as ET
+
+import numpy as np
+import geopandas as gpd
+import requests
+from shapely.wkt import loads
+
+from ost.helpers import scihub, raster as ras
+from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
+
+
+__author__ = "Andreas Vollrath"
+__version__ = 1.0
+__license__ = 'MIT'
+
+
+class S1Scene():
+
+    def __init__(self, scene_id):
+        self.scene_id = scene_id
+        self.mission_id = scene_id[0:3]
+        self.mode_beam = scene_id[4:6]
+        self.product_type = scene_id[7:10]
+        self.resolution_class = scene_id[10]
+        self.proc_level = scene_id[12]
+        self.pol_mode = scene_id[14:16]
+        self.start_date = scene_id[17:25]
+        self.start_time = scene_id[26:32]
+        self.stop_date = scene_id[33:41]
+        self.stop_time = scene_id[42:48]
+        self.abs_orbit = scene_id[49:55]
+        self.data_take_id = scene_id[57:62]
+        self.unique_id = scene_id[63:]
+        self.year = scene_id[17:21]
+        self.month = scene_id[21:23]
+        self.day = scene_id[23:25]
+
+        # Calculate the relative orbit out of absolute orbit
+        # (from Peter Meadows (ESA) @
+        # http://forum.step.esa.int/t/sentinel-1-relative-orbit-from-filename/7042)
+        if self.mission_id == 'S1A':
+            self.orbit_offset = 73
+            self.satellite = "Sentinel-1A"
+        elif self.mission_id == 'S1B':
+            self.orbit_offset = 27
+            self.satellite = "Sentinel-1B"
+
+        self.rel_orbit = (((int(self.abs_orbit)
+                            - int(self.orbit_offset)) % 175) + 1)
+
+        # get acquisition mode
+        if self.mode_beam == 'IW':
+            self.acq_mode = "Interferometric Wide Swath"
+        elif self.mode_beam == 'SM':
+            self.acq_mode = "Stripmap"
+        elif self.mode_beam == 'EW':
+            self.acq_mode = "Extra-Wide swath"
+        elif self.mode_beam == 'WV':
+            self.acq_mode = "Wave"
+
+        # get acquisition mode
+        if self.product_type == 'GRD':
+            self.p_type = "Ground Range Detected (GRD)"
+        elif self.product_type == 'SLC':
+            self.p_type = "Single-Look Complex (SLC)"
+        elif self.product_type == 'OCN':
+            self.p_type = "Ocean"
+        elif self.product_type == 'RAW':
+            self.p_type = "Raw Data (RAW)"
+
+        # set initial product paths to None
+        self.ard_dimap = None
+        self.ard_rgb = None
+        self.rgb_thumbnail = None
+
+        # set initial ARD parameters to Empty
+        self.ard_parameters = {}
+
+    def info(self):
+
+        print(" -------------------------------------------------")
+        print(" Scene Information:")
+        print(" Scene Identifier:        " + str(self.scene_id))
+        print(" Satellite:               " + str(self.satellite))
+        print(" Acquisition Mode:        " + str(self.acq_mode))
+        print(" Processing Level:        " + str(self.proc_level))
+        print(" Product Type:            " + str(self.p_type))
+        print(" Acquisition Date:        " + str(self.start_date))
+        print(" Start Time:              " + str(self.start_time))
+        print(" Stop Time:               " + str(self.stop_time))
+        print(" Absolute Orbit:          " + str(self.abs_orbit))
+        print(" Relative Orbit:          " + str(self.rel_orbit))
+        print(" -------------------------------------------------")
+
+    def download_path(self, download_dir):
+
+        download_path = opj(download_dir, 'SAR',
+                            self.product_type,
+                            self.year,
+                            self.month,
+                            self.day)
+
+        # make dir if not existent
+        os.makedirs(download_path, exist_ok=True)
+        # get filepath
+        filepath = opj(download_path, '{}.zip'.format(self.scene_id))
+
+        return filepath
+
+    def scihub_uuid(self, opener):
+
+        # construct the basic the url
+        base_url = ('https://scihub.copernicus.eu/apihub/odata/v1/'
+                    'Products?$filter=')
+        action = urllib.request.quote('Name eq \'{}\''.format(self.scene_id))
+        # construct the download url
+        url = base_url + action
+
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            response = req.read().decode('utf-8')
+
+            # parse the xml page from the response
+            dom = xml.dom.minidom.parseString(response)
+
+            # loop thorugh each entry (with all metadata)
+            for node in dom.getElementsByTagName('entry'):
+                download_url = node.getElementsByTagName(
+                    'id')[0].firstChild.nodeValue
+                uuid = download_url.split('(\'')[1].split('\')')[0]
+
+        return uuid
+
+    def scihub_url(self, opener):
+
+        uuid = self.scihub_uuid(opener)
+        # scihub url
+        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        # construct the download url
+        download_url = '{}(\'{}\')/$value'.format(scihub_url, uuid)
+
+        return download_url
+
+    def scihub_md5(self, opener):
+
+        uuid = self.scihub_uuid(opener)
+        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        download_url = '{}(\'{}\')/Checksum/Value/$value'.format(scihub_url,
+                                                                 uuid)
+        return download_url
+
+    def scihub_online_status(self, opener):
+
+        uuid = self.scihub_uuid(opener)
+        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+
+        url = '{}(\'{}\')/Online/$value'.format(scihub_url, uuid)
+
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            response = req.read().decode('utf-8')
+
+            if response == 'true':
+                response = True
+            elif response == 'false':
+                response = False
+
+        return response
+
+    def scihub_trigger_production(self, opener):
+
+        uuid = self.scihub_uuid(opener)
+        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+
+        url = '{}(\'{}\')/$value'.format(scihub_url, uuid)
+
+        try:
+            # get the request
+            req = opener.open(url)
+
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+
+        # write the request to to the response variable
+        # (i.e. the xml coming back from scihub)
+        code = req.getcode()
+        if code == 202:
+            print(' Production of {} successfully requested.'
+                  .format(self.scene_id))
+
+        return code
+
+    def _scihub_annotation_url(self, opener):
+
+        uuid = self.scihub_uuid(opener)
+
+        print(' INFO: Getting URLS of annotation files'
+              ' for S1 product: {}.'.format(self.scene_id))
+        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
+                     'Nodes'.format(uuid, self.scene_id))
+        url = scihub_url + anno_path
+        # print(url)
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            response = req.read().decode('utf-8')
+
+            # parse the xml page from the response
+            dom = xml.dom.minidom.parseString(response)
+            url_list = []
+            # loop thorugh each entry (with all metadata)
+            for node in dom.getElementsByTagName('entry'):
+                download_url = node.getElementsByTagName(
+                    'id')[0].firstChild.nodeValue
+
+                if download_url[-6:-2] == '.xml':
+                    url_list.append('{}/$value'.format(download_url))
+
+        return url_list
+
+    def scihub_annotation_get(self, uname=None, pword=None):
+
+        # define column names fro BUrst DF
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
+                        'AnxTime', 'BurstNr', 'geometry']
+
+        gdf_final = gpd.GeoDataFrame(columns=column_names)
+
+        base_url = 'https://scihub.copernicus.eu/apihub/'
+
+        # get connected to scihub
+        opener = scihub.connect(base_url, uname, pword)
+
+        anno_list = self._scihub_annotation_url(opener)
+
+        for url in anno_list:
+            try:
+                # get the request
+                req = opener.open(url)
+            except URLError as error:
+                if hasattr(error, 'reason'):
+                    print(' We failed to connect to the server.')
+                    print(' Reason: ', error.reason)
+                    sys.exit()
+                elif hasattr(error, 'code'):
+                    print(' The server couldn\'t fulfill the request.')
+                    print(' Error code: ', error.code)
+                    sys.exit()
+            else:
+                # write the request to to the response variable
+                # (i.e. the xml coming back from scihub)
+                response = req.read().decode('utf-8')
+
+                et_root = ET.fromstring(response)
+
+                # parse the xml page from the response
+                gdf = self._burst_database(et_root)
+
+                gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    def download_annotation_get(self, download_dir):
+
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
+                        'BurstNr', 'geometry']
+
+        # crs for empty dataframe
+        crs = {'init': 'epsg:4326'}
+        gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
+
+        file = self.download_path(download_dir)
+
+        # extract info from archive
+        archive = zipfile.ZipFile(file, 'r')
+        namelist = archive.namelist()
+        xml_files = fnmatch.filter(namelist, "*/annotation/s*.xml")
+
+        # loop through xml annotation files
+        for xml_file in xml_files:
+            xml_string = archive.open(xml_file)
+
+            gdf = self._burst_database(ET.parse(xml_string))
+            gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    def creodias_path(self, base_path='/eodata/Sentinel-1'):
+
+        path = opj(base_path, 'SAR',
+                   self.product_type,
+                   self.year,
+                   self.month,
+                   self.day,
+                   '{}.SAFE'.format(self.scene_id))
+
+        return path
+
+    def creodias_annotation_get(self):
+
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
+                        'AnxTime', 'BurstNr', 'geometry']
+        gdf_final = gpd.GeoDataFrame(columns=column_names)
+
+        for anno_file in glob.glob(
+                '{}/annotation/*xml'.format(self.creodias_path())):
+
+            # parse the xml page from the response
+            gdf = self._burst_database(ET.parse(anno_file))
+
+            gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    def aws_path(self):
+
+        print('Dummy function for aws path to be added')
+
+    def mundi_path(self):
+
+        print(' Dummy function for mundi paths to be added')
+
+    def onda_path(self):
+
+        print(' Dummy function for onda paths to be added')
+
+    def _burst_database(self, et_root):
+        '''
+        This functions expects an xml string from a Sentinel-1 SLC
+        annotation file and extracts relevant information for burst
+        identification as a GeoPandas GeoDataFrame.
+
+        Much of the code is taken from RapidSAR
+        package (once upon a time on github).
+        '''
+
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
+                        'BurstNr', 'geometry']
+        gdf = gpd.GeoDataFrame(columns=column_names)
+
+        track = self.rel_orbit
+        acq_date = self.start_date
+
+        # pol = root.find('adsHeader').find('polarisation').text
+        swath = et_root.find('adsHeader').find('swath').text
+        lines_per_burst = np.int(et_root.find('swathTiming').find(
+            'linesPerBurst').text)
+        pixels_per_burst = np.int(et_root.find('swathTiming').find(
+            'samplesPerBurst').text)
+        burstlist = et_root.find('swathTiming').find('burstList')
+        geolocation_grid = et_root.find('geolocationGrid')[0]
+        first = {}
+        last = {}
+
+        # Get burst corner geolocation info
+        for geo_point in geolocation_grid:
+            if geo_point.find('pixel').text == '0':
+                first[geo_point.find('line').text] = np.float32(
+                    [geo_point.find('latitude').text,
+                     geo_point.find('longitude').text])
+            elif geo_point.find('pixel').text == str(pixels_per_burst-1):
+                last[geo_point.find('line').text] = np.float32(
+                    [geo_point.find('latitude').text,
+                     geo_point.find('longitude').text])
+
+        for i, b in enumerate(burstlist):
+            firstline = str(i*lines_per_burst)
+            lastline = str((i+1)*lines_per_burst)
+            azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
+            azi_anx_time = np.int32(np.round(azi_anx_time*10))
+#           burstid = 'T{}_{}_{}'.format(track, swath, burstid)
+#           first and lastline sometimes shifts by 1 for some reason?
+            try:
+                firstthis = first[firstline]
+            except:
+                firstline = str(int(firstline)-1)
+                try:
+                    firstthis = first[firstline]
+                except:
+                    print('First line not found in annotation file')
+                    firstthis = []
+            try:
+                lastthis = last[lastline]
+            except:
+                lastline = str(int(lastline)-1)
+                try:
+                    lastthis = last[lastline]
+                except:
+                    print('Last line not found in annotation file')
+                    lastthis = []
+            corners = np.zeros([4, 2], dtype=np.float32)
+
+            # Had missing info for 1 burst in a file, hence the check
+            if len(firstthis) > 0 and len(lastthis) > 0:
+                corners[0] = first[firstline]
+                corners[1] = last[firstline]
+                corners[3] = first[lastline]
+                corners[2] = last[lastline]
+
+            wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(
+                np.around(float(corners[0, 1]), 3),
+                np.around(float(corners[0, 0]), 3),
+                np.around(float(corners[3, 1]), 3),
+                np.around(float(corners[3, 0]), 3),
+                np.around(float(corners[2, 1]), 3),
+                np.around(float(corners[2, 0]), 3),
+                np.around(float(corners[1, 1]), 3),
+                np.around(float(corners[1, 0]), 3),
+                np.around(float(corners[0, 1]), 3),
+                np.around(float(corners[0, 0]), 3))
+
+            geo_dict = {'SceneID': self.scene_id, 'Track': track,
+                        'Date': acq_date, 'SwathID': swath,
+                        'AnxTime': azi_anx_time, 'BurstNr': i+1,
+                        'geometry': loads(wkt)}
+
+            gdf = gdf.append(geo_dict, ignore_index=True)
+
+        return gdf
+
+    def asf_url(self):
+
+        asf_url = 'https://datapool.asf.alaska.edu'
+
+        if self.mission_id == 'S1A':
+            mission = 'SA'
+        elif self.mission_id == 'S1B':
+            mission = 'SB'
+
+        if self.product_type == 'SLC':
+            pType = self.product_type
+        elif self.product_type == 'GRD':
+            pType = 'GRD_{}{}'.format(self.resolution_class, self.pol_mode[0])
+
+        productURL = '{}/{}/{}/{}.zip'.format(asf_url, pType,
+                                              mission, self.scene_id)
+        return productURL
+
+    def peps_uuid(self, uname, pword):
+
+        url = ('https://peps.cnes.fr/resto/api/collections/S1/search.json?q={}'
+               .format(self.scene_id))
+        response = requests.get(url, stream=True, auth=(uname, pword))
+
+        # check response
+        if response.status_code == 401:
+            raise ValueError(' ERROR: Username/Password are incorrect.')
+        elif response.status_code != 200:
+            response.raise_for_status()
+
+        data = json.loads(response.text)
+        peps_uuid = data['features'][0]['id']
+        download_url = (data['features'][0]['properties']
+                        ['services']['download']['url'])
+
+        return peps_uuid, download_url
+
+    def peps_online_status(self, uname, pword):
+
+        """
+        This function will download S1 products from CNES Peps mirror.
+
+        :param url: the url to the file you want to download
+        :param fileName: the absolute path to where the downloaded file should
+                         be written to
+        :param uname: ESA's scihub username
+        :param pword: ESA's scihub password
+        :return:
+        """
+
+        _, url = self.peps_uuid(uname, pword)
+
+        # define url
+        response = requests.get(url, stream=True, auth=(uname, pword))
+        status = response.status_code
+
+        # check response
+        if status == 401:
+            raise ValueError(' ERROR: Username/Password are incorrect.')
+        elif status == 404:
+            raise ValueError(' ERROR: File not found.')
+        elif status == 200:
+            status = 'online'
+        elif status == 202:
+            status = 'onTape'
+        else:
+            response.raise_for_status()
+
+        return status, url
+
+    def get_scene_path(self,
+                       download_dir=None,
+                       creo_base='/eodata/Sentinel-1/',
+                       #mundi_base=None,
+                       #onda_base=None
+                       ):
+
+        if os.path.isfile(self.download_path(download_dir)):
+            path = self.download_path(download_dir)
+        elif os.path.isdir(self.creodias_path(creo_base)):
+            path = self.creodias_path(creo_base)
+        #elif os.path.isfile(self.mundi_path(mundi_base)):
+        #    path = self.mundi_path()
+        #elif os.path.isfile(self.onda_path(onda_base)):
+        #    path = self.onda_path()
+
+        return path
+
+    def set_ard_definition(self, ard_type='OST'):
+
+        if ard_type == 'OST':
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 20
+            self.ard_parameters['border_noise'] = True
+            self.ard_parameters['product_type'] = 'GTCgamma'
+            self.ard_parameters['speckle_filter'] = False
+            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['to_db'] = False
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+        elif ard_type == 'OST_flat':
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 20
+            self.ard_parameters['border_noise'] = True
+            self.ard_parameters['product_type'] = 'RTC'
+            self.ard_parameters['speckle_filter'] = False
+            self.ard_parameters['ls_mask'] = True
+            self.ard_parameters['to_db'] = False
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+        elif ard_type == 'CEOS':
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 10
+            self.ard_parameters['border_noise'] = True
+            self.ard_parameters['product_type'] = 'RTC'
+            self.ard_parameters['speckle_filter'] = False
+            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['to_db'] = False
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+        elif ard_type == 'EarthEngine':
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 10
+            self.ard_parameters['border_noise'] = True
+            self.ard_parameters['product_type'] = 'GTCsigma'
+            self.ard_parameters['speckle_filter'] = False
+            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['to_db'] = True
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+        elif ard_type == 'Zhuo':
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 25
+            self.ard_parameters['border_noise'] = False
+            self.ard_parameters['product_type'] = 'RTC'
+            self.ard_parameters['speckle_filter'] = True
+            self.ard_parameters['ls_mask'] = True
+            self.ard_parameters['to_db'] = True
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+
+    def create_ard(self, infile, out_dir, out_prefix, temp_dir,
+                   subset=None, polar='VV,VH,HH,HV'):
+
+        if self.product_type == 'GRD':
+
+            if not self.ard_parameters:
+                print(' INFO: No ARD definition given.'
+                      ' Using the OST standard ARD defintion'
+                      ' Use object.set_ard_defintion() first if you want to'
+                      ' change the ARD defintion.')
+                self.set_ard_definition('OST')
+
+            # we need to convert the infile t a list for the grd_to_ard routine
+            infile = [infile]
+            # run the processing
+            grd_to_ard(infile, out_dir, out_prefix, temp_dir,
+                       self.ard_parameters, subset, polar)
+
+            # write to class attribute
+            self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
+                                           .format(out_prefix)))[0]
+
+        elif self.product_type != 'GRD':
+
+            print(' ERROR: create_ard method for single products is currently'
+                  ' only available for GRD products')
+
+    def create_rgb(self, outfile, driver='GTiff'):
+
+        # invert ot db from create_ard workflow for rgb creation
+        # (otherwise we do it double)
+        if self.ard_parameters['to_db']:
+            to_db = False
+        else:
+            to_db = True
+
+        ard_to_rgb(self.ard_dimap, outfile, driver, to_db)
+        self.ard_rgb = outfile
+
+    def create_rgb_thumbnail(self, outfile, driver='JPEG', shrink_factor=25):
+
+        # invert ot db from create_ard workflow for rgb creation
+        # (otherwise we do it double)
+        if self.ard_parameters['to_db']:
+            to_db = False
+        else:
+            to_db = True
+
+        self.rgb_thumbnail = outfile
+        ard_to_thumbnail(self.ard_dimap, self.rgb_thumbnail,
+                         driver, shrink_factor, to_db)
+
+    def visualise_rgb(self, shrink_factor=25):
+
+        ras.visualise_rgb(self.ard_rgb, shrink_factor)

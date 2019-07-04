@@ -1,38 +1,104 @@
-
 # import stdlib modules
 import os
+from os.path import join as opj
+import imp
 import sys
 import glob
-import gdal
 import time
-import pkg_resources
-import rasterio
-import numpy as np
-
-from os.path import join as opj
 from datetime import datetime
 
-from ..helpers import helpers as h
-from ..helpers import raster as ras
+import gdal
+import rasterio
+import numpy as np
+from scipy import stats
 
-# get the SNAP CL executable
-global gpt_file
-gpt_file = h.getGPT()
-# define the resource package for getting the xml workflow files
-global package
-package = 'ost'
+from ..helpers import helpers as h, raster as ras
 
 
-def mtLayover(listOfLayover, outDir, tmpDir):
+def create_stack(filelist, out_stack, logfile,
+                 polarisation=None, pattern=None):
+    '''
 
+    :param filelist: list of single Files (space separated)
+    :param outfile: the stack that is generated
+    :return:
+    '''
+
+    # get gpt file
+    gpt_file = h.gpt_path()
+
+    # get path to graph
+    rootpath = imp.find_module('ost')[1]
+
+    print(" INFO: Creating multi-temporal stack of images")
+    if pattern:
+        graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
+        command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
+               -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+                                   filelist, pattern, out_stack)
+    else:
+        graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking.xml')
+        command = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
+               -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+                                   filelist, polarisation, out_stack)
+
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        print(' INFO: Succesfully created multi-temporal stack')
+    else:
+        print(' ERROR: Stack creation exited with an error.'
+              ' See {} for Snap Error output'.format(logfile))
+        sys.exit(201)
+
+
+def mt_speckle_filter(in_stack, out_stack, logfile):
+    '''
+    '''
+
+    # get gpt file
+    gpt_file = h.gpt_path()
+
+    # get path to graph
+    rootpath = imp.find_module('ost')[1]
+    graph = opj(rootpath, 'graphs', 'S1_TS', '2_MT_Speckle.xml')
+
+    print(" INFO: Applying the multi-temporal speckle-filtering")
+    command = '{} {} -x -q {} -Pinput={} \
+                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+                                       in_stack, out_stack)
+
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        print(' INFO: Succesfully applied multi-temporal speckle filtering')
+    else:
+        print(' ERROR: Multi-temporal speckle filtering exited with an error. \
+                See {} for Snap Error output'.format(logfile))
+        sys.exit(202)
+
+
+def mt_layover(filelist, out_dir, temp_dir):
+    '''
+    This function is usally used in the time-series workflow of OST. A list
+    of the filepaths layover/shadow masks
+
+    :param filelist - list of files
+    :param out_dir - directory where the output file will be stored
+    :return path to the multi-temporal layover/shadow mask file generated
+    '''
+
+    # get the start time for Info on processing time
     start = time.time()
-    outFile = '{}/LSmask.tif'.format(outDir)
+    # create path to out file
+    outfile = opj(out_dir, 'LSmask.tif')
 
-    print('Creating common Layover/ShadowMask')
+    # create a vrt-stack out of
+    print(' INFO: Creating common Layover/Shadow Mask')
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-    gdal.BuildVRT(opj(tmpDir, 'ls.vrt'), listOfLayover, options=vrt_options)
+    gdal.BuildVRT(opj(temp_dir, 'ls.vrt'), filelist, options=vrt_options)
 
-    with rasterio.open(opj(tmpDir, 'ls.vrt')) as src:
+    with rasterio.open(opj(temp_dir, 'ls.vrt')) as src:
 
         # get metadata
         meta = src.meta
@@ -40,405 +106,236 @@ def mtLayover(listOfLayover, outDir, tmpDir):
         meta.update(driver='GTiff', count=1)
 
         # create outfiles
-        outMin = rasterio.open(outFile, 'w', **meta)
+        out_min = rasterio.open(outfile, 'w', **meta)
 
         # loop through blocks
-        for i, window in src.block_windows(1):
+        for _, window in src.block_windows(1):
 
             # read array with all bands
             stack = src.read(range(1, src.count + 1), window=window)
 
             # get stats
-            minArr = np.nanmin(stack, axis=0)
-            arr = minArr / minArr
+            arr_min = np.nanmin(stack, axis=0)
+            arr = arr_min / arr_min
 
-            outMin.write(np.uint8(arr), window=window, indexes=1)
+            out_min.write(np.uint8(arr), window=window, indexes=1)
 
         h.timer(start)
-        return outFile
+        return outfile
 
 
-def mtExtent(listOfScenes, outDir):
+def mt_extent(list_of_scenes, out_dir):
 
-        extent = opj(outDir, 'extent.shp')
-        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-        gdal.BuildVRT(opj(outDir, 'extent.vrt'), listOfScenes, options=vrt_options)
+    extent = opj(out_dir, 'extent.shp')
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
 
-        print(' INFO: Creating shapefile of common extent.')
-        start = time.time()
-        ras.outline(opj(outDir, 'extent.vrt'), extent , 0, True)
-        os.remove(opj(outDir, 'extent.vrt'))
-        h.timer(start)
+    # build vrt stack from all scenes
+    gdal.BuildVRT(opj(out_dir, 'extent.vrt'),
+                  list_of_scenes,
+                  options=vrt_options)
 
-        return extent
+    print(' INFO: Creating shapefile of common extent.')
+    start = time.time()
+    ras.outline(opj(out_dir, 'extent.vrt'), extent, 0, True)
+    os.remove(opj(out_dir, 'extent.vrt'))
+    h.timer(start)
+
+    return extent
 
 
-def createStackPol(fileList, polarisation, outStack, logFile, wkt=None):
-    '''
+def remove_outliers(arrayin, stddev=3, z_threshold=None):
 
-    :param fileList: list of single Files (space separated)
-    :param outFile: the stack that is generated
-    :return:
-    '''
-
-    if wkt is None:
-        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking.xml')))
-        graph = pkg_resources.resource_filename(package, graph)
-
-        print(" INFO: Creating multi-temporal stack of images")
-        stackCmd = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
-               -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
-                                   fileList, polarisation, outStack)
+    if z_threshold:
+        z_score = np.abs(stats.zscore(arrayin))
+        array_out = np.ma.MaskedArray(
+            arrayin,
+            mask=z_score > z_threshold)
     else:
-        # does not work with gpt at the moment
-        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking_Subset.xml')))
-        graph = pkg_resources.resource_filename(package, graph)
-
-        print(" INFO: Creating multi-temporal stack of images")
-        stackCmd = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
-               -Pwkt=\'{}\' -Poutput={}'.format(gpt_file, graph,
-                                                os.cpu_count(), fileList,
-                                                polarisation, wkt, outStack)
-
-    #print(stackCmd)
-    rc = h.runCmd(stackCmd, logFile)
-
-    if rc == 0:
-        print(' INFO: Succesfully created multi-temporal stack')
-    else:
-        print(' ERROR: Stack creation exited with an error.'
-              ' See {} for Snap Error output'.format(logFile))
-        sys.exit(201)
-
-
-def createStackPattern(fileList, bandPattern, outStack, logFile, wkt=None):
-    '''
-
-    :param fileList: list of single Files (space separated)
-    :param outFile: the stack that is generated
-    :return:
-    '''
-
-    if wkt is None:
-        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')))
-        graph = pkg_resources.resource_filename(package, graph)
-
-        print(" INFO: Creating multi-temporal stack of images")
-        stackCmd = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
-               -Poutput={}'.format(gpt_file, graph, os.cpu_count(),
-                                   fileList, bandPattern, outStack)
-    else:
-        # does not work with gpt at the moment
-        graph = ('/'.join(('graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')))
-        graph = pkg_resources.resource_filename(package, graph)
-
-        print(" INFO: Creating multi-temporal stack of images")
-        stackCmd = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
-               -Pwkt=\'{}\' -Poutput={}'.format(gpt_file, graph,
-                                                2 * os.cpu_count(), fileList,
-                                                bandPattern, wkt, outStack)
-
-    #print(stackCmd)
-    rc = h.runCmd(stackCmd, logFile)
-
-    if rc == 0:
-        print(' INFO: Succesfully created multi-temporal stack')
-    else:
-        print(' ERROR: Stack creation exited with an error.'
-              ' See {} for Snap Error output'.format(logFile))
-        sys.exit(201)
-
-
-def mtSpeckle(inStack, outStack, logFile):
-    """
-
-    :param inStack:
-    :param outStack:
-    :return:
-    """
-
-    graph = ('/'.join(('graphs', 'S1_TS', '2_MT_Speckle.xml')))
-    graph = pkg_resources.resource_filename(package, graph)
-
-    print(" INFO: Applying the multi-temporal speckle-filtering")
-    mtSpkFltCmd = '{} {} -x -q {} -Pinput={} \
-                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
-                                       inStack, outStack)
-
-    rc = h.runCmd(mtSpkFltCmd, logFile)
-
-    if rc == 0:
-        print(' INFO: Succesfully applied multi-temporal speckle filtering')
-    else:
-        print(' ERROR: Multi-temporal speckle filtering exited with an error. \
-                See {} for Snap Error output'.format(logFile))
-        sys.exit(202)
-
-
-# calculate multi-temporal metrics by looping throuch chunks defined by blocksize
-def mtMetrics(rasterfn, newRasterfn, metrics, geoDict, toPower=True, rescale=True, outlier=True):
-
-    raster3d = gdal.Open(rasterfn)
-
-    # loop through y direction
-    for y in range(0, geoDict['rows'], geoDict['yB']):
-        if y + geoDict['yB'] < geoDict['rows']:
-            ysize = geoDict['yB']
-        else:
-            ysize = geoDict['rows'] - y
-
-        # loop throug x direction
-        for x in range(0, geoDict['cols'], geoDict['xB']):
-            if x + geoDict['xB'] < geoDict['cols']:
-                xsize = geoDict['xB']
-            else:
-                xsize = geoDict['cols'] - x
 
-            # create the blocksized array
-            stacked_array=np.empty((raster3d.RasterCount, ysize, xsize), dtype=geoDict['dTypeName'])
-
-            # loop through the timeseries and fill the stacked array part
-            for i in range(raster3d.RasterCount):
-                i += 0
-                stacked_array[i,:,:] = np.array(raster3d.GetRasterBand(i+1).ReadAsArray(x,y,xsize,ysize))
-
-            # take care of nans
-            where_are_NaNs = np.isnan(stacked_array)
-            stacked_array[where_are_NaNs] = geoDict['ndv']
-
-            # original nd_mask
-            nd_mask = stacked_array[1,:,:] == geoDict['ndv']
-
-            # rescale to db if data comes in compressed integer format
-            if rescale is True and geoDict['dTypeName'] != 'Float32':
-                stacked_array = ras.rescale2Float(stacked_array, geoDict['dTypeName'])
-
-            # convert from dB to power
-            if toPower is True:
-                stacked_array = ras.convert2Pow(stacked_array)
-
-            # remove outliers
-            if outlier is True and raster3d.RasterCount >= 5:
-                stacked_array = ras.outlierRemoval(stacked_array)
-
-            if 'avg' in metrics:
-                # calulate the mean
-                metric = np.mean(stacked_array, axis=0)
-
-                # rescale to db
-                if toPower is True:
-                    metric = ras.convert2DB(metric)
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric, -30., 5., geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".avg.tif", metric, geoDict['ndv'], x, y, 1)
-
-            if 'max' in metrics:
-                # calulate the max
-                metric = np.max(stacked_array, axis=0)
-
-                # rescale to db
-                if toPower is True:
-                    metric = ras.convert2DB(metric)
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric,-30. ,5. , geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".max.tif", metric, geoDict['ndv'], x, y, 1)
-
-            if 'min' in metrics:
-                # calulate the max
-                metric = np.min(stacked_array, axis=0)
-
-                # rescale to db
-                if toPower is True:
-                    metric = ras.convert2DB(metric)
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric,-30. ,5. , geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".min.tif", metric, geoDict['ndv'], x, y, 1)
-
-            if 'std' in metrics:
-                # calulate the max
-                metric = np.std(stacked_array, axis=0)
-
-                # we do not rescale to dB for the standard deviation
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric, 0.000001, 0.5, geoDict['dTypeName']) + 1 # we add 1 to avoid no false no data values
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".std.tif", metric, geoDict['ndv'], x, y, 1)
-
-            # Coefficient of Variation (aka amplitude dispersion)
-            if 'cov' in metrics:
-                # calulate the max
-
-                #metric = scipy.stats.variation(stacked_array, axis=0)
-                cv =  lambda x: np.std(x) / np.mean(x)
-                metric = np.apply_along_axis(cv, axis=0, arr=stacked_array)
-                # we do not rescale to dB for the CoV
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric, 0.001, 1. , geoDict['dTypeName']) + 1 # we add 1 to avoid no false no data values
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".cov.tif", metric, geoDict['ndv'], x, y, 1)
-
-            # 90th percentile
-            if 'p90' in metrics:
-                # calulate the max
-                metric = np.percentile(stacked_array, 90, axis=0)
-
-                # rescale to db
-                if toPower is True:
-                    metric = ras.convert2DB(metric)
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric,-30. ,5. , geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".p90.tif", metric, geoDict['ndv'], x, y, 1)
-
-            # 10th perentile
-            if 'p10' in metrics:
-                # calulate the max
-                metric = np.percentile(stacked_array, 10, axis=0)
-
-                # rescale to db
-                if toPower is True:
-                    metric = ras.convert2DB(metric)
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric,-30. ,5. , geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".p10.tif", metric, geoDict['ndv'], x, y, 1)
-
-            # Difference between 90th and 10th percentile
-            if 'pDiff' in metrics:
-                # calulate the max
-                metric = np.subtract(np.percentile(stacked_array, 90, axis=0), np.percentile(stacked_array, 10, axis=0))
-
-                # rescale to actual data type
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    metric = ras.scale2Int(metric, 0.001, 1. , geoDict['dTypeName']) + 1 # we add 1 to avoid no false no data values
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".pDiff.tif", metric, geoDict['ndv'], x, y, 1)
-
-            # # Difference between 90th and 10th percentile
-            if 'sum' in metrics:
-                # calulate the max
-                metric = np.sum(np.percentile(stacked_array, 90, axis=0), np.percentile(stacked_array, 10, axis=0))
-
-                if rescale is True and geoDict['dTypeName'] != 'Float32':
-                    # rescale to actual data type
-                    metric = ras.scale2Int(metric,-0.0001 ,1. , geoDict['dTypeName'])
-                    metric[nd_mask == True] = geoDict['ndv']
-
-                # write out to raster
-                ras.chunk2Raster(newRasterfn + ".sum.tif", metric, geoDict['ndv'], x, y, 1)
-
-
-def mtMetricsMain(rasterfn, newRasterfn, metrics, toPower, rescale, outlier):
-
-    # read the input raster and get the geo information
-    geoDict = ras.readFile(rasterfn)
-
-    # we create our empty output files
-    print(" INFO: Creating output files.")
+        # calculate percentiles
+        perc95 = np.percentile(arrayin, 95, axis=0)
+        perc5 = np.percentile(arrayin, 5, axis=0)
+
+        # we mask out the percetile outliers for std dev calculation
+        masked_array = np.ma.MaskedArray(
+            arrayin,
+            mask=np.logical_or(
+                arrayin > perc95,
+                arrayin < perc5
+                )
+            )
+
+        # we calculate new std and mean
+        masked_std = np.std(masked_array, axis=0)
+        masked_mean = np.mean(masked_array, axis=0)
+
+        # we mask based on mean +- 3 * stddev
+        array_out = np.ma.MaskedArray(
+            arrayin,
+            mask=np.logical_or(
+                arrayin > masked_mean + masked_std * stddev,
+                arrayin < masked_mean - masked_std * stddev,
+                )
+            )
+
+    return array_out
+
+
+def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
+               to_power=False, outlier_removal=False):
+
+    with rasterio.open(stack) as src:
+
+        # get metadata
+        meta = src.meta
+
+        # update driver and reduced band count
+        meta.update({'driver': 'GTiff'})
+        meta.update({'count': 1})
+
+        # write all different output files into a dictionary
+        metric_dict = {}
+        for metric in metrics:
+            metric_dict[metric] = rasterio.open(
+                out_prefix + '.' + metric + '.tif', 'w', **meta)
+
+        # scaling factors in case we have to rescale to integer
+        minimums = {'avg': -30, 'max': -30, 'min': -30,
+                    'std': 0.00001, 'cov': 0.00001}
+        maximums = {'avg': 5, 'max': 5, 'min': 5, 'std': 15, 'cov': 1}
+
+        # loop through blocks
+        for _, window in src.block_windows(1):
+
+            # read array with all bands
+            stack = src.read(range(1, src.count + 1), window=window)
+
+            if rescale_to_datatype is True and meta['dtype'] != 'float32':
+                stack = ras.rescale_to_float(stack, meta['dtype'])
+
+            # transform to power
+            if to_power is True:
+                stack = ras.convert_to_power(stack)
+
+            # outlier removal (only applies if there are more than 5 bands)
+            if outlier_removal is True and src.count >= 5:
+                stack = remove_outliers(stack)
+
+            # get stats
+            arr = {}
+            arr['avg'] = stack.mean(axis=0) if 'avg' in metrics else False
+            arr['max'] = stack.max(axis=0) if 'max' in metrics else False
+            arr['min'] = stack.min(axis=0) if 'min' in metrics else False
+            arr['std'] = (ras.convert_to_db(stack).std(axis=0)
+                          if 'std' in metrics else False)
+            arr['cov'] = (stats.variation(stack, axis=0)
+                          if 'cov' in metrics else False)
+
+            # the metrics to be re-turned to dB, in case to_power is True
+            metrics_to_convert = ['avg', 'min', 'max']
+
+            # do the back conversions and write to disk loop
+            for metric in metrics:
+
+                if to_power is True and metric in metrics_to_convert:
+                    arr[metric] = ras.convert_to_db(arr[metric])
+
+                if rescale_to_datatype is True and meta['dtype'] != 'float32':
+                    arr[metric] = ras.scale_to_int(arr[metric], meta['dtype'],
+                                                   minimums[metric],
+                                                   maximums[metric])
+
+                # write to dest
+                metric_dict[metric].write(
+                    np.float32(arr[metric]), window=window, indexes=1)
+
+    # close the output files
     for metric in metrics:
-
-        ras.createFile('{}.{}.tif'.format(newRasterfn, metric), geoDict, 1, 'None')
-
-    print(" INFO: Calculating the multi-temporal metrics and write them to the respective output files.")
-    # calculate the multi temporal metrics by looping over blocksize
-    mtMetrics(rasterfn, newRasterfn, metrics, geoDict, toPower, rescale, outlier)
+        metric_dict[metric].close()
 
 
-def createDateList(tsPath):
+def create_datelist(path_to_timeseries):
+    '''Create a text file of acquisition dates within your time-series
 
-    files = glob.glob('{}/*VV*tif'.format(tsPath))
+    Args:
+        path_to_timeseries (str): path to an OST time-series directory
+    '''
+
+    files = glob.glob('{}/*VV*tif'.format(path_to_timeseries))
     dates = sorted([os.path.basename(file).split('.')[1] for file in files])
-    #outDates = [datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d') ]
-    f = open('{}/datelist.txt'.format(tsPath), 'w')
-    for date in dates:
-        f.write(str(datetime.strftime(datetime.strptime(date,  '%y%m%d'), '%Y-%m-%d')) + ' \n')
-    f.close()
+
+    with open('{}/datelist.txt'.format(path_to_timeseries), 'w') as file:
+        for date in dates:
+            file.write(str(datetime.strftime(datetime.strptime(
+                date, '%y%m%d'), '%Y-%m-%d')) + ' \n')
 
 
-def createTsAnimation(tsFolder, tmpDir, outFile, percSize):
+def create_ts_animation(ts_dir, temp_dir, outfile, shrink_factor):
 
-    for file in sorted(glob.glob('{}/*VV.tif'.format(tsFolder))):
+    for file in sorted(glob.glob(opj(ts_dir, '*VV.tif'))):
 
-        nr = os.path.basename(file).split('.')[0]
+        file_index = os.path.basename(file).split('.')[0]
         date = os.path.basename(file).split('.')[1]
-        fileVV = file
-        fileVH = glob.glob('{}/{}.*VH.tif'.format(tsFolder, nr))[0]
+        file_vv = file
+        file_vh = glob.glob(opj(ts_dir, '{}.*VH.tif'.format(file_index)))[0]
 
-        outTmp = '{}/{}.jpg'.format(tmpDir, date)
+        out_temp = opj(temp_dir, '{}.jpg'.format(date))
 
-        with rasterio.open(fileVV) as vv:
-            outMeta = vv.meta.copy()
+        with rasterio.open(file_vv) as vv_pol:
+
+            # get metadata
+            out_meta = vv_pol.meta.copy()
+
+            # !!!assure that dimensions match ####
+            new_height = int(vv_pol.height/shrink_factor)
+            new_width = int(vv_pol.width/shrink_factor)
+            out_shape = (vv_pol.count, new_height, new_width)
+
+            out_meta.update(height=new_height, width=new_width)
+
             # create empty array
-            arr = np.zeros((int(outMeta['height']), int(outMeta['width']), int(3)))
+            arr = np.zeros((int(out_meta['height']),
+                            int(out_meta['width']),
+                            int(3)))
             # read vv array
-            arr[:,:,0] = vv.read()
+            arr[:, :, 0] = vv_pol.read(out_shape=out_shape, resampling=5)
 
-        with rasterio.open(fileVH) as vh:
+        with rasterio.open(file_vh) as vh_pol:
             # read vh array
-            arr[:,:,1] = vh.read()
+            arr[:, :, 1] = vh_pol.read(out_shape=out_shape, resampling=5)
 
-        arr[:,:,2] = np.subtract(arr[:,:,0], arr[:,:,1])
+        # create ratio
+        arr[:, :, 2] = np.subtract(arr[:, :, 0], arr[:, :, 1])
 
-        # rescale to uint8
-        arr[:,:,0] = ras.scale2Int(arr[:,:,0], -20., 0., 'uint8')
-        arr[:,:,1] = ras.scale2Int(arr[:,:,1], -25., -5., 'uint8')
-        arr[:,:,2] = ras.scale2Int(arr[:,:,2], 1., 15., 'uint8')
+        # rescale_to_datatype to uint8
+        arr[:, :, 0] = ras.scale_to_int(arr[:, :, 0], -20., 0., 'uint8')
+        arr[:, :, 1] = ras.scale_to_int(arr[:, :, 1], -25., -5., 'uint8')
+        arr[:, :, 2] = ras.scale_to_int(arr[:, :, 2], 1., 15., 'uint8')
 
         # update outfile's metadata
-        outMeta.update({'driver': 'JPEG', 'height': int(outMeta['height']),
-                        'width': int(outMeta['width']), 'transform': outMeta['transform'],
-                        'nodata': outMeta['nodata'], 'dtype': 'uint8', 'count': 3})
+        out_meta.update({'driver': 'JPEG',
+                         'dtype': 'uint8',
+                         'count': 3})
 
         # transpose array to gdal format
         arr = np.transpose(arr, [2, 0, 1])
 
         # write array to disk
-        with rasterio.open(outTmp, 'w', **outMeta) as out:
+        with rasterio.open(out_temp, 'w', **out_meta) as out:
             out.write(arr.astype('uint8'))
 
         # add date
-        heightLabel=np.floor(np.divide(int(outMeta['height']), 15))
-        cmd = 'convert -background \'#0008\' -fill white -gravity center -size {}x{} caption:\"{}\" \
-        {} +swap -gravity north -composite {}'.format(outMeta['width'], heightLabel, date, outTmp, outTmp)
+        label_height = np.floor(np.divide(int(out_meta['height']), 15))
+        cmd = 'convert -background \'#0008\' -fill white -gravity center \
+              -size {}x{} caption:\"{}\" {} +swap -gravity north \
+              -composite {}'.format(out_meta['width'], label_height,
+                                    date, out_temp, out_temp)
         os.system(cmd)
 
     # create gif
-    listOfFiles = ' '.join(sorted(glob.glob('{}/*jpg'.format(tmpDir))))
-    cmd = 'convert -delay 200 -loop 20 {} {}'.format(listOfFiles, outFile)
+    lst_of_files = ' '.join(sorted(glob.glob(opj(temp_dir, '*jpg'))))
+    cmd = 'convert -delay 200 -loop 20 {} {}'.format(lst_of_files, outfile)
     os.system(cmd)
 
-    for file in glob.glob('{}/*jpg'.format(tmpDir)):
+    for file in glob.glob(opj(temp_dir, '*jpg')):
         os.remove(file)

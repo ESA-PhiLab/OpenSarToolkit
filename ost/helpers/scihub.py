@@ -1,68 +1,105 @@
+# -*- coding: utf-8 -*-
+'''
+This module provides functions for searching and downloading data from
+Copernicus scihub server.
+'''
+
+import os
 import getpass
 import datetime
 import urllib
-import geopandas as gpd
+import requests
+import tqdm
+from shapely.wkt import loads
 
-from ost.helpers import vector as vec
 
-# -*- coding: utf-8 -*-
-def askScihubCreds():
-    
+def ask_credentials():
+    '''A helper function that asks for user credentials on Copernicus' Scihub
+
+    Returns:
+        uname: username of Copernicus' scihub  page
+        pword: password of Copernicus' scihub  page
+
+    '''
     # SciHub account details (will be asked by execution)
     print(' If you do not have a Copernicus Scihub user account'
           ' go to: https://scihub.copernicus.eu and register')
     uname = input(' Your Copernicus Scihub Username:')
     pword = getpass.getpass(' Your Copernicus Scihub Password:')
-    
+
     return uname, pword
 
 
-def scihubConnect(baseURL, uname=None, pword=None):
-    """
-    Connect and authenticate to the scihub server.
-    """
-    if uname == None:
+def connect(base_url='https://scihub.copernicus.eu/apihub/',
+            uname=None, pword=None):
+    '''A helper function to connect and authenticate to the Copernicus' scihub.
+
+    Args:
+        base_url (str): basic url to the Copernicus' scihub
+        uname (str): username of Copernicus' scihub
+        pword (str): password of Copernicus' scihub
+
+    Returns:
+        opener: an urllib opener instance ot Copernicus' scihub
+
+    '''
+
+    if not uname:
         print(' If you do not have a Copernicus Scihub user'
               ' account go to: https://scihub.copernicus.eu')
         uname = input(' Your Copernicus Scihub Username:')
-    
-    if pword == None:
+
+    if not pword:
         pword = getpass.getpass(' Your Copernicus Scihub Password:')
-        
+
     # open a connection to the scihub
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(None, baseURL, uname, pword)
+    manager.add_password(None, base_url, uname, pword)
     handler = urllib.request.HTTPBasicAuthHandler(manager)
     opener = urllib.request.build_opener(handler)
 
     return opener
 
 
-def nextPage(dom):
-    """
-    Use this function to iterate over the search results
-    due to the limit of a maximum of 100 results per query.
-    """
+def next_page(dom):
+    '''A helper function to iterate over the search results pages.
+
+    Args:
+        dom: an xml.dom object coming back from a Copernicus' scihub request
+
+    Returns:
+        str: Link ot the next page or None if we reached the end.
+
+    '''
 
     links = dom.getElementsByTagName('link')
-    next, self, last = None, None, None
+    next_page_, this_page, last = None, None, None
 
     for link in links:
         if link.getAttribute('rel') == 'next':
-            next = link.getAttribute('href')
+            next_page_ = link.getAttribute('href')
         elif link.getAttribute('rel') == 'self':
-            self = link.getAttribute('href')
+            this_page = link.getAttribute('href')
         elif link.getAttribute('rel') == 'last':
             last = link.getAttribute('href')
 
-    if last == self:     # we are at the end
-        return None
-    else:
-        return next
+    if last == this_page:   # we are not at the end
+        next_page_ = None
+
+    return next_page_
 
 
-def createSatStr(sat):
-    
+def create_satellite_string(sat):
+    '''A helper function to create the full Satellite string
+
+    Args:
+        sat (str): is a OST scene mission_id attribute (e.g. S1)
+
+    Returns:
+        str: Full name of the satellite
+
+    '''
+
     if str(1) in sat:
         sat = 'Sentinel-1'
     elif str(2) in sat:
@@ -71,65 +108,203 @@ def createSatStr(sat):
         sat = 'Sentinel-3'
     elif str(5) in sat:
         sat = 'Sentinel-5'
-        
+
     return 'platformname:{}'.format(sat)
 
 
-def createAoiWkt(aoi='*'):
-    
-    # bring aoi to query format
-    if aoi is not '*':
-        if aoi.split('.')[-1] != 'shp':
-            print('get wkt country boundaries from geopandas low res data')
-            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-            geom = world['geometry'][world['iso_a3'] == aoi].tolist()[0].bounds
-            aoi = 'POLYGON (({} {}, {} {}, {} {}, \
-                   {} {}, {} {}))'.format(geom[0], geom[1], geom[2], geom[1],
-                                          geom[2], geom[3], geom[0], geom[3],
-                                          geom[0], geom[1])
+def create_aoi_str(aoi_wkt):
+    '''A helper function to create a scihub API compliant AOI string
 
-            if len(aoi) == 0:
-                print(' No country found for this ISO code')
-                exit(1)
+    Args:
+        aoi (str): is WKT representation of the Area Of Interest
 
-            aoi = "( footprint:\"Intersects({})\")".format(aoi)
+    Returns:
+        str: Copernicus' scihub compliant AOI string
 
-        else:
-            aoi = vec.aoiWKT(aoi)
-            aoi = "( footprint:\"Intersects({})\")".format(aoi)
+    '''
 
-    return aoi
+    geom = loads(aoi_wkt)
+    if geom.geom_type == 'Point':
+        aoi_str = "( footprint:\"Intersects({}, {})\")".format(geom.y, geom.x)
+
+    else:
+        # simplify geometry
+        aoi_convex = geom.convex_hull
+
+        # create scihub-confrom aoi string
+        aoi_str = '( footprint:\"Intersects({})\")'.format(aoi_convex)
+
+    return aoi_str
 
 
-def createToiStr(startDate='2014-10-01', 
-                 endDate=datetime.datetime.now().strftime("%Y-%m-%d")):
+def create_toi_str(start='2014-10-01',
+                   end=datetime.datetime.now().strftime("%Y-%m-%d")):
+    '''A helper function to create a scihub API compliant TOI string
+
+    Args:
+        start (str): the start date of the Time Of Interest represented by
+                     a string of a YYYY-MM-DD format string
+        end (str): the end date of the Time Of Interest represented by
+                   a string of a YYYY-MM-DD format string
+
+    Returns:
+        str: Copernicus' scihub compliant TOI string
+
+    '''
 
     # bring start and end date to query format
-    startDate = '{}T00:00:00.000Z'.format(startDate)
-    endDate = '{}T23:59:59.999Z'.format(endDate)
+    start = '{}T00:00:00.000Z'.format(start)
+    end = '{}T23:59:59.999Z'.format(end)
     toi = ('beginPosition:[{} TO {}] AND '
-           'endPosition:[{} TO {}]'.format(startDate, endDate, 
-                                           startDate, endDate))
-     
+           'endPosition:[{} TO {}]'.format(start, end,
+                                           start, end))
+
     return toi
 
 
-def createS1ProdSpecs(pType='*', polMode='*', beam='*'):
-    
-    # bring start and end date to query format
-    # bring product type, polMode and beam to query format
-    pType = "producttype:{}".format(pType)
-    polMode = "polarisationMode:{}".format(polMode)
+def create_s1_product_specs(product_type='*', polarisation='*', beam='*'):
+    '''A helper function to create a scihub API compliant product specs string
+
+    Args:
+        product_type (str): the product type to look at
+        polarisation (str):
+
+    Returns:
+        str: Copernicus' scihub compliant product specs string
+
+    Notes:
+        Default values for all product specifications is the *-character,
+        meaning to look for all kinds of data by default.
+
+    '''
+
+    # bring product type, polarisation and beam to query format
+    product_type = "producttype:{}".format(product_type)
+    polarisation = "polarisationMode:{}".format(polarisation)
     beam = "sensoroperationalmode:{}".format(beam)
-    
-    return '{} AND {} AND {}'.format(pType, polMode, beam)
+
+    return '{} AND {} AND {}'.format(product_type, polarisation, beam)
 
 
-def createQuery(satellite, aoi, toi, prodSpecs):
-    """
-    Create the query part of the url compatible with Copernicus Scihub.
-    """
+def create_query(satellite, aoi, toi, product_specs):
+    '''A helper function to create a scihub API compliant query
+
+    Args:
+        satellite (str): the satellite (e.g. Sentinel-1)
+        aoi (str): a Copernicus scihub compliant AOI string
+        toi (str): a Copernicus scihub compliant TOI string
+        product_specs (str): a Copernicus scihub compliant product specs string
+
+    Returns:
+        str: Copernicus' scihub compliant query string (i.e. OpenSearch query)
+             formattted with urllib
+
+    '''
     # construct the final query
-    query = urllib.request.quote('{} AND {} AND {} AND \
-                                  {}'.format(satellite, prodSpecs, aoi, toi))
+    query = urllib.request.quote('{} AND {} AND {} AND {}'.format(
+        satellite, product_specs, aoi, toi))
+
     return query
+
+
+def check_connection(uname, pword):
+    '''A helper function to check if a connection  can be established
+
+    Args:
+        uname: username of Copernicus' scihub page
+        pword: password of Copernicus' scihub page
+
+    Returns
+        int: status code of the get request
+    '''
+
+    # we use some random url for checking
+    url = ('https://scihub.copernicus.eu/apihub/odata/v1/Products?'
+           '$select=Id&$filter=substringof(%27_20171113T010515_%27,Name)')
+    response = requests.get(url, auth=(uname, pword))
+    return response.status_code
+
+
+def s1_download(argument_list):
+    '''Function to download a single Sentinel-1 product from Copernicus scihub
+
+    This function will download S1 products from ESA's apihub.
+
+    Args:
+        argument_list: a list with 4 entries (this is used to enable parallel
+                      execution)
+                      argument_list[0] is the product's uuid
+                      argument_list[1] is the local path for the download
+                      argument_list[2] is the username of Copernicus' scihub
+                      argument_list[3] is the password of Copernicus' scihub
+
+    '''
+
+    # get out the arguments
+    uuid = argument_list[0]
+    filename = argument_list[1]
+    uname = argument_list[2]
+    pword = argument_list[3]
+
+    # ask for username and password in case you have not defined as input
+    if not uname:
+        print(' If you do not have a Copernicus Scihub user'
+              ' account go to: https://scihub.copernicus.eu')
+        uname = input(' Your Copernicus Scihub Username:')
+    if not pword:
+        pword = getpass.getpass(' Your Copernicus Scihub Password:')
+
+    # define url
+    url = ('https://scihub.copernicus.eu/apihub/odata/v1/'
+           'Products(\'{}\')/$value'.format(uuid))
+
+    # get first response for file Size
+    response = requests.get(url, stream=True, auth=(uname, pword))
+
+    # check response
+    if response.status_code == 401:
+        raise ValueError(' ERROR: Username/Password are incorrect.')
+    elif response.status_code != 200:
+        print(' ERROR: Something went wrong, will try again in 30 seconds.')
+        response.raise_for_status()
+
+    # get download size
+    total_length = int(response.headers.get('content-length', 0))
+
+    # define chunk_size
+    chunk_size = 1024
+
+    # check if file is partially downloaded
+    if os.path.exists(filename):
+        first_byte = os.path.getsize(filename)
+    else:
+        first_byte = 0
+
+    if first_byte >= total_length:
+        return total_length
+
+    while first_byte < total_length:
+
+        # get byte offset for already downloaded file
+        header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
+
+        print(' INFO: Downloading scene to: {}'.format(filename))
+        response = requests.get(url, headers=header, stream=True,
+                                auth=(uname, pword))
+
+        # actual download
+        with open(filename, "ab") as file:
+
+            if total_length is None:
+                file.write(response.content)
+            else:
+                pbar = tqdm.tqdm(total=total_length, initial=first_byte,
+                                 unit='B', unit_scale=True,
+                                 desc=' INFO: Downloading: ')
+                for chunk in response.iter_content(chunk_size):
+                    if chunk:
+                        file.write(chunk)
+                        pbar.update(chunk_size)
+        pbar.close()
+        # update first_byte
+        first_byte = os.path.getsize(filename)
