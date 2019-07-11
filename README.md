@@ -16,8 +16,8 @@ For the moment, Sentinel-1 data inventory and download routines, as well as a GR
 
 ## Installation
 
-OST is rather a meta-package of the Sentinel-1 toolbox than a full-flavoured software. 
-In order to make 
+OST is rather a meta-package of the Sentinel-1 toolbox than a full-flavoured software.
+In order to make
 
 ### Dependencies (OS independent)
 
@@ -82,15 +82,17 @@ pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 
 ### Conda Installation (Windows, Mac, Linux)
 
-Download miniconda3 (python version 3) from https://conda.io/miniconda.html 
+Download miniconda3 (python version 3) from https://conda.io/miniconda.html
 and install it.
 
-Run: 
+Run:
 ```
-conda install git pip gcc gdal jupyter
+conda install git pip gcc gdal jupyter requests tqdm psycopg2 numpy scipy matplotlib
+conda install -c conda-forge geopandas rtree shapely rasterio fiona
+
 ```
 
-and then 
+and then
 ```
 pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```

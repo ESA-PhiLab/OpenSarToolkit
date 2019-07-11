@@ -103,7 +103,7 @@ def mt_layover(filelist, out_dir, temp_dir):
         # get metadata
         meta = src.meta
         # update driver and reduced band count
-        meta.update(driver='GTiff', count=1)
+        meta.update(driver='GTiff', count=1, dtype='uint8')
 
         # create outfiles
         out_min = rasterio.open(outfile, 'w', **meta)
@@ -115,18 +115,19 @@ def mt_layover(filelist, out_dir, temp_dir):
             stack = src.read(range(1, src.count + 1), window=window)
 
             # get stats
-            arr_min = np.nanmin(stack, axis=0)
-            arr = arr_min / arr_min
+            arr_max = np.nanmax(stack, axis=0)
+            arr = arr_max / arr_max
 
             out_min.write(np.uint8(arr), window=window, indexes=1)
 
         h.timer(start)
-        return outfile
+
+    return outfile
 
 
-def mt_extent(list_of_scenes, out_dir):
+def mt_extent(list_of_scenes, out_file, buffer=None):
 
-    extent = opj(out_dir, 'extent.shp')
+    out_dir = os.path.dirname(out_file)
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
 
     # build vrt stack from all scenes
@@ -136,11 +137,12 @@ def mt_extent(list_of_scenes, out_dir):
 
     print(' INFO: Creating shapefile of common extent.')
     start = time.time()
-    ras.outline(opj(out_dir, 'extent.vrt'), extent, 0, True)
+    ras.outline(opj(out_dir, 'extent.vrt'), out_file, 0, False)
+
     os.remove(opj(out_dir, 'extent.vrt'))
     h.timer(start)
 
-    return extent
+    return out_file
 
 
 def remove_outliers(arrayin, stddev=3, z_threshold=None):

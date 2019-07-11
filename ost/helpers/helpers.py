@@ -7,6 +7,7 @@ This script provides core functionalities for the OST package.
 import os
 from os.path import join as opj
 import sys
+import glob
 import shlex
 import shutil
 import subprocess
@@ -15,6 +16,7 @@ import datetime
 from datetime import timedelta
 from pathlib import Path
 
+import gdal
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -133,6 +135,20 @@ def timer(start):
     print(' INFO: Time elapsed: {}'.format(timedelta(seconds=elapsed)))
 
 
+def remove_folder_content(folder):
+    '''A helper function that cleans the content of a folder
+
+    Args:
+        folder: the folder, where everything should be deleted
+    '''
+
+    for root, dirs, files in os.walk(folder):
+        for f in files:
+            os.unlink(os.path.join(root, f))
+        for d in dirs:
+            shutil.rmtree(os.path.join(root, d))
+
+
 def run_command(command, logfile):
     ''' A helper function to execute a command line command
 
@@ -160,23 +176,72 @@ def run_command(command, logfile):
     return process.returncode
 
 
-def delete_dimap(file_prefix):
-    '''
-    Removes both dim and data from a Snap dimap file
+def delete_dimap(dimap_prefix):
+    '''Removes both dim and data from a Snap dimap file
+
     '''
 
-    shutil.rmtree('{}.data'.format(file_prefix))
-    os.remove('{}.dim'.format(file_prefix))
+    shutil.rmtree('{}.data'.format(dimap_prefix))
+    os.remove('{}.dim'.format(dimap_prefix))
 
 
 def move_dimap(infile_prefix, outfile_prefix):
+    '''This function moves a dima file to another locations
+
+
+    '''
 
     if os.path.isdir('{}.data'.format(outfile_prefix)):
         delete_dimap(outfile_prefix)
 
     out_dir = os.path.split('{}.data'.format(outfile_prefix))[:-1][0]
-    print(out_dir)
+
     # move them to the outfolder
     shutil.move('{}.data'.format(infile_prefix), out_dir)
     shutil.move('{}.dim'.format(infile_prefix),
                 '{}.dim'.format(outfile_prefix))
+
+
+def check_out_dimap(dimap_prefix, test_stats=True):
+
+    return_code = 0
+
+    # check if both dim and data exist, else return
+    if not os.path.isfile('{}.dim'.format(dimap_prefix)):
+        return 666
+
+    if not os.path.isdir('{}.data'.format(dimap_prefix)):
+        return 666
+
+    # check for file size of the dim file
+    dim_size_in_mb = os.path.getsize('{}.dim'.format(dimap_prefix)) / 1048576
+
+    if dim_size_in_mb < 1:
+        return 666
+
+    for file in glob.glob(opj('{}.data'.format(dimap_prefix), '*.img')):
+
+        # check size
+        data_size_in_mb = os.path.getsize(file) / 1048576
+
+        if data_size_in_mb < 1:
+            return 666
+
+        if test_stats:
+            # open the file
+            ds = gdal.Open(file)
+            stats = ds.GetRasterBand(1).GetStatistics(0, 1)
+
+            # check for mean value of layer
+            if stats[2] == 0:
+                return 666
+
+            # check for stddev value of layer
+            if stats[3] == 0:
+                return 666
+
+            # if difference ofmin and max is 0
+            if stats[1] - stats[0] == 0:
+                return 666
+
+    return return_code

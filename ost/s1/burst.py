@@ -5,9 +5,11 @@
 
 import os
 from os.path import join as opj
+import shutil
 import glob
 import time
 import datetime
+import itertools
 
 import gdal
 import geopandas as gpd
@@ -95,7 +97,7 @@ def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
 
 
 def refine_burst_inventory(aoi, burst_gdf):
-    '''Creates a Burst GoDataFrame from an OST inventory file
+    '''Creates a Burst GeoDataFrame from an OST inventory file
 
     Args:
 
@@ -144,6 +146,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
     dem = ard_parameters['dem']
     coherence = ard_parameters['coherence']
     polarimetry = ard_parameters['polarimetry']
+    pol_speckle_filter = ard_parameters['pol_speckle_filter']
 
     for burst in burst_inventory.bid.unique():      # ***
 
@@ -152,11 +155,14 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                 burst_inventory.bid == burst].sort_values().tolist()
 
         # loop through dates
-        for idx, date in enumerate(dates):
+        for idx, date in enumerate(dates):      # ******
 
+            print(' INFO: Entering burst {} at date {}.'.format(burst, date))
             # get master date
             master_date = dates[idx]
+            # we set this for handling the end of the time-series
             end = False
+            coherence = ard_parameters['coherence']
 
             # try to get slave date
             try:
@@ -183,55 +189,61 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             master_burst_nr = master_burst.BurstNr.values[0]
             # create a fileId
             master_id = '{}_{}'.format(master_date, master_burst.bid.values[0])
-            # create logFile
-            logfile = '{}.errLog'.format(master_id)
 
             # create out folder
             out_dir = '{}/{}/{}'.format(processing_dir, burst, date)
             os.makedirs(out_dir, exist_ok=True)
 
-            if end is True:
-                coherence = False
-                slave_file, slave_burst_nr, slave_id = None, None, None
+            # check if already processed
+            if os.path.isfile(opj(out_dir, '.processed')):
+                print(' INFO: Burst {} from {} already processed'.format(
+                    burst, date))
+                # return_code = 0
             else:
-                # read slave burst
-                slave_burst = burst_inventory[
-                        (burst_inventory.Date == slave_date) &
-                        (burst_inventory.bid == burst)]
+                if end is True:
+                    coherence = False
+                    slave_file, slave_burst_nr, slave_id = None, None, None
+                else:
+                    # read slave burst
+                    slave_burst = burst_inventory[
+                            (burst_inventory.Date == slave_date) &
+                            (burst_inventory.bid == burst)]
 
-                slave_scene = S1Scene(slave_burst.SceneID.values[0])
+                    slave_scene = S1Scene(slave_burst.SceneID.values[0])
 
-                # get path to slave file
-                slave_file = slave_scene.get_scene_path(download_dir)
+                    # get path to slave file
+                    slave_file = slave_scene.get_scene_path(download_dir)
 
-                # burst number in slave file (subswath is same)
-                slave_burst_nr = slave_burst.BurstNr.values[0]
+                    # burst number in slave file (subswath is same)
+                    slave_burst_nr = slave_burst.BurstNr.values[0]
 
-                # outfile name
-                slave_id = '{}_{}'.format(slave_date,
-                                          slave_burst.bid.values[0])
+                    # outfile name
+                    slave_id = '{}_{}'.format(slave_date,
+                                              slave_burst.bid.values[0])
 
-            # run routine
-            burst_to_ard.burst_to_ard(
-                 master_file=master_file,
-                 swath=subswath,
-                 master_burst_nr=master_burst_nr,
-                 master_burst_id=master_id,
-                 out_dir=out_dir,
-                 temp_dir=temp_dir,
-                 logfile=logfile,
-                 slave_file=slave_file,
-                 slave_burst_nr=slave_burst_nr,
-                 slave_burst_id=slave_id,
-                 coherence=coherence,
-                 polarimetry=polarimetry,
-                 resolution=resolution,
-                 product_type=product_type,
-                 speckle_filter=speckle_filter,
-                 to_db=to_db,
-                 ls_mask=ls_mask,
-                 dem=dem,
-                 remove_slave_import=False)
+                # run routine
+                burst_to_ard.burst_to_ard(
+                     master_file=master_file,
+                     swath=subswath,
+                     master_burst_nr=master_burst_nr,
+                     master_burst_id=master_id,
+                     out_dir=out_dir,
+                     temp_dir=temp_dir,
+                     slave_file=slave_file,
+                     slave_burst_nr=slave_burst_nr,
+                     slave_burst_id=slave_id,
+                     coherence=coherence,
+                     polarimetry=polarimetry,
+                     pol_speckle_filter=pol_speckle_filter,
+                     resolution=resolution,
+                     product_type=product_type,
+                     speckle_filter=speckle_filter,
+                     to_db=to_db,
+                     ls_mask=ls_mask,
+                     dem=dem,
+                     remove_slave_import=False)
+
+    # return return_code
 
 
 def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
@@ -242,26 +254,38 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
     ls_mask = ard_parameters['ls_mask']
     mt_speckle_filter = ard_parameters['mt_speckle_filter']
     # timescan = ard_parameters['timescan']
-    logfile = '/home/avollrath/dummy_logfile'
 
     for burst in burst_inventory.bid.unique():      # ***
 
+        ###ard_to_ts()
         burst_dir = opj(processing_dir, burst)
-        # get extent
+
+        # get common burst extent
         list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
         list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-        extent = ts.mt_extent(list_of_scenes, temp_dir)
+        ts.mt_extent(list_of_scenes,
+                     opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)))
+
+        # apply a negative buffer of -10 x 10m resolution
+        vec.buffer_shape(opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)),
+                         opj(burst_dir, '{}.extent.shp'.format(burst)),
+                         -0.0018)
+
+        # remove inital extent
+        for file in glob.glob(opj(burst_dir, 'tmp*')):
+            os.remove(file)
 
         # layover/shadow mask
         if ls_mask is True:
+            list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
             list_of_layover = [x for x in list_of_scenes if 'layover' in x]
             # print(list_of_layover)
             ls_layer = ts.mt_layover(list_of_layover, burst_dir, temp_dir)
             print(' INFO: Our common layover mask is ocated at {}'.format(
-                ls_layer))
+                  ls_layer))
 
         list_of_product_types = {'BS': 'Gamma0', 'coh': 'coh',
-                                 'HAalpha': 'Alpha'}
+                                 'ha_alpha': 'Alpha'}
 
         # we loop through each possible product
         for p, product_name in list_of_product_types.items():
@@ -284,23 +308,35 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                         ','.join(list_of_ts_bursts))
 
                     # define out_dir for stacking routine
-                    out_dir = '{}/{}/Timeseries'.format(processing_dir, burst)
+
+                    out_dir = opj(processing_dir,
+                                  '{}/Timeseries'.format(burst))
                     os.makedirs(out_dir, exist_ok=True)
 
                     # create namespaces
-                    temp_stack = '{}/{}_{}_{}_mt'.format(temp_dir, burst,
-                                                         p, pol)
-                    out_stack = '{}/{}_{}_{}_mtF'.format(out_dir,
-                                                         burst, p, pol)
+
+                    temp_stack = opj(temp_dir,
+                                     '{}_{}_{}_mt'.format(burst, p, pol))
+
+                    out_stack = opj(out_dir,
+                                    '{}_{}_{}_mt'.format(burst, p, pol))
+
+                    stack_log = opj(out_dir,
+                                    '{}_{}_{}_stack.err_log'.format(
+                                        burst, p, pol))
 
                     # run stacking routines
-                    ts.create_stack(list_of_ts_bursts, temp_stack, logfile,
+                    ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
                                     polarisation=pol)
 
                     # run mt speckle filter
                     if mt_speckle_filter is True:
+                        speckle_log = opj(
+                            out_dir, '{}_{}_{}_mt_speckle.err_log'.format(
+                                burst, p, pol))
+
                         ts.mt_speckle_filter('{}.dim'.format(temp_stack),
-                                             out_stack, logfile)
+                                             out_stack, speckle_log)
                         # remove tmp files
                         h.delete_dimap(temp_stack)
                     else:
@@ -336,10 +372,12 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                                 i, outDate, p, pol))
 
                             # mask by extent
-                            ras.mask_by_shape(infile, outfile, extent,
-                                              to_db=to_db, datatype=datatype,
-                                              min_value=-30, max_value=5,
-                                              ndv=0)
+                            ras.mask_by_shape(
+                                infile, outfile,
+                                opj(burst_dir, '{}.extent.shp'.format(burst)),
+                                to_db=to_db, datatype=datatype,
+                                min_value=-30, max_value=5,
+                                ndv=0)
                             # add ot a list for subsequent vrt creation
                             outfiles.append(outfile)
 
@@ -392,10 +430,12 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                             outfile = opj(out_dir, '{}.{}.{}.{}.{}.tif'.format(
                                 i, outMst, outSlv, p, pol))
 
-                            ras.mask_by_shape(infile, outfile, extent,
-                                              to_db=False, datatype=datatype,
-                                              min_value=0.000001, max_value=1,
-                                              ndv=0)
+                            ras.mask_by_shape(
+                                infile, outfile,
+                                opj(burst_dir, '{}.extent.shp'.format(burst)),
+                                to_db=False, datatype=datatype,
+                                min_value=0.000001, max_value=1,
+                                ndv=0)
 
                             # add ot a list for subsequent vrt creation
                             outfiles.append(outfile)
@@ -428,18 +468,25 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                     list_of_ts_bursts))
 
                 # print(list_of_ts_bursts)
-                out_dir = '{}/{}/Timeseries'.format(processing_dir, burst)
+
+                out_dir = opj(processing_dir, '{}/Timeseries'.format(burst))
                 os.makedirs(out_dir, exist_ok=True)
 
-                temp_stack = '{}/{}_{}_mt'.format(temp_dir, burst, pol)
-                out_stack = '{}/{}_{}_mt'.format(out_dir, burst, pol)
+                temp_stack = opj(temp_dir, '{}_{}_mt'.format(burst, pol))
+                out_stack = opj(out_dir, '{}_{}_mt'.format(burst, pol))
 
+                stack_log = opj(out_dir,
+                                '{}_{}_stack.err_log'.format(burst, pol))
                 # processing routines
-                ts.create_stack(list_of_ts_bursts, temp_stack, logfile,
+                ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
                                 pattern=pol)
+
                 if mt_speckle_filter is True:
+                    speckle_log = opj(out_dir,
+                                      '{}_{}_mt_speckle.err_log'.format(
+                                             burst, pol))
                     ts.mt_speckle_filter('{}.dim'.format(temp_stack),
-                                         out_stack, logfile)
+                                         out_stack, speckle_log)
                     # remove tmp files
                     h.delete_dimap(temp_stack)
                 else:
@@ -469,9 +516,11 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                             i, outDate, p, pol))
                     # mask by extent
                     max_value = 90 if pol is 'Alpha' else 1
-                    ras.mask_by_shape(infile, outfile, extent, to_db=False,
-                                      datatype=datatype, min_value=0.000001,
-                                      max_value=max_value, ndv=0)
+                    ras.mask_by_shape(
+                        infile, outfile,
+                        opj(burst_dir, '{}.extent.shp'.format(burst)),
+                        to_db=False, datatype=datatype, min_value=0.000001,
+                        max_value=max_value, ndv=0)
 
                     # add ot a list for subsequent vrt creation
                     outfiles.append(outfile)
@@ -498,18 +547,21 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
     else:
         to_db = False
 
+    product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
+                    'coh.VV', 'coh.VH', 'Alpha', 'Entropy', 'Anisotropy']
     metrics = ard_parameters['metrics']
     outlier_removal = ard_parameters['outlier_removal']
 
     for burst in burst_inventory.bid.unique():   # ***
 
         burst_dir = opj(processing_dir, burst)
-
-        for timeseries in glob.glob(opj(burst_dir, '*', '*vrt')):
+        #ts_totscan
+        for timeseries in glob.glob(opj(burst_dir, 'Timeseries', '*vrt')):
 
             timescan_dir = opj(burst_dir, 'Timescan')
             os.makedirs(timescan_dir, exist_ok=True)
 
+            # we get the name of the time-series parameter
             polarisation = timeseries.split('/')[-1].split('.')[2]
             if polarisation == 'vrt':
                 timescan_prefix = opj(
@@ -532,4 +584,106 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
                               rescale_to_datatype=False,
                               to_power=False,
                               outlier_removal=outlier_removal)
+
             h.timer(start)
+
+        # rename and create vrt
+        # print('renaming')
+        i, list_of_files = 0, []
+        for product in itertools.product(product_list, metrics):
+
+            file = glob.glob(
+                opj(burst_dir, 'Timescan', '*{}.{}.tif'.format(
+                    product[0], product[1])))
+
+            if file:
+                i += 1
+                basename = os.path.basename(file[0])
+                shutil.move(file[0], opj(burst_dir, 'Timescan', '{}.{}'.format(
+                    i, basename)))
+                list_of_files.append(opj(burst_dir, 'Timescan', '{}.{}'.format(
+                    i, basename)))
+
+        # create vrt
+        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+        gdal.BuildVRT(opj(burst_dir, 'Timescan', 'Timescan.vrt'),
+                      list_of_files,
+                      options=vrt_options)
+
+
+def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
+                      ard_parameters):
+
+    product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
+                    'coh.VV', 'coh.VH', 'ha_alpha.Alpha',
+                    'ha_alpha.Entropy', 'ha_alpha.Anisotropy']
+
+    os.makedirs(opj(processing_dir, 'Mosaic', 'Timeseries'), exist_ok=True)
+
+    # we do this to get the minimum number of
+    # timesteps per burst (should be actually the same)
+    length = 99999
+    for burst in burst_inventory.bid.unique():
+
+        length_of_burst = len(burst_inventory[burst_inventory.bid == burst])
+
+        if length_of_burst < length:
+            length = length_of_burst
+
+    # now we loop through each timestep and product
+    for product in product_list:
+        list_of_files = []
+        for i in range(length):
+
+            filelist = glob.glob(
+                opj(processing_dir, '*', 'Timeseries', '{}.*{}.tif'.format(
+                    i + 1, product)))
+
+            if filelist:
+                out_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
+                os.makedirs(out_dir, exist_ok=True)
+                outfile = opj(out_dir, '{}.{}.tif'.format(i + 1, product))
+                list_of_files.append(outfile)
+                filelist = ' '.join(filelist)
+                command = ('otbcli_Mosaic -il {} -comp.feather large '
+                           '-tmpdir {} -progress 1 -out {} float'.format(
+                               filelist, temp_dir, outfile))
+                os.system(command)
+
+        # create vrt
+        if list_of_files:
+            vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+            gdal.BuildVRT(opj(out_dir, '{}.Timeseries.vrt'.format(product)),
+                          list_of_files,
+                          options=vrt_options)
+
+
+def mosaic_timescan(burst_inventory, processing_dir, temp_dir, ard_parameters):
+
+    product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
+                    'coh.VV', 'coh.VH', 'Alpha', 'Entropy', 'Anisotropy']
+    metrics = ard_parameters['metrics']
+
+    os.makedirs(opj(processing_dir, 'Mosaic', 'Timescan'), exist_ok=True)
+    i, list_of_files = 0, []
+    for product in itertools.product(product_list, metrics):
+
+        filelist = ' '.join(glob.glob(
+            opj(processing_dir, '*', 'Timescan', '*{}.{}.tif'.format(
+                product[0], product[1]))))
+
+        if filelist:
+            i += 1
+            outfile = opj(processing_dir, 'Mosaic', 'Timescan',
+                          '{}.{}.{}.tif'.format(i, product[0], product[1]))
+            command = ('otbcli_Mosaic -il {} -comp.feather large -tmpdir {}'
+                       ' -progress 1 -out {} float'.format(
+                               filelist, temp_dir, outfile))
+            os.system(command)
+            list_of_files.append(outfile)
+
+    # create vrt
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    gdal.BuildVRT(opj(processing_dir, 'Mosaic', 'Timescan', 'Timescan.vrt'),
+                  list_of_files,
+                  options=vrt_options)

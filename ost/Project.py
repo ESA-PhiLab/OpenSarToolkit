@@ -12,7 +12,7 @@ from datetime import datetime
 from shapely.wkt import loads
 
 from .s1 import search, refine, download, burst
-from .helpers import scihub
+from .helpers import scihub, helpers as h
 from .helpers import vector as vec
 
 # set logging
@@ -144,7 +144,7 @@ class OSTProject():
         logging.info(' Using {} as  directory for temporary files.'
                      .format(self.temp_dir))
 
-    def create_directory_structure(self, prjoject_dir=None, download_dir=None,
+    def create_directory_structure(self, project_dir=None, download_dir=None,
                                    inventory_dir=None, processing_dir=None,
                                    temp_dir=None):
 
@@ -274,9 +274,11 @@ class S1Project(OSTProject):
 
         if key:
             self.burst_inventory = burst.burst_inventory(
-                self.refined_inventory_dict[key])
+                self.refined_inventory_dict[key],
+                download_dir=self.download_dir)
         else:
-            self.burst_inventory = burst.burst_inventory(self.inventory)
+            self.burst_inventory = burst.burst_inventory(
+                    self.inventory, download_dir=self.download_dir)
 
         if refine:
             self.burst_inventory = burst.refine_burst_inventory(
@@ -289,8 +291,8 @@ class S1Project(OSTProject):
             # scene specific
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'GTCgamma'
+            self.ard_parameters['border_noise'] = False
+            self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['to_db'] = False
             self.ard_parameters['speckle_filter'] = False
             self.ard_parameters['pol_speckle_filter'] = False
@@ -300,7 +302,7 @@ class S1Project(OSTProject):
             self.ard_parameters['polarimetry'] = True
 
             # timeseries specific
-            self.ard_parameters['to_db_mt'] = False
+            self.ard_parameters['to_db_mt'] = True
             self.ard_parameters['mt_speckle_filter'] = True
             self.ard_parameters['datatype'] = 'float32'
 
@@ -309,11 +311,41 @@ class S1Project(OSTProject):
                                               'std', 'cov']
             self.ard_parameters['outlier_removal'] = True
 
-            # assure that we do not convert twice to dB
-            if self.ard_parameters['to_db']:
-                self.ard_parameters['to_db_mt'] = False
+        elif ard_type == 'Zhuo':
 
-    def burst_to_ard(self, timeseries=False, timescan=False, mosaic=False):
+            # scene specific
+            self.ard_parameters['type'] = ard_type
+            self.ard_parameters['resolution'] = 25
+            self.ard_parameters['border_noise'] = False
+            self.ard_parameters['product_type'] = 'RTC'
+            self.ard_parameters['to_db'] = False
+            self.ard_parameters['speckle_filter'] = True
+            self.ard_parameters['pol_speckle_filter'] = True
+            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['coherence'] = False
+            self.ard_parameters['polarimetry'] = True
+
+            # timeseries specific
+            self.ard_parameters['to_db_mt'] = False
+            self.ard_parameters['mt_speckle_filter'] = False
+            self.ard_parameters['datatype'] = 'float32'
+
+            # timescan specific
+            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
+                                              'std', 'cov']
+            self.ard_parameters['outlier_removal'] = False
+
+        # assure that we do not convert twice to dB
+        if self.ard_parameters['to_db']:
+            self.ard_parameters['to_db_mt'] = False
+
+    def burst_to_ard(self, timeseries=False, timescan=False, mosaic=False,
+                     overwrite=False):
+
+        if overwrite:
+            print(' INFO: Deleting processing folder to start from scratch')
+            h.remove_folder_content(self.processing_dir)
 
         if not self.ard_parameters:
             self.set_ard_definition()
@@ -331,16 +363,24 @@ class S1Project(OSTProject):
                                            self.temp_dir,
                                            self.ard_parameters)
 
-        # do we deleete the single ARDs here?
+            # do we deleete the single ARDs here?
+            if timescan:
+                burst.timeseries_to_timescan(self.burst_inventory,
+                                             self.processing_dir,
+                                             self.temp_dir,
+                                             self.ard_parameters)
 
-        if timescan:
-            burst.timeseries_to_timescan(self.burst_inventory,
-                                         self.processing_dir,
-                                         self.temp_dir,
-                                         self.ard_parameters)
+        if mosaic and timeseries:
+            burst.mosaic_timescan(self.burst_inventory,
+                                  self.processing_dir,
+                                  self.temp_dir,
+                                  self.ard_parameters)
 
-        if mosaic:
-            print(' Info: We do mosaicking')
+        if mosaic and timescan:
+            burst.mosaic_timescan(self.burst_inventory,
+                                  self.processing_dir,
+                                  self.temp_dir,
+                                  self.ard_parameters)
 
     def plot_inventory(self, inventory_df=None, transperancy=0.05):
 

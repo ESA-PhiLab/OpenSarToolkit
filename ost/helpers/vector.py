@@ -9,7 +9,7 @@ import geopandas as gpd
 from osgeo import osr
 from shapely.ops import transform
 from shapely.wkt import loads
-from shapely.geometry import Point, Polygon, mapping
+from shapely.geometry import Point, Polygon, mapping, shape
 from fiona import collection
 from fiona.crs import from_epsg
 
@@ -288,13 +288,33 @@ def wkt_to_shp(wkt, outfile):
 def inventory_to_shp(inventory_df, outfile):
 
     # change datetime datatypes
-    inventory_df['acquisitiondate'] = inventory_df['acquisitiondate'].astype(str)
+    inventory_df['acquisitiondate'] = inventory_df[
+        'acquisitiondate'].astype(str)
     inventory_df['ingestiondate'] = inventory_df['ingestiondate'].astype(str)
     inventory_df['beginposition'] = inventory_df['beginposition'].astype(str)
     inventory_df['endposition'] = inventory_df['endposition'].astype(str)
 
     # write to shapefile
     inventory_df.to_file(outfile)
+
+
+def buffer_shape(infile, outfile, buffer=None):
+
+    with collection(infile, "r") as in_shape:
+        # schema = in_shape.schema.copy()
+        schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
+        crs = in_shape.crs
+        with collection(
+                outfile, "w", "ESRI Shapefile", schema, crs=crs) as output:
+
+            for i, point in enumerate(in_shape):
+                output.write({
+                    'properties': {
+                        'id': i
+                    },
+                    'geometry': mapping(
+                        shape(point['geometry']).buffer(buffer))
+                })
 
 
 def plot_inventory(aoi, inventory_df, transperancy=0.05):

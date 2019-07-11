@@ -566,7 +566,10 @@ def search_refinement(aoi, inventory_df, inventory_dir,
             if orb == 'ASCENDING':
                 inventory_refined = _handle_equator_crossing(inventory_refined)
 
-            if exclude_marginal is True:
+            # get number of tracks
+            nr_of_tracks = len(inventory_refined.relativeorbit.unique())
+            print(nr_of_tracks)
+            if exclude_marginal is True and nr_of_tracks > 1:
                 inventory_refined = _exclude_marginal_tracks(
                     aoi_gdf, inventory_refined, area_reduce)
 
@@ -582,7 +585,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
                 inventory_refined = _backward_search(
                     aoi_gdf, inventory_refined, datelist, area_reduce)
 
-            if inventory_refined is not None:
+            if len(inventory_refined) != 0:
                 vec.inventory_to_shp(
                     inventory_refined, '{}/{}_{}_{}.shp'.format(
                         inventory_dir, len(datelist), orb, ''.join(pol.split())
