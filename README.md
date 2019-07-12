@@ -83,13 +83,21 @@ pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ### Conda Installation (Windows, Mac, Linux)
 
 Download miniconda3 (python version 3) from https://conda.io/miniconda.html
-and install it.
-
-Run:
+and install it:
 ```
-conda install git pip gcc gdal jupyter requests tqdm psycopg2 numpy scipy matplotlib
-conda install -c conda-forge geopandas rtree shapely rasterio fiona
+# get the installer
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+# install
+bash Miniconda3-latest-Linux-x86_64.sh
+# source the new installation
+source .bashrc
+# remove installer
+rm  Miniconda3-latest-Linux-x86_64.sh
+```
 
+Then install OST's dependencies:
+```
+conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
 ```
 
 and then

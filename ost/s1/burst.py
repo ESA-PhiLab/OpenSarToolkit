@@ -246,245 +246,86 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
     # return return_code
 
 
-def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
-                             ard_parameters):
+def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
+               burst, to_db, ls_mask, mt_speckle_filter, datatype):
 
-    datatype = ard_parameters['datatype']
-    to_db = ard_parameters['to_db_mt']
-    ls_mask = ard_parameters['ls_mask']
-    mt_speckle_filter = ard_parameters['mt_speckle_filter']
-    # timescan = ard_parameters['timescan']
+    burst_dir = opj(processing_dir, burst)
 
-    for burst in burst_inventory.bid.unique():      # ***
+    # get common burst extent
+    list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
+    list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
+    ts.mt_extent(list_of_scenes,
+                 opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)))
 
-        ###ard_to_ts()
-        burst_dir = opj(processing_dir, burst)
+    # apply a negative buffer of -10 x 10m resolution
+    vec.buffer_shape(opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)),
+                     opj(burst_dir, '{}.extent.shp'.format(burst)),
+                     -0.0018)
 
-        # get common burst extent
+    # remove inital extent
+    for file in glob.glob(opj(burst_dir, 'tmp*')):
+        os.remove(file)
+
+    # layover/shadow mask
+    if ls_mask is True:
         list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
-        list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-        ts.mt_extent(list_of_scenes,
-                     opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)))
+        list_of_layover = [x for x in list_of_scenes if 'layover' in x]
+        # print(list_of_layover)
+        ls_layer = ts.mt_layover(list_of_layover, burst_dir, temp_dir)
+        print(' INFO: Our common layover mask is ocated at {}'.format(
+              ls_layer))
 
-        # apply a negative buffer of -10 x 10m resolution
-        vec.buffer_shape(opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)),
-                         opj(burst_dir, '{}.extent.shp'.format(burst)),
-                         -0.0018)
+    list_of_product_types = {'BS': 'Gamma0', 'coh': 'coh',
+                             'ha_alpha': 'Alpha'}
 
-        # remove inital extent
-        for file in glob.glob(opj(burst_dir, 'tmp*')):
-            os.remove(file)
+    # we loop through each possible product
+    for p, product_name in list_of_product_types.items():
 
-        # layover/shadow mask
-        if ls_mask is True:
-            list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
-            list_of_layover = [x for x in list_of_scenes if 'layover' in x]
-            # print(list_of_layover)
-            ls_layer = ts.mt_layover(list_of_layover, burst_dir, temp_dir)
-            print(' INFO: Our common layover mask is ocated at {}'.format(
-                  ls_layer))
+        # we loop through each polarisation
+        for pol in ['VV', 'VH', 'HH', 'HV']:
 
-        list_of_product_types = {'BS': 'Gamma0', 'coh': 'coh',
-                                 'ha_alpha': 'Alpha'}
-
-        # we loop through each possible product
-        for p, product_name in list_of_product_types.items():
-
-            # we loop through each polarisation
-            for pol in ['VV', 'VH', 'HH', 'HV']:
-
-                # see if there is actually any imagery
-                list_of_ts_bursts = sorted(glob.glob(
-                    opj(processing_dir, burst, '20*', '*data*', '{}*{}*img'
-                        .format(product_name, pol))))
-
-                if len(list_of_ts_bursts) > 1:
-
-                    # check for all datafiles of this product type
-                    list_of_ts_bursts = sorted(glob.glob(
-                        opj(processing_dir, burst, '20*/', '*{}*dim'.format(
-                                p))))
-                    list_of_ts_bursts = '\'{}\''.format(
-                        ','.join(list_of_ts_bursts))
-
-                    # define out_dir for stacking routine
-
-                    out_dir = opj(processing_dir,
-                                  '{}/Timeseries'.format(burst))
-                    os.makedirs(out_dir, exist_ok=True)
-
-                    # create namespaces
-
-                    temp_stack = opj(temp_dir,
-                                     '{}_{}_{}_mt'.format(burst, p, pol))
-
-                    out_stack = opj(out_dir,
-                                    '{}_{}_{}_mt'.format(burst, p, pol))
-
-                    stack_log = opj(out_dir,
-                                    '{}_{}_{}_stack.err_log'.format(
-                                        burst, p, pol))
-
-                    # run stacking routines
-                    ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
-                                    polarisation=pol)
-
-                    # run mt speckle filter
-                    if mt_speckle_filter is True:
-                        speckle_log = opj(
-                            out_dir, '{}_{}_{}_mt_speckle.err_log'.format(
-                                burst, p, pol))
-
-                        ts.mt_speckle_filter('{}.dim'.format(temp_stack),
-                                             out_stack, speckle_log)
-                        # remove tmp files
-                        h.delete_dimap(temp_stack)
-                    else:
-                        out_stack = temp_stack
-
-                    # convert to GeoTiffs
-                    if p == 'BS':
-                        # get the dates of the files
-                        dates = [datetime.datetime.strptime(
-                            x.split('_')[-1][:-4], '%d%b%Y')
-                                for x in glob.glob(
-                                    opj('{}.data'.format(out_stack), '*img'))]
-                        # sort them
-                        dates.sort()
-                        # write them back to string for following loop
-                        sortedDates = [datetime.datetime.strftime(
-                            ts, "%d%b%Y") for ts in dates]
-
-                        i, outfiles = 1, []
-                        for date in sortedDates:
-
-                            # restructure date to YYMMDD
-                            inDate = datetime.datetime.strptime(date, '%d%b%Y')
-                            outDate = datetime.datetime.strftime(inDate,
-                                                                 '%y%m%d')
-
-                            infile = glob.glob(opj('{}.data'.format(out_stack),
-                                                   '*{}*{}*img'.format(
-                                                               pol, date)))[0]
-
-                            # create outfile
-                            outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
-                                i, outDate, p, pol))
-
-                            # mask by extent
-                            ras.mask_by_shape(
-                                infile, outfile,
-                                opj(burst_dir, '{}.extent.shp'.format(burst)),
-                                to_db=to_db, datatype=datatype,
-                                min_value=-30, max_value=5,
-                                ndv=0)
-                            # add ot a list for subsequent vrt creation
-                            outfiles.append(outfile)
-
-                            i += 1
-
-                        # build vrt of timeseries
-                        vrt_options = gdal.BuildVRTOptions(srcNodata=0,
-                                                           separate=True)
-                        gdal.BuildVRT(opj(out_dir,
-                                          'Timeseries.{}.{}.vrt'.format(
-                                              p, pol)),
-                                      outfiles,
-                                      options=vrt_options)
-
-                    if p == 'coh':
-
-                        # get slave and master Date
-                        mstDates = [datetime.datetime.strptime(
-                            os.path.basename(x).split('_')[3].split('.')[0],
-                            '%d%b%Y') for x in glob.glob(
-                                opj('{}.data'.format(out_stack), '*img'))]
-
-                        slvDates = [datetime.datetime.strptime(
-                            os.path.basename(x).split('_')[4].split('.')[0],
-                            '%d%b%Y') for x in glob.glob(
-                                opj('{}.data'.format(out_stack), '*img'))]
-                        # sort them
-                        mstDates.sort()
-                        slvDates.sort()
-                        # write them back to string for following loop
-                        sortedMstDates = [datetime.datetime.strftime(
-                            ts, "%d%b%Y") for ts in mstDates]
-                        sortedSlvDates = [datetime.datetime.strftime(
-                            ts, "%d%b%Y") for ts in slvDates]
-
-                        i, outfiles = 1, []
-                        for mst, slv in zip(sortedMstDates, sortedSlvDates):
-
-                            inMst = datetime.datetime.strptime(mst, '%d%b%Y')
-                            inSlv = datetime.datetime.strptime(slv, '%d%b%Y')
-
-                            outMst = datetime.datetime.strftime(inMst,
-                                                                '%y%m%d')
-                            outSlv = datetime.datetime.strftime(inSlv,
-                                                                '%y%m%d')
-
-                            infile = glob.glob(opj('{}.data'.format(out_stack),
-                                                   '*{}*{}_{}*img'.format(
-                                                           pol, mst, slv)))[0]
-                            outfile = opj(out_dir, '{}.{}.{}.{}.{}.tif'.format(
-                                i, outMst, outSlv, p, pol))
-
-                            ras.mask_by_shape(
-                                infile, outfile,
-                                opj(burst_dir, '{}.extent.shp'.format(burst)),
-                                to_db=False, datatype=datatype,
-                                min_value=0.000001, max_value=1,
-                                ndv=0)
-
-                            # add ot a list for subsequent vrt creation
-                            outfiles.append(outfile)
-
-                            i += 1
-
-                        # build vrt of timeseries
-                        vrt_options = gdal.BuildVRTOptions(srcNodata=0,
-                                                           separate=True)
-                        gdal.BuildVRT(
-                                opj(out_dir,
-                                    'Timeseries.{}.{}.vrt'.format(p, pol)),
-                                outfiles,
-                                options=vrt_options)
-
-                    # remove tmp files
-                    h.delete_dimap(out_stack)
-
-        for pol in ['Alpha', 'Entropy', 'Anisotropy']:
-
+            # see if there is actually any imagery
             list_of_ts_bursts = sorted(glob.glob(
-                opj(processing_dir, burst, '20*',
-                    '*{}*'.format(p), '*{}.img'.format(pol))))
+                opj(processing_dir, burst, '20*', '*data*', '{}*{}*img'
+                    .format(product_name, pol))))
 
             if len(list_of_ts_bursts) > 1:
 
+                # check for all datafiles of this product type
                 list_of_ts_bursts = sorted(glob.glob(
-                    opj(processing_dir, burst, '20*/', '*{}*dim'.format(p))))
-                list_of_ts_bursts = '\'{}\''.format(','.join(
-                    list_of_ts_bursts))
+                    opj(processing_dir, burst, '20*/', '*{}*dim'.format(
+                            p))))
+                list_of_ts_bursts = '\'{}\''.format(
+                    ','.join(list_of_ts_bursts))
 
-                # print(list_of_ts_bursts)
+                # define out_dir for stacking routine
 
-                out_dir = opj(processing_dir, '{}/Timeseries'.format(burst))
+                out_dir = opj(processing_dir,
+                              '{}/Timeseries'.format(burst))
                 os.makedirs(out_dir, exist_ok=True)
 
-                temp_stack = opj(temp_dir, '{}_{}_mt'.format(burst, pol))
-                out_stack = opj(out_dir, '{}_{}_mt'.format(burst, pol))
+                # create namespaces
+
+                temp_stack = opj(temp_dir,
+                                 '{}_{}_{}_mt'.format(burst, p, pol))
+
+                out_stack = opj(out_dir,
+                                '{}_{}_{}_mt'.format(burst, p, pol))
 
                 stack_log = opj(out_dir,
-                                '{}_{}_stack.err_log'.format(burst, pol))
-                # processing routines
-                ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
-                                pattern=pol)
+                                '{}_{}_{}_stack.err_log'.format(
+                                    burst, p, pol))
 
+                # run stacking routines
+                ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
+                                polarisation=pol)
+
+                # run mt speckle filter
                 if mt_speckle_filter is True:
-                    speckle_log = opj(out_dir,
-                                      '{}_{}_mt_speckle.err_log'.format(
-                                             burst, pol))
+                    speckle_log = opj(
+                        out_dir, '{}_{}_{}_mt_speckle.err_log'.format(
+                            burst, p, pol))
+
                     ts.mt_speckle_filter('{}.dim'.format(temp_stack),
                                          out_stack, speckle_log)
                     # remove tmp files
@@ -492,48 +333,277 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                 else:
                     out_stack = temp_stack
 
-                # get the dates of the files
-                dates = [datetime.datetime.strptime(x.split('_')[-1][:-4],
-                         '%d%b%Y') for x in glob.glob(
-                            opj('{}.data'.format(out_stack), '*img'))]
-                # sort them
-                dates.sort()
-                # write them back to string for following loop
-                sortedDates = [datetime.datetime.strftime(
-                    ts, "%d%b%Y") for ts in dates]
+                # convert to GeoTiffs
+                if p == 'BS':
+                    # get the dates of the files
+                    dates = [datetime.datetime.strptime(
+                        x.split('_')[-1][:-4], '%d%b%Y')
+                            for x in glob.glob(
+                                opj('{}.data'.format(out_stack), '*img'))]
+                    # sort them
+                    dates.sort()
+                    # write them back to string for following loop
+                    sortedDates = [datetime.datetime.strftime(
+                        ts, "%d%b%Y") for ts in dates]
 
-                i, outfiles = 1, []
-                for date in sortedDates:
+                    i, outfiles = 1, []
+                    for date in sortedDates:
 
-                    # restructure date to YYMMDD
-                    inDate = datetime.datetime.strptime(date, '%d%b%Y')
-                    outDate = datetime.datetime.strftime(inDate, '%y%m%d')
+                        # restructure date to YYMMDD
+                        inDate = datetime.datetime.strptime(date, '%d%b%Y')
+                        outDate = datetime.datetime.strftime(inDate,
+                                                             '%y%m%d')
 
-                    infile = glob.glob(opj('{}.data'.format(out_stack),
-                                           '*{}*{}*img'.format(pol, date)))[0]
-                    # create outfile
-                    outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
+                        infile = glob.glob(opj('{}.data'.format(out_stack),
+                                               '*{}*{}*img'.format(
+                                                           pol, date)))[0]
+
+                        # create outfile
+                        outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
                             i, outDate, p, pol))
-                    # mask by extent
-                    max_value = 90 if pol is 'Alpha' else 1
-                    ras.mask_by_shape(
-                        infile, outfile,
-                        opj(burst_dir, '{}.extent.shp'.format(burst)),
-                        to_db=False, datatype=datatype, min_value=0.000001,
-                        max_value=max_value, ndv=0)
 
-                    # add ot a list for subsequent vrt creation
-                    outfiles.append(outfile)
-                    i += 1
+                        # mask by extent
+                        ras.mask_by_shape(
+                            infile, outfile,
+                            opj(burst_dir, '{}.extent.shp'.format(burst)),
+                            to_db=to_db, datatype=datatype,
+                            min_value=-30, max_value=5,
+                            ndv=0)
+                        # add ot a list for subsequent vrt creation
+                        outfiles.append(outfile)
 
-                # build vrt of timeseries
-                vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-                gdal.BuildVRT(opj(out_dir, 'Timeseries.{}.vrt'.format(pol)),
-                              outfiles,
-                              options=vrt_options)
+                        i += 1
+
+                    # build vrt of timeseries
+                    vrt_options = gdal.BuildVRTOptions(srcNodata=0,
+                                                       separate=True)
+                    gdal.BuildVRT(opj(out_dir,
+                                      'Timeseries.{}.{}.vrt'.format(
+                                          p, pol)),
+                                  outfiles,
+                                  options=vrt_options)
+
+                if p == 'coh':
+
+                    # get slave and master Date
+                    mstDates = [datetime.datetime.strptime(
+                        os.path.basename(x).split('_')[3].split('.')[0],
+                        '%d%b%Y') for x in glob.glob(
+                            opj('{}.data'.format(out_stack), '*img'))]
+
+                    slvDates = [datetime.datetime.strptime(
+                        os.path.basename(x).split('_')[4].split('.')[0],
+                        '%d%b%Y') for x in glob.glob(
+                            opj('{}.data'.format(out_stack), '*img'))]
+                    # sort them
+                    mstDates.sort()
+                    slvDates.sort()
+                    # write them back to string for following loop
+                    sortedMstDates = [datetime.datetime.strftime(
+                        ts, "%d%b%Y") for ts in mstDates]
+                    sortedSlvDates = [datetime.datetime.strftime(
+                        ts, "%d%b%Y") for ts in slvDates]
+
+                    i, outfiles = 1, []
+                    for mst, slv in zip(sortedMstDates, sortedSlvDates):
+
+                        inMst = datetime.datetime.strptime(mst, '%d%b%Y')
+                        inSlv = datetime.datetime.strptime(slv, '%d%b%Y')
+
+                        outMst = datetime.datetime.strftime(inMst,
+                                                            '%y%m%d')
+                        outSlv = datetime.datetime.strftime(inSlv,
+                                                            '%y%m%d')
+
+                        infile = glob.glob(opj('{}.data'.format(out_stack),
+                                               '*{}*{}_{}*img'.format(
+                                                       pol, mst, slv)))[0]
+                        outfile = opj(out_dir, '{}.{}.{}.{}.{}.tif'.format(
+                            i, outMst, outSlv, p, pol))
+
+                        ras.mask_by_shape(
+                            infile, outfile,
+                            opj(burst_dir, '{}.extent.shp'.format(burst)),
+                            to_db=False, datatype=datatype,
+                            min_value=0.000001, max_value=1,
+                            ndv=0)
+
+                        # add ot a list for subsequent vrt creation
+                        outfiles.append(outfile)
+
+                        i += 1
+
+                    # build vrt of timeseries
+                    vrt_options = gdal.BuildVRTOptions(srcNodata=0,
+                                                       separate=True)
+                    gdal.BuildVRT(
+                            opj(out_dir,
+                                'Timeseries.{}.{}.vrt'.format(p, pol)),
+                            outfiles,
+                            options=vrt_options)
 
                 # remove tmp files
                 h.delete_dimap(out_stack)
+
+    for pol in ['Alpha', 'Entropy', 'Anisotropy']:
+
+        list_of_ts_bursts = sorted(glob.glob(
+            opj(processing_dir, burst, '20*',
+                '*{}*'.format(p), '*{}.img'.format(pol))))
+
+        if len(list_of_ts_bursts) > 1:
+
+            list_of_ts_bursts = sorted(glob.glob(
+                opj(processing_dir, burst, '20*/', '*{}*dim'.format(p))))
+            list_of_ts_bursts = '\'{}\''.format(','.join(
+                list_of_ts_bursts))
+
+            # print(list_of_ts_bursts)
+
+            out_dir = opj(processing_dir, '{}/Timeseries'.format(burst))
+            os.makedirs(out_dir, exist_ok=True)
+
+            temp_stack = opj(temp_dir, '{}_{}_mt'.format(burst, pol))
+            out_stack = opj(out_dir, '{}_{}_mt'.format(burst, pol))
+
+            stack_log = opj(out_dir,
+                            '{}_{}_stack.err_log'.format(burst, pol))
+            # processing routines
+            ts.create_stack(list_of_ts_bursts, temp_stack, stack_log,
+                            pattern=pol)
+
+            if mt_speckle_filter is True:
+                speckle_log = opj(out_dir,
+                                  '{}_{}_mt_speckle.err_log'.format(
+                                         burst, pol))
+                ts.mt_speckle_filter('{}.dim'.format(temp_stack),
+                                     out_stack, speckle_log)
+                # remove tmp files
+                h.delete_dimap(temp_stack)
+            else:
+                out_stack = temp_stack
+
+            # get the dates of the files
+            dates = [datetime.datetime.strptime(x.split('_')[-1][:-4],
+                     '%d%b%Y') for x in glob.glob(
+                        opj('{}.data'.format(out_stack), '*img'))]
+            # sort them
+            dates.sort()
+            # write them back to string for following loop
+            sortedDates = [datetime.datetime.strftime(
+                ts, "%d%b%Y") for ts in dates]
+
+            i, outfiles = 1, []
+            for date in sortedDates:
+
+                # restructure date to YYMMDD
+                inDate = datetime.datetime.strptime(date, '%d%b%Y')
+                outDate = datetime.datetime.strftime(inDate, '%y%m%d')
+
+                infile = glob.glob(opj('{}.data'.format(out_stack),
+                                       '*{}*{}*img'.format(pol, date)))[0]
+                # create outfile
+                outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
+                        i, outDate, p, pol))
+                # mask by extent
+                max_value = 90 if pol is 'Alpha' else 1
+                ras.mask_by_shape(
+                    infile, outfile,
+                    opj(burst_dir, '{}.extent.shp'.format(burst)),
+                    to_db=False, datatype=datatype, min_value=0.000001,
+                    max_value=max_value, ndv=0)
+
+                # add ot a list for subsequent vrt creation
+                outfiles.append(outfile)
+                i += 1
+
+            # build vrt of timeseries
+            vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+            gdal.BuildVRT(opj(out_dir, 'Timeseries.{}.vrt'.format(pol)),
+                          outfiles,
+                          options=vrt_options)
+
+            # remove tmp files
+            h.delete_dimap(out_stack)
+
+
+def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
+                             ard_parameters):
+
+    datatype = ard_parameters['datatype']
+    to_db = ard_parameters['to_db_mt']
+    ls_mask = ard_parameters['ls_mask']
+    mt_speckle_filter = ard_parameters['mt_speckle_filter']
+
+    for burst in burst_inventory.bid.unique():      # ***
+
+        _ard_to_ts(burst_inventory, processing_dir, temp_dir,
+                   burst, to_db, ls_mask, mt_speckle_filter, datatype)
+
+
+# --------------------
+# timescan part
+# --------------------
+def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
+                            burst_dir, to_db, metrics, outlier_removal):
+
+    product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
+                    'coh.VV', 'coh.VH', 'Alpha', 'Entropy', 'Anisotropy']
+
+    for timeseries in glob.glob(opj(burst_dir, 'Timeseries', '*vrt')):
+
+        print(' INFO: creating timescan for {}'.format(product_list))
+        timescan_dir = opj(burst_dir, 'Timescan')
+        os.makedirs(timescan_dir, exist_ok=True)
+
+        # we get the name of the time-series parameter
+        polarisation = timeseries.split('/')[-1].split('.')[2]
+        if polarisation == 'vrt':
+            timescan_prefix = opj(
+                '{}'.format(timescan_dir),
+                '{}'.format(timeseries.split('/')[-1].split('.')[1]))
+        else:
+            timescan_prefix = opj(
+                '{}'.format(timescan_dir),
+                '{}.{}'.format(timeseries.split('/')[-1].split('.')[1],
+                               polarisation))
+
+        start = time.time()
+        if 'Timescan.BS.' in timescan_prefix:    # backscatter
+            ts.mt_metrics(timeseries, timescan_prefix, metrics,
+                          rescale_to_datatype=True,
+                          to_power=to_db,
+                          outlier_removal=outlier_removal)
+        else:   # non-backscatter
+            ts.mt_metrics(timeseries, timescan_prefix, metrics,
+                          rescale_to_datatype=False,
+                          to_power=False,
+                          outlier_removal=outlier_removal)
+
+        h.timer(start)
+
+    # rename and create vrt
+    # print('renaming')
+    i, list_of_files = 0, []
+    for product in itertools.product(product_list, metrics):
+
+        file = glob.glob(
+            opj(burst_dir, 'Timescan', '*{}.{}.tif'.format(
+                product[0], product[1])))
+
+        if file:
+            i += 1
+            basename = os.path.basename(file[0])
+            shutil.move(file[0], opj(burst_dir, 'Timescan', '{}.{}'.format(
+                i, basename)))
+            list_of_files.append(opj(burst_dir, 'Timescan', '{}.{}'.format(
+                i, basename)))
+
+    # create vrt
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    gdal.BuildVRT(opj(burst_dir, 'Timescan', 'Timescan.vrt'),
+                  list_of_files,
+                  options=vrt_options)
 
 
 def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
@@ -547,68 +617,16 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
     else:
         to_db = False
 
-    product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
-                    'coh.VV', 'coh.VH', 'Alpha', 'Entropy', 'Anisotropy']
     metrics = ard_parameters['metrics']
     outlier_removal = ard_parameters['outlier_removal']
 
     for burst in burst_inventory.bid.unique():   # ***
 
         burst_dir = opj(processing_dir, burst)
-        #ts_totscan
-        for timeseries in glob.glob(opj(burst_dir, 'Timeseries', '*vrt')):
 
-            timescan_dir = opj(burst_dir, 'Timescan')
-            os.makedirs(timescan_dir, exist_ok=True)
-
-            # we get the name of the time-series parameter
-            polarisation = timeseries.split('/')[-1].split('.')[2]
-            if polarisation == 'vrt':
-                timescan_prefix = opj(
-                    '{}'.format(timescan_dir),
-                    '{}'.format(timeseries.split('/')[-1].split('.')[1]))
-            else:
-                timescan_prefix = opj(
-                    '{}'.format(timescan_dir),
-                    '{}.{}'.format(timeseries.split('/')[-1].split('.')[1],
-                                   polarisation))
-
-            start = time.time()
-            if 'Timescan.BS.' in timescan_prefix:    # backscatter
-                ts.mt_metrics(timeseries, timescan_prefix, metrics,
-                              rescale_to_datatype=True,
-                              to_power=to_db,
-                              outlier_removal=outlier_removal)
-            else:   # non-backscatter
-                ts.mt_metrics(timeseries, timescan_prefix, metrics,
-                              rescale_to_datatype=False,
-                              to_power=False,
-                              outlier_removal=outlier_removal)
-
-            h.timer(start)
-
-        # rename and create vrt
-        # print('renaming')
-        i, list_of_files = 0, []
-        for product in itertools.product(product_list, metrics):
-
-            file = glob.glob(
-                opj(burst_dir, 'Timescan', '*{}.{}.tif'.format(
-                    product[0], product[1])))
-
-            if file:
-                i += 1
-                basename = os.path.basename(file[0])
-                shutil.move(file[0], opj(burst_dir, 'Timescan', '{}.{}'.format(
-                    i, basename)))
-                list_of_files.append(opj(burst_dir, 'Timescan', '{}.{}'.format(
-                    i, basename)))
-
-        # create vrt
-        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-        gdal.BuildVRT(opj(burst_dir, 'Timescan', 'Timescan.vrt'),
-                      list_of_files,
-                      options=vrt_options)
+        print(' INFO: Entering burst {}'.format(burst))
+        _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
+                                burst_dir, to_db, metrics, outlier_removal)
 
 
 def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
@@ -631,7 +649,7 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
             length = length_of_burst
 
     # now we loop through each timestep and product
-    for product in product_list:
+    for product in product_list:  # ****
         list_of_files = []
         for i in range(length):
 
@@ -640,11 +658,16 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
                     i + 1, product)))
 
             if filelist:
+                print(' INFO: Creating timeseries mosaics for {}.'.format(
+                    product_list))
+
                 out_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
                 os.makedirs(out_dir, exist_ok=True)
                 outfile = opj(out_dir, '{}.{}.tif'.format(i + 1, product))
                 list_of_files.append(outfile)
                 filelist = ' '.join(filelist)
+
+                # the command
                 command = ('otbcli_Mosaic -il {} -comp.feather large '
                            '-tmpdir {} -progress 1 -out {} float'.format(
                                filelist, temp_dir, outfile))
@@ -666,7 +689,7 @@ def mosaic_timescan(burst_inventory, processing_dir, temp_dir, ard_parameters):
 
     os.makedirs(opj(processing_dir, 'Mosaic', 'Timescan'), exist_ok=True)
     i, list_of_files = 0, []
-    for product in itertools.product(product_list, metrics):
+    for product in itertools.product(product_list, metrics):   # ****
 
         filelist = ' '.join(glob.glob(
             opj(processing_dir, '*', 'Timescan', '*{}.{}.tif'.format(

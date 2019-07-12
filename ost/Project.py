@@ -3,6 +3,7 @@
 # import standard libs
 import os
 import sys
+import glob
 import logging
 import geopandas as gpd
 
@@ -350,11 +351,27 @@ class S1Project(OSTProject):
         if not self.ard_parameters:
             self.set_ard_definition()
 
-        burst.burst_to_ard_batch(self.burst_inventory,
-                                 self.download_dir,
-                                 self.processing_dir,
-                                 self.temp_dir,
-                                 self.ard_parameters)
+        nr_of_processed = len(
+            glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+
+        # check and retry function
+        i = 0
+        while len(self.burst_inventory) > nr_of_processed:
+
+            burst.burst_to_ard_batch(self.burst_inventory,
+                                     self.download_dir,
+                                     self.processing_dir,
+                                     self.temp_dir,
+                                     self.ard_parameters)
+
+            nr_of_processed = len(
+                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+
+            i += 1
+
+            # not more than 5 trys
+            if i == 5:
+                break
 
         # do we delete the downloads here?
         if timeseries or timescan:
