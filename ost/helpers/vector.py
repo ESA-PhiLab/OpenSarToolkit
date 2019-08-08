@@ -298,6 +298,26 @@ def inventory_to_shp(inventory_df, outfile):
     inventory_df.to_file(outfile)
 
 
+def exterior(infile, outfile, buffer=None):
+
+    gdf = gpd.read_file(infile, crs={'init': 'EPSG:4326'})
+    gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
+    if buffer:
+        gdf.geometry = gdf.geometry.apply(
+                lambda row: Polygon(row.buffer(-0.0018)))
+    gdf.to_file(outfile)
+
+
+def difference(infile1, infile2, outfile):
+
+    gdf1 = gpd.read_file(infile1)
+    gdf2 = gpd.read_file(infile2)
+
+    gdf3 = gpd.overlay(gdf1, gdf2, how='symmetric_difference')
+
+    gdf3.to_file(outfile)
+
+
 def buffer_shape(infile, outfile, buffer=None):
 
     with collection(infile, "r") as in_shape:

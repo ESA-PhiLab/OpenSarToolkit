@@ -35,8 +35,8 @@
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
       <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
       <imgResamplingMethod>BILINEAR_INTERPOLATION</imgResamplingMethod>
-      <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>
-      <pixelSpacingInDegree>0</pixelSpacingInDegree>
+      <pixelSpacingInMeter>0.0</pixelSpacingInMeter>
+      <pixelSpacingInDegree>${resol}</pixelSpacingInDegree>
       <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,
   DATUM[&quot;WGS84&quot;,
     SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]],

@@ -6,6 +6,7 @@ This script provides core functionalities for the OST package.
 # import stdlib modules
 import os
 from os.path import join as opj
+import math
 import sys
 import glob
 import shlex
@@ -185,6 +186,21 @@ def delete_dimap(dimap_prefix):
     os.remove('{}.dim'.format(dimap_prefix))
 
 
+def delete_shapefile(shapefile):
+    '''Removes the shapefile and all its associated files
+
+    '''
+
+    extensions = ('.shp', '.prj', '.shx', '.dbf', '.cpg', 'shb')
+
+    for file in glob.glob('{}*'.format(os.path.abspath(shapefile[:-4]))):
+
+        if len(os.path.abspath(shapefile)) == len(file):
+
+            if file.endswith(extensions):
+                os.remove(file)
+
+
 def move_dimap(infile_prefix, outfile_prefix):
     '''This function moves a dima file to another locations
 
@@ -245,3 +261,17 @@ def check_out_dimap(dimap_prefix, test_stats=True):
                 return 666
 
     return return_code
+
+
+def resolution_in_degree(latitude, meters):
+    '''Convert resolution in meters to degree based on Latitude
+
+    '''
+
+    earth_radius = 6378137
+    degrees_to_radians = math.pi/180.0
+    radians_to_degrees = 180.0/math.pi
+    "Given a latitude and a distance west, return the change in longitude."
+    # Find the radius of a circle around the earth at given latitude.
+    r = earth_radius*math.cos(latitude*degrees_to_radians)
+    return (meters/r)*radians_to_degrees

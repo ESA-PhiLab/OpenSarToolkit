@@ -297,7 +297,8 @@ class S1Project(OSTProject):
             self.ard_parameters['to_db'] = False
             self.ard_parameters['speckle_filter'] = False
             self.ard_parameters['pol_speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
+            self.ard_parameters['ls_mask_apply'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
             self.ard_parameters['coherence'] = True
             self.ard_parameters['polarimetry'] = True
@@ -322,7 +323,8 @@ class S1Project(OSTProject):
             self.ard_parameters['to_db'] = False
             self.ard_parameters['speckle_filter'] = True
             self.ard_parameters['pol_speckle_filter'] = True
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
+            self.ard_parameters['ls_mask_apply'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
             self.ard_parameters['coherence'] = False
             self.ard_parameters['polarimetry'] = True
@@ -341,6 +343,7 @@ class S1Project(OSTProject):
         if self.ard_parameters['to_db']:
             self.ard_parameters['to_db_mt'] = False
 
+
     def burst_to_ard(self, timeseries=False, timescan=False, mosaic=False,
                      overwrite=False):
 
@@ -350,6 +353,18 @@ class S1Project(OSTProject):
 
         if not self.ard_parameters:
             self.set_ard_definition()
+
+
+        # set resolution in degree
+        self.center_lat = loads(self.aoi).centroid.y
+        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                  ' DEM instead.')
+            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+
+        # set resolution to degree
+        self.ard_parameters['resolution'] = h.resolution_in_degree(
+            self.center_lat, self.ard_parameters['resolution'])
 
         nr_of_processed = len(
             glob.glob(opj(self.processing_dir, '*', '*', '.processed')))

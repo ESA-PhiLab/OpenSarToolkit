@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(name='ost',
       packages=find_packages(),
       include_package_data=True,
-      version='0.8.2',
+      version='0.8.3',
       description='High-level functionality for the inventory, download '
                   'and pre-processing of Sentinel-1 data',
       install_requires=['numpy',

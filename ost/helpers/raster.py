@@ -262,77 +262,6 @@ def polygonize_to_shape(inraster, out_shape, out_epsg=4326, mask=None):
     gdal.Polygonize(src_band, mask_band, dst_layer, -1, [], callback=None)
 
 
-def outline_old(infile, outfile, ndv=0, less_then=False):
-    '''
-    This function returns the valid areas (i.e. non no-data areas) of a
-    raster file as a shapefile.
-
-    :param infile: inpute raster file
-    :param outfile: output shapefile
-    :param ndv: no data value of the input raster
-    :return:
-    '''
-
-    # get all the metadata from the stack
-    geodict = read_file(infile)
-
-    # create a temporary rasterfile which will be our mask
-    create_file('{}.tif'.format(outfile), geodict, 1, 'LZW')
-
-    raster = gdal.Open(infile)
-    my_block_size = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = my_block_size[0]
-    y_block_size = my_block_size[1]
-
-    # Get image sizes
-    cols = raster.RasterXSize
-    rows = raster.RasterYSize
-
-    # loop through y direction
-    for y in range(0, rows, y_block_size):
-        if y + y_block_size < rows:
-            ysize = y_block_size
-        else:
-            ysize = rows - y
-
-        # loop throug x direction
-        for x in range(0, cols, x_block_size):
-            if x + x_block_size < cols:
-                xsize = x_block_size
-            else:
-                xsize = cols - x
-
-            # create the blocksized array
-            raster_array = np.empty((raster.RasterCount, ysize, xsize),
-                                    dtype=np.float32)
-
-            for i in range(raster.RasterCount):
-                i += 0
-                raster_array[i, :, :] = np.array(
-                    raster.GetRasterBand(i + 1).ReadAsArray(
-                        x, y, xsize, ysize))
-
-            # take care of nans
-            nan_mask = np.isnan(raster_array)
-            raster_array[nan_mask] = ndv
-
-            min_array = np.min(raster_array, axis=0)
-
-            if less_then is True:
-                min_array[min_array <= ndv] = 0
-            else:
-                min_array[min_array == ndv] = 0
-
-            min_array[min_array != 0] = 1
-
-            chunk_to_raster('{}.tif'.format(outfile), min_array, 0, x, y, 1)
-
-    # now let's polygonize
-    polygonize_to_shape('{}.tif'.format(outfile), outfile, 4326,
-                        '{}.tif'.format(outfile))
-    os.remove('{}.tif'.format(outfile))
-
-
 # convert dB to power
 def convert_to_power(db_array):
 
@@ -385,7 +314,7 @@ def rescale_to_float(int_array, data_type_name):
 
 
 def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
-                  min_value=0.000001, max_value=1, ndv=None):
+                  rescale=True, min_value=0.000001, max_value=1, ndv=None):
 
     # import shapefile geometries
     with fiona.open(shapefile, 'r') as file:
@@ -401,13 +330,14 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
     if to_db is True:
         out_image = convert_to_db(out_image)
 
-    # if we scale to another d
-    if datatype != 'float32':
+    if rescale:
+        # if we scale to another d
+        if datatype != 'float32':
 
-        if datatype == 'uint8':
-            out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
-        elif datatype == 'uint16':
-            out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
+            if datatype == 'uint8':
+                out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
+            elif datatype == 'uint16':
+                out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
 
     out_meta.update({'driver': 'GTiff', 'height': out_image.shape[1],
                      'width': out_image.shape[2], 'transform': out_transform,

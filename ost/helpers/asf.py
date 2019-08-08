@@ -4,8 +4,14 @@ from Alaska satellite Faciltity's Vertex server
 '''
 
 import os
+from os.path import join as opj
+import glob
 import requests
 import tqdm
+import zipfile
+import multiprocessing
+
+from ost import S1Scene
 
 
 # we need this class for earthdata access
@@ -98,35 +104,101 @@ def s1_download(argument_list):
     else:
         first_byte = 0
 
-    while first_byte < total_length:
+    zip_test = 1
+    while zip_test is not None and zip_test <= 10:
 
-        # get byte offset for already downloaded file
-        header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
-        response = session.get(url, headers=header, stream=True)
+        while first_byte < total_length:
 
-        # actual download
-        with open(filename, "ab") as file:
+            # get byte offset for already downloaded file
+            header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
+            response = session.get(url, headers=header, stream=True)
 
-            if total_length is None:
-                file.write(response.content)
+            # actual download
+            with open(filename, "ab") as file:
+
+                if total_length is None:
+                    file.write(response.content)
+                else:
+                    pbar = tqdm.tqdm(total=total_length, initial=first_byte,
+                                     unit='B', unit_scale=True,
+                                     desc=' INFO: Downloading ')
+
+                    for chunk in response.iter_content(chunk_size):
+                        if chunk:
+                            file.write(chunk)
+                            pbar.update(chunk_size)
+
+            pbar.close()
+
+            # updated fileSize
+            first_byte = os.path.getsize(filename)
+
+        # zipFile check
+        try:
+            print(' INFO: Checking the zip archive of {} for inconsistency'
+                  .format(filename))
+            zip_archive = zipfile.ZipFile(filename)
+            zip_test = zip_archive.testzip()
+        except (zipfile.BadZipFile, OSError) as e:
+            zip_test += 1
+            print(e, filename)
+            pass
+
+        # if it did not pass the test, remove the file
+        # in the while loop it will be downlaoded again
+        if zip_test is not None:
+            print(' INFO: {} did not pass the zip test. \
+                  Re-downloading the full scene.'.format(filename))
+            if os.path.exists(filename):
+                os.remove(filename)
+            # otherwise we change the status to True
+        else:
+            print(' INFO: {} passed the zip test.'.format(filename))
+
+            with open(str('{}.downloaded'.format(filename)), 'w') as file:
+                file.write('successfully downloaded \n')
+
+
+def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
+
+    # create list of scenes
+    scenes = inventory_df['identifier'].tolist()
+    # print(scenes)
+    check, i = False, 1
+    while check is False and i <= 10:
+
+        asf_list = []
+
+        for scene_id in scenes:
+
+            scene = S1Scene(scene_id)
+            filepath = scene.download_path(download_dir)
+
+            if os.path.exists('{}.downloaded'.format(filepath)):
+                print(' INFO: {} is already downloaded.'
+                      .format(scene.scene_id))
             else:
-                pbar = tqdm.tqdm(total=total_length, initial=first_byte,
-                                 unit='B', unit_scale=True,
-                                 desc=' INFO: Downloading ')
+                asf_list.append([scene.asf_url(), filepath,
+                                 uname, pword])
 
-                for chunk in response.iter_content(chunk_size):
-                    if chunk:
-                        file.write(chunk)
-                        pbar.update(chunk_size)
-        pbar.close()
+        if asf_list:
+            pool = multiprocessing.Pool(processes=concurrent)
+            pool.map(s1_download, asf_list)
 
-        # updated fileSize
-        first_byte = os.path.getsize(filename)
+        downloaded_scenes = glob.glob(
+            opj(download_dir, 'SAR', '*', '20*', '*', '*',
+                '*.zip.downloaded'))
 
-        # if first_byte >= total_length:
-        #    downloaded = True
+        if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
+            check = True
+        else:
+            check = False
+            for scene in scenes:
 
-        # except requests.exceptions.HTTPError as e:
-        #    downloaded = False
-        # handle any errors here
-        #    print(e)
+                scene = S1Scene(scene)
+                filepath = scene.download_path(download_dir)
+
+                if os.path.exists('{}.downloaded'.format(filepath)):
+                    scenes.remove(scene.scene_id)
+
+        i += 1

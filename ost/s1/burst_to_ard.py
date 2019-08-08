@@ -169,8 +169,7 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     return return_code
 
 
-def _terrain_flattening(infile, outfile, logfile,
-                        dem='SRTM 1sec HGT', regrid_method=True):
+def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     '''A wrapper around SNAP's terrain flattening
 
     This function takes OST calibrated Sentinel-1 SLC product and applies
@@ -183,8 +182,6 @@ def _terrain_flattening(infile, outfile, logfile,
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
-        regrid_method (bool): boolean for the re-grid method should be used
-                       (from SNAP 7 on the only one that works)
 
     '''
 
@@ -194,10 +191,9 @@ def _terrain_flattening(infile, outfile, logfile,
     print(' INFO: Correcting for the illumination along slopes'
           ' (Terrain Flattening).')
 
-    command = '{} Terrain-Flattening -x -q {} -PreGridMethod={} \
-               -PadditionalOverlap=0.15 -PoversamplingMultiple=1.5 \
-               -PdemName=\'{}\' -t {} {}' .format(
-        gpt_file, 2 * os.cpu_count(), regrid_method, dem, outfile, infile)
+    command = '{} Terrain-Flattening -x -q {} -PadditionalOverlap=0.15  \
+               -PoversamplingMultiple=1.5 -PdemName=\'{}\' -t {} {}'.format(
+                   gpt_file, 2 * os.cpu_count(), dem, outfile, infile)
 
     return_code = h.run_command(command, logfile)
 
@@ -286,7 +282,7 @@ def _linear_to_db(infile, outfile, logfile):
     return return_code
 
 
-def _ls_mask(infile, outfile, logfile, resol=20, dem='SRTM 1sec HGT'):
+def _ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1sec HGT'):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
     This function takes OST imported Sentinel-1 product and calculates
@@ -318,7 +314,7 @@ def _ls_mask(infile, outfile, logfile, resol=20, dem='SRTM 1sec HGT'):
 
     print(" INFO: Compute Layover/Shadow mask")
     command = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={} -Pdem=\'{}\'' \
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, resol,
+        .format(gpt_file, graph, 2 * os.cpu_count(), infile, resolution,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
@@ -418,7 +414,7 @@ def _coherence(infile, outfile, logfile):
     return return_code
 
 
-def _terrain_correction(infile, outfile, logfile, resolution=20,
+def _terrain_correction(infile, outfile, logfile, resolution,
                         dem='SRTM 1sec HGT'):
     '''A wrapper around SNAP's Terrain Correction routine
 
@@ -451,7 +447,57 @@ def _terrain_correction(infile, outfile, logfile, resolution=20,
               -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\' \
               -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\' \
               -PnodataValueAtSea=\'false\' \
-              -PpixelSpacingInMeter=\'{}\' \
+              -PpixelSpacingInDegree=\'{}\' \
+              -PdemName=\'{}\' \
+              -t {} {}' \
+              .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
+                      outfile, infile)
+
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Geocoding exited with an error. \
+                See {} for Snap Error output'.format(logfile))
+        # sys.exit(122)
+
+    return return_code
+
+
+def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
+                            dem='SRTM 1sec HGT'):
+    '''A wrapper around SNAP's Terrain Correction routine
+
+    This function takes an OST calibrated Sentinel-1 product and
+    does the geocodification.
+
+    Args:
+        infile: string or os.path object for
+                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
+        outfile: string or os.path object for the output
+                 file written in BEAM-Dimap format
+        logfile: string or os.path object for the file
+                 where SNAP'S STDOUT/STDERR is written to
+        resolution (int): the resolution of the output product in degree
+        dem (str): A Snap compliant string for the dem to use.
+                   Possible choices are:
+                       'SRTM 1sec HGT' (default)
+                       'SRTM 3sec'
+                       'ASTER 1sec GDEM'
+                       'ACE30'
+
+    '''
+
+    # get gpt file
+    gpt_file = h.gpt_path()
+
+    print(" INFO: Geocoding input scene")
+    command = '{} Terrain-Correction -x -q {} \
+              -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\' \
+              -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\' \
+              -PnodataValueAtSea=\'false\' \
+              -PpixelSpacingInDegree=\'{}\' \
               -PdemName=\'{}\' \
               -t {} {}' \
               .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
@@ -485,7 +531,7 @@ def burst_to_ard(master_file,
                  product_type='GTCgamma',
                  speckle_filter=False,
                  to_db=False,
-                 ls_mask=False,
+                 ls_mask_create=False,
                  dem='SRTM 1sec HGT',
                  remove_slave_import=False):
     '''The main routine to turn a burst into an ARD product
@@ -633,7 +679,7 @@ def burst_to_ard(master_file,
     # we move backscatter to final destination
     h.move_dimap(out_tc, opj(out_dir, '{}_BS'.format(master_burst_id)))
 
-    if ls_mask:
+    if ls_mask_create:
         # create LS map
         out_ls = opj(temp_dir, '{}_LS'.format(master_burst_id))
         ls_log = opj(out_dir, '{}_LS.err_log'.format(master_burst_id))

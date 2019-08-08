@@ -10,6 +10,7 @@ import datetime
 import urllib
 import requests
 import tqdm
+import zipfile
 from shapely.wkt import loads
 
 
@@ -283,28 +284,48 @@ def s1_download(argument_list):
     if first_byte >= total_length:
         return total_length
 
-    while first_byte < total_length:
+    zip_test = 1
+    while zip_test is not None:
 
-        # get byte offset for already downloaded file
-        header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
+        while first_byte < total_length:
 
-        print(' INFO: Downloading scene to: {}'.format(filename))
-        response = requests.get(url, headers=header, stream=True,
-                                auth=(uname, pword))
+            # get byte offset for already downloaded file
+            header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
 
-        # actual download
-        with open(filename, "ab") as file:
+            print(' INFO: Downloading scene to: {}'.format(filename))
+            response = requests.get(url, headers=header, stream=True,
+                                    auth=(uname, pword))
 
-            if total_length is None:
-                file.write(response.content)
-            else:
-                pbar = tqdm.tqdm(total=total_length, initial=first_byte,
-                                 unit='B', unit_scale=True,
-                                 desc=' INFO: Downloading: ')
-                for chunk in response.iter_content(chunk_size):
-                    if chunk:
-                        file.write(chunk)
-                        pbar.update(chunk_size)
-        pbar.close()
-        # update first_byte
-        first_byte = os.path.getsize(filename)
+            # actual download
+            with open(filename, "ab") as file:
+
+                if total_length is None:
+                    file.write(response.content)
+                else:
+                    pbar = tqdm.tqdm(total=total_length, initial=first_byte,
+                                     unit='B', unit_scale=True,
+                                     desc=' INFO: Downloading: ')
+                    for chunk in response.iter_content(chunk_size):
+                        if chunk:
+                            file.write(chunk)
+                            pbar.update(chunk_size)
+            pbar.close()
+            # update first_byte
+            first_byte = os.path.getsize(filename)
+
+        # zipFile check
+        print(' INFO: Checking the zip archive of {} for inconsistency'.format(
+            filename))
+        zip_archive = zipfile.ZipFile(filename)
+        zip_test = zip_archive.testzip()
+
+        # if it did not pass the test, remove the file
+        # in the while loop it will be downlaoded again
+        if zip_test is not None:
+            print(' INFO: {} did not pass the zip test. \
+                  Re-downloading the full scene.'.format(filename))
+            os.remove(filename)
+        # otherwise we change the status to True
+        else:
+            print(' INFO: {} passed the zip test.'.format(filename))
+            downloaded = True

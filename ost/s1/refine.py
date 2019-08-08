@@ -325,7 +325,7 @@ def _handle_non_continous_swath(inventory_df):
 
             subdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
                                  (inventory_df['relativeorbit'] == track)
-                                ].sort_values('slicenumber')
+                                 ].sort_values('slicenumber')
 
             if (len(subdf) <= int(subdf.slicenumber.max()) -
                     int(subdf.slicenumber.min())):
@@ -606,7 +606,6 @@ def create_processing_dict(inventory_df):
     ''' This function might be obsolete?
 
     '''
-
 
     # initialize empty dictionary
     dict_scenes = {}

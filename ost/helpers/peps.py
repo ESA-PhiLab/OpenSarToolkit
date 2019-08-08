@@ -101,7 +101,6 @@ def s1_download(argument_list):
     pword = argument_list[3]
 
     downloaded = False
-
     while downloaded is False:
 
         # get first response for file Size

@@ -188,10 +188,15 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         error_code = scihub.check_connection(uname, pword)
     elif int(mirror) == 2:
         error_code = asf.check_connection(uname, pword)
+
+        if concurrent > 10:
+            print(' INFO: Maximum allowed parallel downloads \
+                  from Earthdata are 10. Setting concurrent accordingly.')
+            concurrent = 10
     elif int(mirror) == 3:
         error_code = peps.check_connection(uname, pword)
 
-    if int(mirror) != 3:
+    if int(mirror) == 1:
         # check response
         if error_code == 401:
             raise ValueError(' ERROR: Username/Password are incorrect.')
@@ -210,7 +215,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
             download_path = opj(download_dir, 'SAR', scene.product_type,
                                 scene.year, scene.month, scene.day)
 
-            fileName = '{}.zip'.format(scene.scene_id)
+            filename = '{}.zip'.format(scene.scene_id)
 
             uuid = (inventory_df['uuid']
                     [inventory_df['identifier'] == scene_id].tolist())
@@ -219,21 +224,21 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
                 os.makedirs(download_path)
 
             # in case the data has been downloaded before
-            # if os.path.exists('{}/{}'.format(download_path, fileName))
+            # if os.path.exists('{}/{}'.format(download_path, filename))
             # is False:
             # create list objects for download
             download_list.append([uuid[0], '{}/{}'.format(
-                download_path, fileName), uname, pword])
+                download_path, filename), uname, pword])
             asf_list.append([scene.asf_url(), '{}/{}'.format(
-                download_path, fileName), uname, pword])
+                download_path, filename), uname, pword])
 
         # download in parallel
         if int(mirror) == 1:   # scihub
             pool = multiprocessing.Pool(processes=2)
             pool.map(scihub.s1_download, download_list)
-        elif int(mirror) == 2:    # ASF
-            pool = multiprocessing.Pool(processes=concurrent)
-            pool.map(asf.s1_download, asf_list)
+    elif int(mirror) == 2:    # ASF
+        asf.batch_download(inventory_df, download_dir,
+                           uname, pword, concurrent)
     elif int(mirror) == 3:   # PEPS
         peps.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)

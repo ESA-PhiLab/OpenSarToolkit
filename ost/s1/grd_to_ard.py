@@ -91,7 +91,7 @@ def _grd_frame_import(infile, outfile, logfile, polar='VV,VH,HH,HV'):
     This function takes an original Sentinel-1 scene (either zip or
     SAFE format), updates the orbit information (does not fail if not
     available), removes the thermal noise and stores it as a SNAP
-    compatible EAM-Dimap format.
+    compatible BEAM-Dimap format.
 
     Args:
         infile: string or os.path object for
@@ -347,8 +347,9 @@ def _grd_remove_border(infile):
                 z = 3000
             for y in range(x, z, 1):
                 array_left[:, y].fill(0)
-                cols_left = y
-                break
+
+            cols_left = y
+            break
 
     try:
         cols_left
@@ -598,6 +599,61 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
         sys.exit(112)
 
 
+def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
+                                dem='SRTM 1Sec HGT'):
+    '''A wrapper around SNAP's Terrain Correction routine
+
+    This function takes an OST calibrated Sentinel-1 product and
+    does the geocodification.
+
+    Args:
+        infile: string or os.path object for
+                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
+        outfile: string or os.path object for the output
+                 file written in BEAM-Dimap format
+        logfile: string or os.path object for the file
+                 where SNAP'S STDOUT/STDERR is written to
+        resolution (int): the resolution of the output product in meters
+        dem (str): A Snap compliant string for the dem to use.
+                   Possible choices are:
+                       'SRTM 1sec HGT' (default)
+                       'SRTM 3sec'
+                       'ASTER 1sec GDEM'
+                       'ACE30'
+
+    '''
+
+    # get path to SNAP's command line executable gpt
+    gpt_file = h.gpt_path()
+
+    # get path to ost package
+    root_path = imp.find_module('ost')[1]
+    print(' INFO: Geocoding the calibrated product')
+
+    # calculate the multi-look factor
+    # multilook_factor = int(int(resolution) / 10)
+    multilook_factor = 1
+
+    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
+
+    # construct command string
+    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
+                                         infile, resolution, multilook_factor,
+                                         dem, outfile)
+
+    # run command and get return code
+    return_code = h.run_command(command, logfile)
+
+    # handle errors and logs
+    if return_code == 0:
+        print(' INFO: Succesfully imported product')
+    else:
+        print(' ERROR: Terain Correction exited with an error. \
+                See {} for Snap Error output'.format(logfile))
+        sys.exit(112)
+
+
 def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
@@ -794,7 +850,7 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
     # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
     outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
+    _grd_terrain_correction_deg(infile, outfile, logfile, resolution, dem)
 
     # move to final destination
     out_final = opj(output_dir, '{}.{}.TC'.format(file_id, product_type))

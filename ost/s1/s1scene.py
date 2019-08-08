@@ -18,7 +18,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
-from ost.helpers import scihub, raster as ras
+from ost.helpers import scihub, raster as ras, helpers as h
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 
@@ -550,8 +550,8 @@ class S1Scene():
     def get_scene_path(self,
                        download_dir=None,
                        creo_base='/eodata/Sentinel-1/',
-                       #mundi_base=None,
-                       #onda_base=None
+                       # mundi_base=None,
+                       # onda_base=None
                        ):
 
         if os.path.isfile(self.download_path(download_dir)):
@@ -564,6 +564,37 @@ class S1Scene():
         #    path = self.onda_path()
 
         return path
+
+    def _get_center_lat(self, scene_path=None):
+
+        zip_archive = zipfile.ZipFile(scene_path)
+        manifest = zip_archive.read('{}.SAFE/manifest.safe'
+                                    .format(self.scene_id))
+        root = ET.fromstring(manifest)
+
+        for child in root:
+            metadata = child.findall('metadataObject')
+            for meta in metadata:
+                for wrap in meta.findall('metadataWrap'):
+                    for data in wrap.findall('xmlData'):
+                        for frameSet in data.findall(
+                        '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
+                            for frame in frameSet.findall(
+                            '{http://www.esa.int/safe/sentinel-1.0}frame'):
+                                for footprint in frame.findall(
+                                '{http://www.esa.int/'
+                                'safe/sentinel-1.0}footPrint'):
+                                    for coords in footprint.findall(
+                                    '{http://www.opengis.net/gml}'
+                                    'coordinates'):
+                                        coordinates = coords.text.split(' ')
+
+        sums = 0
+        for i, coords in enumerate(coordinates):
+            sums = sums + float(coords.split(',')[0])
+
+        return sums / (i + 1)
+
 
     def set_ard_definition(self, ard_type='OST'):
 
@@ -615,6 +646,14 @@ class S1Scene():
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
+
+        self.center_lat = self._get_center_lat(infile)
+        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                  ' DEM instead.')
+            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+        self.ard_parameters['resolution'] = h.resolution_in_degree(
+            self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
 

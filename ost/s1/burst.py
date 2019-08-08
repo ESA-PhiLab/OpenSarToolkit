@@ -141,7 +141,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
     # border_noise = ard_parameters['border_noise']
     product_type = ard_parameters['product_type']
     speckle_filter = ard_parameters['speckle_filter']
-    ls_mask = ard_parameters['ls_mask']
+    ls_mask_create = ard_parameters['ls_mask_create']
     to_db = ard_parameters['to_db']
     dem = ard_parameters['dem']
     coherence = ard_parameters['coherence']
@@ -239,7 +239,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                      product_type=product_type,
                      speckle_filter=speckle_filter,
                      to_db=to_db,
-                     ls_mask=ls_mask,
+                     ls_mask_create=ls_mask_create,
                      dem=dem,
                      remove_slave_import=False)
 
@@ -247,33 +247,36 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
 
 
 def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
-               burst, to_db, ls_mask, mt_speckle_filter, datatype):
+               burst, to_db, ls_mask_create, ls_mask_apply, mt_speckle_filter,
+               datatype):
 
     burst_dir = opj(processing_dir, burst)
 
     # get common burst extent
     list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
     list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-    ts.mt_extent(list_of_scenes,
-                 opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)))
-
-    # apply a negative buffer of -10 x 10m resolution
-    vec.buffer_shape(opj(burst_dir, 'tmp.{}.extent.shp'.format(burst)),
-                     opj(burst_dir, '{}.extent.shp'.format(burst)),
-                     -0.0018)
+    extent = opj(burst_dir, '{}.extent.shp'.format(burst))
+    ts.mt_extent(list_of_scenes, extent, temp_dir, buffer=-0.0018)
 
     # remove inital extent
     for file in glob.glob(opj(burst_dir, 'tmp*')):
         os.remove(file)
 
     # layover/shadow mask
-    if ls_mask is True:
+    if ls_mask_create is True:
         list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
         list_of_layover = [x for x in list_of_scenes if 'layover' in x]
-        # print(list_of_layover)
-        ls_layer = ts.mt_layover(list_of_layover, burst_dir, temp_dir)
-        print(' INFO: Our common layover mask is ocated at {}'.format(
-              ls_layer))
+        out_ls = opj(burst_dir, 'ls_mask.tif')
+        ts.mt_layover(list_of_layover, out_ls, temp_dir, extent=extent)
+        print(' INFO: Our common layover mask is located at {}'.format(
+              out_ls))
+
+    if ls_mask_apply:
+        print(' INFO: Calculating symetrical difference of extent and ls_mask')
+        ras.polygonize_raster(out_ls, '{}.shp'.format(out_ls[:-4]))
+        extent_ls_masked = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
+        vec.difference(extent, '{}.shp'.format(out_ls[:-4]), extent_ls_masked)
+        extent = extent_ls_masked
 
     list_of_product_types = {'BS': 'Gamma0', 'coh': 'coh',
                              'ha_alpha': 'Alpha'}
@@ -365,7 +368,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                         # mask by extent
                         ras.mask_by_shape(
                             infile, outfile,
-                            opj(burst_dir, '{}.extent.shp'.format(burst)),
+                            extent,
                             to_db=to_db, datatype=datatype,
                             min_value=-30, max_value=5,
                             ndv=0)
@@ -423,7 +426,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
 
                         ras.mask_by_shape(
                             infile, outfile,
-                            opj(burst_dir, '{}.extent.shp'.format(burst)),
+                            extent,
                             to_db=False, datatype=datatype,
                             min_value=0.000001, max_value=1,
                             ndv=0)
@@ -509,7 +512,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                 max_value = 90 if pol is 'Alpha' else 1
                 ras.mask_by_shape(
                     infile, outfile,
-                    opj(burst_dir, '{}.extent.shp'.format(burst)),
+                    extent,
                     to_db=False, datatype=datatype, min_value=0.000001,
                     max_value=max_value, ndv=0)
 
@@ -532,13 +535,15 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
 
     datatype = ard_parameters['datatype']
     to_db = ard_parameters['to_db_mt']
-    ls_mask = ard_parameters['ls_mask']
+    ls_mask_create = ard_parameters['ls_mask_create']
+    ls_mask_apply = ard_parameters['ls_mask_apply']
     mt_speckle_filter = ard_parameters['mt_speckle_filter']
 
     for burst in burst_inventory.bid.unique():      # ***
 
         _ard_to_ts(burst_inventory, processing_dir, temp_dir,
-                   burst, to_db, ls_mask, mt_speckle_filter, datatype)
+                   burst, to_db, ls_mask_create, ls_mask_apply,
+                   mt_speckle_filter, datatype)
 
 
 # --------------------
@@ -550,37 +555,39 @@ def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
     product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH',
                     'coh.VV', 'coh.VH', 'Alpha', 'Entropy', 'Anisotropy']
 
-    for timeseries in glob.glob(opj(burst_dir, 'Timeseries', '*vrt')):
+    for product in product_list:
+        for timeseries in glob.glob(opj(burst_dir, 'Timeseries',
+                                        '*{}*vrt'.format(product))):
 
-        print(' INFO: creating timescan for {}'.format(product_list))
-        timescan_dir = opj(burst_dir, 'Timescan')
-        os.makedirs(timescan_dir, exist_ok=True)
+            print(' INFO: Creating timescan for {}'.format(product))
+            timescan_dir = opj(burst_dir, 'Timescan')
+            os.makedirs(timescan_dir, exist_ok=True)
 
-        # we get the name of the time-series parameter
-        polarisation = timeseries.split('/')[-1].split('.')[2]
-        if polarisation == 'vrt':
-            timescan_prefix = opj(
-                '{}'.format(timescan_dir),
-                '{}'.format(timeseries.split('/')[-1].split('.')[1]))
-        else:
-            timescan_prefix = opj(
-                '{}'.format(timescan_dir),
-                '{}.{}'.format(timeseries.split('/')[-1].split('.')[1],
-                               polarisation))
+            # we get the name of the time-series parameter
+            polarisation = timeseries.split('/')[-1].split('.')[2]
+            if polarisation == 'vrt':
+                timescan_prefix = opj(
+                    '{}'.format(timescan_dir),
+                    '{}'.format(timeseries.split('/')[-1].split('.')[1]))
+            else:
+                timescan_prefix = opj(
+                    '{}'.format(timescan_dir),
+                    '{}.{}'.format(timeseries.split('/')[-1].split('.')[1],
+                                   polarisation))
 
-        start = time.time()
-        if 'Timescan.BS.' in timescan_prefix:    # backscatter
-            ts.mt_metrics(timeseries, timescan_prefix, metrics,
-                          rescale_to_datatype=True,
-                          to_power=to_db,
-                          outlier_removal=outlier_removal)
-        else:   # non-backscatter
-            ts.mt_metrics(timeseries, timescan_prefix, metrics,
-                          rescale_to_datatype=False,
-                          to_power=False,
-                          outlier_removal=outlier_removal)
+            start = time.time()
+            if 'BS.' in timescan_prefix:    # backscatter
+                ts.mt_metrics(timeseries, timescan_prefix, metrics,
+                              rescale_to_datatype=True,
+                              to_power=to_db,
+                              outlier_removal=outlier_removal)
+            else:   # non-backscatter
+                ts.mt_metrics(timeseries, timescan_prefix, metrics,
+                              rescale_to_datatype=False,
+                              to_power=False,
+                              outlier_removal=outlier_removal)
 
-        h.timer(start)
+            h.timer(start)
 
     # rename and create vrt
     # print('renaming')
@@ -593,11 +600,10 @@ def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
 
         if file:
             i += 1
-            basename = os.path.basename(file[0])
-            shutil.move(file[0], opj(burst_dir, 'Timescan', '{}.{}'.format(
-                i, basename)))
-            list_of_files.append(opj(burst_dir, 'Timescan', '{}.{}'.format(
-                i, basename)))
+            outfile = opj(burst_dir, 'Timescan', '{}.{}.{}.tif'.format(
+                i, product[0], product[1]))
+            shutil.move(file[0], outfile)
+            list_of_files.append(outfile)
 
     # create vrt
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
@@ -654,12 +660,12 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
         for i in range(length):
 
             filelist = glob.glob(
-                opj(processing_dir, '*', 'Timeseries', '{}.*{}.tif'.format(
-                    i + 1, product)))
+                opj(processing_dir, '*_IW*_*', 'Timeseries', '{}.*{}.tif'
+                    .format(i + 1, product)))
 
             if filelist:
                 print(' INFO: Creating timeseries mosaics for {}.'.format(
-                    product_list))
+                    product))
 
                 out_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
                 os.makedirs(out_dir, exist_ok=True)

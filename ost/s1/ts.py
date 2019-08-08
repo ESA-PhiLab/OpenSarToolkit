@@ -12,7 +12,7 @@ import rasterio
 import numpy as np
 from scipy import stats
 
-from ..helpers import helpers as h, raster as ras
+from ost.helpers import helpers as h, raster as ras, vector as vec
 
 
 def create_stack(filelist, out_stack, logfile,
@@ -78,7 +78,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile):
         sys.exit(202)
 
 
-def mt_layover(filelist, out_dir, temp_dir):
+def mt_layover(filelist, outfile, temp_dir, extent):
     '''
     This function is usally used in the time-series workflow of OST. A list
     of the filepaths layover/shadow masks
@@ -91,7 +91,7 @@ def mt_layover(filelist, out_dir, temp_dir):
     # get the start time for Info on processing time
     start = time.time()
     # create path to out file
-    outfile = opj(out_dir, 'LSmask.tif')
+    ls_layer = opj(temp_dir, 'LSmask.tif')
 
     # create a vrt-stack out of
     print(' INFO: Creating common Layover/Shadow Mask')
@@ -106,26 +106,29 @@ def mt_layover(filelist, out_dir, temp_dir):
         meta.update(driver='GTiff', count=1, dtype='uint8')
 
         # create outfiles
-        out_min = rasterio.open(outfile, 'w', **meta)
+        with rasterio.open(ls_layer, 'w', **meta) as out_min:
 
-        # loop through blocks
-        for _, window in src.block_windows(1):
+            # loop through blocks
+            for _, window in src.block_windows(1):
 
-            # read array with all bands
-            stack = src.read(range(1, src.count + 1), window=window)
+                # read array with all bands
+                stack = src.read(range(1, src.count + 1), window=window)
 
-            # get stats
-            arr_max = np.nanmax(stack, axis=0)
-            arr = arr_max / arr_max
+                # get stats
+                arr_max = np.nanmax(stack, axis=0)
+                arr = arr_max / arr_max
 
-            out_min.write(np.uint8(arr), window=window, indexes=1)
+                out_min.write(np.uint8(arr), window=window, indexes=1)
 
-        h.timer(start)
+    ras.mask_by_shape(ls_layer, outfile, extent, to_db=False,
+                      datatype='uint8', rescale=False, ndv=0)
+    # os.remove(ls_layer)
+    h.timer(start)
 
     return outfile
 
 
-def mt_extent(list_of_scenes, out_file, buffer=None):
+def mt_extent(list_of_scenes, out_file, temp_dir, buffer=None):
 
     out_dir = os.path.dirname(out_file)
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
@@ -137,7 +140,12 @@ def mt_extent(list_of_scenes, out_file, buffer=None):
 
     print(' INFO: Creating shapefile of common extent.')
     start = time.time()
-    ras.outline(opj(out_dir, 'extent.vrt'), out_file, 0, False)
+
+    outline_file = opj(temp_dir, os.path.basename(out_file))
+    ras.outline(opj(out_dir, 'extent.vrt'), outline_file, 0, False)
+
+    vec.exterior(outline_file, out_file, buffer)
+    h.delete_shapefile(outline_file)
 
     os.remove(opj(out_dir, 'extent.vrt'))
     h.timer(start)
@@ -225,12 +233,16 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
 
             # get stats
             arr = {}
-            arr['avg'] = stack.mean(axis=0) if 'avg' in metrics else False
-            arr['max'] = stack.max(axis=0) if 'max' in metrics else False
-            arr['min'] = stack.min(axis=0) if 'min' in metrics else False
-            arr['std'] = (ras.convert_to_db(stack).std(axis=0)
+            arr['avg'] = (np.nan_to_num(np.nanmean(stack, axis=0))
+                          if 'avg' in metrics else False)
+            arr['max'] = (np.nan_to_num(np.nanmax(stack, axis=0))
+                          if 'max' in metrics else False)
+            arr['min'] = (np.nan_to_num(np.nanmin(stack, axis=0))
+                          if 'min' in metrics else False)
+            arr['std'] = (np.nan_to_num(np.nanstd(stack, axis=0))
                           if 'std' in metrics else False)
-            arr['cov'] = (stats.variation(stack, axis=0)
+            arr['cov'] = (np.nan_to_num(stats.variation(stack, axis=0,
+                                                        nan_policy='omit'))
                           if 'cov' in metrics else False)
 
             # the metrics to be re-turned to dB, in case to_power is True
