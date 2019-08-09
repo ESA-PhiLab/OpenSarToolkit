@@ -266,7 +266,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
     if ls_mask_create is True:
         list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
         list_of_layover = [x for x in list_of_scenes if 'layover' in x]
-        out_ls = opj(burst_dir, 'ls_mask.tif')
+        out_ls = opj(burst_dir, '{}.ls_mask.tif'.format(burst))
         ts.mt_layover(list_of_layover, out_ls, temp_dir, extent=extent)
         print(' INFO: Our common layover mask is located at {}'.format(
               out_ls))

@@ -318,7 +318,8 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
 
     # import shapefile geometries
     with fiona.open(shapefile, 'r') as file:
-        features = [feature['geometry'] for feature in file]
+        features = [feature['geometry'] for feature in file
+                    if feature['geometry']]
 
     # import raster
     with rasterio.open(infile) as src:

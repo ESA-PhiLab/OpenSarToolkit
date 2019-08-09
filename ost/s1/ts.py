@@ -91,7 +91,7 @@ def mt_layover(filelist, outfile, temp_dir, extent):
     # get the start time for Info on processing time
     start = time.time()
     # create path to out file
-    ls_layer = opj(temp_dir, 'LSmask.tif')
+    ls_layer = opj(temp_dir, os.path.basename(outfile))
 
     # create a vrt-stack out of
     print(' INFO: Creating common Layover/Shadow Mask')
