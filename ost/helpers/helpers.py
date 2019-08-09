@@ -78,7 +78,8 @@ def gpt_path():
         gptfile = input(' Please provide the full path to the SNAP'
                         ' gpt command line executable'
                         ' (e.g. /path/to/snap/bin/gpt')
-        shutil.copy(gptfile, opj(homedir, '.ost', 'gpt'))   # take care if .ost exists
+        os.makedirs(opj(homedir, '.ost'), exist_ok=True)
+        shutil.copy(gptfile, opj(homedir, '.ost', 'gpt'))
 
     if os.path.isfile(gptfile) is False:
         print(' ERROR: path to gpt file is incorrect. No such file.')
