@@ -767,7 +767,9 @@ def burst_to_ard(master_file,
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
         # return_code = _coreg2(filelist, out_coreg, coreg_log, dem)
-        return_code = _coreg2(master_import, slave_import, out_coreg,
+        return_code = _coreg2('{}.dim'.format(master_import),
+                              '{}.dim'.format(slave_import),
+                              out_coreg,
                               coreg_log, dem)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
