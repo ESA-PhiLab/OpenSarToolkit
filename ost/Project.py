@@ -285,8 +285,6 @@ class Sentinel1(Generic):
             self.burst_inventory = burst.refine_burst_inventory(
                     self.aoi, self.burst_inventory)
 
-
-
     def set_ard_definition(self, ard_type='OST Plus'):
 
         if ard_type == 'OST Plus':
