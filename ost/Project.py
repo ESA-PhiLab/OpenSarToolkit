@@ -22,7 +22,7 @@ logging.basicConfig(stream=sys.stdout,
                     level=logging.INFO)
 
 
-class OSTProject():
+class Generic():
 
     def __init__(self, project_dir, aoi,
                  start='1978-06-28',
@@ -157,8 +157,8 @@ class OSTProject():
         self.create_temporary_dir(temp_dir)
 
 
-class S1Project(OSTProject):
-    ''' A Sentinel-1 specific subclass of the OSTProject class
+class Sentinel1(Generic):
+    ''' A Sentinel-1 specific subclass of the Generic OST class
 
     This subclass creates a Sentinel-1 specific
     '''
@@ -166,7 +166,7 @@ class S1Project(OSTProject):
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 product_type='GRD',
+                 product_type='SLC',
                  beam_mode='IW',
                  polarisation='*'
                  ):
@@ -285,6 +285,8 @@ class S1Project(OSTProject):
             self.burst_inventory = burst.refine_burst_inventory(
                     self.aoi, self.burst_inventory)
 
+
+
     def set_ard_definition(self, ard_type='OST Plus'):
 
         if ard_type == 'OST Plus':
@@ -343,7 +345,6 @@ class S1Project(OSTProject):
         if self.ard_parameters['to_db']:
             self.ard_parameters['to_db_mt'] = False
 
-
     def burst_to_ard(self, timeseries=False, timescan=False, mosaic=False,
                      overwrite=False):
 
@@ -353,7 +354,6 @@ class S1Project(OSTProject):
 
         if not self.ard_parameters:
             self.set_ard_definition()
-
 
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y

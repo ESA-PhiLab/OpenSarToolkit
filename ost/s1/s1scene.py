@@ -14,13 +14,13 @@ import xml.dom.minidom
 import xml.etree.ElementTree as ET
 
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
 from ost.helpers import scihub, raster as ras, helpers as h
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
-
 
 __author__ = "Andreas Vollrath"
 __version__ = 1.0
@@ -104,6 +104,12 @@ class S1Scene():
         print(" Absolute Orbit:          " + str(self.abs_orbit))
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
+
+    def download(self, download_dir):
+
+        from ost.s1 import download
+        df = pd.DataFrame({'identifier': [self.scene_id]})
+        download.download_sentinel1(df, download_dir)
 
     def download_path(self, download_dir):
 

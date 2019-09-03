@@ -375,6 +375,53 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
     return return_code
 
 
+def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
+    '''A wrapper around SNAP's back-geocoding co-registration routine
+
+    This function takes a list of 2 OST imported Sentinel-1 SLC products
+    and co-registers them properly. This routine is sufficient for coherence
+    estimation, but not for InSAR, since the ESD refinement is not applied.
+
+    Args:
+        infile: string or os.path object for
+                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
+        outfile: string or os.path object for the output
+                 file written in BEAM-Dimap format
+        logfile: string or os.path object for the file
+                 where SNAP'S STDOUT/STDERR is written to
+        dem (str): A Snap compliant string for the dem to use.
+                   Possible choices are:
+                       'SRTM 1sec HGT' (default)
+                       'SRTM 3sec'
+                       'ASTER 1sec GDEM'
+                       'ACE30'
+
+    '''
+
+    # get gpt file
+    gpt_file = h.gpt_path()
+
+    # get path to graph
+    rootpath = imp.find_module('ost')[1]
+    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
+
+    print(' INFO: Co-registering {} and {}'.format(master, slave))
+    command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} -Pdem=\'{}\''\
+        .format(gpt_file, graph, 2 * os.cpu_count(), master, slave,
+                outfile, dem)
+
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        print(' INFO: Succesfully coregistered product')
+    else:
+        print(' ERROR: Co-registration exited with an error. \
+                See {} for Snap Error output'.format(logfile))
+        # sys.exit(112)
+
+    return return_code
+
+
 def _coherence(infile, outfile, logfile):
     '''A wrapper around SNAP's coherence routine
 
@@ -714,12 +761,14 @@ def burst_to_ard(master_file,
             return return_code
 
         # co-registration
-        filelist = ['{}.dim'.format(master_import),
-                    '{}.dim'.format(slave_import)]
-        filelist = '\'{}\''.format(','.join(filelist))
+        # filelist = ['{}.dim'.format(master_import),
+        #            '{}.dim'.format(slave_import)]
+        # filelist = '\'{}\''.format(','.join(filelist))
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
-        return_code = _coreg(filelist, out_coreg, coreg_log, dem)
+        # return_code = _coreg2(filelist, out_coreg, coreg_log, dem)
+        return_code = _coreg2(master_import, slave_import, out_coreg,
+                              coreg_log, dem)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code

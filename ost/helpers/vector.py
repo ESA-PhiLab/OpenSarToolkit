@@ -120,7 +120,7 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     return geom.to_wkt()
 
 
-def latlon_to_wkt(lat, lon, buffer=None, envelope=False):
+def latlon_to_wkt(lat, lon, buffer_degree=None, buffer_meter=None, envelope=False):
     '''A helper function to create a WKT representation of Lat/Lon pair
 
     This function takes lat and lon vale and returns the WKT Point
@@ -141,10 +141,18 @@ def latlon_to_wkt(lat, lon, buffer=None, envelope=False):
 
     '''
 
-    if buffer is None:
+    if buffer_degree is None and buffer_meter is None:
         aoi_wkt = 'POINT ({} {})'.format(lon, lat)
-    else:
-        aoi_wkt = geodesic_point_buffer(lat, lon, buffer, envelope)
+
+    elif buffer_degree:
+        aoi_geom = loads('POINT ({} {})'.format(lon, lat)).buffer(buffer_degree)
+        if envelope:
+            aoi_geom = aoi_geom.envelope
+
+        aoi_wkt = aoi_geom.to_wkt()
+
+    elif buffer_meter:
+        aoi_wkt = geodesic_point_buffer(lat, lon, buffer_meter, envelope)
 
     return aoi_wkt
 

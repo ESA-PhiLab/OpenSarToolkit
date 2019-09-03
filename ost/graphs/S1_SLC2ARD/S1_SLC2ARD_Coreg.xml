@@ -1,0 +1,83 @@
+<graph id="Graph">
+  <version>1.0</version>
+  <node id="Read">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${master}</file>
+    </parameters>
+  </node>
+  <node id="Read(2)">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${slave}</file>
+    </parameters>
+  </node>
+  <node id="TOPSAR-DerampDemod">
+    <operator>TOPSAR-DerampDemod</operator>
+    <sources>
+      <sourceProduct refid="Read"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <outputDerampDemodPhase>false</outputDerampDemodPhase>
+    </parameters>
+  </node>
+  <node id="TOPSAR-DerampDemod(2)">
+    <operator>TOPSAR-DerampDemod</operator>
+    <sources>
+      <sourceProduct refid="Read(2)"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <outputDerampDemodPhase>false</outputDerampDemodPhase>
+    </parameters>
+  </node>
+  <node id="DEM-Assisted-Coregistration">
+    <operator>DEM-Assisted-Coregistration</operator>
+    <sources>
+      <sourceProduct refid="TOPSAR-DerampDemod(2)"/>
+      <sourceProduct.1 refid="TOPSAR-DerampDemod"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <demName>${dem}</demName>
+      <demResamplingMethod>BICUBIC_INTERPOLATION</demResamplingMethod>
+      <externalDEMFile/>
+      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <resamplingType>BISINC_5_POINT_INTERPOLATION</resamplingType>
+      <tileExtensionPercent>50</tileExtensionPercent>
+      <maskOutAreaWithoutElevation>false</maskOutAreaWithoutElevation>
+      <outputRangeAzimuthOffset>false</outputRangeAzimuthOffset>
+    </parameters>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources>
+      <sourceProduct refid="DEM-Assisted-Coregistration"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${output}</file>
+      <formatName>BEAM-DIMAP</formatName>
+    </parameters>
+  </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="Read">
+            <displayPosition x="37.0" y="134.0"/>
+    </node>
+    <node id="Read(2)">
+      <displayPosition x="38.0" y="241.0"/>
+    </node>
+    <node id="TOPSAR-DerampDemod">
+      <displayPosition x="140.0" y="121.0"/>
+    </node>
+    <node id="TOPSAR-DerampDemod(2)">
+      <displayPosition x="139.0" y="244.0"/>
+    </node>
+    <node id="DEM-Assisted-Coregistration">
+      <displayPosition x="300.0" y="182.0"/>
+    </node>
+    <node id="Write">
+            <displayPosition x="528.0" y="189.0"/>
+    </node>
+  </applicationData>
+</graph>
