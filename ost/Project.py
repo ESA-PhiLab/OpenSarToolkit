@@ -361,8 +361,8 @@ class Sentinel1(Generic):
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
         # set resolution to degree
-        self.ard_parameters['resolution'] = h.resolution_in_degree(
-            self.center_lat, self.ard_parameters['resolution'])
+        # self.ard_parameters['resolution'] = h.resolution_in_degree(
+        #    self.center_lat, self.ard_parameters['resolution'])
 
         nr_of_processed = len(
             glob.glob(opj(self.processing_dir, '*', '*', '.processed')))

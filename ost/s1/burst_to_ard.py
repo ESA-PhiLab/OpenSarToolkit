@@ -494,7 +494,7 @@ def _terrain_correction(infile, outfile, logfile, resolution,
               -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\' \
               -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\' \
               -PnodataValueAtSea=\'false\' \
-              -PpixelSpacingInDegree=\'{}\' \
+              -PpixelSpacingInMeter=\'{}\' \
               -PdemName=\'{}\' \
               -t {} {}' \
               .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
