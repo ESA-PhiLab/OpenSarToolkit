@@ -20,7 +20,7 @@ from ost import S1Scene
 
 
 def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
-                    mount_point='/eodata', uname=None, pword=None):
+                    data_mount='/eodata', uname=None, pword=None):
     '''Creates a Burst GeoDataFrame from an OST inventory file
 
     Args:
@@ -48,16 +48,16 @@ def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
         orbit_direction = inventory_df[
             inventory_df.identifier == scene_id].orbitdirection.values[0]
 
-        filepath = scene.get_path(download_dir, mount_point)
+        filepath = scene.get_path(download_dir, data_mount)
         # print(filepath)
         if filepath[-4:] == '.zip':
             print(' Getting burst info from {}.'.format(
                 os.path.basename(filepath)))
-            single_gdf = scene._zip_annotation_get(download_dir, mount_point)
+            single_gdf = scene._zip_annotation_get(download_dir, data_mount)
         elif filepath[-5:] == '.SAFE':
             print(' Getting burst info from {}.'.format(
                 os.path.basename(filepath)))
-            single_gdf = scene._safe_annotation_get(download_dir, mount_point)
+            single_gdf = scene._safe_annotation_get(download_dir, data_mount)
         else:
             uname, pword = scihub.ask_credentials()
             opener = scihub.connect(uname=uname, pword=pword)
@@ -128,7 +128,7 @@ def refine_burst_inventory(aoi, burst_gdf):
 
 
 def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
-                       temp_dir, ard_parameters, mount_point='/eodata'):
+                       temp_dir, ard_parameters, data_mount='/eodata'):
     '''Handles the batch processing of a OST complinat burst inventory file
 
     Args:
@@ -185,7 +185,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             master_scene = S1Scene(master_burst.SceneID.values[0])
 
             # get path to file
-            master_file = master_scene.get_path(download_dir, mount_point)
+            master_file = master_scene.get_path(download_dir, data_mount)
             # get subswath
             subswath = master_burst.SwathID.values[0]
             # get burst number in file
@@ -216,7 +216,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
 
                     # get path to slave file
                     slave_file = slave_scene.get_path(download_dir,
-                                                      mount_point)
+                                                      data_mount)
 
                     # burst number in slave file (subswath is same)
                     slave_burst_nr = slave_burst.BurstNr.values[0]

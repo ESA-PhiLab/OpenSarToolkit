@@ -281,6 +281,15 @@ class Sentinel1(Generic):
                                        mosaic_refine=mosaic_refine,
                                        area_reduce=area_reduce)
 
+        # summing up information
+        print('--------------------------------------------')
+        print(' Summing up the info about mosaics')
+        print('--------------------------------------------')
+        for key in self.refined_inventory_dict:
+            print('')
+            print(' {} mosaics for mosaic key {}'.format(self.coverages[key],
+                                                         key))
+
     def download(self, inventory_df, mirror=None, concurrent=2,
                  uname=None, pword=None):
 
@@ -333,12 +342,12 @@ class Sentinel1_SLCBatch(Sentinel1):
             self.burst_inventory = burst.burst_inventory(
                 self.refined_inventory_dict[key],
                 download_dir=self.download_dir,
-                mount_point=self.data_mount)
+                data_mount=self.data_mount)
         else:
             self.burst_inventory = burst.burst_inventory(
                     self.inventory,
                     download_dir=self.download_dir,
-                    mount_point=self.data_mount)
+                    data_mount=self.data_mount)
 
         if refine:
             self.burst_inventory = burst.refine_burst_inventory(
