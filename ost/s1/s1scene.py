@@ -140,17 +140,17 @@ class S1Scene():
 
         return path
 
-    def _aws_path(self):
+    def _aws_path(self, mount_point):
 
         print('Dummy function for aws path to be added')
 
-    def _mundi_path(self):
+    def _mundi_path(self, mont_point):
 
         print(' Dummy function for mundi paths to be added')
 
     def _onda_path(self, mount_point):
 
-        path = opj(mount_point, 'S1', 'Level-1',
+        path = opj(mount_point, 'S1', 'LEVEL-1',
                    '{}'.format(self.onda_class),
                    self.year,
                    self.month,
