@@ -48,15 +48,10 @@ def restore_download_dir(input_directory, download_dir):
         scene = S1Scene(os.path.basename(scene)[:-4])
 
         # create download path and file
-        download_path = opj(download_dir, 'SAR', scene.product_type,
-                            scene.year, scene.month, scene.day)
-
-        # create download dir
-        os.makedirs(download_path, exist_ok=True)
-        outfile = opj(download_path, '{}.zip'.format(scene.scene_id))
+        filepath = scene._download_path(download_dir, True)
 
         # move file
-        os.rename(scene, outfile)
+        os.rename(scene, filepath)
 
 
 def check_scene_availability(inventory_df, download_dir, cloud_provider=None):
@@ -208,29 +203,16 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         scenes = inventory_df['identifier'].tolist()
 
         download_list = []
-        asf_list = []
 
         for scene_id in scenes:
             scene = S1Scene(scene_id)
-            download_path = opj(download_dir, 'SAR', scene.product_type,
-                                scene.year, scene.month, scene.day)
-
-            filename = '{}.zip'.format(scene.scene_id)
+            filepath = scene._download_path(download_dir, True)
 
             uuid = (inventory_df['uuid']
                     [inventory_df['identifier'] == scene_id].tolist())
 
-            if os.path.isdir(download_path) is False:
-                os.makedirs(download_path)
-
-            # in case the data has been downloaded before
-            # if os.path.exists('{}/{}'.format(download_path, filename))
-            # is False:
             # create list objects for download
-            download_list.append([uuid[0], '{}/{}'.format(
-                download_path, filename), uname, pword])
-            asf_list.append([scene.asf_url(), '{}/{}'.format(
-                download_path, filename), uname, pword])
+            download_list.append([uuid[0], filepath, uname, pword])
 
         # download in parallel
         if int(mirror) == 1:   # scihub

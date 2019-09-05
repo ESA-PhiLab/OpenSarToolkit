@@ -47,7 +47,7 @@ class S1Scene():
         self.year = scene_id[17:21]
         self.month = scene_id[21:23]
         self.day = scene_id[23:25]
-
+        self.onda_class = scene_id[4:14]
         # Calculate the relative orbit out of absolute orbit
         # (from Peter Meadows (ESA) @
         # http://forum.step.esa.int/t/sentinel-1-relative-orbit-from-filename/7042)
@@ -111,7 +111,8 @@ class S1Scene():
         df = pd.DataFrame({'identifier': [self.scene_id]})
         download.download_sentinel1(df, download_dir)
 
-    def download_path(self, download_dir):
+    # location of file (including diases)
+    def _download_path(self, download_dir, mkdir=False):
 
         download_path = opj(download_dir, 'SAR',
                             self.product_type,
@@ -120,12 +121,61 @@ class S1Scene():
                             self.day)
 
         # make dir if not existent
-        os.makedirs(download_path, exist_ok=True)
+        if mkdir:
+            os.makedirs(download_path, exist_ok=True)
+
         # get filepath
         filepath = opj(download_path, '{}.zip'.format(self.scene_id))
 
         return filepath
 
+    def _creodias_path(self, mount_point='/eodata'):
+
+        path = opj(mount_point, 'Sentinel-1', 'SAR',
+                   self.product_type,
+                   self.year,
+                   self.month,
+                   self.day,
+                   '{}.SAFE'.format(self.scene_id))
+
+        return path
+
+    def _aws_path(self):
+
+        print('Dummy function for aws path to be added')
+
+    def _mundi_path(self):
+
+        print(' Dummy function for mundi paths to be added')
+
+    def _onda_path(self, mount_point):
+
+        path = opj(mount_point, 'S1', 'Level-1',
+                   '{}'.format(self.onda_class),
+                   self.year,
+                   self.month,
+                   self.day,
+                   '{}.zip'.format(self.scene_id),
+                   '{}.SAFE'.format(self.scene_id))
+
+        return path
+
+    def get_path(self, download_dir=None, mount_point='/eodata'):
+
+        if os.path.isfile(self._download_path(download_dir)):
+            path = self._download_path(download_dir)
+        elif os.path.isdir(self._creodias_path(mount_point)):
+            path = self._creodias_path(mount_point)
+        elif os.path.isdir(self._onda_path(mount_point)):
+            path = self._onda_path(mount_point)
+        elif os.path.isfile(self._mundi_path(mount_point)):
+            path = self._mundi_path(mount_point)
+        elif os.path.isfile(self._aws_path(mount_point)):
+            path = self._aws_path(mount_point)
+
+        return path
+
+    # scihub related
     def scihub_uuid(self, opener):
 
         # construct the basic the url
@@ -242,6 +292,7 @@ class S1Scene():
 
         return code
 
+    # burst part
     def _scihub_annotation_url(self, opener):
 
         uuid = self.scihub_uuid(opener)
@@ -282,112 +333,6 @@ class S1Scene():
                     url_list.append('{}/$value'.format(download_url))
 
         return url_list
-
-    def scihub_annotation_get(self, uname=None, pword=None):
-
-        # define column names fro BUrst DF
-        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
-                        'AnxTime', 'BurstNr', 'geometry']
-
-        gdf_final = gpd.GeoDataFrame(columns=column_names)
-
-        base_url = 'https://scihub.copernicus.eu/apihub/'
-
-        # get connected to scihub
-        opener = scihub.connect(base_url, uname, pword)
-
-        anno_list = self._scihub_annotation_url(opener)
-
-        for url in anno_list:
-            try:
-                # get the request
-                req = opener.open(url)
-            except URLError as error:
-                if hasattr(error, 'reason'):
-                    print(' We failed to connect to the server.')
-                    print(' Reason: ', error.reason)
-                    sys.exit()
-                elif hasattr(error, 'code'):
-                    print(' The server couldn\'t fulfill the request.')
-                    print(' Error code: ', error.code)
-                    sys.exit()
-            else:
-                # write the request to to the response variable
-                # (i.e. the xml coming back from scihub)
-                response = req.read().decode('utf-8')
-
-                et_root = ET.fromstring(response)
-
-                # parse the xml page from the response
-                gdf = self._burst_database(et_root)
-
-                gdf_final = gdf_final.append(gdf)
-
-        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
-
-    def download_annotation_get(self, download_dir):
-
-        column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
-                        'BurstNr', 'geometry']
-
-        # crs for empty dataframe
-        crs = {'init': 'epsg:4326'}
-        gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
-
-        file = self.download_path(download_dir)
-
-        # extract info from archive
-        archive = zipfile.ZipFile(file, 'r')
-        namelist = archive.namelist()
-        xml_files = fnmatch.filter(namelist, "*/annotation/s*.xml")
-
-        # loop through xml annotation files
-        for xml_file in xml_files:
-            xml_string = archive.open(xml_file)
-
-            gdf = self._burst_database(ET.parse(xml_string))
-            gdf_final = gdf_final.append(gdf)
-
-        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
-
-    def creodias_path(self, base_path='/eodata/Sentinel-1'):
-
-        path = opj(base_path, 'SAR',
-                   self.product_type,
-                   self.year,
-                   self.month,
-                   self.day,
-                   '{}.SAFE'.format(self.scene_id))
-
-        return path
-
-    def creodias_annotation_get(self):
-
-        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
-                        'AnxTime', 'BurstNr', 'geometry']
-        gdf_final = gpd.GeoDataFrame(columns=column_names)
-
-        for anno_file in glob.glob(
-                '{}/annotation/*xml'.format(self.creodias_path())):
-
-            # parse the xml page from the response
-            gdf = self._burst_database(ET.parse(anno_file))
-
-            gdf_final = gdf_final.append(gdf)
-
-        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
-
-    def aws_path(self):
-
-        print('Dummy function for aws path to be added')
-
-    def mundi_path(self):
-
-        print(' Dummy function for mundi paths to be added')
-
-    def onda_path(self):
-
-        print(' Dummy function for onda paths to be added')
 
     def _burst_database(self, et_root):
         '''
@@ -483,6 +428,91 @@ class S1Scene():
 
         return gdf
 
+    def _scihub_annotation_get(self, uname=None, pword=None):
+
+        # define column names fro BUrst DF
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
+                        'AnxTime', 'BurstNr', 'geometry']
+
+        gdf_final = gpd.GeoDataFrame(columns=column_names)
+
+        base_url = 'https://scihub.copernicus.eu/apihub/'
+
+        # get connected to scihub
+        opener = scihub.connect(base_url, uname, pword)
+
+        anno_list = self._scihub_annotation_url(opener)
+
+        for url in anno_list:
+            try:
+                # get the request
+                req = opener.open(url)
+            except URLError as error:
+                if hasattr(error, 'reason'):
+                    print(' We failed to connect to the server.')
+                    print(' Reason: ', error.reason)
+                    sys.exit()
+                elif hasattr(error, 'code'):
+                    print(' The server couldn\'t fulfill the request.')
+                    print(' Error code: ', error.code)
+                    sys.exit()
+            else:
+                # write the request to to the response variable
+                # (i.e. the xml coming back from scihub)
+                response = req.read().decode('utf-8')
+
+                et_root = ET.fromstring(response)
+
+                # parse the xml page from the response
+                gdf = self._burst_database(et_root)
+
+                gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    def _zip_annotation_get(self, download_dir, mount_point='eodata'):
+
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
+                        'BurstNr', 'geometry']
+
+        # crs for empty dataframe
+        crs = {'init': 'epsg:4326'}
+        gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
+
+        file = self.get_path(download_dir, mount_point)
+
+        # extract info from archive
+        archive = zipfile.ZipFile(file, 'r')
+        namelist = archive.namelist()
+        xml_files = fnmatch.filter(namelist, "*/annotation/s*.xml")
+
+        # loop through xml annotation files
+        for xml_file in xml_files:
+            xml_string = archive.open(xml_file)
+
+            gdf = self._burst_database(ET.parse(xml_string))
+            gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    def _safe_annotation_get(self, download_dir, mount_point='eodata'):
+
+        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
+                        'AnxTime', 'BurstNr', 'geometry']
+        gdf_final = gpd.GeoDataFrame(columns=column_names)
+
+        for anno_file in glob.glob(
+                '{}/annotation/*xml'.format(
+                    self.get_path(download_dir=download_dir,
+                                  mount_point=mount_point))):
+
+            # parse the xml page from the response
+            gdf = self._burst_database(ET.parse(anno_file))
+            gdf_final = gdf_final.append(gdf)
+
+        return gdf_final.drop_duplicates(['AnxTime'], keep='first')
+
+    # other data providers
     def asf_url(self):
 
         asf_url = 'https://datapool.asf.alaska.edu'
@@ -553,56 +583,8 @@ class S1Scene():
 
         return status, url
 
-    def get_scene_path(self,
-                       download_dir=None,
-                       creo_base='/eodata/Sentinel-1/',
-                       # mundi_base=None,
-                       # onda_base=None
-                       ):
-
-        if os.path.isfile(self.download_path(download_dir)):
-            path = self.download_path(download_dir)
-        elif os.path.isdir(self.creodias_path(creo_base)):
-            path = self.creodias_path(creo_base)
-        #elif os.path.isfile(self.mundi_path(mundi_base)):
-        #    path = self.mundi_path()
-        #elif os.path.isfile(self.onda_path(onda_base)):
-        #    path = self.onda_path()
-
-        return path
-
-    def _get_center_lat(self, scene_path=None):
-
-        zip_archive = zipfile.ZipFile(scene_path)
-        manifest = zip_archive.read('{}.SAFE/manifest.safe'
-                                    .format(self.scene_id))
-        root = ET.fromstring(manifest)
-
-        for child in root:
-            metadata = child.findall('metadataObject')
-            for meta in metadata:
-                for wrap in meta.findall('metadataWrap'):
-                    for data in wrap.findall('xmlData'):
-                        for frameSet in data.findall(
-                        '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
-                            for frame in frameSet.findall(
-                            '{http://www.esa.int/safe/sentinel-1.0}frame'):
-                                for footprint in frame.findall(
-                                '{http://www.esa.int/'
-                                'safe/sentinel-1.0}footPrint'):
-                                    for coords in footprint.findall(
-                                    '{http://www.opengis.net/gml}'
-                                    'coordinates'):
-                                        coordinates = coords.text.split(' ')
-
-        sums = 0
-        for i, coords in enumerate(coordinates):
-            sums = sums + float(coords.split(',')[0])
-
-        return sums / (i + 1)
-
-
-    def set_ard_definition(self, ard_type='OST'):
+    # processing related functions
+    def set_ard_parameters(self, ard_type='OST'):
 
         if ard_type == 'OST':
             self.ard_parameters['type'] = ard_type
@@ -713,3 +695,34 @@ class S1Scene():
     def visualise_rgb(self, shrink_factor=25):
 
         ras.visualise_rgb(self.ard_rgb, shrink_factor)
+
+    # other functions
+    def _get_center_lat(self, scene_path=None):
+
+        zip_archive = zipfile.ZipFile(scene_path)
+        manifest = zip_archive.read('{}.SAFE/manifest.safe'
+                                    .format(self.scene_id))
+        root = ET.fromstring(manifest)
+
+        for child in root:
+            metadata = child.findall('metadataObject')
+            for meta in metadata:
+                for wrap in meta.findall('metadataWrap'):
+                    for data in wrap.findall('xmlData'):
+                        for frameSet in data.findall(
+                        '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
+                            for frame in frameSet.findall(
+                            '{http://www.esa.int/safe/sentinel-1.0}frame'):
+                                for footprint in frame.findall(
+                                '{http://www.esa.int/'
+                                'safe/sentinel-1.0}footPrint'):
+                                    for coords in footprint.findall(
+                                    '{http://www.opengis.net/gml}'
+                                    'coordinates'):
+                                        coordinates = coords.text.split(' ')
+
+        sums = 0
+        for i, coords in enumerate(coordinates):
+            sums = sums + float(coords.split(',')[0])
+
+        return sums / (i + 1)

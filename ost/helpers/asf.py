@@ -172,7 +172,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
         for scene_id in scenes:
 
             scene = S1Scene(scene_id)
-            filepath = scene.download_path(download_dir)
+            filepath = scene._download_path(download_dir, True)
 
             if os.path.exists('{}.downloaded'.format(filepath)):
                 print(' INFO: {} is already downloaded.'
@@ -196,7 +196,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
             for scene in scenes:
 
                 scene = S1Scene(scene)
-                filepath = scene.download_path(download_dir)
+                filepath = scene._download_path(download_dir)
 
                 if os.path.exists('{}.downloaded'.format(filepath)):
                     scenes.remove(scene.scene_id)

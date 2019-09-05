@@ -208,11 +208,12 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                 scene_id = row.identifier
                 # construct download path
                 scene = S1Scene(scene_id)
-                download_path = scene.download_path(download_dir)
+                download_path = scene._download_path(download_dir, True)
                 # put all info to the peps_list for parallelised download
                 peps_list.append(
-                    [inventory_df.pepsUrl[inventory_df.identifier == scene_id].tolist()[0],
-                     download_path, uname, pword])
+                    [inventory_df.pepsUrl[
+                        inventory_df.identifier == scene_id].tolist()[0],
+                        download_path, uname, pword])
 
             # parallelised download
             pool = multiprocessing.Pool(processes=concurrent)
@@ -227,6 +228,6 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                 scene_id = row.identifier
                 # construct download path
                 scene = S1Scene(scene_id)
-                download_path = scene.download_path(download_dir)
+                download_path = scene._download_path(download_dir)
                 if os.path.exists(download_path):
                     inventory_df.at[index, 'pepsStatus'] = 'downloaded'
