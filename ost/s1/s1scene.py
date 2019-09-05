@@ -470,7 +470,7 @@ class S1Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _zip_annotation_get(self, download_dir, mount_point='eodata'):
+    def _zip_annotation_get(self, download_dir, mount_point='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
@@ -495,7 +495,7 @@ class S1Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _safe_annotation_get(self, download_dir, mount_point='eodata'):
+    def _safe_annotation_get(self, download_dir, mount_point='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
