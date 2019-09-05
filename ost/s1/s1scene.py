@@ -703,12 +703,11 @@ class S1Scene():
             zip_archive = zipfile.ZipFile(scene_path)
             manifest = zip_archive.read('{}.SAFE/manifest.safe'
                                                 .format(self.scene_id))
-            root = ET.fromstring(manifest)
         elif scene_path[-5:] == '.SAFE':
+            with open(opj(scene_path, 'manifest.safe'), 'rb') as file:
+                manifest = file.read()
 
-            with open(opj(scene_path, 'manifest.safe'), 'rb') as xml_file:
-                root = ET.parse(xml_file)
-
+        root = ET.fromstring(manifest)
         for child in root:
             metadata = child.findall('metadataObject')
             for meta in metadata:
