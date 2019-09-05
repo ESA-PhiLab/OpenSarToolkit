@@ -129,9 +129,9 @@ class S1Scene():
 
         return filepath
 
-    def _creodias_path(self, mount_point='/eodata'):
+    def _creodias_path(self, data_mount='/eodata'):
 
-        path = opj(mount_point, 'Sentinel-1', 'SAR',
+        path = opj(data_mount, 'Sentinel-1', 'SAR',
                    self.product_type,
                    self.year,
                    self.month,
@@ -140,7 +140,7 @@ class S1Scene():
 
         return path
 
-    def _aws_path(self, mount_point):
+    def _aws_path(self, data_mount):
 
         print('Dummy function for aws path to be added')
 
@@ -148,9 +148,9 @@ class S1Scene():
 
         print(' Dummy function for mundi paths to be added')
 
-    def _onda_path(self, mount_point):
+    def _onda_path(self, data_mount):
 
-        path = opj(mount_point, 'S1', 'LEVEL-1',
+        path = opj(data_mount, 'S1', 'LEVEL-1',
                    '{}'.format(self.onda_class),
                    self.year,
                    self.month,
@@ -160,18 +160,18 @@ class S1Scene():
 
         return path
 
-    def get_path(self, download_dir=None, mount_point='/eodata'):
+    def get_path(self, download_dir=None, data_mount='/eodata'):
 
         if os.path.isfile(self._download_path(download_dir)):
             path = self._download_path(download_dir)
-        elif os.path.isdir(self._creodias_path(mount_point)):
-            path = self._creodias_path(mount_point)
-        elif os.path.isdir(self._onda_path(mount_point)):
-            path = self._onda_path(mount_point)
-        elif os.path.isfile(self._mundi_path(mount_point)):
-            path = self._mundi_path(mount_point)
-        elif os.path.isfile(self._aws_path(mount_point)):
-            path = self._aws_path(mount_point)
+        elif os.path.isdir(self._creodias_path(data_mount)):
+            path = self._creodias_path(data_mount)
+        elif os.path.isdir(self._onda_path(data_mount)):
+            path = self._onda_path(data_mount)
+        elif os.path.isfile(self._mundi_path(data_mount)):
+            path = self._mundi_path(data_mount)
+        elif os.path.isfile(self._aws_path(data_mount)):
+            path = self._aws_path(data_mount)
 
         return path
 
@@ -470,7 +470,7 @@ class S1Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _zip_annotation_get(self, download_dir, mount_point='/eodata'):
+    def _zip_annotation_get(self, download_dir, data_mount='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
@@ -479,7 +479,7 @@ class S1Scene():
         crs = {'init': 'epsg:4326'}
         gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
 
-        file = self.get_path(download_dir, mount_point)
+        file = self.get_path(download_dir, data_mount)
 
         # extract info from archive
         archive = zipfile.ZipFile(file, 'r')
@@ -495,7 +495,7 @@ class S1Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _safe_annotation_get(self, download_dir, mount_point='/eodata'):
+    def _safe_annotation_get(self, download_dir, data_mount='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
@@ -504,7 +504,7 @@ class S1Scene():
         for anno_file in glob.glob(
                 '{}/annotation/*xml'.format(
                     self.get_path(download_dir=download_dir,
-                                  mount_point=mount_point))):
+                                  data_mount=data_mount))):
 
             # parse the xml page from the response
             gdf = self._burst_database(ET.parse(anno_file))
