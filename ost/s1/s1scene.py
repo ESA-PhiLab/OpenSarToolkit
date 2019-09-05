@@ -584,10 +584,10 @@ class S1Scene():
         return status, url
 
     # processing related functions
-    def set_ard_parameters(self, ard_type='OST'):
+    def set_ard_parameters(self):
 
-        if ard_type == 'OST':
-            self.ard_parameters['type'] = ard_type
+        if self.ard_type == 'OST':
+            self.ard_parameters['type'] = self.ard_type
             self.ard_parameters['resolution'] = 20
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCgamma'
@@ -595,8 +595,8 @@ class S1Scene():
             self.ard_parameters['ls_mask'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'OST_flat':
-            self.ard_parameters['type'] = ard_type
+        elif self.ard_type == 'OST_flat':
+            self.ard_parameters['type'] = self.ard_type
             self.ard_parameters['resolution'] = 20
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
@@ -604,8 +604,8 @@ class S1Scene():
             self.ard_parameters['ls_mask'] = True
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'CEOS':
-            self.ard_parameters['type'] = ard_type
+        elif self.ard_type == 'CEOS':
+            self.ard_parameters['type'] = self.ard_type
             self.ard_parameters['resolution'] = 10
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
@@ -613,8 +613,8 @@ class S1Scene():
             self.ard_parameters['ls_mask'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'EarthEngine':
-            self.ard_parameters['type'] = ard_type
+        elif self.ard_type == 'EarthEngine':
+            self.ard_parameters['type'] = self.ard_type
             self.ard_parameters['resolution'] = 10
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCsigma'
@@ -622,8 +622,8 @@ class S1Scene():
             self.ard_parameters['ls_mask'] = False
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'Zhuo':
-            self.ard_parameters['type'] = ard_type
+        elif self.ard_type == 'Zhuo':
+            self.ard_parameters['type'] = self.ard_type
             self.ard_parameters['resolution'] = 25
             self.ard_parameters['border_noise'] = False
             self.ard_parameters['product_type'] = 'RTC'
