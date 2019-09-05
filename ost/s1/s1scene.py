@@ -699,10 +699,15 @@ class S1Scene():
     # other functions
     def _get_center_lat(self, scene_path=None):
 
-        zip_archive = zipfile.ZipFile(scene_path)
-        manifest = zip_archive.read('{}.SAFE/manifest.safe'
-                                    .format(self.scene_id))
-        root = ET.fromstring(manifest)
+        if scene_path[-4:] == '.zip':
+            zip_archive = zipfile.ZipFile(scene_path)
+            manifest = zip_archive.read('{}.SAFE/manifest.safe'
+                                                .format(self.scene_id))
+            root = ET.fromstring(manifest)
+        elif scene_path[-5:] == '.SAFE':
+
+            with open(opj(scene_path, 'manifest.safe'), 'rb') as xml_file:
+                root = ET.parse(xml_file)
 
         for child in root:
             metadata = child.findall('metadataObject')
