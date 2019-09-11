@@ -409,6 +409,28 @@ def visualise_rgb(filepath, shrink_factor=25):
     plt.imshow(img)
 
 
+def get_min(file):
+
+    mins = {'BS.VV': -20, 'BS.VH': -25, 'BS.HH': -20, 'BS.HV': -25,
+            'coh.VV': 0.1, 'coh.VH': 0.1,
+            'Alpha': 60, 'Entropy': 0.1, 'Anisotropy': 0.1}
+
+    for key, items in mins.items():
+        if key in file:
+            return items
+
+
+def get_max(file):
+
+    maxs = {'BS.VV': 0, 'BS.VH': -12, 'BS.HH': 0, 'BS.HV': -5,
+            'coh.VV': 0.8, 'coh.VH': 0.75,
+            'Alpha': 80, 'Entropy': 0.8, 'Anisotropy': 0.8}
+
+    for key, items in maxs.items():
+        if key in file:
+            return items
+
+
 def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
                    minimum_list=None, maximum_list=None):
 
@@ -423,8 +445,11 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
                            int(src.width / shrink_factor)),
                 resampling=5    # 5 = average
                 )[0]
-        minimum_list.append(np.nanpercentile(layer1, 2))
-        maximum_list.append(np.nanpercentile(layer1, 98))
+        minimum_list.append(get_min(layer1))
+        maximum_list.append(get_max(layer1))
+
+    #    minimum_list.append(np.nanpercentile(layer1, 2))
+     #   maximum_list.append(np.nanpercentile(layer1, 98))
 
     with rasterio.open(filelist[1]) as src:
         layer2 = src.read(
@@ -432,8 +457,10 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
                            int(src.width / shrink_factor)),
                 resampling=5    # 5 = average
                 )[0]
-        minimum_list.append(np.nanpercentile(layer2, 2))
-        maximum_list.append(np.nanpercentile(layer2, 98))
+        minimum_list.append(get_min(layer2))
+        maximum_list.append(get_max(layer2))
+        #minimum_list.append(np.nanpercentile(layer2, 2))
+        #maximum_list.append(np.nanpercentile(layer2, 98))
 
     if len(filelist) == 2:    # that should be the BS ratio case
         layer3 = np.subtract(layer1, layer2)
@@ -447,12 +474,15 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
                                int(src.width / shrink_factor)),
                     resampling=5    # 5 = average
                     )[0]
-        minimum_list.append(np.nanpercentile(layer3, 2))
-        maximum_list.append(np.nanpercentile(layer1, 98))
+        minimum_list.append(get_min(layer3))
+        maximum_list.append(get_max(layer3))
+        #minimum_list.append(np.nanpercentile(layer3, 2))
+        #maximum_list.append(np.nanpercentile(layer1, 98))
 
     layer1[layer1 == 0] = np.nan
     layer2[layer2 == 0] = np.nan
     layer3[layer3 == 0] = np.nan
+
 
     red = norm(scale_to_int(layer1, minimum_list[0],
                             maximum_list[0], 'uint8'))
@@ -481,7 +511,6 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
             if i == nr_of_products-1:
                 print('here')
                 break
-
 
         filelist = [glob.glob(opj(timeseries_folder, '{}.*{}'.format(i + 1, product)))[0] for product in product_list]
         create_rgb_png(filelist, opj(out_folder, '{}.png'.format(i+1)),
