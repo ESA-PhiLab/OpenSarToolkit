@@ -27,9 +27,9 @@ __version__ = 1.0
 __license__ = 'MIT'
 
 
-class S1Scene():
+class Sentinel1_Scene():
 
-    def __init__(self, scene_id):
+    def __init__(self, scene_id, ard_type='OST'):
         self.scene_id = scene_id
         self.mission_id = scene_id[0:3]
         self.mode_beam = scene_id[4:6]
@@ -86,8 +86,9 @@ class S1Scene():
         self.ard_rgb = None
         self.rgb_thumbnail = None
 
-        # set initial ARD parameters to Empty
+        # set initial ARD parameters to ard_type
         self.ard_parameters = {}
+        self.set_ard_parameters(ard_type)
 
     def info(self):
 
@@ -587,6 +588,7 @@ class S1Scene():
     def set_ard_parameters(self, ard_type='OST'):
 
         if ard_type == 'OST':
+
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
             self.ard_parameters['border_noise'] = True
@@ -595,7 +597,7 @@ class S1Scene():
             self.ard_parameters['ls_mask'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'OST_flat':
+        elif ard_type == 'OST Flat':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
             self.ard_parameters['border_noise'] = True

@@ -79,7 +79,7 @@ class Generic():
         self._create_download_dir(self.download_dir)
         self._create_inventory_dir(self.inventory_dir)
         self._create_processing_dir(self.processing_dir)
-        self._create_temporary_dir(self.temp_dir)
+        self._create_temp_dir(self.temp_dir)
 
     def _create_project_dir(self, if_not_empty=True):
         '''Creates the high-lvel project directory
@@ -153,7 +153,7 @@ class Generic():
         logging.info(' Inventory files will be stored in: {}'
                      .format(self.inventory_dir))
 
-    def _create_temporary_dir(self, temp_dir=None):
+    def _create_temp_dir(self, temp_dir=None):
         '''Creates the high-level temporary directory
 
         :param instance attribute temp_dir or
@@ -335,23 +335,62 @@ class Sentinel1_SLCBatch(Sentinel1):
         self.ard_type = ard_type
         self.ard_parameters = {}
         self.set_ard_parameters(self.ard_type)
+        self.burst_inventory = None
+        self.burst_inventory_file = None
 
-    def burst_inventory_(self, key=None, refine=True):
+    def create_burst_inventory(self, key=None, refine=True):
 
         if key:
+            outfile = opj(self.inventory_dir,
+                          'bursts.{}.shp').format(key)
             self.burst_inventory = burst.burst_inventory(
                 self.refined_inventory_dict[key],
+                outfile,
                 download_dir=self.download_dir,
                 data_mount=self.data_mount)
         else:
+            outfile = opj(self.inventory_dir,
+                          'bursts.full.shp')
             self.burst_inventory = burst.burst_inventory(
                     self.inventory,
+                    outfile,
                     download_dir=self.download_dir,
                     data_mount=self.data_mount)
 
         if refine:
+            print('{}.refined.shp'.format(outfile[:-4]))
             self.burst_inventory = burst.refine_burst_inventory(
-                    self.aoi, self.burst_inventory)
+                    self.aoi, self.burst_inventory,
+                    '{}.refined.shp'.format(outfile[:-4])
+                    )
+
+    def read_burst_inventory(self, key):
+        '''Read the Sentinel-1 data inventory from a OST invetory shapefile
+
+        :param
+
+        '''
+
+        if key:
+            file = opj(self.inventory_dir, 'burst_inventory.{}.shp').format(
+                key)
+        else:
+            file = opj(self.inventory_dir, 'burst_inventory.shp')
+
+        # define column names of file (since in shp they are truncated)
+        # create column names for empty data frame
+        column_names = ['SceneID', 'Track', 'Direction', 'Date', 'SwathID',
+                        'AnxTime', 'BurstNr', 'geometry']
+
+        geodataframe = gpd.read_file(file)
+        geodataframe.columns = column_names
+        geodataframe['Date'] = geodataframe['Date'].astype(int)
+        geodataframe['BurstNr'] = geodataframe['BurstNr'].astype(int)
+        geodataframe['AnxTime'] = geodataframe['AnxTime'].astype(int)
+        geodataframe['Track'] = geodataframe['Track'].astype(int)
+        self.burst_inventory = geodataframe
+
+        return geodataframe
 
     def set_ard_parameters(self, ard_type='OST Plus'):
 

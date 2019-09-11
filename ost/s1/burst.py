@@ -16,10 +16,10 @@ import geopandas as gpd
 
 from ost.helpers import scihub, vector as vec, raster as ras, helpers as h
 from ost.s1 import burst_to_ard, ts
-from ost import S1Scene
+from ost import Sentinel1_Scene as S1Scene
 
 
-def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
+def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
                     data_mount='/eodata', uname=None, pword=None):
     '''Creates a Burst GeoDataFrame from an OST inventory file
 
@@ -77,6 +77,7 @@ def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
         # append
         gdf_full = gdf_full.append(single_gdf)
 
+
     gdf_full = gdf_full.reset_index(drop=True)
 
     for i in gdf_full['AnxTime'].unique():
@@ -96,10 +97,16 @@ def burst_inventory(inventory_df, download_dir=os.getenv('HOME'),
         gdf_full.SwathID.astype(str) + '_' + \
         gdf_full.AnxTime.astype(str)
 
+    # save file to out
+    gdf_full['Date'] = gdf_full['Date'].astype(str)
+    gdf_full['BurstNr'] = gdf_full['BurstNr'].astype(str)
+    gdf_full['AnxTime'] = gdf_full['AnxTime'].astype(str)
+    gdf_full['Track'] = gdf_full['Track'].astype(str)
+    gdf_full.to_file(outfile)
     return gdf_full
 
 
-def refine_burst_inventory(aoi, burst_gdf):
+def refine_burst_inventory(aoi, burst_gdf, outfile):
     '''Creates a Burst GeoDataFrame from an OST inventory file
 
     Args:
@@ -124,6 +131,12 @@ def refine_burst_inventory(aoi, burst_gdf):
         burst_gdf.columns = (['id' if x == 'id_left' else x
                               for x in burst_gdf.columns.tolist()])
 
+    # save file to out
+    burst_gdf['Date'] = burst_gdf['Date'].astype(str)
+    burst_gdf['BurstNr'] = burst_gdf['BurstNr'].astype(str)
+    burst_gdf['AnxTime'] = burst_gdf['AnxTime'].astype(str)
+    burst_gdf['Track'] = burst_gdf['Track'].astype(str)
+    burst_gdf.to_file(outfile)
     return burst_gdf[cols]
 
 

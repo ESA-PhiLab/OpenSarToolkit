@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(name='ost',
       packages=find_packages(),
       include_package_data=True,
-      version='0.8.14',
+      version='0.8.16',
       description='High-level functionality for the inventory, download '
                   'and pre-processing of Sentinel-1 data',
       install_requires=['numpy',
@@ -19,7 +19,8 @@ setup(name='ost',
                         'pandas',
                         'geopandas',
                         'gdal',
-                        'scipy'
+                        'scipy',
+                        'imageio'
                         ],
       url='https://github.com/ESA-PhiLab/OpenSarToolkit',
       author='Andreas Vollrath',

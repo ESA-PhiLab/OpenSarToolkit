@@ -5,13 +5,16 @@ This script provides wrapper functions for processing Sentinel-1 GRD products.
 
 # import stdlib modules
 import os
+from os.path import join as opj
 import numpy as np
+import glob
 
 # geo libs
 import gdal
 import osr
 import ogr
 import fiona
+import imageio
 import rasterio
 import rasterio.mask
 from rasterio.features import shapes
@@ -404,3 +407,95 @@ def visualise_rgb(filepath, shrink_factor=25):
     img = np.dstack((red, green, blue))
     img[img == 0] = np.nan
     plt.imshow(img)
+
+
+def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
+                   minimum_list=None, maximum_list=None):
+
+    import matplotlib.pyplot as plt
+
+    minimum_list=[]
+    maximum_list=[]
+
+    with rasterio.open(filelist[0]) as src:
+        layer1 = src.read(
+                out_shape=(src.count, int(src.height / shrink_factor),
+                           int(src.width / shrink_factor)),
+                resampling=5    # 5 = average
+                )[0]
+        minimum_list.append(np.nanpercentile(layer1, 2))
+        maximum_list.append(np.nanpercentile(layer1, 98))
+
+
+    with rasterio.open(filelist[1]) as src:
+        layer2 = src.read(
+                out_shape=(src.count, int(src.height / shrink_factor),
+                           int(src.width / shrink_factor)),
+                resampling=5    # 5 = average
+                )[0]
+        minimum_list.append(np.nanpercentile(layer2, 2))
+        maximum_list.append(np.nanpercentile(layer2, 98))
+
+    if len(filelist) == 2:    # that should be the BS ratio case
+        layer3 = np.subtract(layer1, layer2)
+        minimum_list.append(1)
+        maximum_list.append(15)
+    else:
+        # that's the full 3layer case
+        with rasterio.open(filelist[2]) as src:
+            layer3 = src.read(
+                    out_shape=(src.count, int(src.height / shrink_factor),
+                               int(src.width / shrink_factor)),
+                    resampling=5    # 5 = average
+                    )[0]
+        minimum_list.append(np.nanpercentile(layer3, 2))
+        maximum_list.append(np.nanpercentile(layer1, 98))
+
+    layer1[layer1 == 0] = np.nan
+    layer2[layer2 == 0] = np.nan
+    layer3[layer3 == 0] = np.nan
+
+
+    red = norm(scale_to_int(layer1, minimum_list[0],
+                            maximum_list[0], 'uint8'))
+    green = norm(scale_to_int(layer2, minimum_list[1],
+                              maximum_list[1], 'uint8'))
+    blue = norm(scale_to_int(layer3, minimum_list[2],
+                             maximum_list[2], 'uint8'))
+
+        img = np.dstack((red, green, blue))
+
+    plt.imsave(outfile, img)
+
+    if plot:
+        plt.imshow(img)
+
+
+def create_timeseries_animation(timeseries_folder, product_list, out_folder,
+                                shrink_factor=1, duration=1):
+
+    nr_of_products = 25
+    outfiles = []
+    for i in range(25):
+
+        # for coherence it must be one less
+        if 'coh.VV.tif' in product_list or 'coh.VH.tif' in product_list:
+            if i == nr_of_products-1:
+                print('here')
+                break
+
+
+        filelist = [glob.glob(opj(timeseries_folder, '{}.*{}'.format(i + 1, product)))[0] for product in product_list]
+        create_rgb_png(filelist, opj(out_folder, '{}.png'.format(i+1)),
+                       shrink_factor)
+
+        outfiles.append(opj(out_folder, '{}.png'.format(i+1)))
+
+    # create gif
+    with imageio.get_writer(opj(out_folder, 'animation.gif'), mode='I',
+        duration=duration) as writer:
+
+        for file in outfiles:
+            image = imageio.imread(file)
+            writer.append_data(image)
+            os.remove(file)

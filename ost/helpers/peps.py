@@ -13,7 +13,7 @@ import requests
 import tqdm
 
 # import ost classes/functions
-from ost import S1Scene
+from ost import Sentinel1_Scene as S1Scene
 
 
 def ask_credentials():

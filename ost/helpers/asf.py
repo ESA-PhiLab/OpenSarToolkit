@@ -11,7 +11,7 @@ import tqdm
 import zipfile
 import multiprocessing
 
-from ost import S1Scene
+from ost import Sentinel1_Scene as S1Scene
 
 
 # we need this class for earthdata access
