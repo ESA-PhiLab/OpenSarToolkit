@@ -414,8 +414,8 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
 
     import matplotlib.pyplot as plt
 
-    minimum_list=[]
-    maximum_list=[]
+    minimum_list = []
+    maximum_list = []
 
     with rasterio.open(filelist[0]) as src:
         layer1 = src.read(
@@ -425,7 +425,6 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
                 )[0]
         minimum_list.append(np.nanpercentile(layer1, 2))
         maximum_list.append(np.nanpercentile(layer1, 98))
-
 
     with rasterio.open(filelist[1]) as src:
         layer2 = src.read(
@@ -455,7 +454,6 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
     layer2[layer2 == 0] = np.nan
     layer3[layer3 == 0] = np.nan
 
-
     red = norm(scale_to_int(layer1, minimum_list[0],
                             maximum_list[0], 'uint8'))
     green = norm(scale_to_int(layer2, minimum_list[1],
@@ -463,7 +461,7 @@ def create_rgb_png(filelist, outfile, shrink_factor=1, plot=False,
     blue = norm(scale_to_int(layer3, minimum_list[2],
                              maximum_list[2], 'uint8'))
 
-        img = np.dstack((red, green, blue))
+    img = np.dstack((red, green, blue))
 
     plt.imsave(outfile, img)
 
