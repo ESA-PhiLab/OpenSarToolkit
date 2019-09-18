@@ -378,6 +378,11 @@ class Sentinel1_Scene():
             firstline = str(i*lines_per_burst)
             lastline = str((i+1)*lines_per_burst)
             azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
+            orbit_time = 12*24*60*60/175
+
+            if azi_anx_time > orbit_time:
+                azi_anx_time = np.mod(azi_anx_time, orbit_time)
+
             azi_anx_time = np.int32(np.round(azi_anx_time*10))
 #           burstid = 'T{}_{}_{}'.format(track, swath, burstid)
 #           first and lastline sometimes shifts by 1 for some reason?

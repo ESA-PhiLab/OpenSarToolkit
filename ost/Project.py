@@ -185,8 +185,8 @@ class Sentinel1(Generic):
                  inventory_dir=None,
                  processing_dir=None,
                  temp_dir=None,
-                 product_type='SLC',
-                 beam_mode='IW',
+                 product_type='*',
+                 beam_mode='*',
                  polarisation='*'
                  ):
 
@@ -252,7 +252,7 @@ class Sentinel1(Generic):
         geodataframe.columns = column_names
         self.inventory = geodataframe
 
-        return geodataframe
+        # return geodataframe
 
     def download_size(self, inventory_df=None):
 
@@ -274,7 +274,7 @@ class Sentinel1(Generic):
 
         self.refined_inventory_dict, self.coverages = refine.search_refinement(
                                        self.aoi,
-                                       self.read_inventory(),
+                                       self.inventory,
                                        self.inventory_dir,
                                        exclude_marginal=exclude_marginal,
                                        full_aoi_crossing=full_aoi_crossing,
