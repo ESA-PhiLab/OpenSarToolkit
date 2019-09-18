@@ -310,10 +310,12 @@ def exterior(infile, outfile, buffer=None):
 
     gdf = gpd.read_file(infile, crs={'init': 'EPSG:4326'})
     gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
-    if buffer:
-        gdf.geometry = gdf.geometry.apply(
-                lambda row: Polygon(row.buffer(-0.0018)))
-    gdf.to_file(outfile)
+    gdf_clean = gdf[gdf.gemetry.area >= 1.0e-6]
+    gdf_clean.geometry = gdf_clean.geometry.buffer(-0.0018)
+    #if buffer:
+    #    gdf.geometry = gdf.geometry.apply(
+     #           lambda row: Polygon(row.buffer(-0.0018)))
+    gdf_clean.to_file(outfile)
 
 
 def difference(infile1, infile2, outfile):
