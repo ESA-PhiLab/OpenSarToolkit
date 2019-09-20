@@ -301,6 +301,21 @@ def _to_postgis(gdf, db_connect, outtable):
     db_connect.pgSQLnoResp('VACUUM ANALYZE {};'.format(outtable.lower()))
 
 
+def check_availability(inventory_gdf, download_dir, data_mount):
+    '''This function checks if the data is already downloaded or 
+       available through a mount point on DIAS cloud
+    
+    '''
+    
+    from ost import Sentinel1_Scene
+    
+    # add download path, or set to None if not found
+    inventory_gdf['download_path'] = inventory_gdf.identifier.apply(
+        lambda row: Sentinel1_Scene(row).get_path(download_dir, data_mount))    
+    
+    return inventory_gdf
+
+
 def scihub_catalogue(query_string, output, append=False,
                      uname=None, pword=None):
     '''This is the main search function on scihub

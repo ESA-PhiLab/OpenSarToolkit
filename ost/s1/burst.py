@@ -44,25 +44,18 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         # read into S1scene class
         scene = S1Scene(scene_id)
 
+        print(' Getting burst info from {}.'.format(scene.scene_id))
+        
         # get orbit direction
         orbit_direction = inventory_df[
             inventory_df.identifier == scene_id].orbitdirection.values[0]
 
         filepath = scene.get_path(download_dir, data_mount)
-        # print(filepath)
-        if filepath[-4:] == '.zip':
-            print(' Getting burst info from {}.'.format(
-                os.path.basename(filepath)))
-            single_gdf = scene._zip_annotation_get(download_dir, data_mount)
-        elif filepath[-5:] == '.SAFE':
-            print(' Getting burst info from {}.'.format(
-                os.path.basename(filepath)))
-            single_gdf = scene._safe_annotation_get(download_dir, data_mount)
-        else:
-            uname, pword = scihub.ask_credentials()
-            opener = scihub.connect(uname=uname, pword=pword)
+        if not filepath:
             print(' Getting burst info from scihub'
                   ' (need to download xml files)')
+            uname, pword = scihub.ask_credentials()
+            opener = scihub.connect(uname=uname, pword=pword)
             if scene.scihub_online_status(opener) is False:
                 print(' INFO: Product needs to be online'
                       ' to create a burst database.')
@@ -70,6 +63,11 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
                       ' do the burst list from the local data.')
             else:
                 single_gdf = scene._scihub_annotation_get(uname, pword)
+        elif filepath[-4:] == '.zip':
+            single_gdf = scene._zip_annotation_get(download_dir, data_mount)
+        elif filepath[-5:] == '.SAFE':
+            single_gdf = scene._safe_annotation_get(download_dir, data_mount)
+           
 
         # add orbit direction
         single_gdf['Direction'] = orbit_direction
@@ -103,6 +101,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     gdf_full['AnxTime'] = gdf_full['AnxTime'].astype(str)
     gdf_full['Track'] = gdf_full['Track'].astype(str)
     gdf_full.to_file(outfile)
+    
     return gdf_full
 
 

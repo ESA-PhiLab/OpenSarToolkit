@@ -160,7 +160,7 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully calibrated product')
     else:
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -198,7 +198,7 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully applied the terrain flattening')
+        print(' INFO: Succesfully applied the terrain flattening.')
     else:
         print(' ERROR: Terrain Flattening exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -237,7 +237,7 @@ def _speckle_filter(infile, outfile, logfile):
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully speckle-filtered product')
     else:
         print(' ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -366,7 +366,7 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product')
+        print(' INFO: Succesfully coregistered product.')
     else:
         print(' ERROR: Co-registration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -413,7 +413,7 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product')
+        print(' INFO: Succesfully coregistered product.')
     else:
         print(' ERROR: Co-registration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -452,7 +452,7 @@ def _coherence(infile, outfile, logfile):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created Coherence product')
+        print(' INFO: Succesfully created coherence product.')
     else:
         print(' ERROR: Coherence exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -503,7 +503,7 @@ def _terrain_correction(infile, outfile, logfile, resolution,
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully orthorectified product.')
     else:
         print(' ERROR: Geocoding exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -553,7 +553,7 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully orthorectified product.')
     else:
         print(' ERROR: Geocoding exited with an error. \
                 See {} for Snap Error output'.format(logfile))

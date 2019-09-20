@@ -143,12 +143,14 @@ class Sentinel1_Scene():
 
     def _aws_path(self, data_mount):
 
-        print('Dummy function for aws path to be added')
-
+        # print('Dummy function for aws path to be added')
+        return '/foo/foo/foo'
+    
     def _mundi_path(self, mont_point):
 
-        print(' Dummy function for mundi paths to be added')
-
+        # print(' Dummy function for mundi paths to be added')
+        return '/foo/foo/foo'
+    
     def _onda_path(self, data_mount):
 
         path = opj(data_mount, 'S1', 'LEVEL-1',
@@ -163,17 +165,20 @@ class Sentinel1_Scene():
 
     def get_path(self, download_dir=None, data_mount='/eodata'):
 
-        if os.path.isfile(self._download_path(download_dir)):
+        if os.path.isfile(opj(self._download_path(download_dir) + '.downloaded')):
             path = self._download_path(download_dir)
-        elif os.path.isdir(self._creodias_path(data_mount)):
-            path = self._creodias_path(data_mount)
+        elif os.path.isfile(opj(self._creodias_path(data_mount), 'manifest.safe')):
+                path = self._creodias_path(data_mount)
         elif os.path.isdir(self._onda_path(data_mount)):
             path = self._onda_path(data_mount)
         elif os.path.isfile(self._mundi_path(data_mount)):
             path = self._mundi_path(data_mount)
         elif os.path.isfile(self._aws_path(data_mount)):
             path = self._aws_path(data_mount)
-
+        else:
+            #print(' Scene {} is not found.'.format(self.scene_id))
+            path = None
+            
         return path
 
     # scihub related

@@ -27,7 +27,7 @@ class Generic():
     def __init__(self, project_dir, aoi,
                  start='1978-06-28',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount='/eodata',
+                 data_mount=None,
                  download_dir=None,
                  inventory_dir=None,
                  processing_dir=None,
@@ -227,8 +227,8 @@ class Sentinel1(Generic):
         self.inventory_file = opj(self.inventory_dir, outfile)
         search.scihub_catalogue(query, self.inventory_file, append,
                                 uname, pword)
-
-        # read inventory into the inventoryGdf attribute
+        
+         # read inventory into the inventory attribute
         self.read_inventory()
 
     def read_inventory(self):
@@ -250,8 +250,12 @@ class Sentinel1(Generic):
 
         geodataframe = gpd.read_file(self.inventory_file)
         geodataframe.columns = column_names
-        self.inventory = geodataframe
-
+        
+        # add download_path to inventory, so we can check if data needs to be 
+        # downloaded
+        self.inventory = search.check_availability(
+            geodataframe, self.download_dir, self.data_mount)
+        
         # return geodataframe
 
     def download_size(self, inventory_df=None):
@@ -293,7 +297,16 @@ class Sentinel1(Generic):
     def download(self, inventory_df, mirror=None, concurrent=2,
                  uname=None, pword=None):
 
-        download.download_sentinel1(inventory_df,
+        if 'download_path' in inventory_df:
+            inventory_df.drop('download_path', axis=1)
+        
+        inventory_df = search.check_availability(
+            inventory_df, self.download_dir, self.data_mount)
+        
+        download_df = inventory_df[inventory_df.download_path.isnull()]
+        print(download_df)
+        print(download_df.download_path)
+        download.download_sentinel1(download_df,
                                     self.download_dir,
                                     mirror=mirror,
                                     concurrent=concurrent,
