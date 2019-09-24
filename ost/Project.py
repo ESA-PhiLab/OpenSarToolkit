@@ -12,9 +12,9 @@ from os.path import join as opj
 from datetime import datetime
 from shapely.wkt import loads
 
-from .s1 import search, refine, download, burst
-from .helpers import scihub, helpers as h
-from .helpers import vector as vec
+from ost.helpers import vector as vec
+from ost.s1 import search, refine, download, burst, grd_to_ard
+from ost.helpers import scihub, helpers as h
 
 # set logging
 logging.basicConfig(stream=sys.stdout,
@@ -176,7 +176,7 @@ class Sentinel1(Generic):
 
     This subclass creates a Sentinel-1 specific
     '''
-
+    
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
@@ -304,8 +304,8 @@ class Sentinel1(Generic):
             inventory_df, self.download_dir, self.data_mount)
         
         download_df = inventory_df[inventory_df.download_path.isnull()]
-        print(download_df)
-        print(download_df.download_path)
+        # print(download_df)
+        # print(download_df.download_path)
         download.download_sentinel1(download_df,
                                     self.download_dir,
                                     mirror=mirror,
@@ -471,7 +471,7 @@ class Sentinel1_SLCBatch(Sentinel1):
             h.remove_folder_content(self.processing_dir)
 
         if not self.ard_parameters:
-            self.set_ard_definition()
+            self.set_ard_parameters()
 
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y
@@ -540,9 +540,12 @@ class Sentinel1_GRDBatch(Sentinel1):
     This subclass creates a Sentinel-1 specific
     '''
 
+    
+    
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
+                 data_mount=None,
                  download_dir=None,
                  inventory_dir=None,
                  processing_dir=None,
@@ -553,12 +556,13 @@ class Sentinel1_GRDBatch(Sentinel1):
                  ard_type='OST'
                  ):
 
-        super().__init__(project_dir, aoi, start, end,
+        super().__init__(project_dir, aoi, start, end, data_mount,
                          download_dir, inventory_dir, processing_dir, temp_dir,
                          product_type, beam_mode, polarisation)
 
         self.ard_type = ard_type
-        self.set_ard_definition(ard_type)
+        self.ard_parameters = {}
+        self.set_ard_parameters(ard_type)
 
     # processing related functions
     def set_ard_parameters(self, ard_type='OST'):
@@ -599,3 +603,51 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['ls_mask'] = False
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+
+    
+    def grd_to_ard(self, inventory_df=None, timeseries=False, timescan=False, mosaic=False,
+                     overwrite=False):
+
+        if overwrite:
+            print(' INFO: Deleting processing folder to start from scratch')
+            h.remove_folder_content(self.processing_dir)
+
+        if not self.ard_parameters:
+            self.set_ard_parameters()
+
+        # set resolution in degree
+        self.center_lat = loads(self.aoi).centroid.y
+        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                  ' DEM instead.')
+            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+
+        # set resolution to degree
+        # self.ard_parameters['resolution'] = h.resolution_in_degree(
+        #    self.center_lat, self.ard_parameters['resolution'])
+
+        #nr_of_processed = len(
+        #    glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+
+        # check and retry function
+        #i = 0
+        #while len(self.burst_inventory) > nr_of_processed:
+
+        if not inventory_df:
+            inventory_df = self.inventory
+            
+        grd_to_ard.grd_to_ard(inventory_df,
+                              self.download_dir,
+                              self.processing_dir,
+                              self.temp_dir,
+                              self.ard_parameters,
+                              self.data_mount)
+
+#            nr_of_processed = len(
+#                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+#
+#            i += 1
+#
+#            # not more than 5 trys
+#            if i == 5:
+#                break

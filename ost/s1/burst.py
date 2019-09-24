@@ -44,7 +44,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         # read into S1scene class
         scene = S1Scene(scene_id)
 
-        print(' Getting burst info from {}.'.format(scene.scene_id))
+        print(' INFO: Getting burst info from {}.'.format(scene.scene_id))
         
         # get orbit direction
         orbit_direction = inventory_df[
@@ -52,9 +52,11 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
         filepath = scene.get_path(download_dir, data_mount)
         if not filepath:
-            print(' Getting burst info from scihub'
+            print(' INFO: Retrieving burst info from scihub'
                   ' (need to download xml files)')
-            uname, pword = scihub.ask_credentials()
+            if not uname and not pword:
+                uname, pword = scihub.ask_credentials()
+                
             opener = scihub.connect(uname=uname, pword=pword)
             if scene.scihub_online_status(opener) is False:
                 print(' INFO: Product needs to be online'
