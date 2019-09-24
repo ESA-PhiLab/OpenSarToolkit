@@ -132,15 +132,13 @@ class Sentinel1_Scene():
 
     def _creodias_path(self, data_mount='/eodata'):
 
-        if data_mount:
-            path = opj(data_mount, 'Sentinel-1', 'SAR',
-                       self.product_type,
-                       self.year,
-                       self.month,
-                       self.day,
-                       '{}.SAFE'.format(self.scene_id))
-        else:
-            path=None
+
+        path = opj(data_mount, 'Sentinel-1', 'SAR',
+                   self.product_type,
+                   self.year,
+                   self.month,
+                   self.day,
+                   '{}.SAFE'.format(self.scene_id))
             
         return path
 
@@ -156,35 +154,40 @@ class Sentinel1_Scene():
     
     def _onda_path(self, data_mount):
 
-        if data_mount:
-            path = opj(data_mount, 'S1', 'LEVEL-1',
-                       '{}'.format(self.onda_class),
-                       self.year,
-                       self.month,
-                       self.day,
-                       '{}.zip'.format(self.scene_id),
-                       '{}.SAFE'.format(self.scene_id))
-        else:
-            path = None
-            
+ 
+        path = opj(data_mount, 'S1', 'LEVEL-1',
+                   '{}'.format(self.onda_class),
+                   self.year,
+                   self.month,
+                   self.day,
+                   '{}.zip'.format(self.scene_id),
+                   '{}.SAFE'.format(self.scene_id))
+       
         return path
 
     def get_path(self, download_dir=None, data_mount='/eodata'):
 
-        if os.path.isfile(self._download_path(download_dir) + '.downloaded'):
-            path = self._download_path(download_dir)
-        elif os.path.isfile(opj(self._creodias_path(data_mount), 
-                                'manifest.safe')):
-            path = self._creodias_path(data_mount)
-        elif os.path.isdir(self._onda_path(data_mount)):
-            path = self._onda_path(data_mount)
-        elif os.path.isfile(self._mundi_path(data_mount)):
-            path = self._mundi_path(data_mount)
-        elif os.path.isfile(self._aws_path(data_mount)):
-            path = self._aws_path(data_mount)
+        if download_dir:
+            if os.path.isfile(self._download_path(download_dir) + '.downloaded'):
+                path = self._download_path(download_dir)
+            else:
+                path = None
         else:
-            #print(' Scene {} is not found.'.format(self.scene_id))
-            path = None
+            path=None
+        
+        if data_mount and not path:
+            if os.path.isfile(opj(self._creodias_path(data_mount), 
+                                    'manifest.safe')):
+                path = self._creodias_path(data_mount)
+            elif os.path.isdir(self._onda_path(data_mount)):
+                path = self._onda_path(data_mount)
+            elif os.path.isfile(self._mundi_path(data_mount)):
+                path = self._mundi_path(data_mount)
+            elif os.path.isfile(self._aws_path(data_mount)):
+                path = self._aws_path(data_mount)
+            else:
+                #print(' Scene {} is not found.'.format(self.scene_id))
+                path = None
             
         return path
 

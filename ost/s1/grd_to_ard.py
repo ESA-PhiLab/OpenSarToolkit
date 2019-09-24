@@ -85,7 +85,7 @@ __email__ = ''
 __status__ = 'Production'
 
 
-def _grd_frame_import(infile, outfile, logfile, polar='VV,VH,HH,HV'):
+def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product
 
     This function takes an original Sentinel-1 scene (either zip or
@@ -100,7 +100,7 @@ def _grd_frame_import(infile, outfile, logfile, polar='VV,VH,HH,HV'):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
-        polar (str): a string consisiting of the polarisation (comma separated)
+        polarisation (str): a string consisiting of the polarisation (comma separated)
                      e.g. 'VV,VH',
                      default value: 'VV,VH,HH,HV'
     '''
@@ -116,9 +116,9 @@ def _grd_frame_import(infile, outfile, logfile, polar='VV,VH,HH,HV'):
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
 
     # construct command
-    command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolar={} \
+    command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolarisation={} \
                -Poutput=\'{}\''.format(
-                   gpt_file, graph, os.cpu_count(), infile, polar, outfile)
+                   gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
 
     # run command
     return_code = h.run_command(command, logfile)
@@ -133,7 +133,7 @@ def _grd_frame_import(infile, outfile, logfile, polar='VV,VH,HH,HV'):
 
 
 def _grd_frame_import_subset(infile, outfile, georegion,
-                             logfile, polar='VV,VH,HH,HV'):
+                             logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a subset of single Sentinel-1 GRD product
 
     This function takes an original Sentinel-1 scene (either zip or
@@ -150,7 +150,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
-        polar (str): a string consisiting of the polarisation (comma separated)
+        polarisation (str): a string consisiting of the polarisation (comma separated)
                      e.g. 'VV,VH',
                      default value: 'VV,VH,HH,HV'
         georegion (str): a WKT style formatted POLYGON that bounds the
@@ -169,10 +169,10 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
 
     # construct command
-    command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolar={} \
+    command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolarisation={} \
                       -Poutput=\'{}\''.format(
                           gpt_file, graph, 2 * os.cpu_count(),
-                          infile, georegion, polar, outfile)
+                          infile, georegion, polarisation, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -186,7 +186,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
         sys.exit(102)
 
 
-def _slice_assembly(filelist, outfile, logfile, polar='VV,VH,HH,HV'):
+def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP's slice assembly routine
 
     This function assembles consecutive frames acquired at the same date.
@@ -209,7 +209,7 @@ def _slice_assembly(filelist, outfile, logfile, polar='VV,VH,HH,HV'):
     # construct command
     command = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
                -t \'{}\' {}'.format(
-                   gpt_file, 2 * os.cpu_count(), polar, outfile, filelist)
+                   gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -704,8 +704,19 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
         sys.exit(112)
 
 
-def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
-               subset=None, polar='VV,VH,HH,HV'):
+def grd_to_ard(filelist, 
+               output_dir, 
+               file_id, 
+               temp_dir, 
+               resolution, 
+               product_type,
+               ls_mask_create,
+               speckle_filter,
+               dem, 
+               to_db, 
+               border_noise,
+               subset=None, 
+               polarisation='VV,VH,HH,HV'):
     '''The main function for the grd to ard generation
 
     This function represents the full workflow for the generation of an
@@ -735,13 +746,13 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
     '''
 
     # get processing parameters from dict
-    resolution = processing_dict['resolution']
-    product_type = processing_dict['product_type']
-    ls_mask = processing_dict['ls_mask']
-    speckle_filter = processing_dict['speckle_filter']
-    border_noise = processing_dict['border_noise']
-    dem = processing_dict['dem']
-    to_db = processing_dict['to_db']
+#    resolution = processing_dict['resolution']
+#    product_type = processing_dict['product_type']
+#    ls_mask = processing_dict['ls_mask']
+#    speckle_filter = processing_dict['speckle_filter']
+#    border_noise = processing_dict['border_noise']
+#    dem = processing_dict['dem']
+#    to_db = processing_dict['to_db']
 
     # slice assembly if more than one scene
     if len(filelist) > 1:
@@ -761,7 +772,7 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
         # create file strings
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
-        _slice_assembly(scenelist, grd_import, logfile, polar)
+        _slice_assembly(scenelist, grd_import, logfile, polarisation)
 
         for file in filelist:
             h.delete_dimap(opj(temp_dir, '{}_imported'.format(
@@ -782,11 +793,11 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
         logfile = opj(output_dir, '{}.Import.errLog'.format(file_id))
 
         if subset is None:
-            _grd_frame_import(filelist[0], grd_import, logfile, polar)
+            _grd_frame_import(filelist[0], grd_import, logfile, polarisation)
         else:
             georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
             _grd_frame_import_subset(filelist[0], grd_import, georegion,
-                                     logfile, polar)
+                                     logfile, polarisation)
     # ---------------------------------------------------------------------
     # Remove the grd border noise from existent channels (OST routine)
 
@@ -850,7 +861,7 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
     # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
     outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    _grd_terrain_correction_deg(infile, outfile, logfile, resolution, dem)
+    _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
 
     # move to final destination
     out_final = opj(output_dir, '{}.{}.TC'.format(file_id, product_type))
@@ -864,7 +875,7 @@ def grd_to_ard(filelist, output_dir, file_id, temp_dir, processing_dict,
 
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
-    if ls_mask is True:
+    if ls_mask_create is True:
         outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
         _grd_ls_mask(infile, outfile, logfile, resolution, dem)

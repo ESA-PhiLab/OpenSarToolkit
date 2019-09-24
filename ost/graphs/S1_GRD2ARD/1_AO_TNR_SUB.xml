@@ -40,7 +40,7 @@
       <sourceProduct refid="Apply-Orbit-File"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations>${polarisation}</selectedPolarisations>
       <removeThermalNoise>true</removeThermalNoise>
       <reIntroduceThermalNoise>false</reIntroduceThermalNoise>
     </parameters>

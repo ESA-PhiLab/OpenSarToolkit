@@ -13,7 +13,7 @@ from datetime import datetime
 from shapely.wkt import loads
 
 from ost.helpers import vector as vec
-from ost.s1 import search, refine, download, burst, grd_to_ard
+from ost.s1 import search, refine, download, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 
 # set logging
@@ -573,8 +573,9 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCgamma'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
+            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'OST_flat':
             self.ard_parameters['type'] = ard_type
@@ -582,8 +583,9 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = True
+            self.ard_parameters['ls_mask_create'] = True
             self.ard_parameters['to_db'] = False
+            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'CEOS':
             self.ard_parameters['type'] = ard_type
@@ -591,8 +593,9 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
+            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'EarthEngine':
             self.ard_parameters['type'] = ard_type
@@ -600,13 +603,14 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCsigma'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = True
+            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
 
     
-    def grd_to_ard(self, inventory_df=None, timeseries=False, timescan=False, mosaic=False,
-                     overwrite=False):
+    def grd_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
+                   timescan=False, mosaic=False, overwrite=False):
 
         if overwrite:
             print(' INFO: Deleting processing folder to start from scratch')
@@ -633,15 +637,18 @@ class Sentinel1_GRDBatch(Sentinel1):
         #i = 0
         #while len(self.burst_inventory) > nr_of_processed:
 
-        if not inventory_df:
-            inventory_df = self.inventory
+        #if not inventory_df:
+         #   inventory_df = self.inventory
             
-        grd_to_ard.grd_to_ard(inventory_df,
+        grd_batch.grd_to_ard_batch(
+                              inventory_df,
                               self.download_dir,
                               self.processing_dir,
                               self.temp_dir,
                               self.ard_parameters,
-                              self.data_mount)
+                              subset,
+                              self.data_mount
+                              )
 
 #            nr_of_processed = len(
 #                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
