@@ -577,6 +577,18 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['to_db'] = False
             self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            
+            # time-series specific
+            self.ard_parameters['mt_speckle_filter'] = True
+            self.ard_parameters['to_db_mt'] = True
+            self.ard_parameters['datatype'] = 'float32'
+            self.ard_parameters['ls_mask_apply'] = False
+            
+            # timescan specific
+            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
+                                              'std', 'cov']
+            self.ard_parameters['outlier_removal'] = True
+            
         elif ard_type == 'OST_flat':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
@@ -587,6 +599,18 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['to_db'] = False
             self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            
+            # time-series specific
+            self.ard_parameters['mt_speckle_filter'] = True
+            self.ard_parameters['to_db_mt'] = True
+            self.ard_parameters['datatype'] = 'float32'
+            self.ard_parameters['ls_mask_apply'] = False
+            
+            # timescan specific
+            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
+                                              'std', 'cov']
+            self.ard_parameters['outlier_removal'] = True
+            
         elif ard_type == 'CEOS':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 10
@@ -597,6 +621,18 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['to_db'] = False
             self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            
+            # time-series specific
+            self.ard_parameters['mt_speckle_filter'] = False
+            self.ard_parameters['to_db_mt'] = False
+            self.ard_parameters['datatype'] = 'float32'
+            self.ard_parameters['ls_mask_apply'] = False
+            
+            # timescan specific
+            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
+                                              'std', 'cov']
+            self.ard_parameters['outlier_removal'] = False
+            
         elif ard_type == 'EarthEngine':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 10
@@ -608,6 +644,17 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
 
+            # time-series specific
+            self.ard_parameters['mt_speckle_filter'] = False
+            self.ard_parameters['to_db_mt'] = False
+            self.ard_parameters['datatype'] = 'float32'
+            self.ard_parameters['ls_mask_apply'] = False
+            
+            # timescan specific
+            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
+                                              'std', 'cov']
+            self.ard_parameters['outlier_removal'] = False
+            
     
     def grd_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
                    timescan=False, mosaic=False, overwrite=False):
@@ -650,6 +697,28 @@ class Sentinel1_GRDBatch(Sentinel1):
                               self.data_mount
                               )
 
+        if timeseries or timescan:
+            grd_batch.ards_to_timeseries(inventory_df, 
+                                self.processing_dir, 
+                                self.temp_dir, 
+                                self.ard_parameters)
+            
+            if timescan:
+                 grd_batch.timeseris_to_timescan(
+                         inventory_df,
+                         self.processing_dir,
+                         self.ard_parameters)
+                 
+        if mosaic and timeseries:
+            grd_batch.mosaic_timeseries(inventory_df,
+                                  self.processing_dir,
+                                  self.temp_dir)
+
+        if mosaic and timescan:
+            grd_batch.mosaic_timescan(inventory_df,
+                                  self.processing_dir,
+                                  self.temp_dir,
+                                  self.ard_parameters)
 #            nr_of_processed = len(
 #                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
 #

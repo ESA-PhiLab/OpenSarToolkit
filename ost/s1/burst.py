@@ -553,6 +553,12 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
 
     datatype = ard_parameters['datatype']
     to_db = ard_parameters['to_db_mt']
+    
+    if to_db:
+        to_db_mt = False
+    else:
+        to_db_mt = ard_parameters['to_db_mt']
+    
     ls_mask_create = ard_parameters['ls_mask_create']
     ls_mask_apply = ard_parameters['ls_mask_apply']
     mt_speckle_filter = ard_parameters['mt_speckle_filter']
@@ -560,7 +566,7 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
     for burst in burst_inventory.bid.unique():      # ***
 
         _ard_to_ts(burst_inventory, processing_dir, temp_dir,
-                   burst, to_db, ls_mask_create, ls_mask_apply,
+                   burst, to_db_mt, ls_mask_create, ls_mask_apply,
                    mt_speckle_filter, datatype)
 
 

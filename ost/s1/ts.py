@@ -197,7 +197,7 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
     with rasterio.open(stack) as src:
 
         # get metadata
-        meta = src.meta
+        meta = src.profile
 
         # update driver and reduced band count
         meta.update({'driver': 'GTiff'})

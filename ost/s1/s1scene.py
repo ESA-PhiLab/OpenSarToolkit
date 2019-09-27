@@ -677,8 +677,19 @@ class Sentinel1_Scene():
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
             # run the processing
-            grd_to_ard(infile, out_dir, out_prefix, temp_dir,
-                       self.ard_parameters, subset, polar)
+            grd_to_ard(infile, 
+                       out_dir, 
+                       out_prefix, 
+                       temp_dir,
+                       self.ard_parameters['resolution'],
+                       self.ard_parameters['product_type'],
+                       self.ard_parameters['ls_mask_create'],
+                       self.ard_parameters['speckle_filter'],
+                       self.ard_parameters['dem'],
+                       self.ard_parameters['to_db'],
+                       self.ard_parameters['border_noise'],
+                       subset=subset, 
+                       polarisation=polar)
 
             # write to class attribute
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
