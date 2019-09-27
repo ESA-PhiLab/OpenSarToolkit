@@ -614,7 +614,7 @@ class Sentinel1_Scene():
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCgamma'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'OST Flat':
@@ -623,7 +623,7 @@ class Sentinel1_Scene():
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = True
+            self.ard_parameters['ls_mask_create'] = True
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'CEOS':
@@ -632,7 +632,7 @@ class Sentinel1_Scene():
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'EarthEngine':
@@ -641,7 +641,7 @@ class Sentinel1_Scene():
             self.ard_parameters['border_noise'] = True
             self.ard_parameters['product_type'] = 'GTCsigma'
             self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask'] = False
+            self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
         elif ard_type == 'Zhuo':
@@ -650,7 +650,7 @@ class Sentinel1_Scene():
             self.ard_parameters['border_noise'] = False
             self.ard_parameters['product_type'] = 'RTC'
             self.ard_parameters['speckle_filter'] = True
-            self.ard_parameters['ls_mask'] = True
+            self.ard_parameters['ls_mask_create'] = True
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
 
