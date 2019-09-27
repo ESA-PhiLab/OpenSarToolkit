@@ -662,8 +662,8 @@ class Sentinel1_Scene():
             print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
                   ' DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-        self.ard_parameters['resolution'] = h.resolution_in_degree(
-            self.center_lat, self.ard_parameters['resolution'])
+        #self.ard_parameters['resolution'] = h.resolution_in_degree(
+        #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
 
