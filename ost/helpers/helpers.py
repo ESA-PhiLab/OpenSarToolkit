@@ -264,6 +264,40 @@ def check_out_dimap(dimap_prefix, test_stats=True):
     return return_code
 
 
+def check_out_tiff(file, test_stats=True):
+
+    return_code = 0
+
+    # check if both dim and data exist, else return
+    if not os.path.isfile(file):
+        return 666
+
+    # check for file size of the dim file
+    tiff_size_in_mb = os.path.getsize(file) / 1048576
+
+    if tiff_size_in_mb < 0.3:
+        return 666
+
+    if test_stats:
+        # open the file
+        ds = gdal.Open(file)
+        stats = ds.GetRasterBand(1).GetStatistics(0, 1)
+
+        # check for mean value of layer
+        if stats[2] == 0:
+            return 666
+
+        # check for stddev value of layer
+        if stats[3] == 0:
+            return 666
+
+        # if difference ofmin and max is 0
+        if stats[1] - stats[0] == 0:
+            return 666
+
+    return return_code
+
+
 def resolution_in_degree(latitude, meters):
     '''Convert resolution in meters to degree based on Latitude
 

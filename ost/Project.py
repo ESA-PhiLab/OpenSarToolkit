@@ -673,48 +673,98 @@ class Sentinel1_GRDBatch(Sentinel1):
                   ' DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
+        if subset.split('.')[-1] == '.shp':
+            subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
+        elif subset.startswith('POLYGON (('):
+            subset = loads(subset).buffer(0.1).to_wkt()
+        else:
+            print(' ERROR: No valid subset given.'
+                  ' Should be either path to a shapefile or a WKT Polygon.')
+            sys.exit()
         # set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        #nr_of_processed = len(
-        #    glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+        nr_of_processed = len(
+            glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
 
         # check and retry function
-        #i = 0
-        #while len(self.burst_inventory) > nr_of_processed:
+        i = 0
+        while len(inventory_df.groupby(['relativeorbit', 'acquisitiondate'])) > nr_of_processed:
 
-        #if not inventory_df:
-         #   inventory_df = self.inventory
+            grd_batch.grd_to_ard_batch(
+                                  inventory_df,
+                                  self.download_dir,
+                                  self.processing_dir,
+                                  self.temp_dir,
+                                  self.ard_parameters,
+                                  subset,
+                                  self.data_mount
+                                  )
             
-        grd_batch.grd_to_ard_batch(
-                              inventory_df,
-                              self.download_dir,
-                              self.processing_dir,
-                              self.temp_dir,
-                              self.ard_parameters,
-                              subset,
-                              self.data_mount
-                              )
-
+            nr_of_processed = len(
+                glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
+            
+            i += 1
+            
+            # not more than 5 trys
+            if i == 5:
+                break
+        
+            
         if timeseries or timescan:
-            grd_batch.ards_to_timeseries(inventory_df, 
-                                self.processing_dir, 
-                                self.temp_dir, 
-                                self.ard_parameters)
             
-            if timescan:
-                 grd_batch.timeseris_to_timescan(
+            nr_of_processed = len(
+            glob.glob(opj(self.processing_dir, '*', 'Timeseries', '.processed')))
+        
+            #nr_of_tracks = inventory_df.relativeorbit.unique().values
+            # check and retry function
+            i = 0
+            while len(inventory_df.relativeorbit.unique()) > nr_of_processed:
+        
+                grd_batch.ards_to_timeseries(inventory_df, 
+                                    self.processing_dir, 
+                                    self.temp_dir, 
+                                    self.ard_parameters)
+                
+                nr_of_processed = len(
+                    glob.glob(opj(self.processing_dir, '*',
+                                  'Timeseries', '.processed')))
+                i += 1
+            
+                # not more than 5 trys
+                if i == 5:
+                    break
+            
+        if timescan:
+            
+            nr_of_processed = len(glob.glob(opj(
+                self.processing_dir, '*', 'Timescan', '.processed')))
+            
+            i = 0
+            while len(inventory_df.relativeorbit.unique()) > nr_of_processed:
+            
+                 grd_batch.timeseries_to_timescan(
                          inventory_df,
                          self.processing_dir,
                          self.ard_parameters)
                  
-        if mosaic and timeseries:
+                 nr_of_processed = len(glob.glob(opj(
+                    self.processing_dir, '*', 'Timescan', '.processed')))
+                 
+                 i += 1
+        
+                # not more than 5 trys
+                 if i == 5:
+                     break
+                
+                
+        if mosaic and timeseries and not subset:
             grd_batch.mosaic_timeseries(inventory_df,
                                   self.processing_dir,
                                   self.temp_dir)
 
-        if mosaic and timescan:
+        if mosaic and timescan and not subset:
             grd_batch.mosaic_timescan(inventory_df,
                                   self.processing_dir,
                                   self.temp_dir,

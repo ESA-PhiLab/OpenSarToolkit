@@ -51,6 +51,8 @@ def create_stack(filelist, out_stack, logfile,
               ' See {} for Snap Error output'.format(logfile))
         sys.exit(201)
 
+    return return_code
+
 
 def mt_speckle_filter(in_stack, out_stack, logfile):
     '''
@@ -76,6 +78,8 @@ def mt_speckle_filter(in_stack, out_stack, logfile):
         print(' ERROR: Multi-temporal speckle filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(202)
+
+    return return_code
 
 
 def mt_layover(filelist, outfile, temp_dir, extent):

@@ -131,6 +131,8 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
                 See {} for Snap Error output'.format(logfile))
         sys.exit(102)
 
+    return return_code
+
 
 def _grd_frame_import_subset(infile, outfile, georegion,
                              logfile, polarisation='VV,VH,HH,HV'):
@@ -158,7 +160,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     '''
 
     print(' INFO: Importing {} by applying precise orbit file and'
-          ' removing thermal noise, as well as subsetting to AOI'.format(
+          ' removing thermal noise, as well as subsetting.'.format(
               os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
@@ -184,6 +186,8 @@ def _grd_frame_import_subset(infile, outfile, georegion,
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(102)
+
+    return return_code
 
 
 def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
@@ -221,6 +225,8 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
         print(' ERROR: Slice Assembly exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(101)
+
+    return return_code
 
 
 def _grd_subset(infile, outfile, logfile, region):
@@ -260,6 +266,8 @@ def _grd_subset(infile, outfile, logfile, region):
                 See {} for Snap Error output'.format(logfile))
         sys.exit(107)
 
+    return return_code
+
 
 def _grd_subset_georegion(infile, outfile, logfile, georegion):
     '''A wrapper around SNAP's subset routine
@@ -295,6 +303,8 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
         print(' ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(107)
+
+    return return_code
 
 
 def _grd_remove_border(infile):
@@ -472,6 +482,8 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
                 See {} for Snap Error output'.format(logfile))
         sys.exit(103)
 
+    return return_code
+
 
 def _grd_speckle_filter(infile, outfile, logfile):
     '''A wrapper around SNAP's Lee-Sigma Speckle Filter
@@ -509,6 +521,8 @@ def _grd_speckle_filter(infile, outfile, logfile):
                 See {} for Snap Error output'.format(logfile))
         sys.exit(111)
 
+    return return_code
+
 
 def _grd_to_db(infile, outfile, logfile):
     '''A wrapper around SNAP's linear to db routine
@@ -543,6 +557,8 @@ def _grd_to_db(infile, outfile, logfile):
         print(' ERROR: Linear to dB conversion exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(113)
+
+    return return_code
 
 
 def _grd_terrain_correction(infile, outfile, logfile, resolution,
@@ -597,6 +613,8 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
         print(' ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(112)
+
+    return return_code
 
 
 def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
@@ -653,6 +671,8 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
                 See {} for Snap Error output'.format(logfile))
         sys.exit(112)
 
+    return return_code
+
 
 def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     '''A wrapper around SNAP's Layover/Shadow mask routine
@@ -702,6 +722,8 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
         print(' ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(112)
+
+    return return_code
 
 
 def grd_to_ard(filelist, 
@@ -763,7 +785,11 @@ def grd_to_ard(filelist,
                 os.path.basename(file)[:-5]))
             logfile = opj(output_dir, '{}.Import.errLog'.format(
                 os.path.basename(file)[:-5]))
-            _grd_frame_import(file, grd_import, logfile)
+            
+            return_code = _grd_frame_import(file, grd_import, logfile)
+            if return_code != 0:
+                h.remove_folder_content(temp_dir)
+                return return_code
 
         # create list of scenes for full acquisition in
         # preparation of slice assembly
@@ -772,18 +798,24 @@ def grd_to_ard(filelist,
         # create file strings
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
-        _slice_assembly(scenelist, grd_import, logfile, polarisation)
+        return_code = _slice_assembly(scenelist, grd_import, logfile, 
+                                      polarisation)
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
 
         for file in filelist:
             h.delete_dimap(opj(temp_dir, '{}_imported'.format(
                 os.path.basename(str(file))[:-5])))
 
-        if subset is not None:
+        if subset:
             grd_subset = opj(temp_dir, '{}_imported_subset'.format(file_id))
-            georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
-            _grd_subset_georegion('{}.dim'.format(grd_import), grd_subset,
-                                  logfile, georegion)
-
+            return_code = _grd_subset_georegion('{}.dim'.format(grd_import), 
+                                                grd_subset, logfile, subset)
+            if return_code != 0:
+                h.remove_folder_content(temp_dir)
+                return return_code
+            
             # delete slice assembly
             h.delete_dimap(grd_import)
             glob.glob('{}/{}*imported*.data'.format(temp_dir, file_id))
@@ -793,15 +825,23 @@ def grd_to_ard(filelist,
         logfile = opj(output_dir, '{}.Import.errLog'.format(file_id))
 
         if subset is None:
-            _grd_frame_import(filelist[0], grd_import, logfile, polarisation)
+            return_code = _grd_frame_import(filelist[0], grd_import, logfile, 
+                                            polarisation)
+            if return_code != 0:
+                h.remove_folder_content(temp_dir)
+                return return_code
         else:
-            georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
-            _grd_frame_import_subset(filelist[0], grd_import, georegion,
-                                     logfile, polarisation)
+            # georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
+            return_code = _grd_frame_import_subset(filelist[0], grd_import, 
+                                                   subset, logfile, 
+                                                   polarisation)
+            if return_code != 0:
+                h.remove_folder_content(temp_dir)
+                return return_code
     # ---------------------------------------------------------------------
     # Remove the grd border noise from existent channels (OST routine)
 
-    if border_noise:
+    if border_noise and not subset:
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
             infile = glob.glob(opj(
@@ -822,7 +862,10 @@ def grd_to_ard(filelist,
         outfile = opj(temp_dir, '{}_imported_spk'.format(file_id))
 
         # run processing
-        _grd_speckle_filter(infile, outfile, logfile)
+        return_code = _grd_speckle_filter(infile, outfile, logfile)
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
 
         # define infile for next processing step
         infile = opj(temp_dir, '{}_imported_spk.dim'.format(file_id))
@@ -838,7 +881,10 @@ def grd_to_ard(filelist,
     # do the calibration
     outfile = opj(temp_dir, '{}.{}'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
-    _grd_backscatter(infile, outfile, logfile, product_type, dem)
+    return_code = _grd_backscatter(infile, outfile, logfile, product_type, dem)
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
 
     data_dir = glob.glob(opj(temp_dir, '{}*imported*.data'.format(file_id)))
     h.delete_dimap(str(data_dir[0])[:-5])
@@ -846,40 +892,22 @@ def grd_to_ard(filelist,
     # input file for follwoing
     infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
 
-    # to db
-    if to_db:
-        logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_{}_db'.format(file_id, product_type))
-        _grd_to_db(infile, outfile, logfile)
-        # delete
-        h.delete_dimap(infile[:-4])
-        # re-define infile
-        infile = opj(temp_dir, '{}_{}_db.dim'.format(file_id, product_type))
-
-    # -----------------------
-    # let's geocode the data
-    # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
-    outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
-    logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
-
-    # move to final destination
-    out_final = opj(output_dir, '{}.{}.TC'.format(file_id, product_type))
-
-    # remove file if exists
-    if os.path.exists(out_final + '.dim'):
-        h.delete_dimap(out_final)
-
-    shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_final))
-    shutil.move('{}.data'.format(outfile), '{}.data'.format(out_final))
-
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
     if ls_mask_create is True:
         outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
-        _grd_ls_mask(infile, outfile, logfile, resolution, dem)
+        return_code = _grd_ls_mask(infile, outfile, logfile, resolution, dem)
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
 
+        # last check on ls data
+        return_code = h.check_out_dimap(outfile, test_stats=False)
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
+        
         # move to final destination
         out_ls_mask = opj(output_dir, '{}.LS'.format(file_id))
 
@@ -890,10 +918,59 @@ def grd_to_ard(filelist,
         # move out of temp
         shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_ls_mask))
         shutil.move('{}.data'.format(outfile), '{}.data'.format(out_ls_mask))
+    
+    # to db
+    if to_db:
+        logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
+        outfile = opj(temp_dir, '{}_{}_db'.format(file_id, product_type))
+        return_code = _grd_to_db(infile, outfile, logfile)
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
+        
+        # delete
+        h.delete_dimap(infile[:-4])
+        # re-define infile
+        infile = opj(temp_dir, '{}_{}_db.dim'.format(file_id, product_type))
 
+    # -----------------------
+    # let's geocode the data
+    # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
+    outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
+    logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
+    return_code = _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+    
     # remove calibrated files
     h.delete_dimap(infile[:-4])
 
+    # move to final destination
+    out_final = opj(output_dir, '{}.{}.TC'.format(file_id, product_type))
+
+    # remove file if exists
+    if os.path.exists(out_final + '.dim'):
+        h.delete_dimap(out_final)
+
+    return_code = h.check_out_dimap(outfile)
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+        
+    shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_final))
+    shutil.move('{}.data'.format(outfile), '{}.data'.format(out_final))
+
+    # write file, so we know this burst has been succesfully processed
+    if return_code == 0:
+        check_file = opj(output_dir, '.processed')
+        with open(str(check_file), 'w') as file:
+            file.write('passed all tests \n')
+    else:
+        h.remove_folder_content(temp_dir)
+        h.remove_folder_content(output_dir)
+        
+    
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
 
