@@ -680,20 +680,40 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
 
     # now we loop through each timestep and product
     for product in product_list:  # ****
+        
         list_of_files = []
         for i in range(length):
 
             filelist = glob.glob(
                 opj(processing_dir, '*_IW*_*', 'Timeseries', '{}.*{}.tif'
                     .format(i + 1, product)))
-
+            
             if filelist:
-                print(' INFO: Creating timeseries mosaics for {}.'.format(
-                    product))
-
+                print(' INFO: Creating timeseries mosaic {} for {}.'.format(
+                    i, product))
+    
+                datelist = []
+                
+                for file in filelist:
+                    if '.coh.' in file:
+                        datelist.append('{}_{}'.format(
+                            os.path.basename(file).split('.')[2],
+                            os.path.basename(file).split('.')[1]))
+                    else:
+                        datelist.append(os.path.basename(file).split('.')[1])
+                
+                start = sorted(datelist)[0]
+                end = sorted(datelist)[-1]
+                
                 out_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
                 os.makedirs(out_dir, exist_ok=True)
-                outfile = opj(out_dir, '{}.{}.tif'.format(i + 1, product))
+                
+                if start == end:
+                    outfile = opj(out_dir, '{}.{}.{}.tif'.format(i + 1, start, product))
+                else:
+                    outfile = opj(out_dir, '{}.{}-{}.{}.tif'.format(i + 1, start, end, product))
+                    
+                    
                 list_of_files.append(outfile)
                 filelist = ' '.join(filelist)
 
