@@ -269,7 +269,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                datatype):
 
     burst_dir = opj(processing_dir, burst)
-
+    
     # get common burst extent
     list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
     list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
@@ -565,9 +565,12 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
 
     for burst in burst_inventory.bid.unique():      # ***
 
+        #if os.path.isfile(opj(burst_dir, 'Timeseries', '.processed')):
+        #    print(' INFO: Timeseries for track {} already processed.'.format(burst))
+        #else:
         _ard_to_ts(burst_inventory, processing_dir, temp_dir,
-                   burst, to_db_mt, ls_mask_create, ls_mask_apply,
-                   mt_speckle_filter, datatype)
+               burst, to_db_mt, ls_mask_create, ls_mask_apply,
+               mt_speckle_filter, datatype)
 
 
 # --------------------
@@ -690,7 +693,7 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
             
             if filelist:
                 print(' INFO: Creating timeseries mosaic {} for {}.'.format(
-                    i, product))
+                    i + 1, product))
     
                 datelist = []
                 

@@ -371,14 +371,14 @@ class Sentinel1_SLCBatch(Sentinel1):
                     data_mount=self.data_mount)
 
         if refine:
-            print('{}.refined.shp'.format(outfile[:-4]))
+            #print('{}.refined.shp'.format(outfile[:-4]))
             self.burst_inventory = burst.refine_burst_inventory(
                     self.aoi, self.burst_inventory,
                     '{}.refined.shp'.format(outfile[:-4])
                     )
 
     def read_burst_inventory(self, key):
-        '''Read the Sentinel-1 data inventory from a OST invetory shapefile
+        '''Read the Sentinel-1 data inventory from a OST inventory shapefile
 
         :param
 

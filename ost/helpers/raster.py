@@ -454,6 +454,7 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
         new_height = int(src.height/shrink_factor)
         new_width = int(src.width/shrink_factor)
         out_meta.update(height=new_height, width=new_width)
+        count=1
         
         layer1 = src.read(
                 out_shape=(src.count, new_height, new_width),
@@ -461,20 +462,25 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
                 )[0]
         minimum_list.append(get_min(filelist[0]))
         maximum_list.append(get_max(filelist[0]))
-
-    with rasterio.open(filelist[1]) as src:
-        layer2 = src.read(
-                out_shape=(src.count, new_height, new_width),
-                resampling=5    # 5 = average
-                )[0]
-        minimum_list.append(get_min(filelist[1]))
-        maximum_list.append(get_max(filelist[1]))
+        layer1[layer1 == 0] = np.nan
         
+    if len(filelist) > 1:
+        with rasterio.open(filelist[1]) as src:
+            layer2 = src.read(
+                    out_shape=(src.count, new_height, new_width),
+                    resampling=5    # 5 = average
+                    )[0]
+            minimum_list.append(get_min(filelist[1]))
+            maximum_list.append(get_max(filelist[1]))
+            layer2[layer2 == 0] = np.nan
+            count=3
+            
     if len(filelist) == 2:    # that should be the BS ratio case
         layer3 = np.subtract(layer1, layer2)
         minimum_list.append(1)
         maximum_list.append(15)
-    else:
+        
+    elif len(filelist) >= 3:
         # that's the full 3layer case
         with rasterio.open(filelist[2]) as src:
             layer3 = src.read(
@@ -483,31 +489,29 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
                     )[0]
         minimum_list.append(get_min(filelist[2]))
         maximum_list.append(get_max(filelist[2]))
-        
-    layer1[layer1 == 0] = np.nan
-    layer2[layer2 == 0] = np.nan
-    layer3[layer3 == 0] = np.nan
+        layer3[layer3 == 0] = np.nan
 
     # create empty array
     arr = np.zeros((int(out_meta['height']),
                     int(out_meta['width']),
-                    int(3)))
+                    int(count)))
     
     arr[:, :, 0] = scale_to_int(layer1, minimum_list[0],
                                 maximum_list[0], 'uint8')
-    arr[:, :, 1] = scale_to_int(layer2, minimum_list[1],
-                                maximum_list[1], 'uint8')
-    arr[:, :, 2] = scale_to_int(layer3, minimum_list[2],
-                                maximum_list[2], 'uint8')
+    if len(filelist) > 1:
+        arr[:, :, 1] = scale_to_int(layer2, minimum_list[1],
+                                    maximum_list[1], 'uint8')
+        arr[:, :, 2] = scale_to_int(layer3, minimum_list[2],
+                                    maximum_list[2], 'uint8')
+    # transpose array to gdal format
+    arr = np.transpose(arr, [2, 0, 1])
 
     # update outfile's metadata
     out_meta.update({'driver': 'JPEG',
                      'dtype': 'uint8',
-                     'count': 3})
+                     'count': count})
 
-    # transpose array to gdal format
-    arr = np.transpose(arr, [2, 0, 1])
-
+    
     if outfile:# write array to disk
         with rasterio.open(outfile, 'w', **out_meta) as out:
             out.write(arr.astype('uint8'))
@@ -529,16 +533,13 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
 
     
     nr_of_products = len(glob.glob(
-        opj(timeseries_folder, '*{}.tif'.format(product_list[1]))))
+        opj(timeseries_folder, '*{}.tif'.format(product_list[0]))))
     outfiles = []
-    
+    # for coherence it must be one less
+    if 'coh.VV' in product_list or 'coh.VH' in product_list:
+        nr_of_products == nr_of_products - 1
+        
     for i in range(nr_of_products):
-
-        # for coherence it must be one less
-        if 'coh.VV.tif' in product_list or 'coh.VH.tif' in product_list:
-            if i == nr_of_products - 1:
-                print('here')
-                break
 
         filelist = [glob.glob(opj(timeseries_folder, '{}.*{}*tif'.format(i + 1, product)))[0] for product in product_list]
         dates = os.path.basename(filelist[0]).split('.')[1]    
@@ -553,7 +554,6 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
 
         outfiles.append(opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)))
 
-        
     # create gif
     with imageio.get_writer(opj(out_folder, 'ts_animation.gif'), mode='I',
         duration=duration) as writer:
