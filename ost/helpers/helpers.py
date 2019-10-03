@@ -59,11 +59,11 @@ def gpt_path():
         # possible UNIX paths
         paths = [
             '{}/.ost/gpt'.format(homedir),
+            '{}/snap/bin/gpt'.format(homedir),
             '/usr/bin/gpt',
             '/opt/snap/bin/gpt',
             '/usr/local/snap/bin/gpt',
             '/usr/local/lib/snap/bin/gpt',
-            '{}/snap/bin/gpt'.format(homedir),
             '/Applications/snap/bin/gpt'
             ]
 

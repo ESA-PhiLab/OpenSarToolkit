@@ -12,7 +12,7 @@ from os.path import join as opj
 from datetime import datetime
 from shapely.wkt import loads
 
-from ost.helpers import vector as vec
+from ost.helpers import vector as vec, raster as ras
 from ost.s1 import search, refine, download, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 
@@ -532,6 +532,14 @@ class Sentinel1_SLCBatch(Sentinel1):
                                   self.processing_dir,
                                   self.temp_dir,
                                   self.ard_parameters)
+
+    def create_timeseries_animation(timeseries_dir, product_list, outfile, 
+                                    shrink_factor=1, duration=1, 
+                                    add_dates=False):
+        
+        ras.create_timeseries_animation(timeseries_dir, product_list, outfile, 
+                                    shrink_factor=1, duration=1, 
+                                    add_dates=False)
 
 
 class Sentinel1_GRDBatch(Sentinel1):

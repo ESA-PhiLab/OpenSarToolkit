@@ -2,17 +2,44 @@
 
 ## A note on its origin
 
-Open SAR Toolkit was initially developed at the Food and Agriculture Organization of the United Nations under the SEPAL project (https://github.com/openforis/sepal) between 2016-2018. It is still available there (https://github.com/openforis/opensarkit), but has been completely re-factored and transferred into a simpler and less-dependency rich python3 version, which can be found on this page here. Instead of using R-Shiny as a GUI, the main interface are now Jupyter notebooks that are developed in parallel to this core package and should help to get started.
+Open SAR Toolkit was initially developed at the Food and Agriculture 
+Organization of the United Nations under the SEPAL project 
+(https://github.com/openforis/sepal) between 2016-2018. 
+It is still available there (https://github.com/openforis/opensarkit), 
+but has been completely re-factored and transferred into a simpler and 
+less-dependency rich python3 version, which can be found on this page here. 
+Instead of using R-Shiny as a GUI, the main interface are now Jupyter notebooks 
+that are developed in parallel to this core package and should help to get started.
+(https://github.com/ESA-PhiLab/OST_Notebooks) 
 
 ## Objective
 
-Compared to its optical counterpart, the community of Synthetic Aperture Radar (SAR) data users for land applications is still small. One major reason for that originates from the differences in the acquisition principle and the underlying physics of the imaging process. For non-experts, this results in difficulties of applying the correct processing steps as well as interpreting the non-intuitive backscatter image composites. On the other hand, the free and open access to Sentinel-1 data widened the community of interested users and paves the way for the integration of SAR data into operational monitoring systems.
+Compared to its optical counterpart, the community of Synthetic Aperture 
+Radar (SAR) data users for land applications is still small. 
+One major reason for that originates from the differences in the acquisition 
+principle and the underlying physics of the imaging process. 
+For non-experts, this results in difficulties of applying the correct 
+processing steps as well as interpreting the non-intuitive backscatter 
+image composites. On the other hand, the free and open access to 
+Sentinel-1 data widened the community of interested users and paves 
+the way for the integration of SAR data into operational monitoring systems.
 
-This python package lowers the entry barrier for pre-processing Sentinel-1 data and allows users with little knowledge on SAR and python to produce analysis-ready small to large-scale SAR datasets. OST includes fully automated routines that are mainly build on top of the Sentinel Application Platform (SNAP) and other freely available open-source software such as GDAL, Orfeo Toolbox and Python.
+This python package lowers the entry barrier for pre-processing 
+Sentinel-1 data and allows users with little knowledge on SAR and 
+python to produce analysis-ready small to large-scale SAR datasets. 
+OST includes fully automated routines that are mainly build on top of 
+the Sentinel Application Platform (SNAP) and other freely available 
+open-source software such as GDAL, Orfeo Toolbox and Python.
 
 ## Functionality
 
-For the moment, Sentinel-1 data inventory and download routines, as well as a GRD to RTC processor allows for the rapid generation of radiometrically terrain corrected (RTC) imagery that is ready for subsequent analysis tasks such as land cover classification. More advanced and processing intensive data products, such as time-series and timescan imagery can be easily produced as well in a fully automatic manner. Ultimately, mosaicking generates seamless wide-area data sets.
+The Open SAR Toolkit follows an object-oriented approach, providing classes 
+for single scene processing, GRD and SLC batch processing routines. 
+The latter includes options to include 
+processing of interferometric coherence and polarimetric decompositions.
+
+You can find examplarotary Jupyter notebooks at 
+https://github.com/ESA-PhiLab/OST_Notebooks for getting started. 
 
 ## Installation
 
@@ -97,7 +124,7 @@ rm  Miniconda3-latest-Linux-x86_64.sh
 
 Then install OST's dependencies:
 ```
-conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
+conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
 ```
 
 and then
