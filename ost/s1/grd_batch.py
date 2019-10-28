@@ -133,7 +133,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
                 # check if already processed
                 if os.path.isfile(opj(out_dir, '.processed')):
                     print(' INFO: Acquisition from {} of track {}'
-                          ' already processed'.format(track, acquisition_date))
+                          ' already processed'.format(acquisition_date, track))
                 else:
                     # get the paths to the file
                     scene_paths = ([Sentinel1_Scene(i).get_path(download_dir)

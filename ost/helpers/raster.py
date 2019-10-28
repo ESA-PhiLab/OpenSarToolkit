@@ -19,6 +19,7 @@ import rasterio
 import rasterio.mask
 from rasterio.features import shapes
 
+from ost.helpers import helpers as h
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -512,22 +513,22 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
                      'count': count})
 
     
-    if outfile:# write array to disk
+    if outfile:    # write array to disk
         with rasterio.open(outfile, 'w', **out_meta) as out:
             out.write(arr.astype('uint8'))
-    
+            
+        if date:
+            label_height = np.floor(np.divide(int(out_meta['height']), 15))
+            cmd = 'convert -background \'#0008\' -fill white -gravity center \
+                  -size {}x{} caption:\"{}\" {} +swap -gravity north \
+                  -composite {}'.format(out_meta['width'], label_height,
+                                        date, outfile, outfile)
+            h.run_command(cmd, '{}.log'.format(outfile), elapsed=False)
+            
     if plot:
         plt.imshow(arr)
 
-    if date:
-        label_height = np.floor(np.divide(int(out_meta['height']), 15))
-        cmd = 'convert -background \'#0008\' -fill white -gravity center \
-              -size {}x{} caption:\"{}\" {} +swap -gravity north \
-              -composite {}'.format(out_meta['width'], label_height,
-                                    date, outfile, outfile)
-        os.system(cmd)
-        
-
+    
 def create_timeseries_animation(timeseries_folder, product_list, out_folder,
                                 shrink_factor=1, duration=1, add_dates=False):
 
@@ -549,8 +550,10 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
         else:
             date = None
         
-        create_rgb_jpeg(filelist, opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)),
-                       shrink_factor, date=date)
+        create_rgb_jpeg(filelist, 
+                        opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)),
+                        shrink_factor, 
+                        date=date)
 
         outfiles.append(opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)))
 

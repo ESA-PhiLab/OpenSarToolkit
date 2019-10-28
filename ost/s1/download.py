@@ -52,6 +52,10 @@ def restore_download_dir(input_directory, download_dir):
 
         # move file
         os.rename(scene, filepath)
+        
+        # add downloaded (should be zip checked in future)
+        f=open(filepath+".downloaded","w+")
+        f.close()
 
 
 def check_scene_availability(inventory_df, download_dir, cloud_provider=None):

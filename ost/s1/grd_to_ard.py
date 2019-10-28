@@ -73,7 +73,7 @@ import numpy as np
 import gdal
 
 from os.path import join as opj
-from ost.helpers import helpers as h, raster as ras, vector as vec
+from ost.helpers import helpers as h, raster as ras
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -290,7 +290,7 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
 
     # extract window from scene
     command = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' \
-                 -PcopyMetadata=true -Pgeoregion=\'{}\''.format(
+                 -PcopyMetadata=true -PgeoRegion=\'{}\''.format(
                      gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
 
     # run command and get return code

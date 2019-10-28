@@ -351,7 +351,8 @@ class Sentinel1_SLCBatch(Sentinel1):
         self.burst_inventory = None
         self.burst_inventory_file = None
 
-    def create_burst_inventory(self, key=None, refine=True):
+    def create_burst_inventory(self, key=None, refine=True, 
+                               uname=None, pword=None):
 
         if key:
             outfile = opj(self.inventory_dir,
@@ -360,15 +361,18 @@ class Sentinel1_SLCBatch(Sentinel1):
                 self.refined_inventory_dict[key],
                 outfile,
                 download_dir=self.download_dir,
-                data_mount=self.data_mount)
+                data_mount=self.data_mount,
+                uname=uname, pword=pword)
         else:
             outfile = opj(self.inventory_dir,
                           'bursts.full.shp')
+        
             self.burst_inventory = burst.burst_inventory(
                     self.inventory,
                     outfile,
                     download_dir=self.download_dir,
-                    data_mount=self.data_mount)
+                    data_mount=self.data_mount,
+                    uname=uname, pword=pword)
 
         if refine:
             #print('{}.refined.shp'.format(outfile[:-4]))
@@ -681,15 +685,16 @@ class Sentinel1_GRDBatch(Sentinel1):
                   ' DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
-        if subset.split('.')[-1] == '.shp':
-            subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
-        elif subset.startswith('POLYGON (('):
-            subset = loads(subset).buffer(0.1).to_wkt()
-        else:
-            print(' ERROR: No valid subset given.'
-                  ' Should be either path to a shapefile or a WKT Polygon.')
-            sys.exit()
-        # set resolution to degree
+        if subset:
+            if subset.split('.')[-1] == '.shp':
+                subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
+            elif subset.startswith('POLYGON (('):
+                subset = loads(subset).buffer(0.1).to_wkt()
+            else:
+                print(' ERROR: No valid subset given.'
+                      ' Should be either path to a shapefile or a WKT Polygon.')
+                sys.exit()
+            # set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 

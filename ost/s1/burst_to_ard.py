@@ -191,10 +191,14 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     print(' INFO: Correcting for the illumination along slopes'
           ' (Terrain Flattening).')
 
+    #snap_list = []
+    #if dem is in snap_list:
     command = '{} Terrain-Flattening -x -q {} -PadditionalOverlap=0.15  \
                -PoversamplingMultiple=1.5 -PdemName=\'{}\' -t {} {}'.format(
                    gpt_file, 2 * os.cpu_count(), dem, outfile, infile)
-
+    #elif ospath.isfile(dem ):
+    #   external dem
+        
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:

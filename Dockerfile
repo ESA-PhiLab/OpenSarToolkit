@@ -22,8 +22,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
 
 # update variables
 ENV \ 
-  TBX="esa-snap_sentinel_unix_6_0.sh" \
-  SNAP_URL="http://step.esa.int/downloads/6.0/installers" \
+  TBX="esa-snap_sentinel_unix_7_0.sh" \
+  SNAP_URL="http://step.esa.int/downloads/7.0/installers" \
   HOME=/home/ost
 
 # set work directory to home and download snap
@@ -38,14 +38,13 @@ RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 # install jupyter lab
 RUN python3 -m pip install jupyterlab
 
-COPY snap6.varfile $HOME
+COPY snap7.varfile $HOME
 
 RUN ./$TBX -q -varfile snap6.varfile \
   && rm $TBX \
-  && rm snap6.varfile
+  && rm snap7.varfile
 
-# ENV PATH=$PATH:/home/worker/snap/bin \
-#          SNAP_PATH=/home/worker/snap/bin
+ENV PATH=$PATH:/home/ost/snap/bin 
 
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --list --refresh
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all

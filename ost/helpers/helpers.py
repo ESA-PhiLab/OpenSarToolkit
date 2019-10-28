@@ -151,7 +151,7 @@ def remove_folder_content(folder):
             shutil.rmtree(os.path.join(root, d))
 
 
-def run_command(command, logfile):
+def run_command(command, logfile, elapsed=True):
     ''' A helper function to execute a command line command
 
     Args:
@@ -174,7 +174,9 @@ def run_command(command, logfile):
             for line in process.stderr.decode().splitlines():
                 file.write('{}\n'.format(line))
 
-    timer(currtime)
+    if elapsed:
+        timer(currtime)
+        
     return process.returncode
 
 
