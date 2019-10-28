@@ -40,7 +40,7 @@ RUN python3 -m pip install jupyterlab
 
 COPY snap7.varfile $HOME
 
-RUN ./$TBX -q -varfile snap6.varfile \
+RUN ./$TBX -q -varfile snap7.varfile \
   && rm $TBX \
   && rm snap7.varfile
 
