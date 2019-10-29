@@ -19,6 +19,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
+from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras, helpers as h
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
@@ -673,6 +674,8 @@ class Sentinel1_Scene():
                       ' Use object.set_ard_defintion() first if you want to'
                       ' change the ARD defintion.')
                 self.set_ard_definition('OST')
+            if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
+                self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
 
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
@@ -682,6 +685,7 @@ class Sentinel1_Scene():
                        out_prefix, 
                        temp_dir,
                        self.ard_parameters['resolution'],
+                       self.ard_parameters['resampling'],
                        self.ard_parameters['product_type'],
                        self.ard_parameters['ls_mask_create'],
                        self.ard_parameters['speckle_filter'],

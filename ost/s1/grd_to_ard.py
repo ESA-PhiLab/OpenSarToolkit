@@ -411,8 +411,15 @@ def _grd_remove_border(infile):
     h.timer(currtime)
 
 
-def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
-                     dem='SRTM 1Sec HGT'):
+def _grd_backscatter(
+        infile,
+        outfile,
+        logfile,
+        product_type='GTCgamma',
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
@@ -452,6 +459,11 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     if product_type == 'RTC':
         print(' INFO: Calibrating the product to a RTC product.')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
+        if dem_file != '':
+            with rasterio.open(dem_file, 'r') as dem_f:
+                dem_nodata = dem_f.nodata
+        else:
+            dem_nodata = 0.0
     elif product_type == 'GTCgamma':
         print(' INFO: Calibrating the product to a GTC product (Gamma0).')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
@@ -465,14 +477,18 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     # construct command sring
     if product_type == 'RTC':
         command = '{} {} -x -q {} -Pinput=\'{}\' -Pdem=\'{}\' \
+                   -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                    -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                           infile, dem, outfile)
+                                           infile, dem, dem_file, dem_nodata, resampling,
+                                           outfile
+                                           )
     else:
         command = '{} {} -x -q {} -Pinput=\'{}\' -Poutput=\'{}\''.format(
             gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
+
 
     # handle errors and logs
     if return_code == 0:
@@ -504,9 +520,9 @@ def _grd_speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying the Lee-Sigma Speckle Filter')
+    print(' INFO: Applying the Refined-Lee Speckle Filter')
     # contrcut command string
-    command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
+    command = '{} Speckle-Filter -x -q {} -PestimateENL=true -Pfilter=\'Refined Lee\' \
               -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
                                        outfile, infile)
 
@@ -561,8 +577,15 @@ def _grd_to_db(infile, outfile, logfile):
     return return_code
 
 
-def _grd_terrain_correction(infile, outfile, logfile, resolution,
-                            dem='SRTM 1Sec HGT'):
+def _grd_terrain_correction(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -597,11 +620,18 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
 
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
-                                         dem, outfile)
+                                         dem, dem_file, dem_nodata, resampling, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -617,8 +647,15 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
     return return_code
 
 
-def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
-                                dem='SRTM 1Sec HGT'):
+def _grd_terrain_correction_deg(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -654,11 +691,18 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
 
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
-                                         dem, outfile)
+                                         dem, dem_file, dem_nodata, resampling, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -731,6 +775,7 @@ def grd_to_ard(filelist,
                file_id,
                temp_dir,
                resolution,
+               resampling,
                product_type,
                ls_mask_create,
                speckle_filter,
@@ -775,6 +820,13 @@ def grd_to_ard(filelist,
     #    border_noise = processing_dict['border_noise']
     #    dem = processing_dict['dem']
     #    to_db = processing_dict['to_db']
+
+    # Check if dem is file, else use default dem
+    if dem.endswith('.tif') or dem.endswith('.hgt') or dem.endswith('.hdf'):
+        dem_file = dem
+        dem = 'External DEM'
+    else:
+        dem_file = ''
 
     # slice assembly if more than one scene
     if len(filelist) > 1:
@@ -859,7 +911,14 @@ def grd_to_ard(filelist,
     infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
     outfile = opj(temp_dir, '{}.{}'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
-    return_code = _grd_backscatter(infile, outfile, logfile, product_type, dem)
+    return_code = _grd_backscatter(infile,
+                                   outfile,
+                                   logfile,
+                                   product_type,
+                                   dem,
+                                   dem_file,
+                                   resampling
+                                   )
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
@@ -934,7 +993,14 @@ def grd_to_ard(filelist,
     # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
     outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    return_code = _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
+    return_code = _grd_terrain_correction(infile,
+                                          outfile,
+                                          logfile,
+                                          resolution,
+                                          dem,
+                                          dem_file,
+                                          resampling
+                                          )
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
@@ -965,7 +1031,6 @@ def grd_to_ard(filelist,
     else:
         h.remove_folder_content(temp_dir)
         h.remove_folder_content(output_dir)
-
 
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
@@ -1003,9 +1068,10 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
                 # loop through blocks
                 for i, window in co.block_windows(1):
 
+                    from rasterio.enums import Resampling
                     # read arrays and turn to dB (in case it isn't)
-                    co_array = co.read(window=window)
-                    cr_array = cr.read(window=window)
+                    co_array = co.read(window=window, resampling=Resampling.cubic_spline)
+                    cr_array = cr.read(window=window, resampling=Resampling.cubic_spline)
 
                     if to_db:
                         # turn to db
