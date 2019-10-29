@@ -41,7 +41,6 @@ def gpt_path():
     Returns:
         path to SNAP's gpt command line executable
     '''
-
     if os.name == 'nt':
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
             gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
@@ -64,8 +63,10 @@ def gpt_path():
             '/opt/snap/bin/gpt',
             '/usr/local/snap/bin/gpt',
             '/usr/local/lib/snap/bin/gpt',
-            '/Applications/snap/bin/gpt'
-            ]
+            '/Applications/snap/bin/gpt',
+            homedir+'/SNAP_Toolbox/snap/bin/gpt',
+            homedir+'/snap/bin/gpt'
+        ]
 
         for path in paths:
             if os.path.isfile(path):
@@ -78,8 +79,6 @@ def gpt_path():
         gptfile = input(' Please provide the full path to the SNAP'
                         ' gpt command line executable'
                         ' (e.g. /path/to/snap/bin/gpt')
-        os.makedirs(opj(homedir, '.ost'), exist_ok=True)
-        shutil.copy(gptfile, opj(homedir, '.ost', 'gpt'))
 
     if os.path.isfile(gptfile) is False:
         print(' ERROR: path to gpt file is incorrect. No such file.')
@@ -176,7 +175,7 @@ def run_command(command, logfile, elapsed=True):
 
     if elapsed:
         timer(currtime)
-        
+
     return process.returncode
 
 

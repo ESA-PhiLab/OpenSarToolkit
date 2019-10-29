@@ -118,7 +118,7 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolarisation={} \
                -Poutput=\'{}\''.format(
-                   gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
+        gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
 
     # run command
     return_code = h.run_command(command, logfile)
@@ -161,7 +161,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
 
     print(' INFO: Importing {} by applying precise orbit file and'
           ' removing thermal noise, as well as subsetting.'.format(
-              os.path.basename(infile)))
+        os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
@@ -173,8 +173,8 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolarisation={} \
                       -Poutput=\'{}\''.format(
-                          gpt_file, graph, 2 * os.cpu_count(),
-                          infile, georegion, polarisation, outfile)
+        gpt_file, graph, 2 * os.cpu_count(),
+        infile, georegion, polarisation, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -213,7 +213,7 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # construct command
     command = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
                -t \'{}\' {}'.format(
-                   gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
+        gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -291,7 +291,7 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
     # extract window from scene
     command = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' \
                  -PcopyMetadata=true -PgeoRegion=\'{}\''.format(
-                     gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
+        gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -726,18 +726,18 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     return return_code
 
 
-def grd_to_ard(filelist, 
-               output_dir, 
-               file_id, 
-               temp_dir, 
-               resolution, 
+def grd_to_ard(filelist,
+               output_dir,
+               file_id,
+               temp_dir,
+               resolution,
                product_type,
                ls_mask_create,
                speckle_filter,
-               dem, 
-               to_db, 
+               dem,
+               to_db,
                border_noise,
-               subset=None, 
+               subset=None,
                polarisation='VV,VH,HH,HV'):
     '''The main function for the grd to ard generation
 
@@ -768,13 +768,13 @@ def grd_to_ard(filelist,
     '''
 
     # get processing parameters from dict
-#    resolution = processing_dict['resolution']
-#    product_type = processing_dict['product_type']
-#    ls_mask = processing_dict['ls_mask']
-#    speckle_filter = processing_dict['speckle_filter']
-#    border_noise = processing_dict['border_noise']
-#    dem = processing_dict['dem']
-#    to_db = processing_dict['to_db']
+    #    resolution = processing_dict['resolution']
+    #    product_type = processing_dict['product_type']
+    #    ls_mask = processing_dict['ls_mask']
+    #    speckle_filter = processing_dict['speckle_filter']
+    #    border_noise = processing_dict['border_noise']
+    #    dem = processing_dict['dem']
+    #    to_db = processing_dict['to_db']
 
     # slice assembly if more than one scene
     if len(filelist) > 1:
@@ -785,7 +785,7 @@ def grd_to_ard(filelist,
                 os.path.basename(file)[:-5]))
             logfile = opj(output_dir, '{}.Import.errLog'.format(
                 os.path.basename(file)[:-5]))
-            
+
             return_code = _grd_frame_import(file, grd_import, logfile)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
@@ -798,7 +798,7 @@ def grd_to_ard(filelist,
         # create file strings
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
-        return_code = _slice_assembly(scenelist, grd_import, logfile, 
+        return_code = _slice_assembly(scenelist, grd_import, logfile,
                                       polarisation)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
@@ -810,12 +810,12 @@ def grd_to_ard(filelist,
 
         if subset:
             grd_subset = opj(temp_dir, '{}_imported_subset'.format(file_id))
-            return_code = _grd_subset_georegion('{}.dim'.format(grd_import), 
+            return_code = _grd_subset_georegion('{}.dim'.format(grd_import),
                                                 grd_subset, logfile, subset)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
                 return return_code
-            
+
             # delete slice assembly
             h.delete_dimap(grd_import)
             glob.glob('{}/{}*imported*.data'.format(temp_dir, file_id))
@@ -825,15 +825,15 @@ def grd_to_ard(filelist,
         logfile = opj(output_dir, '{}.Import.errLog'.format(file_id))
 
         if subset is None:
-            return_code = _grd_frame_import(filelist[0], grd_import, logfile, 
+            return_code = _grd_frame_import(filelist[0], grd_import, logfile,
                                             polarisation)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
                 return return_code
         else:
             # georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
-            return_code = _grd_frame_import_subset(filelist[0], grd_import, 
-                                                   subset, logfile, 
+            return_code = _grd_frame_import_subset(filelist[0], grd_import,
+                                                   subset, logfile,
                                                    polarisation)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
@@ -845,8 +845,8 @@ def grd_to_ard(filelist,
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
             infile = glob.glob(opj(
-                    temp_dir, '{}_imported*data'.format(file_id),
-                    'Intensity_{}.img'.format(polarisation)))
+                temp_dir, '{}_imported*data'.format(file_id),
+                'Intensity_{}.img'.format(polarisation)))
 
             if len(infile) == 1:
                 # run grd Border Remove
@@ -854,31 +854,9 @@ def grd_to_ard(filelist,
                     polarisation))
                 _grd_remove_border(infile[0])
 
-    # -------------------------------------------
-    # in case we want to apply Speckle filtering
-    if speckle_filter:
-        infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
-        logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_imported_spk'.format(file_id))
-
-        # run processing
-        return_code = _grd_speckle_filter(infile, outfile, logfile)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # define infile for next processing step
-        infile = opj(temp_dir, '{}_imported_spk.dim'.format(file_id))
-        data_dir = glob.glob(opj(temp_dir, '{}*imported*.data'.format(
-            file_id)))
-        h.delete_dimap(str(data_dir[0])[:-5])
-
-    else:
-        # let's calibrate the data
-        infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
-
     # ----------------------
     # do the calibration
+    infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
     outfile = opj(temp_dir, '{}.{}'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
     return_code = _grd_backscatter(infile, outfile, logfile, product_type, dem)
@@ -886,11 +864,29 @@ def grd_to_ard(filelist,
         h.remove_folder_content(temp_dir)
         return return_code
 
-    data_dir = glob.glob(opj(temp_dir, '{}*imported*.data'.format(file_id)))
+    data_dir = glob.glob(opj(temp_dir, '{}*imported.data'.format(file_id)))
     h.delete_dimap(str(data_dir[0])[:-5])
 
-    # input file for follwoing
-    infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
+    # -------------------------------------------
+    # in case we want to apply Speckle filtering
+    if speckle_filter:
+        infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
+        logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
+        outfile = opj(temp_dir, '{}_imported_spk'.format(file_id))
+
+        # run processing
+        return_code = _grd_speckle_filter(infile, outfile, logfile)
+
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
+
+        # define infile for next processing step
+        infile = opj(temp_dir, '{}_imported_spk.dim'.format(file_id))
+        data_dir = opj(temp_dir, '{}.{}'.format(file_id, product_type))
+        h.delete_dimap(str(data_dir))
+    else:
+        infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
 
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
@@ -907,7 +903,7 @@ def grd_to_ard(filelist,
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
-        
+
         # move to final destination
         out_ls_mask = opj(output_dir, '{}.LS'.format(file_id))
 
@@ -918,7 +914,7 @@ def grd_to_ard(filelist,
         # move out of temp
         shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_ls_mask))
         shutil.move('{}.data'.format(outfile), '{}.data'.format(out_ls_mask))
-    
+
     # to db
     if to_db:
         logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
@@ -927,7 +923,7 @@ def grd_to_ard(filelist,
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
-        
+
         # delete
         h.delete_dimap(infile[:-4])
         # re-define infile
@@ -942,7 +938,7 @@ def grd_to_ard(filelist,
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
-    
+
     # remove calibrated files
     h.delete_dimap(infile[:-4])
 
@@ -957,7 +953,7 @@ def grd_to_ard(filelist,
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
-        
+
     shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_final))
     shutil.move('{}.data'.format(outfile), '{}.data'.format(out_final))
 
@@ -969,8 +965,8 @@ def grd_to_ard(filelist,
     else:
         h.remove_folder_content(temp_dir)
         h.remove_folder_content(output_dir)
-        
-    
+
+
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
 
@@ -995,7 +991,7 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
         meta = co.meta
 
         # update meta
-        meta.update(driver=driver, count=3, nodata=0)
+        meta.update(driver=driver, count=3, nodata=0, compress='Deflate')
 
         with rasterio.open(cross_pol) as cr:
 
