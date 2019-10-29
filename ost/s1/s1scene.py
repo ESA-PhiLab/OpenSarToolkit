@@ -676,6 +676,8 @@ class Sentinel1_Scene():
                 self.set_ard_definition('OST')
             if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
                 self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
+                print(' WARNING: Invalid resampling method using BILINEAR_INTERPOLATION')
+
 
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
