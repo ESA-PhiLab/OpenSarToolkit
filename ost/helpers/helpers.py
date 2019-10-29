@@ -41,6 +41,7 @@ def gpt_path():
     Returns:
         path to SNAP's gpt command line executable
     '''
+    gptfile = None
     if os.name == 'nt':
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
             gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
@@ -72,8 +73,10 @@ def gpt_path():
             if os.path.isfile(path):
                 gptfile = path
                 break
-            else:
-                gptfile = None
+
+    if gptfile is None:
+        gptfile = os.getenv('GPT_PATH')
+        os.path.isfile(gptfile)
 
     if not gptfile:
         gptfile = input(' Please provide the full path to the SNAP'
