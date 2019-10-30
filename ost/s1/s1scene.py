@@ -106,9 +106,21 @@ class Sentinel1_Scene():
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
 
-    def download(self, download_dir):
+    def download(self, download_dir, mirror=None):
+        
+        #if not mirror:
+        #    print(' INFO: One or more of your scenes need to be downloaded.')
+        #    print(' Select the server from where you want to download:')
+        #    print(' (1) Copernicus Apihub (ESA, rolling archive)')
+        #    print(' (2) Alaska Satellite Facility (NASA, full archive)')
+        #    print(' (3) PEPS (CNES, 1 year rolling archive)')
+        #    mirror = input(' Type 1, 2 or 3: ')
 
         from ost.s1 import download
+        
+       # if mirror == 1:
+       #     df = pd.DataFrame({'identifier': [self.scene_id]
+       #                    {'uuid'}: self.scihub_uuid(opener)})
         df = pd.DataFrame({'identifier': [self.scene_id]})
         download.download_sentinel1(df, download_dir)
 

@@ -43,8 +43,10 @@ https://github.com/ESA-PhiLab/OST_Notebooks for getting started.
 
 ## Installation
 
-OST is rather a meta-package of the Sentinel-1 toolbox than a full-flavoured software.
-In order to make
+### Docker 
+
+tbc
+
 
 ### Dependencies (OS independent)
 

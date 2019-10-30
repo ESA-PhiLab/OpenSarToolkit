@@ -60,6 +60,7 @@ def gpt_path():
         paths = [
             '{}/.ost/gpt'.format(homedir),
             '{}/snap/bin/gpt'.format(homedir),
+            '{}/programs/snap/bin/gpt'.format(homedir),
             '/usr/bin/gpt',
             '/opt/snap/bin/gpt',
             '/usr/local/snap/bin/gpt',
