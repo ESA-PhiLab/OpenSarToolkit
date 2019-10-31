@@ -526,7 +526,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                                              self.ard_parameters)
 
         if mosaic and timeseries:
-            burst.mosaic_timescan(self.burst_inventory,
+            burst.mosaic_timeseries(self.burst_inventory,
                                   self.processing_dir,
                                   self.temp_dir,
                                   self.ard_parameters)
