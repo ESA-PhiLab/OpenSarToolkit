@@ -43,45 +43,68 @@ https://github.com/ESA-PhiLab/OST_Notebooks for getting started.
 
 ## Installation
 
-### Docker 
+### Docker (OS independent)
 
-tbc
+A docker image is available from docker hub that contains the full package, 
+including ESA's Sentinel-1 Toolbox, Orfeo Toolbox, Jupyter Lab as well
+as the Open SAR Toolkit itself and the tutorial notebooks.
+
+Docker installation is possible on various OS. Installation instructions can be 
+found at https://docs.docker.com/install/
+
+After docker is installed and running, launch the container with:
+
+```
+docker pull buddyvolly/opensartoolkit
+docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared opensartoolkit
+```
+
+The docker image automatically executes the jupyter lab and runs it on port 8888.
+You can find the address to the notebook on the command line where docker is running. 
+Copy it into your favorites browser and replace 127.0.0.1 with localhost.
 
 
-### Dependencies (OS independent)
+### Manual installation
 
-#### Sentinel Application Toolbox (SNAP)
+#### Dependencies
 
-OST bases mainly on the freely available SNAP toolbox for the SAR-specific processing routines. You can download SNAP from:
+##### Sentinel Application Toolbox (SNAP)
+
+OST bases mainly on the freely available SNAP toolbox for the 
+SAR-specific processing routines. You can download SNAP from:
 
 http://step.esa.int/main/download/
 
-If you install SNAP into the standard directory, OST should have no problems to find the SNAP command line executable. Otherwise you need to define the path to the gpt file on your own during processing.
+If you install SNAP into the standard directory, OST should have no problems 
+to find the SNAP command line executable. Otherwise you need to define the path 
+to the gpt file on your own during processing.
 
-#### Orfeo Toolbox
+##### Orfeo Toolbox
 
-If you want to create mosaics between different swaths, OST will rely on the otbcli_Mosaic command from The Orfeo Toolbox. You download Orfeo from:
+If you want to create mosaics between different swaths, OST will rely on the 
+otbcli_Mosaic command from The Orfeo Toolbox. You download Orfeo from:
 
 https://www.orfeo-toolbox.org/download/
 
-Make sure that the Orfeo bin folder is within your PATH variable to allow execution from command line.
+Make sure that the Orfeo bin folder is within your PATH variable to allow 
+execution from command line.
 
+#### OST installation
 
-OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested much on other OS and python versions,
-but should in principle work on any OS and any python version >= 3.5.
+OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested 
+much on other OS and python versions, but should in principle work on any OS 
+and any python version >= 3.5.
 
-Before it can work, some dependencies need to be installed:
+##### Ubuntu/Debian Linux (using pip)
 
-
-### Ubuntu/Debian Linux (using pip)
-
-Before installation of OST, run the following line on the terminal:
+Before installation of OST, run the following line on the terminal to 
+install further dependencies:
 
 ```
 sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev
 ```
 
-then isntall OST as a global package (for all users, admin rights needed):
+then install OST as a global package (for all users, admin rights needed):
 
 ```
 sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
@@ -94,42 +117,35 @@ pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 
-### Mac OS (using homebrew/pip)
+##### Mac OS (using homebrew/pip)
 
 If not already installed, install homebrew as explained on https://brew.sh
 
-After installation of homebrew, open the terminal and execute this:
+After installation of homebrew, open the terminal and install 
+further dependecies:
+
 ```
 brew install python3 gdal2 gdal2-python git
 ```
 
-and this:
+then install OST with python pip:
 ```
 pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 
-### Conda Installation (Windows, Mac, Linux)
+##### Conda Installation (Windows, Mac, Linux)
 
-Download miniconda3 (python version 3) from https://conda.io/miniconda.html
-and install it:
-```
-# get the installer
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-# install
-bash Miniconda3-latest-Linux-x86_64.sh
-# source the new installation
-source .bashrc
-# remove installer
-rm  Miniconda3-latest-Linux-x86_64.sh
-```
+Follow the installation instructions for conda (Miniconda is sufficient) at:
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/
 
-Then install OST's dependencies:
+Then run the conda command to install OST's dependencies:
 ```
 conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
 ```
 
-and then
+Finally get the OST by using pip 
+(we will work in future on a dedicated conda package for OST).
 ```
 pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
