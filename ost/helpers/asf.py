@@ -8,9 +8,9 @@ from os.path import join as opj
 import glob
 import requests
 import tqdm
-import zipfile
 import multiprocessing
 
+from ost.helpers import helpers as h
 from ost import Sentinel1_Scene as S1Scene
 
 
@@ -133,17 +133,9 @@ def s1_download(argument_list):
             # updated fileSize
             first_byte = os.path.getsize(filename)
 
-        # zipFile check
-        try:
-            print(' INFO: Checking the zip archive of {} for inconsistency'
+        print(' INFO: Checking the zip archive of {} for inconsistency'
                   .format(filename))
-            zip_archive = zipfile.ZipFile(filename)
-            zip_test = zip_archive.testzip()
-        except (zipfile.BadZipFile, OSError) as e:
-            zip_test += 1
-            print(e, filename)
-            pass
-
+        zip_test = h.check_zipfile(filename)
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
@@ -151,10 +143,10 @@ def s1_download(argument_list):
                   Re-downloading the full scene.'.format(filename))
             if os.path.exists(filename):
                 os.remove(filename)
+                first_byte = 0
             # otherwise we change the status to True
         else:
             print(' INFO: {} passed the zip test.'.format(filename))
-
             with open(str('{}.downloaded'.format(filename)), 'w') as file:
                 file.write('successfully downloaded \n')
 
@@ -163,7 +155,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
     # create list of scenes
     scenes = inventory_df['identifier'].tolist()
-    # print(scenes)
+    
     check, i = False, 1
     while check is False and i <= 10:
 
@@ -184,13 +176,14 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
         if asf_list:
             pool = multiprocessing.Pool(processes=concurrent)
             pool.map(s1_download, asf_list)
-
+                    
         downloaded_scenes = glob.glob(
             opj(download_dir, 'SAR', '*', '20*', '*', '*',
                 '*.zip.downloaded'))
 
         if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
             check = True
+            print(' INFO: All products are downloaded.')
         else:
             check = False
             for scene in scenes:

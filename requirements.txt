@@ -12,3 +12,4 @@ rtree
 scipy
 shapely
 tqdm
+imageio

@@ -16,6 +16,7 @@ import time
 import datetime
 from datetime import timedelta
 from pathlib import Path
+import zipfile
 
 import gdal
 
@@ -301,6 +302,22 @@ def check_out_tiff(file, test_stats=True):
     return return_code
 
 
+def check_zipfile(filename):
+        
+    try:
+        zip_archive = zipfile.ZipFile(filename)
+    except zipfile.BadZipFile as er:
+        print('Error: {}'.format(er))
+        return 1
+    
+    try:
+        zip_test = zip_archive.testzip()
+    except:
+        print('Error')
+        return 1
+    else:
+        return zip_test
+    
 def resolution_in_degree(latitude, meters):
     '''Convert resolution in meters to degree based on Latitude
 

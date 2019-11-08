@@ -19,7 +19,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
-from ost.helpers import scihub, raster as ras, helpers as h
+from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
@@ -229,15 +229,16 @@ class Sentinel1_Scene():
             # write the request to to the response variable
             # (i.e. the xml coming back from scihub)
             response = req.read().decode('utf-8')
+            uuid = response.split("Products('")[1].split("')")[0]
 
             # parse the xml page from the response
-            dom = xml.dom.minidom.parseString(response)
+            # dom = xml.dom.minidom.parseString(response)
 
             # loop thorugh each entry (with all metadata)
-            for node in dom.getElementsByTagName('entry'):
-                download_url = node.getElementsByTagName(
-                    'id')[0].firstChild.nodeValue
-                uuid = download_url.split('(\'')[1].split('\')')[0]
+#            for node in dom.getElementsByTagName('entry'):
+#                download_url = node.getElementsByTagName(
+#                    'id')[0].firstChild.nodeValue
+#                uuid = download_url.split('(\'')[1].split('\')')[0]
 
         return uuid
 

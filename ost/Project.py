@@ -297,21 +297,28 @@ class Sentinel1(Generic):
     def download(self, inventory_df, mirror=None, concurrent=2,
                  uname=None, pword=None):
 
+        # if an old inventory exists dorp download_path
         if 'download_path' in inventory_df:
             inventory_df.drop('download_path', axis=1)
         
+        # check if scenes exist
         inventory_df = search.check_availability(
             inventory_df, self.download_dir, self.data_mount)
         
+        # extract only those scenes that need to be downloaded
         download_df = inventory_df[inventory_df.download_path.isnull()]
-        # print(download_df)
-        # print(download_df.download_path)
-        download.download_sentinel1(download_df,
-                                    self.download_dir,
-                                    mirror=mirror,
-                                    concurrent=concurrent,
-                                    uname=uname,
-                                    pword=pword)
+
+        # to download or not ot download - that is here the question
+        if not download_df.any().any():
+            print(' INFO: All scenes are ready for being processed.')    
+        else:
+            print(' INFO: One or more of your scenes need to be downloaded.')
+            download.download_sentinel1(download_df,
+                                        self.download_dir,
+                                        mirror=mirror,
+                                        concurrent=concurrent,
+                                        uname=uname,
+                                        pword=pword)
 
     def plot_inventory(self, inventory_df=None, transperancy=0.05):
 
