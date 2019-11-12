@@ -20,7 +20,7 @@ import requests
 from shapely.wkt import loads
 
 from ost.settings import SNAP_S1_RESAMPLING_METHODS
-from ost.helpers import scihub, raster as ras, helpers as h
+from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
@@ -107,9 +107,21 @@ class Sentinel1_Scene():
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
 
-    def download(self, download_dir):
+    def download(self, download_dir, mirror=None):
+        
+        #if not mirror:
+        #    print(' INFO: One or more of your scenes need to be downloaded.')
+        #    print(' Select the server from where you want to download:')
+        #    print(' (1) Copernicus Apihub (ESA, rolling archive)')
+        #    print(' (2) Alaska Satellite Facility (NASA, full archive)')
+        #    print(' (3) PEPS (CNES, 1 year rolling archive)')
+        #    mirror = input(' Type 1, 2 or 3: ')
 
         from ost.s1 import download
+        
+       # if mirror == 1:
+       #     df = pd.DataFrame({'identifier': [self.scene_id]
+       #                    {'uuid'}: self.scihub_uuid(opener)})
         df = pd.DataFrame({'identifier': [self.scene_id]})
         download.download_sentinel1(df, download_dir)
 
@@ -218,15 +230,16 @@ class Sentinel1_Scene():
             # write the request to to the response variable
             # (i.e. the xml coming back from scihub)
             response = req.read().decode('utf-8')
+            uuid = response.split("Products('")[1].split("')")[0]
 
             # parse the xml page from the response
-            dom = xml.dom.minidom.parseString(response)
+            # dom = xml.dom.minidom.parseString(response)
 
             # loop thorugh each entry (with all metadata)
-            for node in dom.getElementsByTagName('entry'):
-                download_url = node.getElementsByTagName(
-                    'id')[0].firstChild.nodeValue
-                uuid = download_url.split('(\'')[1].split('\')')[0]
+#            for node in dom.getElementsByTagName('entry'):
+#                download_url = node.getElementsByTagName(
+#                    'id')[0].firstChild.nodeValue
+#                uuid = download_url.split('(\'')[1].split('\')')[0]
 
         return uuid
 

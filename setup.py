@@ -12,7 +12,7 @@ def parse_requirements(file):
 setup(name='ost',
       packages=find_packages(),
       include_package_data=True,
-      version='0.8.30',
+      version='0.8.31',
       description='High-level functionality for the inventory, download '
                   'and pre-processing of Sentinel-1 data',
       install_requires=parse_requirements("requirements.txt"),

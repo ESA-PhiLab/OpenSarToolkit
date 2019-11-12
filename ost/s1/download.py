@@ -7,14 +7,9 @@ vertex as well as PEPS from CNES.
 
 # import stdlib modules
 import os
+from os.path import join as opj
 import glob
 import getpass
-import multiprocessing
-
-from os.path import join as opj
-
-# import external modules
-import pandas as pd
 
 # import OST libs
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
@@ -42,120 +37,31 @@ def restore_download_dir(input_directory, download_dir):
         download_dir: the high-level directory compliant with OST
 
     '''
-    for scene in glob.glob('{}/*zip'.format(input_directory)):
+    
+    from ost.helpers import helpers as h
+    
+    for scene_in in glob.glob(opj(input_directory, '*zip')):
 
         # get scene
-        scene = S1Scene(os.path.basename(scene)[:-4])
+        scene = S1Scene(os.path.basename(scene_in)[:-4])
 
         # create download path and file
         filepath = scene._download_path(download_dir, True)
 
-        # move file
-        os.rename(scene, filepath)
+        # check zipfile
+        print(' INFO: Checking zip file {} for inconsistency.'.format(scene_in))
+        zip_test = h.check_zipfile(scene_in)
         
-        # add downloaded (should be zip checked in future)
-        f=open(filepath+".downloaded","w+")
-        f.close()
-
-
-def check_scene_availability(inventory_df, download_dir, cloud_provider=None):
-    '''Function to check if a scene is on a cloud storage
-
-    This function checks for the availability of scenes present in an
-    OST compliant inventory GeodataFrame object on different cloud providers
-    and adds flags the ones that need to be downloaded.
-
-
-    Args:
-        inventory_df: a Geopandas GeoDataFrame object originating from
-                      an OST search and/or possible search refinement-sorting
-        download_dir: is the directory where scenes should be downloaded
-        cloud_provider: defines on which cloud we operate.
-                       Possible choices:
-                               - Creo
-                               - AWS
-                               - Mundi
-                               - ONDA
-
-    Returns:
-        GeoDataFrame: An updated OST compliant inventory GeoDataFrame object
-                      with an additional column that contains a flag wether
-                      a scene needs to be downloaded or can be directly
-                      accessed via the cloud provider.
-
-
-    Notes:
-        Should be applied after read_inventory and before download
-
-    '''
-
-    print(' INFO: Checking for availability of scenes on {}.'.format(
-        cloud_provider))
-    # create an empty DataFrame
-    download_df = pd.DataFrame(
-            columns=['identifier', 'filepath', 'toDownload'])
-
-    # loop through each scene
-    scenes = inventory_df['identifier'].tolist()
-    for scene_id in scenes:
-
-        scene = S1Scene(scene_id)
-
-        # check if we can download from the cloud_provider
-        if cloud_provider == 'Creo':
-            test_path = scene.creodias_path()
-        elif cloud_provider == 'AWS':
-            test_path = scene.aws_path()   # function needs to be added
-        elif cloud_provider == 'Mundi':
-            test_path = scene.mundi_path()   # function needs to be added
+        if not zip_test:
+            print(' INFO: Passed')
+            # move file
+            os.rename(scene_in, filepath)
+        
+            # add downloaded (should be zip checked in future)
+            f=open(filepath+".downloaded","w+")
+            f.close()
         else:
-            # construct download path
-            test_path = opj(download_dir, 'SAR', scene.product_type,
-                            scene.year, scene.month, scene.day, scene_id)
-
-        # check for existence of files
-        if os.path.isdir(test_path) or os.path.exists(test_path):
-
-            # if we are not in cloud
-            if download_dir in test_path:
-
-                # file is already succesfully downloaded
-                download_df = download_df.append({'identifier': scene_id,
-                                                  'filepath': test_path,
-                                                  'toDownload': False},
-                                                 ignore_index=True)
-            else:
-
-                # file is on cloud storage
-                download_df = download_df.append({'identifier': scene_id,
-                                                  'filepath': test_path,
-                                                  'toDownload': False},
-                                                 ignore_index=True)
-
-        else:
-
-            # construct download path to check if we already downloaded
-            test_path = opj(download_dir, 'SAR', scene.product_type,
-                            scene.year, scene.month, scene.day, scene_id)
-
-            # if we are on cloud, check if we already downloaded
-            if os.path.exists(test_path):
-
-                # file is already succesfully downloaded
-                download_df = download_df.append({'identifier': scene_id,
-                                                  'filepath': test_path,
-                                                  'toDownload': False},
-                                                 ignore_index=True)
-
-            else:
-                download_df = download_df.append({'identifier': scene_id,
-                                                  'filepath': test_path,
-                                                  'toDownload': True},
-                                                 ignore_index=True)
-
-    # merge the dataframe and return it
-    inventory_df = inventory_df.merge(download_df, on='identifier')
-    return inventory_df
+            print(' INFO: File {} is corrupted and will not be moved.')
 
 
 def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
@@ -167,7 +73,6 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     '''
 
     if not mirror:
-        print(' INFO: One or more of your scenes need to be downloaded.')
         print(' Select the server from where you want to download:')
         print(' (1) Copernicus Apihub (ESA, rolling archive)')
         print(' (2) Alaska Satellite Facility (NASA, full archive)')
@@ -192,36 +97,19 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
             print(' INFO: Maximum allowed parallel downloads \
                   from Earthdata are 10. Setting concurrent accordingly.')
             concurrent = 10
+    
     elif int(mirror) == 3:
         error_code = peps.check_connection(uname, pword)
 
+    if error_code == 401:
+        raise ValueError(' ERROR: Username/Password are incorrect')
+    elif error_code != 200:
+        raise ValueError(' ERROR: Some connection error. Error code {}.'.format(error_code))
+    
+    # download in parallel
     if int(mirror) == 1:
-        # check response
-        if error_code == 401:
-            raise ValueError(' ERROR: Username/Password are incorrect.')
-        elif error_code != 200:
-            raise ValueError(' Some connection error. Error code: {}'.format(
-                    error_code))
-
-        # check if all scenes exist
-        scenes = inventory_df['identifier'].tolist()
-
-        download_list = []
-
-        for scene_id in scenes:
-            scene = S1Scene(scene_id)
-            filepath = scene._download_path(download_dir, True)
-
-            uuid = (inventory_df['uuid']
-                    [inventory_df['identifier'] == scene_id].tolist())
-
-            # create list objects for download
-            download_list.append([uuid[0], filepath, uname, pword])
-
-        # download in parallel
-        if int(mirror) == 1:   # scihub
-            pool = multiprocessing.Pool(processes=2)
-            pool.map(scihub.s1_download, download_list)
+        scihub.batch_download(inventory_df, download_dir,
+                              uname, pword, concurrent) # scihub
     elif int(mirror) == 2:    # ASF
         asf.batch_download(inventory_df, download_dir,
                            uname, pword, concurrent)

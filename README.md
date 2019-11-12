@@ -1,85 +1,97 @@
 # Open SAR Toolkit (OST)
 
-## A note on its origin
-
-Open SAR Toolkit was initially developed at the Food and Agriculture 
-Organization of the United Nations under the SEPAL project 
-(https://github.com/openforis/sepal) between 2016-2018. 
-It is still available there (https://github.com/openforis/opensarkit), 
-but has been completely re-factored and transferred into a simpler and 
-less-dependency rich python3 version, which can be found on this page here. 
-Instead of using R-Shiny as a GUI, the main interface are now Jupyter notebooks 
-that are developed in parallel to this core package and should help to get started.
-(https://github.com/ESA-PhiLab/OST_Notebooks) 
-
 ## Objective
 
-Compared to its optical counterpart, the community of Synthetic Aperture 
-Radar (SAR) data users for land applications is still small. 
-One major reason for that originates from the differences in the acquisition 
-principle and the underlying physics of the imaging process. 
-For non-experts, this results in difficulties of applying the correct 
-processing steps as well as interpreting the non-intuitive backscatter 
-image composites. On the other hand, the free and open access to 
-Sentinel-1 data widened the community of interested users and paves 
-the way for the integration of SAR data into operational monitoring systems.
-
-This python package lowers the entry barrier for pre-processing 
-Sentinel-1 data and allows users with little knowledge on SAR and 
-python to produce analysis-ready small to large-scale SAR datasets. 
-OST includes fully automated routines that are mainly build on top of 
-the Sentinel Application Platform (SNAP) and other freely available 
-open-source software such as GDAL, Orfeo Toolbox and Python.
+This python package lowers the entry barrier for accessing and pre-processing 
+Sentinel-1 data for land applications and allows users with little knowledge 
+on SAR and python to produce various Analysis-Ready-Data products.
 
 ## Functionality
 
-The Open SAR Toolkit follows an object-oriented approach, providing classes 
-for single scene processing, GRD and SLC batch processing routines. 
-The latter includes options to include 
-processing of interferometric coherence and polarimetric decompositions.
+The Open SAR Toolkit (OST) bundles the full workflow for the generation of 
+Analysis-Ready-Data (ARD) of Sentinel-1 for Land in a single high-level 
+python package. It includes functions for data inventory and advanced sorting 
+as well as downloading from various mirrors. The whole pre-processing is 
+bundled in a single function and different types of ARD can be selected,
+but also customised. OST does include advanced types of ARD such as combined
+production of calibrated backscatter, interferometric coherence and the dual-
+polarimetric H-A-Alpha decomposition. Time-series and multi-temporal statistics
+(i.e. timescans) can be produced for each of these layers and the generation of 
+sptaially-seamless large-scale mosaic over time is possible a well.
+
+The Open SAR Toolkit realises this by using an object-oriented approach, 
+providing classes for single scene processing, GRD and SLC batch processing 
+routines. The SAR processing itself relies on ESA's Sentinel-1 Toolbox as well 
+as some geospatial python libraries and the Orfeo Toolbox for mosaicking.
 
 You can find examplarotary Jupyter notebooks at 
 https://github.com/ESA-PhiLab/OST_Notebooks for getting started. 
 
 ## Installation
 
-OST is rather a meta-package of the Sentinel-1 toolbox than a full-flavoured software.
-In order to make
+### Docker 
 
-### Dependencies (OS independent)
+A docker image is available from docker hub that contains the full package, 
+including ESA's Sentinel-1 Toolbox, Orfeo Toolbox, Jupyter Lab as well
+as the Open SAR Toolkit the tutorial notebooks.
 
-#### Sentinel Application Toolbox (SNAP)
+Docker installation is possible on various OS. Installation instructions can be 
+found at https://docs.docker.com/install/
 
-OST bases mainly on the freely available SNAP toolbox for the SAR-specific processing routines. You can download SNAP from:
+After docker is installed and running, launch the container with:
+
+```
+docker pull buddyvolly/opensartoolkit
+docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared opensartoolkit
+```
+
+The docker image automatically executes the jupyter lab and runs it on 
+port 8888. You can find the address to the notebook on the command line where 
+docker is running. Copy it into your favorites browser and replace 
+127.0.0.1 with localhost.
+
+
+### Manual installation
+
+#### Dependencies
+
+##### Sentinel Application Toolbox (SNAP)
+
+OST bases mainly on the freely available SNAP toolbox for the 
+SAR-specific processing routines. You can download SNAP from:
 
 http://step.esa.int/main/download/
 
-If you install SNAP into the standard directory, OST should have no problems to find the SNAP command line executable. Otherwise you need to define the path to the gpt file on your own during processing.
+If you install SNAP into the standard directory, OST should have no problems 
+to find the SNAP command line executable. Otherwise you need to define the path 
+to the gpt file on your own during processing.
 
-#### Orfeo Toolbox
+##### Orfeo Toolbox
 
-If you want to create mosaics between different swaths, OST will rely on the otbcli_Mosaic command from The Orfeo Toolbox. You download Orfeo from:
+If you want to create mosaics between different swaths, OST will rely on the 
+otbcli_Mosaic command from The Orfeo Toolbox. You can download Orfeo from:
 
 https://www.orfeo-toolbox.org/download/
 
-Make sure that the Orfeo bin folder is within your PATH variable to allow execution from command line.
+Make sure that the Orfeo bin folder is within your PATH variable to allow 
+execution from command line.
 
+#### OST installation
 
-OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested much on other OS and python versions,
-but should in principle work on any OS and any python version >= 3.5.
+OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested 
+much on other OS and python versions, but should in principle work on any OS 
+and any python version >= 3.5.
 
-Before it can work, some dependencies need to be installed:
+##### Ubuntu/Debian Linux (using pip)
 
-
-### Ubuntu/Debian Linux (using pip)
-
-Before installation of OST, run the following line on the terminal:
+Before installation of OST, run the following line on the terminal to 
+install further dependencies:
 
 ```
 sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev
 ```
 
-then isntall OST as a global package (for all users, admin rights needed):
+then install OST as a global package (for all users, admin rights needed):
 
 ```
 sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
@@ -92,45 +104,39 @@ pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 
-### Mac OS (using homebrew/pip)
+##### Mac OS (using homebrew/pip)
 
 If not already installed, install homebrew as explained on https://brew.sh
 
-After installation of homebrew, open the terminal and execute this:
+After installation of homebrew, open the terminal and install 
+further dependecies:
+
 ```
 brew install python3 gdal2 gdal2-python git
 ```
 
-and this:
+then install OST with python pip:
 ```
 pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
 
-### Conda Installation (Windows, Mac, Linux)
+##### Conda Installation (Windows, Mac, Linux)
 
-Download miniconda3 (python version 3) from https://conda.io/miniconda.html
-and install it:
-```
-# get the installer
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-# install
-bash Miniconda3-latest-Linux-x86_64.sh
-# source the new installation
-source .bashrc
-# remove installer
-rm  Miniconda3-latest-Linux-x86_64.sh
-```
+Follow the installation instructions for conda (Miniconda is sufficient) at:
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/
 
-Then install OST's dependencies:
+Then run the conda command to install OST's dependencies:
 ```
 conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
 ```
 
-and then
+Finally get the OST by using pip 
+(we will work in future on a dedicated conda package for OST).
 ```
 pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
+
 
 ## Examples
 
@@ -167,6 +173,20 @@ RGB composite:
   - Blue: VV-Standard deviation
 
 ![alt text](https://github.com/openforis/opensarkit/raw/master/shiny/www/eth_vvvh_ts.jpeg)
+
+
+## A note on its origin
+
+Open SAR Toolkit was initially developed at the Food and Agriculture 
+Organization of the United Nations under the SEPAL project 
+(https://github.com/openforis/sepal) between 2016-2018. 
+It is still available there (https://github.com/openforis/opensarkit), 
+but has been completely re-factored and transferred into a simpler and 
+less-dependency rich python3 version, which can be found on this page here. 
+Instead of using R-Shiny as a GUI, the main interface are now Jupyter notebooks 
+that are developed in parallel to this core package and should help to get started.
+(https://github.com/ESA-PhiLab/OST_Notebooks) 
+
 
 ## Author
 

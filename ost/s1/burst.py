@@ -552,7 +552,7 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                              ard_parameters):
 
     datatype = ard_parameters['datatype']
-    to_db = ard_parameters['to_db_mt']
+    to_db = ard_parameters['to_db']
     
     if to_db:
         to_db_mt = False

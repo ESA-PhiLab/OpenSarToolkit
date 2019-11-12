@@ -16,6 +16,7 @@ import time
 import datetime
 from datetime import timedelta
 from pathlib import Path
+import zipfile
 
 import gdal
 
@@ -60,6 +61,7 @@ def gpt_path():
         paths = [
             '{}/.ost/gpt'.format(homedir),
             '{}/snap/bin/gpt'.format(homedir),
+            '{}/programs/snap/bin/gpt'.format(homedir),
             '/usr/bin/gpt',
             '/opt/snap/bin/gpt',
             '/usr/local/snap/bin/gpt',
@@ -82,6 +84,9 @@ def gpt_path():
         gptfile = input(' Please provide the full path to the SNAP'
                         ' gpt command line executable'
                         ' (e.g. /path/to/snap/bin/gpt')
+
+        os.makedirs(opj(homedir, '.ost'), exist_ok=True)
+        os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
 
     if os.path.isfile(gptfile) is False:
         print(' ERROR: path to gpt file is incorrect. No such file.')
@@ -302,6 +307,22 @@ def check_out_tiff(file, test_stats=True):
     return return_code
 
 
+def check_zipfile(filename):
+        
+    try:
+        zip_archive = zipfile.ZipFile(filename)
+    except zipfile.BadZipFile as er:
+        print('Error: {}'.format(er))
+        return 1
+    
+    try:
+        zip_test = zip_archive.testzip()
+    except:
+        print('Error')
+        return 1
+    else:
+        return zip_test
+    
 def resolution_in_degree(latitude, meters):
     '''Convert resolution in meters to degree based on Latitude
 

@@ -285,6 +285,8 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
         georegion (str): a WKT style formatted POLYGON that bounds the
                    subset region
     '''
+    
+    print(' INFO: Subsetting imported imagery.')
     # get Snap's gpt file
     gpt_file = h.gpt_path()
 
@@ -298,7 +300,7 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully subsetted product')
+        print(' INFO: Succesfully subsetted product.')
     else:
         print(' ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -870,8 +872,8 @@ def grd_to_ard(filelist,
 
             # delete slice assembly
             h.delete_dimap(grd_import)
-            glob.glob('{}/{}*imported*.data'.format(temp_dir, file_id))
-
+    
+    # single scene case
     else:
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}.Import.errLog'.format(file_id))
@@ -879,17 +881,14 @@ def grd_to_ard(filelist,
         if subset is None:
             return_code = _grd_frame_import(filelist[0], grd_import, logfile,
                                             polarisation)
-            if return_code != 0:
-                h.remove_folder_content(temp_dir)
-                return return_code
         else:
             # georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
-            return_code = _grd_frame_import_subset(filelist[0], grd_import,
-                                                   subset, logfile,
+            return_code = _grd_frame_import_subset(filelist[0], grd_import, 
+                                                   subset, logfile, 
                                                    polarisation)
-            if return_code != 0:
-                h.remove_folder_content(temp_dir)
-                return return_code
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
     # ---------------------------------------------------------------------
     # Remove the grd border noise from existent channels (OST routine)
 

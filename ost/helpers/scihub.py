@@ -5,13 +5,18 @@ Copernicus scihub server.
 '''
 
 import os
+from os.path import join as opj
+import glob
 import getpass
 import datetime
+import multiprocessing
 import urllib
 import requests
 import tqdm
-import zipfile
+#import zipfile
 from shapely.wkt import loads
+
+from ost.helpers import helpers as h
 
 
 def ask_credentials():
@@ -316,16 +321,74 @@ def s1_download(argument_list):
         # zipFile check
         print(' INFO: Checking the zip archive of {} for inconsistency'.format(
             filename))
-        zip_archive = zipfile.ZipFile(filename)
-        zip_test = zip_archive.testzip()
-
+        zip_test = h.check_zipfile(filename)
+        
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
             print(' INFO: {} did not pass the zip test. \
                   Re-downloading the full scene.'.format(filename))
             os.remove(filename)
+            first_byte = 0
         # otherwise we change the status to True
         else:
             print(' INFO: {} passed the zip test.'.format(filename))
-            downloaded = True
+            with open(str('{}.downloaded'.format(filename)), 'w') as file:
+                file.write('successfully downloaded \n')
+
+
+def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
+    
+    from ost import Sentinel1_Scene as S1Scene
+    from ost.helpers import scihub
+    
+    # create list of scenes
+    scenes = inventory_df['identifier'].tolist()
+    
+    check, i = False, 1
+    while check is False and i <= 10:
+
+        download_list = []
+
+        for scene_id in scenes:
+
+            scene = S1Scene(scene_id)
+            filepath = scene._download_path(download_dir, True)
+            
+            try:
+                uuid = (inventory_df['uuid']
+                    [inventory_df['identifier'] == scene_id].tolist())
+            except KeyError:
+                uuid = scene.scihub_uuid(scihub.connect(uname, pword)) 
+            
+            if os.path.exists('{}.downloaded'.format(filepath)):
+                print(' INFO: {} is already downloaded.'
+                      .format(scene.scene_id))
+            else:
+                # create list objects for download
+                download_list.append([uuid[0], filepath, uname, pword])
+
+        if download_list:
+            pool = multiprocessing.Pool(processes=concurrent)
+            pool.map(s1_download, download_list)
+                    
+        downloaded_scenes = glob.glob(
+            opj(download_dir, 'SAR', '*', '20*', '*', '*',
+                '*.zip.downloaded'))
+    
+        if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
+            print(' INFO: All products are downloaded.')
+            check = True
+        else:
+            check = False
+            for scene in scenes:
+
+                scene = S1Scene(scene)
+                filepath = scene._download_path(download_dir)
+
+                if os.path.exists('{}.downloaded'.format(filepath)):
+                    scenes.remove(scene.scene_id)
+
+        i += 1
+
+            
