@@ -622,7 +622,6 @@ class Sentinel1_Scene():
     def set_ard_parameters(self, ard_type='OST'):
 
         if ard_type == 'OST':
-
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
             self.ard_parameters['border_noise'] = True
@@ -631,6 +630,7 @@ class Sentinel1_Scene():
             self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[2]
         elif ard_type == 'OST Flat':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
@@ -640,6 +640,7 @@ class Sentinel1_Scene():
             self.ard_parameters['ls_mask_create'] = True
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[2]
         elif ard_type == 'CEOS':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 10
@@ -649,6 +650,7 @@ class Sentinel1_Scene():
             self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = False
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[3]
         elif ard_type == 'EarthEngine':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 10
@@ -658,6 +660,7 @@ class Sentinel1_Scene():
             self.ard_parameters['ls_mask_create'] = False
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[3]
         elif ard_type == 'Zhuo':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 25
@@ -667,6 +670,7 @@ class Sentinel1_Scene():
             self.ard_parameters['ls_mask_create'] = True
             self.ard_parameters['to_db'] = True
             self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
+            self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[2]
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
@@ -680,7 +684,6 @@ class Sentinel1_Scene():
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
-
             if not self.ard_parameters:
                 print(' INFO: No ARD definition given.'
                       ' Using the OST standard ARD defintion'
@@ -691,33 +694,37 @@ class Sentinel1_Scene():
                 self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
                 print(' WARNING: Invalid resampling method using BILINEAR_INTERPOLATION')
 
-
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
             # run the processing
-            grd_to_ard(infile, 
-                       out_dir, 
-                       out_prefix, 
-                       temp_dir,
-                       self.ard_parameters['resolution'],
-                       self.ard_parameters['resampling'],
-                       self.ard_parameters['product_type'],
-                       self.ard_parameters['ls_mask_create'],
-                       self.ard_parameters['speckle_filter'],
-                       self.ard_parameters['dem'],
-                       self.ard_parameters['to_db'],
-                       self.ard_parameters['border_noise'],
-                       subset=subset, 
-                       polarisation=polar)
+            out_file = grd_to_ard(
+                infile,
+                out_dir,
+                out_prefix,
+                temp_dir,
+                self.ard_parameters['resolution'],
+                self.ard_parameters['resampling'],
+                self.ard_parameters['product_type'],
+                self.ard_parameters['ls_mask_create'],
+                self.ard_parameters['speckle_filter'],
+                self.ard_parameters['dem'],
+                self.ard_parameters['to_db'],
+                self.ard_parameters['border_noise'],
+                subset=subset,
+                polarisation=polar
+            )
 
             # write to class attribute
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
                                            .format(out_prefix)))[0]
 
         elif self.product_type != 'GRD':
-
             print(' ERROR: create_ard method for single products is currently'
                   ' only available for GRD products')
+        if os.path.isfile(out_file):
+            return out_file
+        else:
+            raise RuntimeError
 
     def create_rgb(self, outfile, driver='GTiff'):
 
