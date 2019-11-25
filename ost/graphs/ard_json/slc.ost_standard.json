@@ -1,0 +1,61 @@
+ {
+    "processing parameters": {
+        "single ARD": {
+            "type": "OST Standard",
+            "resolution": 20,
+            "product type": "GTCgamma",
+            "polarisation": "VV,VH,HH,HV",
+            "to db": false,
+            "remove speckle": false,
+            "speckle filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate ENL": true,
+                "sigma": 0.9,
+                "filter x size": 3,
+                "filter y size": 3,   
+                "window size": "3x3",
+                "target window size": "7x7",
+                "num of looks": 1,
+                "damping": 2,
+                "pan size": 50
+            },
+            "remove pol speckle": false,
+            "create ls mask": true,
+            "apply ls mask": false,
+            "dem": {
+                "dem name": "SRTM 1Sec HGT",
+                "dem file": "",
+                "dem nodata": 0,
+                "dem resampling": "BILINEAR_INTERPOLATION",
+                "image resampling": "BILINEAR_INTERPOLATION"
+            },            
+            "coherence": true,
+            "coherence bands": "VV, HH",
+            "H-A-Alpha": true
+        },
+        "time-series ARD": {
+            "to db": true,
+            "remove mt speckle": true,
+            "mt speckle filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate ENL": true,
+                "sigma": 0.9,
+                "filter x size": 3,
+                "filter y size": 3,   
+                "window size": "3x3",
+                "target window size": "7x7",
+                "num of looks": 1,
+                "damping": 2,
+                "pan size": 50
+            },
+            "deseasonalize": false,
+            "dtype output": "float32"
+        },
+            "time-scan ARD": {
+            "metrics": ["avg", "max", "min", "std", "cov"],
+            "remove outliers": true
+        }
+    }
+}

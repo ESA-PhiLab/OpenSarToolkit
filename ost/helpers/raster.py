@@ -7,12 +7,13 @@ This script provides wrapper functions for processing Sentinel-1 GRD products.
 import os
 from os.path import join as opj
 import numpy as np
+import json
 import glob
+import shutil
+import itertools
 
 # geo libs
 import gdal
-import osr
-import ogr
 import fiona
 import imageio
 import rasterio
@@ -31,96 +32,6 @@ __maintainer__ = 'Andreas Vollrath'
 __email__ = ''
 __status__ = 'Production'
 
-
-def read_file(rasterfn):
-
-    # open raster file
-    raster = gdal.Open(rasterfn)
-
-    # Get blocksizes for iterating over tiles (chuuks)
-    my_block_size = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = my_block_size[0]
-    y_block_size = my_block_size[1]
-
-    # Get image sizes
-    cols = raster.RasterXSize
-    rows = raster.RasterYSize
-    bands = raster.RasterCount
-
-    # get datatype and transform to numpy readable
-    data_type = raster.GetRasterBand(1).DataType
-    data_type_name = gdal.GetDataTypeName(data_type)
-
-    if data_type_name == "Byte":
-        data_type_name = "uint8"
-
-    print(' INFO: Importing {} bands from {}'.format(raster.RasterCount,
-                                                     rasterfn))
-
-    geotransform = raster.GetGeoTransform()
-    origin_x = geotransform[0]
-    origin_y = geotransform[3]
-    pixel_width = geotransform[1]
-    pixel_height = geotransform[5]
-    driver = gdal.GetDriverByName('GTiff')  # critical!!!!!!!!!!!!!!!!!!!!!!!
-    ndv = raster.GetRasterBand(1).GetNoDataValue()
-
-    # we need this for file creation
-    outraster_srs = osr.SpatialReference()
-    outraster_srs.ImportFromWkt(raster.GetProjectionRef())
-
-    # we return a dict of all relevant values
-    return {'xB': x_block_size, 'yB': y_block_size, 'cols': cols, 'rows': rows,
-            'bands': bands, 'dType': data_type, 'dTypeName': data_type_name,
-            'ndv': ndv, 'gtr': geotransform, 'oX': origin_x, 'oY': origin_y,
-            'pW': pixel_width, 'pH': pixel_height, 'driver': driver,
-            'outR': outraster_srs}
-
-
-def create_file(newraster, geodict, bands, compression='None'):
-
-    blocksize_x = 'BLOCKXSIZE={}'.format(geodict['xB'])
-    blocksize_y = 'BLOCKYSIZE={}'.format(geodict['yB'])
-    comp = 'COMPRESS={}'.format(compression)
-    if blocksize_y == blocksize_x:
-        tiled = 'YES'
-    else:
-        tiled = 'NO'
-
-    if compression is None:
-        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER',
-                blocksize_x, blocksize_y]
-    else:
-        opts = ['TILED={}'.format(tiled), 'BIGTIFF=IF_SAFER',
-                blocksize_x, blocksize_y, comp]
-
-    outraster = geodict['driver'].Create(newraster, geodict['cols'],
-                                         geodict['rows'], bands,
-                                         geodict['dType'], options=opts)
-
-    outraster.SetGeoTransform((geodict['oX'],
-                               geodict['pW'],
-                               0,
-                               geodict['oY'],
-                               0,
-                               geodict['pH']))
-
-    outraster.SetProjection(geodict['outR'].ExportToWkt())
-
-    if geodict['ndv'] is not None:
-        outraster.GetRasterBand(1).SetNoDataValue(geodict['ndv'])
-
-    return outraster
-
-
-# write chunks of arrays to an already existent raster
-def chunk_to_raster(outraster, array_chunk, ndv, x_pos, y_pos, z_pos):
-
-    outraster = gdal.Open(outraster, gdal.GA_Update)
-    outband = outraster.GetRasterBand(z_pos)
-
-    # write to array
-    outband.WriteArray(array_chunk, x_pos, y_pos, z_pos)
 
 
 def replace_value(rasterfn, value_to_replace, new_value):
@@ -236,36 +147,6 @@ def outline(infile, outfile, ndv=0, less_then=False):
     os.remove('{}.tif'.format(outfile[:-4]))
 
 
-def polygonize_to_shape(inraster, out_shape, out_epsg=4326, mask=None):
-    """
-    This function takes an input raster and polygonizes it.
-
-    :param raster: input raster file
-    :param mask: mask file
-    :param out_shape: output shapefile
-    :param srs: spatial reference system in EPSG code
-    :return:
-    """
-
-    raster = gdal.Open(inraster)
-    src_band = raster.GetRasterBand(1)
-
-    if mask is not None:
-        mask_file = gdal.Open(mask)
-        mask_band = mask_file.GetRasterBand(1)
-    else:
-        mask_band = src_band
-
-    srs = osr.SpatialReference()
-    srs.ImportFromEPSG(out_epsg)
-
-    dst_layername = out_shape
-    drv = ogr.GetDriverByName("ESRI Shapefile")
-    dstfile = drv.CreateDataSource(dst_layername)
-    dst_layer = dstfile.CreateLayer(dst_layername, srs=srs)
-    gdal.Polygonize(src_band, mask_band, dst_layer, -1, [], callback=None)
-
-
 # convert dB to power
 def convert_to_power(db_array):
 
@@ -276,9 +157,10 @@ def convert_to_power(db_array):
 # convert power to dB
 def convert_to_db(pow_array):
 
+    pow_array[pow_array == 0] = np.nan
     pow_array[pow_array < 0] = 0.0000001
     db_array = 10 * np.log10(pow_array.clip(min=0.0000000000001))
-    return db_array
+    return np.nan_to_num(db_array)
 
 
 # rescale sar dB dat ot integer format
@@ -294,10 +176,12 @@ def scale_to_int(float_array, min_value, max_value, datatype):
     a = min_value - ((max_value - min_value)/(display_max - display_min))
     x = (max_value - min_value)/(display_max - 1)
 
+    float_array[float_array == 0.0] = np.nan
     float_array[float_array > max_value] = max_value
     float_array[float_array < min_value] = min_value
-
-    int_array = np.round((float_array - a) / x).astype(datatype)
+        
+    stretched = (float_array - a) / x
+    int_array = np.round(np.nan_to_num(stretched)).astype(datatype)
 
     return int_array
 
@@ -318,7 +202,8 @@ def rescale_to_float(int_array, data_type_name):
 
 
 def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
-                  rescale=True, min_value=0.000001, max_value=1, ndv=None):
+                  rescale=True, min_value=0.000001, max_value=1, ndv=None,
+                  description=True):
 
     # import shapefile geometries
     with fiona.open(shapefile, 'r') as file:
@@ -331,6 +216,10 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
         out_meta = src.meta.copy()
         out_image = np.ma.masked_where(out_image == ndv, out_image)
 
+    
+    # unmask array
+    out_image = out_image.data
+    
     # if to decibel should be applied
     if to_db is True:
         out_image = convert_to_db(out_image)
@@ -350,40 +239,52 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
                      'blockxsize': 128, 'blockysize': 128})
 
     with rasterio.open(outfile, 'w', **out_meta) as dest:
-        dest.write(out_image.filled(ndv))
+        dest.write(out_image)
+        if description:
+            dest.update_tags(1, 
+                    BAND_NAME='{}'.format(os.path.basename(infile)[:-4]))
+            dest.set_band_description(1, 
+                    '{}'.format(os.path.basename(infile)[:-4]))
 
 
-# the outlier removal, needs revision (e.g. use something profound)
-def outlier_removal(arrayin, stddev=3):
+def create_tscan_vrt(timescan_dir, proc_file):
 
-    # calculate percentiles
-    perc95 = np.percentile(arrayin, 95, axis=0)
-    perc5 = np.percentile(arrayin, 5, axis=0)
+        # load ard parameters
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        ard_tscan = ard_params['time-scan ARD']
 
-    # we mask out the percetile outliers for std dev calculation
-    masked_array = np.ma.MaskedArray(
-        arrayin,
-        mask=np.logical_or(
-            arrayin > perc95,
-            arrayin < perc5
-            )
-        )
+    # loop through all pontial proucts
+    # a products list
+    product_list = ['bs.HH', 'bs.VV', 'bs.HV', 'bs.VH',
+                    'coh.VV', 'coh.VH', 'coh.HH', 'coh.HV', 
+                    'pol.Entropy', 'pol.Anisotropy', 'pol.Alpha']
+    
+    i, outfiles = 0, []
+    iteration = itertools.product(product_list, ard_tscan['metrics'])
+    for product, metric in iteration:
 
-    # we calculate new std and mean
-    masked_std = np.std(masked_array, axis=0)
-    masked_mean = np.mean(masked_array, axis=0)
+        # get file and add number for outfile
+        infile = opj(timescan_dir, '{}.{}.tif'.format(product, metric))
 
-    # we mask based on mean +- 3 * stddev
-    array_out = np.ma.MaskedArray(
-        arrayin,
-        mask=np.logical_or(
-            arrayin > masked_mean + masked_std * stddev,
-            arrayin < masked_mean - masked_std * stddev,
-            )
-        )
+        # if there is no file sto the iteration
+        if not os.path.isfile(infile):
+            continue
 
-    return array_out
+        # else
+        i += 1
+        outfile = opj(timescan_dir,
+                      '{}.{}.{}.tif'.format(i, product, metric))
+        outfiles.append(outfile)
+        # otherwise rename the file
+        shutil.move(infile, outfile)
 
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    gdal.BuildVRT(opj(timescan_dir, 'Timescan.vrt'.format()),
+                  outfiles,
+                  options=vrt_options
+     )
+        
 
 def norm(band, percentile=False):
     
@@ -418,9 +319,9 @@ def visualise_rgb(filepath, shrink_factor=25):
 
 def get_min(file):
 
-    mins = {'BS.VV': -20, 'BS.VH': -25, 'BS.HH': -20, 'BS.HV': -25,
+    mins = {'bs.VV': -20, 'bs.VH': -25, 'bs.HH': -20, 'bs.HV': -25,
             'coh.VV': 0.1, 'coh.VH': 0.1,
-            'Alpha': 60, 'Entropy': 0.1, 'Anisotropy': 0.1}
+            'pol.Alpha': 60, 'pol.Entropy': 0.1, 'pol.Anisotropy': 0.1}
 
     for key, items in mins.items():
         if key in file:
@@ -429,9 +330,9 @@ def get_min(file):
 
 def get_max(file):
 
-    maxs = {'BS.VV': 0, 'BS.VH': -12, 'BS.HH': 0, 'BS.HV': -5,
+    maxs = {'bs.VV': 0, 'bs.VH': -12, 'bs.HH': 0, 'bs.HV': -5,
             'coh.VV': 0.8, 'coh.VH': 0.75,
-            'Alpha': 80, 'Entropy': 0.8, 'Anisotropy': 0.8}
+            'pol.Alpha': 80, 'pol.Entropy': 0.8, 'pol.Anisotropy': 0.8}
 
     for key, items in maxs.items():
         if key in file:

@@ -64,7 +64,8 @@ python3 grd_to_ard.py -p /path/to/scene -r 20 -p RTC -l True -s False
 # import stdlib modules
 import os
 import sys
-import imp
+import importlib
+import json
 import glob
 import shutil
 import time
@@ -112,8 +113,8 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
-    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
 
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolarisation={} \
@@ -167,8 +168,8 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
-    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
 
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolarisation={} \
@@ -185,7 +186,6 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     else:
         print(' ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(102)
 
     return return_code
 
@@ -224,7 +224,6 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     else:
         print(' ERROR: Slice Assembly exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(101)
 
     return return_code
 
@@ -264,7 +263,6 @@ def _grd_subset(infile, outfile, logfile, region):
     else:
         print(' ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(107)
 
     return return_code
 
@@ -304,7 +302,6 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
     else:
         print(' ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(107)
 
     return return_code
 
@@ -413,8 +410,7 @@ def _grd_remove_border(infile):
     h.timer(currtime)
 
 
-def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
-                     dem='SRTM 1Sec HGT'):
+def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'):
     '''A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
@@ -448,27 +444,34 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
 
     # select xml according to product type
     if product_type == 'RTC':
         print(' INFO: Calibrating the product to a RTC product.')
-        graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
+        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
     elif product_type == 'GTCgamma':
         print(' INFO: Calibrating the product to a GTC product (Gamma0).')
-        graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
+        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
     elif product_type == 'GTCsigma':
         print(' INFO: Calibrating the product to a GTC product (Sigma0).')
-        graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
+        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
     else:
         print(' ERROR: Wrong product type selected.')
         sys.exit(103)
 
     # construct command sring
     if product_type == 'RTC':
-        command = '{} {} -x -q {} -Pinput=\'{}\' -Pdem=\'{}\' \
-                   -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                           infile, dem, outfile)
+        command = ('{} {} -x -q {} -Pinput=\'{}\'' 
+                                 ' -Pdem=\'{}\'' 
+                                 ' -Pdem_file=\'{}\' '
+                                 ' -Pdem_nodata=\'{}\'' 
+                                 ' -Pdem_resampling=\'{}\''
+                                 ' -Poutput=\'{}\''.format(
+            gpt_file, graph, 2 * os.cpu_count(), infile, 
+            dem_dict['dem name'], dem_dict['dem file'], 
+            dem_dict['dem nodata'], dem_dict['dem resampling'], 
+            outfile))
     else:
         command = '{} {} -x -q {} -Pinput=\'{}\' -Poutput=\'{}\''.format(
             gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
@@ -482,7 +485,6 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     else:
         print(' ERROR: Backscatter calibration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(103)
 
     return return_code
 
@@ -521,7 +523,6 @@ def _grd_speckle_filter(infile, outfile, logfile):
     else:
         print(' ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(111)
 
     return return_code
 
@@ -558,13 +559,11 @@ def _grd_to_db(infile, outfile, logfile):
     else:
         print(' ERROR: Linear to dB conversion exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(113)
 
     return return_code
 
 
-def _grd_terrain_correction(infile, outfile, logfile, resolution,
-                            dem='SRTM 1Sec HGT'):
+def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -591,20 +590,31 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     print(' INFO: Geocoding the calibrated product')
 
     # calculate the multi-look factor
     multilook_factor = int(int(resolution) / 10)
 
-    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
+    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
 
     # construct command string
-    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
-                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                         infile, resolution, multilook_factor,
-                                         dem, outfile)
-
+#    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+#                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
+#                                         infile, resolution, multilook_factor,
+#                                         dem, outfile)
+    command = ('{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={}' 
+                                 ' -Pdem=\'{}\'' 
+                                 ' -Pdem_file=\'{}\''
+                                 ' -Pdem_nodata=\'{}\'' 
+                                 ' -Pdem_resampling=\'{}\''
+                                 ' -Pimage_resampling=\'{}\''
+                                 ' -Poutput=\'{}\''.format(
+            gpt_file, graph, 2 * os.cpu_count(), 
+            infile, resolution, multilook_factor, 
+            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'], 
+            dem_dict['dem resampling'], dem_dict['image resampling'],
+            outfile))
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
@@ -614,7 +624,6 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
     else:
         print(' ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(112)
 
     return return_code
 
@@ -647,14 +656,14 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     print(' INFO: Geocoding the calibrated product')
 
     # calculate the multi-look factor
     # multilook_factor = int(int(resolution) / 10)
     multilook_factor = 1
 
-    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
+    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
 
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
@@ -671,12 +680,11 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     else:
         print(' ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(112)
 
     return return_code
 
 
-def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
+def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
     This function takes OST imported Sentinel-1 product and calculates
@@ -703,17 +711,27 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     gpt_file = h.gpt_path()
 
     # get path to ost package
-    root_path = imp.find_module('ost')[1]
+    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
 
     print(' INFO: Creating the Layover/Shadow mask')
     # get path to workflow xml
-    graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
+    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
 
     # construct command string
-    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
-             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                     infile, resolution, dem, outfile)
-
+#    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
+#             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
+#                                     infile, resolution, dem, outfile)
+    command = ('{} {} -x -q {} -Pinput=\'{}\' -Presol={} ' 
+                                 ' -Pdem=\'{}\'' 
+                                 ' -Pdem_file=\'{}\''
+                                 ' -Pdem_nodata=\'{}\'' 
+                                 ' -Pdem_resampling=\'{}\''
+                                 ' -Pimage_resampling=\'{}\''
+                                 ' -Poutput=\'{}\''.format(
+            gpt_file, graph, 2 * os.cpu_count(), infile, resolution, 
+            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'], 
+            dem_dict['dem resampling'], dem_dict['image resampling'],
+            outfile))
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
@@ -723,8 +741,7 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     else:
         print(' ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        sys.exit(112)
-
+        
     return return_code
 
 
@@ -732,15 +749,8 @@ def grd_to_ard(filelist,
                output_dir, 
                file_id, 
                temp_dir, 
-               resolution, 
-               product_type,
-               ls_mask_create,
-               speckle_filter,
-               dem, 
-               to_db, 
-               border_noise,
-               subset=None, 
-               polarisation='VV,VH,HH,HV'):
+               proc_file,
+               subset=None):
     '''The main function for the grd to ard generation
 
     This function represents the full workflow for the generation of an
@@ -769,15 +779,12 @@ def grd_to_ard(filelist,
         no explicit return value, since output file is our actual return
     '''
 
-    # get processing parameters from dict
-#    resolution = processing_dict['resolution']
-#    product_type = processing_dict['product_type']
-#    ls_mask = processing_dict['ls_mask']
-#    speckle_filter = processing_dict['speckle_filter']
-#    border_noise = processing_dict['border_noise']
-#    dem = processing_dict['dem']
-#    to_db = processing_dict['to_db']
-
+    # load ard parameters
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        ard = ard_params['single ARD']
+        polars = ard['polarisation'].replace(' ', '')
+        
     # slice assembly if more than one scene
     if len(filelist) > 1:
 
@@ -788,7 +795,7 @@ def grd_to_ard(filelist,
             logfile = opj(output_dir, '{}.Import.errLog'.format(
                 os.path.basename(file)[:-5]))
             
-            return_code = _grd_frame_import(file, grd_import, logfile)
+            return_code = _grd_frame_import(file, grd_import, logfile, polars)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
                 return return_code
@@ -801,7 +808,7 @@ def grd_to_ard(filelist,
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
         return_code = _slice_assembly(scenelist, grd_import, logfile, 
-                                      polarisation)
+                                      )
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
@@ -828,18 +835,18 @@ def grd_to_ard(filelist,
 
         if subset is None:
             return_code = _grd_frame_import(filelist[0], grd_import, logfile, 
-                                            polarisation)
+                                            polars)
         else:
             return_code = _grd_frame_import_subset(filelist[0], grd_import, 
                                                    subset, logfile, 
-                                                   polarisation)
+                                                   polars)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
     # ---------------------------------------------------------------------
     # Remove the grd border noise from existent channels (OST routine)
 
-    if border_noise and not subset:
+    if ard['remove border noise'] and not subset:
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
             infile = glob.glob(opj(
@@ -856,7 +863,7 @@ def grd_to_ard(filelist,
     infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
     # -------------------------------------------
     # in case we want to apply Speckle filtering
-    if speckle_filter:
+    if ard['remove speckle']:
         
         logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
         outfile = opj(temp_dir, '{}_spk'.format(file_id))
@@ -874,9 +881,11 @@ def grd_to_ard(filelist,
         
     # ----------------------
     # do the calibration
-    outfile = opj(temp_dir, '{}.{}'.format(file_id, product_type))
+    outfile = opj(temp_dir, '{}.{}'.format(file_id, ard['product type']))
     logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
-    return_code = _grd_backscatter(infile, outfile, logfile, product_type, dem)
+    return_code = _grd_backscatter(infile, outfile, logfile,  
+                                   ard['dem'], ard['product type'])
+    
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
@@ -889,10 +898,11 @@ def grd_to_ard(filelist,
 
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
-    if ls_mask_create is True:
+    if  ard['create ls mask'] is True:
         outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
-        return_code = _grd_ls_mask(infile, outfile, logfile, resolution, dem)
+        return_code = _grd_ls_mask(infile, outfile, logfile, ard['resolution'], 
+                                   ard['dem'])
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
@@ -915,9 +925,10 @@ def grd_to_ard(filelist,
         shutil.move('{}.data'.format(outfile), '{}.data'.format(out_ls_mask))
     
     # to db
-    if to_db:
+    if ard['to db']:
         logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_{}_db'.format(file_id, product_type))
+        outfile = opj(temp_dir, '{}_{}_db'.format(file_id, 
+                      ard['product type']))
         return_code = _grd_to_db(infile, outfile, logfile)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
@@ -926,14 +937,17 @@ def grd_to_ard(filelist,
         # delete
         h.delete_dimap(infile[:-4])
         # re-define infile
-        infile = opj(temp_dir, '{}_{}_db.dim'.format(file_id, product_type))
+        infile = opj(temp_dir, '{}_{}_db.dim'.format(file_id, 
+                     ard['product type']))
 
     # -----------------------
     # let's geocode the data
     # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
-    outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
-    logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    return_code = _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
+    outfile = opj(temp_dir, '{}.bs'.format(file_id))
+    logfile = opj(output_dir, '{}.bs.errLog'.format(file_id))
+    return_code = _grd_terrain_correction(infile, outfile, logfile, 
+                                          ard['resolution'], 
+                                          ard['dem'])
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
@@ -942,7 +956,7 @@ def grd_to_ard(filelist,
     h.delete_dimap(infile[:-4])
 
     # move to final destination
-    out_final = opj(output_dir, '{}.{}.TC'.format(file_id, product_type))
+    out_final = opj(output_dir, '{}.bs'.format(file_id))
 
     # remove file if exists
     if os.path.exists(out_final + '.dim'):

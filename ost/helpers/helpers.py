@@ -72,21 +72,26 @@ def gpt_path():
         for path in paths:
             if os.path.isfile(path):
                 gptfile = path
-                break
+                return gptfile
             else:
                 gptfile = None
-
+                
+    # chek if we have an enviromenral variable that contains the path to gpt
+    if not gptfile:
+        gptfile = os.getenv('GPT_PATH')
+        
     if not gptfile:
         gptfile = input(' Please provide the full path to the SNAP'
                         ' gpt command line executable'
                         ' (e.g. /path/to/snap/bin/gpt')
-        os.makedirs(opj(homedir, '.ost'), exist_ok=True)
-        os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
 
-    if os.path.isfile(gptfile) is False:
-        print(' ERROR: path to gpt file is incorrect. No such file.')
-        sys.exit()
-
+        if os.path.isfile(gptfile) is False:
+            print(' ERROR: path to gpt file is incorrect. No such file.')
+            sys.exit()
+        else:
+            os.makedirs(opj(homedir, '.ost'), exist_ok=True)
+            os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
+            gptfile = opj(homedir, '.ost', 'gpt')
     # print(' INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
 
@@ -330,3 +335,33 @@ def resolution_in_degree(latitude, meters):
     # Find the radius of a circle around the earth at given latitude.
     r = earth_radius*math.cos(latitude*degrees_to_radians)
     return (meters/r)*radians_to_degrees
+
+
+def test_ard_parameters(ard_parameter_dict):
+    
+    # snap things
+    resampling = ['NEAREST_NEIGHBOUR', 'BILINEAR_INTERPOLATION', 
+                  'CUBIC_CONVOLUTION', 'BISINC_5_POINT_INTERPOLATION', 
+                  'BISINC_11_POINT_INTERPOLATION', 
+                  'BISINC_21_POINT_INTERPOLATION', 'BICUBIC_INTERPOLATION']
+    window_sizes = ['3x3', '5x5']
+    target_window_sizes = ['5x5', '7x7', '9x9', '11x11', '13x13', 
+                           '15x15', '17x17']
+    speckle_filters = ['None', 'Boxcar', 'Median', 'Frost', 'Gamma Map', 
+                       'Lee', 'Refined Lee', 'Lee Sigma', 'IDAN']
+    damping = range(0,100)
+    pan_size = range(0,200)
+    filter_size_x = range(0,100)
+    filter_size_y = range(0,100)
+    nr_of_looks = range(1,4)
+    sigma = [0.5, 0.6, 0.7, 0.8, 0.9]
+    
+    # ost things
+    grd_types = ['CEOS', 'Earth Engine', 'OST Standard']
+    slc_types = ['OST Standard','OST Plus', 'OST Minimal']
+    product_types = ['RTC', 'GTCsigma', 'GTCgamma']
+    metrics = ['median', 'percentiles', 'harmonics', 
+               'avg', 'max', 'min', 'std', 'cov']
+    datatypes = ['float32', 'uint8', 'uint16']
+    
+    #    assert ard_parameter_dict['resolution']

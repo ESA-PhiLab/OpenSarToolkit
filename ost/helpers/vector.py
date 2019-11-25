@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from functools import partial
 
 import ogr
@@ -270,6 +271,18 @@ def wkt_to_gdf(wkt):
         data = {'id': ['1'],
                 'geometry': loads(wkt)}
         gdf = gpd.GeoDataFrame(data)
+        
+        # split the different elemets and put into single features
+        ids, feats =[], []
+        for i, feat in enumerate(gdf.geometry.values[0]):
+            ids.append(i)
+            feats.append(feat)
+
+        gdf = gpd.GeoDataFrame({'id': ids,
+                                'geometry': feats}, 
+                                    geometry='geometry', 
+                                    crs = gdf.crs
+                                    )
     else:
 
         i, ids, geoms = 1, [], []
@@ -291,6 +304,29 @@ def wkt_to_shp(wkt, outfile):
 
     gdf = wkt_to_gdf(wkt)
     gdf.to_file(outfile)
+
+
+def gdf_to_json_geometry(gdf):
+    """Function to parse features from GeoDataFrame in such a manner 
+       that rasterio wants them"""
+#    
+#    try:
+#        gdf.geometry.values[0].type
+#        features = [json.loads(gdf.to_json())['features'][0]['geometry']]
+#    except AttributeError:
+#        ids, feats =[], []
+#        for i, feat in enumerate(gdf.geometry.values[0]):
+#            ids.append(i)
+#            feats.append(feat)
+#
+#        gdf = gpd.GeoDataFrame({'id': ids,
+#                                'geometry': feats}, 
+#                                    geometry='geometry', 
+#                                    crs = gdf.crs
+#                                    )
+    geojson = json.loads(gdf.to_json())
+    return [feature['geometry'] for feature in geojson['features'] 
+            if feature['geometry']]
 
 
 def inventory_to_shp(inventory_df, outfile):

@@ -48,20 +48,22 @@ python3 grd_to_ardBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
 
 # import standard python libs
 import os
-import glob
-import datetime
-import gdal
-import itertools
-import shutil
-
-# for os independent paths use opj shortcut
 from os.path import join as opj
+import json
+import glob
+import itertools
+
+import gdal
 
 # import ost libs
 from ost import Sentinel1_Scene
-from ost.s1 import grd_to_ard, ts
-from ost.helpers import raster as ras, vector as vec
-from ost.helpers import helpers as h
+from ost.s1 import grd_to_ard
+from ost.helpers import raster as ras
+from ost.multitemporal import common_extent
+from ost.multitemporal import common_ls_mask
+from ost.multitemporal import ard_to_ts
+from ost.multitemporal import timescan
+from ost.mosaic import mosaic
 
 
 def _create_processing_dict(inventory_df):
@@ -104,20 +106,9 @@ def _create_processing_dict(inventory_df):
 
 
 def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
-                     temp_dir, ard_parameters, subset=None, 
-                     data_mount='/eodata'):
-     
-    # get params
-    resolution = ard_parameters['resolution']
-    product_type = ard_parameters['product_type']
-    ls_mask_create = ard_parameters['ls_mask_create']
-    speckle_filter = ard_parameters['speckle_filter']
-    polarisation = ard_parameters['polarisation']
-    dem = ard_parameters['dem']
-    to_db = ard_parameters['to_db']
-    border_noise = ard_parameters['border_noise']
+                     temp_dir, proc_file, subset=None,
+                     data_mount='/eodata', exec_file=None):
 
-    # we create a processing dictionary,
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
 
@@ -138,367 +129,297 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
                     # get the paths to the file
                     scene_paths = ([Sentinel1_Scene(i).get_path(download_dir)
                                    for i in list_of_scenes])
-    
+
+                    file_id = '{}_{}'.format(acquisition_date, track)
+
                     # apply the grd_to_ard function
-                    grd_to_ard.grd_to_ard(scene_paths, 
-                                      out_dir, 
-                                      acquisition_date, 
+                    grd_to_ard.grd_to_ard(scene_paths,
+                                      out_dir,
+                                      file_id,
                                       temp_dir,
-                                      resolution=resolution, 
-                                      product_type=product_type,
-                                      ls_mask_create=ls_mask_create,
-                                      speckle_filter=speckle_filter,
-                                      dem=dem, 
-                                      to_db=to_db, 
-                                      border_noise=border_noise,
-                                      subset=subset, 
-                                      polarisation=polarisation)
+                                      proc_file,
+                                      subset=subset)
 
 
-def ards_to_timeseries(inventory_df, processing_dir, temp_dir, ard_parameters):
+def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
+                       proc_file, exec_file):
 
-    # get params
-    to_db = ard_parameters['to_db']
-    if to_db:
-        to_db_mt = False
-    else:
-        to_db_mt = ard_parameters['to_db_mt']
-    
-    datatype = ard_parameters['datatype']
-    ls_mask_create = ard_parameters['ls_mask_create']
-    ls_mask_apply = ard_parameters['ls_mask_apply']
-    mt_speckle_filter = ard_parameters['mt_speckle_filter']
+    # load ard parameters
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        ard = ard_params['single ARD']
 
-    # 1) we convert input to a geopandas GeoDataFrame object
-    processing_dict = _create_processing_dict(inventory_df)
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    for track in inventory_df.relativeorbit.unique():
 
-    for track, allScenes in processing_dict.items():
-  
-        print(' INFO: Entering track {}.'.format(track))
+        # get the burst directory
         track_dir = opj(processing_dir, track)
-        all_outfiles = []
-        
-        if os.path.isfile(opj(track_dir, 'Timeseries', '.processed')):
-            print(' INFO: Timeseries for track {} already processed.'.format(track))
-        else:
-            print(' INFO: Processing Timeseries for track {}.'.format(track))
-            # 1) get minimum valid extent (i.e. assure value fo each pixel throughout the whole time-series)
-            print(' INFO: Calculating the minimum extent.')
+
+        # get common burst extent
+        list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
+        list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
+        extent = opj(track_dir, '{}.extent.shp'.format(track))
+
+        # placeholder for parallelisation
+        if exec_file:
+            if os.path.isfile(exec_file):
+                os.remove(exec_file)
+
+            print('create command')
+            continue
+
+        print(' INFO: Creating common extent mask for track {}'.format(track))
+        common_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
+
+    if ard['create ls mask'] or ard['apply ls mask']:
+
+        for track in inventory_df.relativeorbit.unique():
+
+            # get the burst directory
+            track_dir = opj(processing_dir, track)
+
+            # get common burst extent
             list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-            list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-            extent = opj(track_dir, '{}.extent.shp'.format(track))
-            ts.mt_extent(list_of_scenes, extent, temp_dir, buffer=-0.0018)
-        
-            # create a list of dimap files and format to comma-separated list
-            list_of_ards = sorted(glob.glob(opj(track_dir, '20*', '*TC*dim')))
-            list_of_ards = '\'{}\''.format(','.join(list_of_ards))
-            
-            if ls_mask_create:
-                list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-                list_of_layover = [x for x in list_of_scenes if 'layover' in x]
-                out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
-                ts.mt_layover(list_of_layover, out_ls, temp_dir, extent=extent)
-                print(' INFO: Our common layover mask is located at {}'.format(
-                        out_ls))
-    
-            if ls_mask_apply:
-                print(' INFO: Calculating symetrical difference of extent and ls_mask')
-                ras.polygonize_raster(out_ls, '{}.shp'.format(out_ls[:-4]))
-                extent_ls_masked = opj(track_dir, '{}.extent.masked.shp'.format(track))
-                vec.difference(extent, '{}.shp'.format(out_ls[:-4]), extent_ls_masked)
-                extent = extent_ls_masked
-    
-            for p in ['VV', 'VH', 'HH', 'HV']:
-    
-                # check if polarisation is existent
-                list_of_pols = sorted(glob.glob(opj(track_dir, '20*', '*TC*data', '*{}*.img'.format(p))))
-    
-                if len(list_of_pols) >= 2:
-    
-                    # create output stack name for RTC
-                    temp_stack = opj(temp_dir, 'stack_{}_{}'.format(track, p))
-                    out_stack = opj(temp_dir, 'mt_stack_{}_{}'.format(track, p))
-    
-                    os.makedirs(opj(track_dir, 'Timeseries'), exist_ok=True)
-                    logfile = opj(track_dir, 'Timeseries', '{}.stack.errLog'.format(p))
-    
-                    # create the stack of same polarised data if polarisation is existent
-                    return_code = ts.create_stack(list_of_ards, temp_stack, logfile, p)
-                    if return_code != 0:
-                        h.remove_folder_content(temp_dir)
-                        return return_code
-                    
-                    if mt_speckle_filter is True:
-                        # do the multi-temporal filtering
-                        logfile = opj(track_dir, 'Timeseries', 
-                                      '{}.mt_speckle_filter.errLog'.format(p))
-                        return_code = ts.mt_speckle_filter('{}.dim'.format(temp_stack), out_stack, logfile)
-                        if return_code != 0:
-                            h.remove_folder_content(temp_dir)
-                            return return_code
-                        h.delete_dimap(temp_stack)
-                        
-                    else:
-                        out_stack = temp_stack
-    
-                    # get the dates of the files
-                    dates = [datetime.datetime.strptime(x.split('_')[-1][:-4], '%d%b%Y') for x in glob.glob(opj('{}.data'.format(out_stack), '*img'))]
-                    # sort them
-                    dates.sort()
-                    # write them back to string for following loop
-                    sortedDates = [datetime.datetime.strftime(ts, "%d%b%Y") for ts in dates]
-    
-                    i, outfiles = 1, []
-                    for date in sortedDates:
-    
-                        # restructure date to YYMMDD
-                        indate = datetime.datetime.strptime(date, '%d%b%Y')
-                        outdate = datetime.datetime.strftime(indate, '%y%m%d')
-    
-                        infile = glob.glob(opj('{}.data'.format(out_stack), '*{}*{}*img'.format(p, date)))[0]
-                        # create outFile
-                        outfile = opj(track_dir, 'Timeseries', '{}.{}.BS.{}.tif'.format(i, outdate, p))
-                        # mask by extent
-                        ras.mask_by_shape(infile, outfile,
-                                extent,
-                                to_db=to_db_mt, datatype=datatype,
-                                min_value=-30, max_value=5,
-                                ndv=0)
-                        # add ot a list for subsequent vrt creation
-                        outfiles.append(outfile)
-                        all_outfiles.append(outfile)
-    
-                        i += 1
-    
-                    # build vrt of timeseries
-                    gdal.BuildVRT(opj(track_dir, 'Timeseries', 'BS.Timeseries.{}.vrt'.format(p)), outfiles, options=vrt_options)
-                    #if os.path.isdir('{}.data'.format(out_stack)):
-                    h.delete_dimap(out_stack)
-        
-            for file in all_outfiles:
-                return_code = h.check_out_tiff(file)
-                if return_code != 0:
-                    h.remove_folder_content(temp_dir)
-                    h.remove_folder_content(opj(track_dir, 'Timeseries'))
-                    return return_code
-            
-            # write file, so we know this ts has been succesfully processed
-            if return_code == 0:
-                check_file = opj(track_dir, 'Timeseries', '.processed')
-                with open(str(check_file), 'w') as file:
-                    file.write('passed all tests \n')
-    
+            list_of_layover = [x for x in list_of_scenes if 'layover' in x]
 
-def timeseries_to_timescan(inventory_df, processing_dir, ard_parameters):
+            # layover/shadow mask
+            out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
 
-    metrics = ard_parameters['metrics']
-    outlier_removal = ard_parameters['outlier_removal']
-    
-    if ard_parameters['to_db_mt'] or ard_parameters['to_db']:
+            print(' INFO: Creating common Layover/Shadow mask for track {}'.format(track))
+            common_ls_mask.mt_layover(list_of_layover, out_ls, temp_dir,
+                                      extent, ard['apply ls mask'])
+
+
+    for track in inventory_df.relativeorbit.unique():
+
+        # get the burst directory
+        track_dir = opj(processing_dir, track)
+
+        for pol in ['VV', 'VH', 'HH', 'HV']:
+
+            # see if there is actually any imagery in thi polarisation
+            list_of_files = sorted(glob.glob(
+                opj(track_dir, '20*', '*data*', '*ma0*{}*img'.format(pol))))
+
+            if not len(list_of_files) > 1:
+                continue
+
+            # create list of dims if polarisation is present
+            list_of_dims = sorted(glob.glob(
+                opj(track_dir, '20*', '*bs*dim')))
+
+            ard_to_ts.ard_to_ts(
+                            list_of_dims,
+                            processing_dir,
+                            temp_dir,
+                            track,
+                            proc_file,
+                            product='bs',
+                            pol=pol
+            )
+
+
+def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
+                           exec_file=None):
+
+
+    # load ard parameters
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        ard = ard_params['single ARD']
+        ard_mt = ard_params['time-series ARD']
+        ard_tscan = ard_params['time-scan ARD']
+
+
+    # get the db scaling right
+    to_db = ard['to db']
+    if ard['to db'] or ard_mt['to db']:
         to_db = True
-    else:
-        to_db = False
-        
-    # read inventory_df to processing dictionary
-    processing_dict = _create_processing_dict(inventory_df)
 
-    # loop through tracks
-    for track, allScenes in processing_dict.items():
+    dtype_conversion = True if ard_mt['dtype output'] != 'float32' else False
+
+    for track in inventory_df.relativeorbit.unique():
 
         print(' INFO: Entering track {}.'.format(track))
-        
         # get track directory
         track_dir = opj(processing_dir, track)
-        
-        if os.path.isfile(opj(track_dir, 'Timescan', '.processed')):
-            print(' INFO: Timescans for track {} already processed.'.format(track))
-        else:
-            print(' INFO: Processing Timescans for track {}.'.format(track))
-            # define and create Timescan directory
-            timescan_dir = opj(track_dir, 'Timescan')
-            os.makedirs(timescan_dir, exist_ok=True)
-    
-            # loop thorugh each polarization
-            for p in ['VV', 'VH', 'HH', 'HV']:
-    
-                #get timeseries vrt
-                timeseries = opj(track_dir, 'Timeseries', 'BS.Timeseries.{}.vrt'.format( p))
-    
-                # define timescan prefix
-                timescan_prefix = opj(timescan_dir, 'BS.{}'.format(p))
-    
-                # check if timeseries vrt exists
-                if os.path.exists(timeseries):
-    
-                    # calculate the multi-temporal metrics
-                    ts.mt_metrics(timeseries, timescan_prefix, metrics,
-                                  rescale_to_datatype=False,
-                                  to_power=to_db,
-                                  outlier_removal=outlier_removal)
-                
-            product_list = ['BS.HH', 'BS.VV', 'BS.HV', 'BS.VH']
-            i, list_of_files = 0, []
-            for product in itertools.product(product_list, metrics):
-        
-                file = glob.glob(
-                    opj(track_dir, 'Timescan', '*{}.{}.tif'.format(
-                        product[0], product[1])))
-        
-                if file:
-                    i += 1
-                    outfile = opj(track_dir, 'Timescan', '{}.{}.{}.tif'.format(
-                        i, product[0], product[1]))
-                    shutil.move(file[0], outfile)
-                    list_of_files.append(outfile)
-                    
-            for file in list_of_files:
-                return_code = h.check_out_tiff(file)
-                if return_code != 0:
-                    h.remove_folder_content(opj(track_dir, 'Timescan'))
-                    return return_code
-            
-            # write file, so we know this ts has been succesfully processed
-            if return_code == 0:
-                check_file = opj(track_dir, 'Timescan', '.processed')
-                with open(str(check_file), 'w') as file:
-                    file.write('passed all tests \n')
-            
-            # create vrt
-            vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-            gdal.BuildVRT(opj(track_dir, 'Timescan', 'Timescan.vrt'),
-                          list_of_files,
-                          options=vrt_options)
+        # define and create Timescan directory
+        timescan_dir = opj(track_dir, 'Timescan')
+        os.makedirs(timescan_dir, exist_ok=True)
+
+        # loop thorugh each polarization
+        for polar in ['VV', 'VH', 'HH', 'HV']:
+
+            if os.path.isfile(opj(timescan_dir, '.{}.processed'.format(polar))):
+                print(' INFO: Timescans for track {} already'
+                      ' processed.'.format(track))
+                continue
+
+            #get timeseries vrt
+            timeseries = opj(track_dir,
+                             'Timeseries',
+                             'Timeseries.bs.{}.vrt'.format(polar)
+            )
+
+            if not os.path.isfile(timeseries):
+                continue
+
+            print(' INFO: Processing Timescans of {} for track {}.'.format(polar, track))
+            # create a datelist for harmonics
+            scenelist = glob.glob(
+                opj(track_dir, '*bs.{}.tif'.format(polar))
+            )
+
+            # create a datelist for harmonics calculation
+            datelist = []
+            for file in sorted(scenelist):
+                datelist.append(os.path.basename(file).split('.')[1])
+
+            # define timescan prefix
+            timescan_prefix = opj(timescan_dir, 'bs.{}'.format(polar))
+
+            # placeholder for parallel execution
+            if exec_file:
+                print(' Write command to a text file')
+                continue
+
+            # run timescan
+            timescan.mt_metrics(
+                timeseries,
+                timescan_prefix,
+                ard_tscan['metrics'],
+                rescale_to_datatype=dtype_conversion,
+                to_power=to_db,
+                outlier_removal=ard_tscan['remove outliers'],
+                datelist=datelist
+            )
+
+        if not exec_file:
+            # create vrt file (and rename )
+            ras.create_tscan_vrt(timescan_dir, proc_file)
 
 
-def mosaic_timeseries(inventory_df, processing_dir, temp_dir):
+def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
+                      exec_file=None):
 
-    print('INFO: Mosaicking Time-series layers')
-    
+    print(' -----------------------------------')
+    print(' INFO: Mosaicking Time-series layers')
+    print(' -----------------------------------')
+
+    # create output folder
+    ts_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
+    os.makedirs(ts_dir, exist_ok=True)
+
+    # loop through polarisations
     for p in ['VV', 'VH', 'HH', 'HV']:
 
+        tracks = inventory_df.relativeorbit.unique()
+        nr_of_ts = len(glob.glob(opj(
+            processing_dir, tracks[0], 'Timeseries', '*.{}.tif'.format(p))))
 
-        processing_dict = _create_processing_dict(inventory_df)
-        keys = [x for x in processing_dict.keys()]
+        if not nr_of_ts >= 1:
+            continue
+
         outfiles = []
+        for i in range(1, nr_of_ts + 1):
 
-        os.makedirs(opj(processing_dir, 'Mosaic', 'Timeseries'), exist_ok=True)
-        
-        nrOfTs = len(glob.glob(opj(
-            processing_dir, keys[0], 'Timeseries', '*.{}.tif'.format(p))))
-        
-        if nrOfTs >= 1:
+            filelist = glob.glob(opj(
+                processing_dir, '*', 'Timeseries',
+                '{}.*.{}.tif'.format(i, p)))
+            filelist = [file for file in filelist if 'Mosaic' not in file]
 
-            for i in range(nrOfTs):
+            # create
+            datelist = []
+            for file in filelist:
+                datelist.append(os.path.basename(file).split('.')[1])
 
-                j = i + 1
-                filelist = glob.glob(opj(
-                    processing_dir, '*', 'Timeseries', 
-                    '{}.*.{}.tif'.format(j, p)))
-                filelist = [file for file in filelist if 'Mosaic' not in file]
-                #print(filelist)
-                datelist = []
-                for file in filelist:
-                    datelist.append(os.path.basename(file).split('.')[1])
-                    
-                filelist = ' '.join(filelist)
-                start = sorted(datelist)[0]
-                end = sorted(datelist)[-1]
-                    
-                if start == end:
-                    outfile = opj(processing_dir, 'Mosaic', 'Timeseries', '{}.BS.{}.{}.tif'.format(j, start, p))
-                    check_file = opj(processing_dir, 'Mosaic', 'Timeseries', '.{}.BS.{}.{}.processed'.format(j, start, p))
-                    logfile = opj(processing_dir, 'Mosaic', 'Timeseries', '{}.BS.{}.{}.errLog'.format(j, start, p))
-                else: 
-                    outfile = opj(processing_dir, 'Mosaic', 'Timeseries', '{}.BS.{}-{}.{}.tif'.format(j, start, end, p))
-                    check_file = opj(processing_dir, 'Mosaic', 'Timeseries', '.{}.BS.{}-{}.{}.processed'.format(j, start, end, p))
-                    logfile = opj(processing_dir, 'Mosaic', 'Timeseries', '{}.BS.{}-{}.{}.errLog'.format(j, start, end, p))
-                
-                outfiles.append(outfile)
-                
-                if os.path.isfile(check_file):
-                    print(' INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
-                else:
-                    print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
-                    cmd = ('otbcli_Mosaic -ram 4096 -progress 1 \
-                            -comp.feather large -harmo.method band \
-                            -harmo.cost rmse -temp_dir {} -il {} \
-                            -out {}'.format(temp_dir, filelist, outfile))
-    
-                    return_code = h.run_command(cmd, logfile)
-                    if return_code != 0:
-                        if os.path.isfile(outfile):
-                            os.remove(outfile)
-                    
-                    return_code = h.check_out_tiff(outfile)
-                    if return_code != 0:
-                        if os.path.isfile(outfile):
-                            os.remove(outfile)
-                        
-                    # write file, so we know this ts has been succesfully processed
-                    if return_code == 0:
-                        with open(str(check_file), 'w') as file:
-                            file.write('passed all tests \n')  
-                     
-            # create vrt
+            filelist = ' '.join(filelist)
+            start, end = sorted(datelist)[0], sorted(datelist)[-1]
+
+            if start == end:
+                outfile = opj(ts_dir, '{}.{}.bs.{}.tif'.format(i, start, p))
+            else:
+                outfile = opj(ts_dir, '{}.{}-{}.bs.{}.tif'.format(i, start, end, p))
+
+            check_file = opj(
+                os.path.dirname(outfile),
+                '.{}.processed'.format(os.path.basename(outfile)[:-4])
+            )
+               # logfile = opj(ts_dir, '{}.{}-{}.bs.{}.errLog'.format(i, start, end, p))
+
+            outfiles.append(outfile)
+
+            if os.path.isfile(check_file):
+                print(' INFO: Mosaic layer {} already'
+                      ' processed.'.format(os.path.basename(outfile)))
+                continue
+
+            print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+            mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
+
+        if exec_file:
+            print(' gdalbuildvrt ....command, outfiles')
+            continue
+
+        # create vrt
         vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-        gdal.BuildVRT(opj(processing_dir, 'Mosaic', 'Timeseries', 'Timeseries.{}.vrt'.format(p)),
+        gdal.BuildVRT(opj(ts_dir, 'Timeseries.{}.vrt'.format(p)),
                       outfiles,
-                      options=vrt_options) 
-        
+                      options=vrt_options
+        )
 
-def mosaic_timescan(inventory_df, processing_dir, temp_dir, ard_parameters):
-    
-    print('INFO: Mosaicking Timescan layers')
-    metrics = ard_parameters['metrics']
+
+def mosaic_timescan(inventory_df, processing_dir, temp_dir, proc_file,
+                    cut_to_aoi=False, exec_file=None):
+
+    # load ard parameters
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        metrics = ard_params['time-scan ARD']['metrics']
+
+    if 'harmonics' in metrics:
+        metrics.remove('harmonics')
+        metrics.extend(['amplitude', 'phase', 'residuals'])
+
+    if 'percentiles' in metrics:
+            metrics.remove('percentiles')
+            metrics.extend(['p95', 'p5'])
+
+    # create out directory of not existent
+    tscan_dir = opj(processing_dir, 'Mosaic', 'Timescan')
+    os.makedirs(tscan_dir, exist_ok=True)
     outfiles = []
-    for p in ['VV', 'VH', 'HH', 'HV']: 
-        
-        os.makedirs(opj(processing_dir, 'Mosaic', 'Timescan'), exist_ok=True)
-        
-        for metric in metrics:
 
-            filelist = glob.glob(
-                opj(processing_dir, '*', 'Timescan', 
-                    '*BS.{}.{}.tif'.format(p, metric)))
-            
-            if len(filelist) >= 2:
-                # get number
-                i = os.path.basename(filelist[0]).split('.')[0]
-                filelist = ' '.join(filelist)
-                
-                outfile = opj(processing_dir, 'Mosaic', 'Timescan', '{}.BS.{}.{}.tif'.format(i, p, metric))
-                check_file = opj(processing_dir, 'Mosaic', 'Timescan', '.{}.BS.{}.{}.processed'.format(i, p, metric))
-                logfile = opj(processing_dir, 'Mosaic', 'Timescan', '{}.BS.{}.{}.errLog'.format(i, p, metric))
-                 
-                outfiles.append(outfile)
-                
-                if os.path.isfile(check_file):
-                    print(' INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
-                else:
-                    print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
-                    cmd = ('otbcli_Mosaic -ram 4096 -progress 1 \
-                                -comp.feather large -harmo.method band \
-                                -harmo.cost rmse -temp_dir {} -il {} \
-                                -out {}'.format(temp_dir, filelist, outfile))
-        
-                    return_code = h.run_command(cmd, logfile)
-                    if return_code != 0:
-                        if os.path.isfile(outfile):
-                            os.remove(outfile)
+    # loop through all pontial proucts
+    for polar, metric in itertools.product(['VV', 'HH', 'VH', 'HV'], metrics):
 
-                    return_code = h.check_out_tiff(outfile)
-                    if return_code != 0:
-                        if os.path.isfile(outfile):
-                            os.remove(outfile)
-                        
-                    # write file, so we know this ts has been succesfully processed
-                    if return_code == 0:
-                        with open(str(check_file), 'w') as file:
-                            file.write('passed all tests \n')  
-                            
-    # create vrt
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-    gdal.BuildVRT(opj(processing_dir, 'Mosaic', 'Timescan', 'Timescan.vrt'),
-                  outfiles,
-                  options=vrt_options)       
+        # create a list of files based on polarisation and metric
+        filelist = glob.glob(opj(processing_dir, '*', 'Timescan',
+                                 '*bs.{}.{}.tif'.format(polar, metric)
+                            )
+                   )
+
+        # break loop if there are no files
+        if not len(filelist) >= 2:
+            continue
+
+        # get number
+        filelist = ' '.join(filelist)
+        outfile = opj(tscan_dir, 'bs.{}.{}.tif'.format(polar, metric))
+        check_file = opj(
+                os.path.dirname(outfile),
+                '.{}.processed'.format(os.path.basename(outfile)[:-4])
+        )
+
+        if os.path.isfile(check_file):
+            print(' INFO: Mosaic layer {} already '
+                  ' processed.'.format(os.path.basename(outfile)))
+            continue
+
+        print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+        mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
+        outfiles.append(outfile)
+
+    if exec_file:
+        print(' gdalbuildvrt ....command, outfiles')
+    else:
+        ras.create_tscan_vrt(tscan_dir, proc_file)

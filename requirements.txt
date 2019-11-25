@@ -5,7 +5,7 @@ geopandas
 matplotlib
 numpy
 pandas
-psycopg2
+psycopg2-binary
 rasterio
 requests
 rtree

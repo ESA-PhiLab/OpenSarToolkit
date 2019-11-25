@@ -13,7 +13,7 @@
       <sourceProduct refid="Coherence"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations>${polar}</selectedPolarisations>
     </parameters>
   </node>
   <node id="Coherence">

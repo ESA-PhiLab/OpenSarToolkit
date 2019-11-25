@@ -58,11 +58,12 @@ def check_connection(uname, pword):
     Returns
         int: status code of the get request
     '''
-
-    url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
-           '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
+    url = ('https://datapool.asf.alaska.edu/SLC/SB/S1B_IW_SLC__1SDV_20191119T053342_20191119T053410_018992_023D59_F309.zip')
+    #url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
+    #       '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
     session = SessionWithHeaderRedirection(uname, pword)
     response = session.get(url, stream=True)
+    # print(response)
     return response.status_code
 
 

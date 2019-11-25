@@ -40,9 +40,9 @@
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <demName>${dem}</demName>
-      <demResamplingMethod>BICUBIC_INTERPOLATION</demResamplingMethod>
-      <externalDEMFile/>
-      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <demResamplingMethod>${dem_resampling}</demResamplingMethod>
+      <externalDEMFile>${dem_file}</externalDEMFile>
+      <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
       <resamplingType>BISINC_5_POINT_INTERPOLATION</resamplingType>
       <tileExtensionPercent>50</tileExtensionPercent>
       <maskOutAreaWithoutElevation>false</maskOutAreaWithoutElevation>

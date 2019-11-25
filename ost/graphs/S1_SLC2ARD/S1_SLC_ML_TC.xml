@@ -28,11 +28,11 @@
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands/>
       <demName>${dem}</demName>
-      <externalDEMFile/>
-      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <externalDEMFile>${dem_file}<externalDEMFile>
+      <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
-      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
-      <imgResamplingMethod>BILINEAR_INTERPOLATION</imgResamplingMethod>
+      <demResamplingMethod>${dem_resampling}</demResamplingMethod>
+      <imgResamplingMethod>${image_resampling}</imgResamplingMethod>
       <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>
       <pixelSpacingInDegree>0</pixelSpacingInDegree>
       <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,

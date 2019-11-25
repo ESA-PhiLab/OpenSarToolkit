@@ -13,7 +13,6 @@ import tqdm
 
 # import ost classes/functions
 from ost.helpers import helpers as h
-from ost import Sentinel1_Scene as S1Scene
 
 
 def ask_credentials():
@@ -173,6 +172,7 @@ def s1_download(argument_list):
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
+    from ost import Sentinel1_Scene as S1Scene
     print(' INFO: Getting the storage status (online/onTape) of each scene.')
     print(' INFO: This may take a while.')
 

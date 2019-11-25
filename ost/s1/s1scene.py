@@ -4,6 +4,7 @@
 import os
 from os.path import join as opj
 import sys
+import importlib
 import json
 import glob
 import urllib
@@ -19,7 +20,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
-from ost.helpers import scihub, raster as ras
+from ost.helpers import scihub, peps, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
@@ -29,7 +30,7 @@ __license__ = 'MIT'
 
 class Sentinel1_Scene():
 
-    def __init__(self, scene_id, ard_type='OST'):
+    def __init__(self, scene_id, ard_type='OST Standard'):
         self.scene_id = scene_id
         self.mission_id = scene_id[0:3]
         self.mode_beam = scene_id[4:6]
@@ -88,7 +89,7 @@ class Sentinel1_Scene():
 
         # set initial ARD parameters to ard_type
         self.ard_parameters = {}
-        self.set_ard_parameters(ard_type)
+        self.get_ard_parameters(ard_type)
 
     def info(self):
 
@@ -108,22 +109,42 @@ class Sentinel1_Scene():
 
     def download(self, download_dir, mirror=None):
         
-        #if not mirror:
-        #    print(' INFO: One or more of your scenes need to be downloaded.')
-        #    print(' Select the server from where you want to download:')
-        #    print(' (1) Copernicus Apihub (ESA, rolling archive)')
-        #    print(' (2) Alaska Satellite Facility (NASA, full archive)')
-        #    print(' (3) PEPS (CNES, 1 year rolling archive)')
-        #    mirror = input(' Type 1, 2 or 3: ')
+        if not mirror:
+            print(' INFO: One or more of your scenes need to be downloaded.')
+            print(' Select the server from where you want to download:')
+            print(' (1) Copernicus Apihub (ESA, rolling archive)')
+            print(' (2) Alaska Satellite Facility (NASA, full archive)')
+            print(' (3) PEPS (CNES, 1 year rolling archive)')
+            mirror = input(' Type 1, 2 or 3: ')
 
         from ost.s1 import download
         
-       # if mirror == 1:
-       #     df = pd.DataFrame({'identifier': [self.scene_id]
-       #                    {'uuid'}: self.scihub_uuid(opener)})
-        df = pd.DataFrame({'identifier': [self.scene_id]})
-        download.download_sentinel1(df, download_dir)
+        if mirror == '1':
+            uname, pword = scihub.ask_credentials()
+            opener = scihub.connect(uname=uname, pword=pword)
+            df = pd.DataFrame(
+                {'identifier': [self.scene_id],
+                 'uuid': [self.scihub_uuid(opener)]
+                }
+            )
+        elif mirror == '3':
+            uname, pword = peps.ask_credentials()
+            df = pd.DataFrame(
+                {'identifier': [self.scene_id],
+                 'uuid': [self.peps_uuid(uname=uname, pword=pword)]
+                }   
+            )
+        else:   # ASF
+            df = pd.DataFrame({'identifier': [self.scene_id]})
+            download.download_sentinel1(df, download_dir, mirror)
+            return
+        
+        download.download_sentinel1(df, download_dir, mirror, 
+                                        uname=uname, pword=pword)
+        
 
+        del uname, pword
+        
     # location of file (including diases)
     def _download_path(self, download_dir, mkdir=False):
 
@@ -618,94 +639,82 @@ class Sentinel1_Scene():
         return status, url
 
     # processing related functions
-    def set_ard_parameters(self, ard_type='OST'):
-
-        if ard_type == 'OST':
-
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'GTCgamma'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'OST Flat':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = True
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'CEOS':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 10
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'EarthEngine':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 10
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'GTCsigma'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = True
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-        elif ard_type == 'Zhuo':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 25
-            self.ard_parameters['border_noise'] = False
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['speckle_filter'] = True
-            self.ard_parameters['ls_mask_create'] = True
-            self.ard_parameters['to_db'] = True
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-
+    def get_ard_parameters(self, ard_type='OST Standard'):
+        
+        # get path to ost package
+        rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        rootpath = opj(rootpath, 'graphs', 'ard_json')
+    
+        template_file = opj(rootpath, '{}.{}.json'.format(
+                self.product_type.lower(),
+                ard_type.replace(' ', '_').lower()))
+        
+        with open(template_file, 'r') as ard_file:
+            self.ard_parameters = json.load(ard_file)['processing parameters']
+            
+    
+    def set_external_dem(self, dem_file):
+        
+        import rasterio
+        
+        # check if file exists
+        if not os.path.isfile(dem_file):
+            print(' ERROR: No dem file found at location {}.'.format(dem_file))
+            return
+        
+        # get no data value
+        with rasterio.open(dem_file) as file:
+            dem_nodata = file.nodata
+        
+        # get resapmpling
+        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
+        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        
+        # update ard parameters
+        dem_dict = dict({'dem name': 'External DEM', 
+                         'dem file': dem_file,
+                         'dem nodata': dem_nodata,
+                         'dem resampling': dem_res ,
+                         'image resampling': img_res})
+        self.ard_parameters['single ARD']['dem'] = dem_dict
+        
+    def update_ard_parameters(self):
+        
+        with open (self.proc_file, 'w') as outfile:
+            json.dump(dict({'processing parameters': self.ard_parameters}),
+                      outfile,
+                      indent=4)
+            
+            
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
 
-        self.center_lat = self._get_center_lat(infile)
-        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
-            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+        self.proc_file = opj(out_dir, 'processing.json')
+        self.update_ard_parameters()
+         # check for correctness of ARD paramters
+         
+          
+#        self.center_lat = self._get_center_lat(infile)
+#        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+#            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+#                  ' DEM instead.')
+#            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+        
         #self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
 
-            if not self.ard_parameters:
-                print(' INFO: No ARD definition given.'
-                      ' Using the OST standard ARD defintion'
-                      ' Use object.set_ard_defintion() first if you want to'
-                      ' change the ARD defintion.')
-                self.set_ard_definition('OST')
-
-            # we need to convert the infile t a list for the grd_to_ard routine
-            infile = [infile]
             # run the processing
-            grd_to_ard(infile, 
+            grd_to_ard([infile], 
                        out_dir, 
                        out_prefix, 
                        temp_dir,
-                       self.ard_parameters['resolution'],
-                       self.ard_parameters['product_type'],
-                       self.ard_parameters['ls_mask_create'],
-                       self.ard_parameters['speckle_filter'],
-                       self.ard_parameters['dem'],
-                       self.ard_parameters['to_db'],
-                       self.ard_parameters['border_noise'],
-                       subset=subset, 
-                       polarisation=polar)
+                       self.proc_file,
+                       subset=subset)
 
             # write to class attribute
-            self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
+            self.ard_dimap = glob.glob(opj(out_dir, '{}*bs.dim'
                                            .format(out_prefix)))[0]
 
         elif self.product_type != 'GRD':
@@ -717,7 +726,7 @@ class Sentinel1_Scene():
 
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
-        if self.ard_parameters['to_db']:
+        if self.ard_parameters['single ARD']['to db']:
             to_db = False
         else:
             to_db = True
@@ -729,7 +738,7 @@ class Sentinel1_Scene():
 
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
-        if self.ard_parameters['to_db']:
+        if self.ard_parameters['single ARD']['to db']:
             to_db = False
         else:
             to_db = True

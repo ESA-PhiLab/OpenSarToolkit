@@ -3,6 +3,8 @@
 # import standard libs
 import os
 import sys
+import importlib
+import json
 import glob
 import logging
 import geopandas as gpd
@@ -345,7 +347,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                  product_type='SLC',
                  beam_mode='IW',
                  polarisation='*',
-                 ard_type='OST Plus'
+                 ard_type='OST Standard'
                  ):
 
         super().__init__(project_dir, aoi, start, end, data_mount,
@@ -353,8 +355,8 @@ class Sentinel1_SLCBatch(Sentinel1):
                          product_type, beam_mode, polarisation)
 
         self.ard_type = ard_type
-        self.ard_parameters = {}
-        self.set_ard_parameters(self.ard_type)
+        self.proc_file = opj(self.project_dir, 'processing.json')
+        self.get_ard_parameters(self.ard_type)
         self.burst_inventory = None
         self.burst_inventory_file = None
 
@@ -362,6 +364,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                                uname=None, pword=None):
 
         if key:
+            coverages = self.coverages[key]
             outfile = opj(self.inventory_dir,
                           'bursts.{}.shp').format(key)
             self.burst_inventory = burst.burst_inventory(
@@ -371,6 +374,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                 data_mount=self.data_mount,
                 uname=uname, pword=pword)
         else:
+            coverages = None
             outfile = opj(self.inventory_dir,
                           'bursts.full.shp')
         
@@ -385,7 +389,8 @@ class Sentinel1_SLCBatch(Sentinel1):
             #print('{}.refined.shp'.format(outfile[:-4]))
             self.burst_inventory = burst.refine_burst_inventory(
                     self.aoi, self.burst_inventory,
-                    '{}.refined.shp'.format(outfile[:-4])
+                    '{}.refined.shp'.format(outfile[:-4]),
+                    coverages
                     )
 
     def read_burst_inventory(self, key):
@@ -416,80 +421,80 @@ class Sentinel1_SLCBatch(Sentinel1):
 
         return geodataframe
 
-    def set_ard_parameters(self, ard_type='OST Plus'):
+    def get_ard_parameters(self, ard_type=None):
+        
+        # we read the existent processing file
+        if not ard_type:
+            with open(self.proc_file, 'r') as ard_file:
+                self.ard_parameters = json.load(ard_file)['processing parameters']
+        # when ard_type is defined we read from template
+        else:
+            # get path to graph
+            # get path to ost package
+            rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+            rootpath = opj(rootpath, 'graphs', 'ard_json')
+        
+            template_file = opj(rootpath, '{}.{}.json'.format(
+                    self.product_type.lower(),
+                    ard_type.replace(' ', '_').lower()))
+            
+            with open(template_file, 'r') as ard_file:
+                self.ard_parameters = json.load(ard_file)['processing parameters']
+                
+        with open (self.proc_file, 'w') as outfile:
+            json.dump(dict({'processing parameters': self.ard_parameters}),
+                      outfile,
+                      indent=4)
+           
+    def update_ard_parameters(self):
+        
+        with open (self.proc_file, 'w') as outfile:
+            json.dump(dict({'processing parameters': self.ard_parameters}),
+                      outfile,
+                      indent=4)
 
-        if ard_type == 'OST Plus':
+    
+    def set_external_dem(self, dem_file):
+        
+        import rasterio
+        
+        # check if file exists
+        if not os.path.isfile(dem_file):
+            print(' ERROR: No dem file found at location {}.'.format(dem_file))
+            return
+        
+        # get no data value
+        with rasterio.open(dem_file) as file:
+            dem_nodata = file.nodata
+        
+        # get resapmpling
+        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
+        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        
+        # update ard parameters
+        dem_dict = dict({'dem name': 'External DEM', 
+                         'dem file': dem_file,
+                         'dem nodata': dem_nodata,
+                         'dem resampling': dem_res ,
+                         'image resampling': img_res})
+        self.ard_parameters['single ARD']['dem'] = dem_dict
 
-            # scene specific
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = False
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['pol_speckle_filter'] = True
-            self.ard_parameters['ls_mask_create'] = True
-            self.ard_parameters['ls_mask_apply'] = False
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-            self.ard_parameters['coherence'] = True
-            self.ard_parameters['polarimetry'] = True
+    def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
+                     overwrite=False, exec_file=None):
 
-            # timeseries specific
-            self.ard_parameters['to_db_mt'] = True
-            self.ard_parameters['mt_speckle_filter'] = True
-            self.ard_parameters['datatype'] = 'float32'
-
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = True
-
-        elif ard_type == 'Zhuo':
-
-            # scene specific
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 25
-            self.ard_parameters['border_noise'] = False
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['speckle_filter'] = True
-            self.ard_parameters['pol_speckle_filter'] = True
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['ls_mask_apply'] = False
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-            self.ard_parameters['coherence'] = False
-            self.ard_parameters['polarimetry'] = True
-
-            # timeseries specific
-            self.ard_parameters['to_db_mt'] = False
-            self.ard_parameters['mt_speckle_filter'] = False
-            self.ard_parameters['datatype'] = 'float32'
-
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = False
-
-        # assure that we do not convert twice to dB
-        if self.ard_parameters['to_db']:
-            self.ard_parameters['to_db_mt'] = False
-
-    def burst_to_ard(self, timeseries=False, timescan=False, mosaic=False,
-                     overwrite=False):
-
+        # in case ard parameters have been updated, write them to json file
+        self.update_ard_parameters()
+        
         if overwrite:
             print(' INFO: Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
-
-        if not self.ard_parameters:
-            self.set_ard_parameters()
 
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
             print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
                   ' DEM instead.')
-            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+            self.ard_parameters['single ARD']['dem'] = 'ASTER 1sec GDEM'
 
         # set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
@@ -506,8 +511,9 @@ class Sentinel1_SLCBatch(Sentinel1):
                                      self.download_dir,
                                      self.processing_dir,
                                      self.temp_dir,
-                                     self.ard_parameters,
-                                     self.data_mount)
+                                     self.proc_file,
+                                     self.data_mount, 
+                                     exec_file)
 
             nr_of_processed = len(
                 glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
@@ -523,26 +529,28 @@ class Sentinel1_SLCBatch(Sentinel1):
             burst.burst_ards_to_timeseries(self.burst_inventory,
                                            self.processing_dir,
                                            self.temp_dir,
-                                           self.ard_parameters)
+                                           self.proc_file,
+                                           exec_file)
 
             # do we deleete the single ARDs here?
             if timescan:
                 burst.timeseries_to_timescan(self.burst_inventory,
                                              self.processing_dir,
                                              self.temp_dir,
-                                             self.ard_parameters)
+                                             self.proc_file)
 
         if mosaic and timeseries:
             burst.mosaic_timeseries(self.burst_inventory,
                                   self.processing_dir,
                                   self.temp_dir,
-                                  self.ard_parameters)
+                                  self.aoi)
 
         if mosaic and timescan:
             burst.mosaic_timescan(self.burst_inventory,
                                   self.processing_dir,
                                   self.temp_dir,
-                                  self.ard_parameters)
+                                  self.proc_file,
+                                  self.aoi)
 
     def create_timeseries_animation(timeseries_dir, product_list, outfile, 
                                     shrink_factor=1, duration=1, 
@@ -572,7 +580,7 @@ class Sentinel1_GRDBatch(Sentinel1):
                  product_type='GRD',
                  beam_mode='IW',
                  polarisation='*',
-                 ard_type='OST'
+                 ard_type='OST Standard'
                  ):
 
         super().__init__(project_dir, aoi, start, end, data_mount,
@@ -580,117 +588,71 @@ class Sentinel1_GRDBatch(Sentinel1):
                          product_type, beam_mode, polarisation)
 
         self.ard_type = ard_type
-        self.ard_parameters = {}
-        self.set_ard_parameters(ard_type)
-
+        self.proc_file = opj(self.project_dir, 'processing.json')
+        self.get_ard_parameters(self.ard_type)
+        
     # processing related functions
-    def set_ard_parameters(self, ard_type='OST'):
+    def get_ard_parameters(self, ard_type='OST Standard'):
+        
+        # get path to graph
+        # get path to ost package
+        rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        rootpath = opj(rootpath, 'graphs', 'ard_json')
 
-        if ard_type == 'OST':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'GTCgamma'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-            
-            # time-series specific
-            self.ard_parameters['mt_speckle_filter'] = True
-            self.ard_parameters['to_db_mt'] = True
-            self.ard_parameters['datatype'] = 'float32'
-            self.ard_parameters['ls_mask_apply'] = False
-            
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = True
-            
-        elif ard_type == 'OST_flat':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 20
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = True
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-            
-            # time-series specific
-            self.ard_parameters['mt_speckle_filter'] = True
-            self.ard_parameters['to_db_mt'] = True
-            self.ard_parameters['datatype'] = 'float32'
-            self.ard_parameters['ls_mask_apply'] = False
-            
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = True
-            
-        elif ard_type == 'CEOS':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 10
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'RTC'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = False
-            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-            
-            # time-series specific
-            self.ard_parameters['mt_speckle_filter'] = False
-            self.ard_parameters['to_db_mt'] = False
-            self.ard_parameters['datatype'] = 'float32'
-            self.ard_parameters['ls_mask_apply'] = False
-            
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = False
-            
-        elif ard_type == 'EarthEngine':
-            self.ard_parameters['type'] = ard_type
-            self.ard_parameters['resolution'] = 10
-            self.ard_parameters['border_noise'] = True
-            self.ard_parameters['product_type'] = 'GTCsigma'
-            self.ard_parameters['speckle_filter'] = False
-            self.ard_parameters['ls_mask_create'] = False
-            self.ard_parameters['to_db'] = True
-            self.ard_parameters['polarisation'] = 'VV,VH,HH,HV'
-            self.ard_parameters['dem'] = 'SRTM 1Sec HGT'
-
-            # time-series specific
-            self.ard_parameters['mt_speckle_filter'] = False
-            self.ard_parameters['to_db_mt'] = False
-            self.ard_parameters['datatype'] = 'float32'
-            self.ard_parameters['ls_mask_apply'] = False
-            
-            # timescan specific
-            self.ard_parameters['metrics'] = ['avg', 'max', 'min',
-                                              'std', 'cov']
-            self.ard_parameters['outlier_removal'] = False
-            
+        template_file = opj(rootpath, '{}.{}.json'.format(
+                self.product_type.lower(),
+                ard_type.replace(' ', '_').lower()))
+        
+        with open(template_file, 'r') as ard_file:
+            self.ard_parameters = json.load(ard_file)['processing parameters']
+       
+    def update_ard_parameters(self):
+        
+        with open (self.proc_file, 'w') as outfile:
+            json.dump(dict({'processing parameters': self.ard_parameters}),
+                      outfile,
+                      indent=4)
     
+    def set_external_dem(self, dem_file):
+        
+        import rasterio
+        
+        # check if file exists
+        if not os.path.isfile(dem_file):
+            print(' ERROR: No dem file found at location {}.'.format(dem_file))
+            return
+        
+        # get no data value
+        with rasterio.open(dem_file) as file:
+            dem_nodata = file.nodata
+        
+        # get resapmpling
+        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
+        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        
+        # update ard parameters
+        dem_dict = dict({'dem name': 'External DEM', 
+                         'dem file': dem_file,
+                         'dem nodata': dem_nodata,
+                         'dem resampling': dem_res ,
+                         'image resampling': img_res})
+        self.ard_parameters['single ARD']['dem'] = dem_dict
+        
     def grd_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
-                   timescan=False, mosaic=False, overwrite=False):
+                   timescan=False, mosaic=False, overwrite=False, exec_file=None):
 
+        self.update_ard_parameters()
+        
         if overwrite:
             print(' INFO: Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
-        if not self.ard_parameters:
-            self.set_ard_parameters()
-
         # set resolution in degree
-        self.center_lat = loads(self.aoi).centroid.y
-        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
-            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+#        self.center_lat = loads(self.aoi).centroid.y
+#        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+#            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+#                  ' DEM instead.')
+#            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
         if subset:
             if subset.split('.')[-1] == '.shp':
@@ -701,55 +663,67 @@ class Sentinel1_GRDBatch(Sentinel1):
                 print(' ERROR: No valid subset given.'
                       ' Should be either path to a shapefile or a WKT Polygon.')
                 sys.exit()
-            # set resolution to degree
-        # self.ard_parameters['resolution'] = h.resolution_in_degree(
-        #    self.center_lat, self.ard_parameters['resolution'])
 
+        # check number of already prcessed acquisitions
         nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
+            glob.glob(opj(self.processing_dir, '*', '20*', '.processed'))
+        )
+
+        # number of acquisitions to process
+        nr_of_acq = len(
+            inventory_df.groupby(['relativeorbit', 'acquisitiondate'])
+        )
 
         # check and retry function
         i = 0
-        while len(inventory_df.groupby(['relativeorbit', 'acquisitiondate'])) > nr_of_processed:
+        while nr_of_acq > nr_of_processed:
 
+            # the grd to ard batch routine
             grd_batch.grd_to_ard_batch(
                                   inventory_df,
                                   self.download_dir,
                                   self.processing_dir,
                                   self.temp_dir,
-                                  self.ard_parameters,
+                                  self.proc_file,
                                   subset,
-                                  self.data_mount
-                                  )
+                                  self.data_mount,
+                                  exec_file)
             
+            # reset number of already processed acquisitions
             nr_of_processed = len(
                 glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
-            
             i += 1
             
             # not more than 5 trys
             if i == 5:
                 break
         
-            
+        # time-series part
         if timeseries or timescan:
             
             nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', 'Timeseries', '.processed')))
-        
-            #nr_of_tracks = inventory_df.relativeorbit.unique().values
+                    glob.glob(opj(self.processing_dir, '*', 
+                                  'Timeseries', '.*processed')))
+            
+            nr_of_polar = len(
+                inventory_df.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+            nr_of_ts = nr_of_polar * nr_of_tracks
+            
+            
             # check and retry function
             i = 0
-            while len(inventory_df.relativeorbit.unique()) > nr_of_processed:
-        
+            while nr_of_ts > nr_of_processed:
+                
                 grd_batch.ards_to_timeseries(inventory_df, 
                                     self.processing_dir, 
                                     self.temp_dir, 
-                                    self.ard_parameters)
+                                    self.proc_file, 
+                                    exec_file)
                 
                 nr_of_processed = len(
                     glob.glob(opj(self.processing_dir, '*',
-                                  'Timeseries', '.processed')))
+                                  'Timeseries', '.*processed')))
                 i += 1
             
                 # not more than 5 trys
@@ -758,19 +732,26 @@ class Sentinel1_GRDBatch(Sentinel1):
             
         if timescan:
             
+            # number of already processed timescans
             nr_of_processed = len(glob.glob(opj(
-                self.processing_dir, '*', 'Timescan', '.processed')))
+                self.processing_dir, '*', 'Timescan', '.*processed')))
+            
+            # number of expected timescans
+            nr_of_polar = len(
+                inventory_df.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+            nr_of_ts = nr_of_polar * nr_of_tracks
             
             i = 0
-            while len(inventory_df.relativeorbit.unique()) > nr_of_processed:
-            
+            while nr_of_ts > nr_of_processed:
+                 
                  grd_batch.timeseries_to_timescan(
                          inventory_df,
                          self.processing_dir,
-                         self.ard_parameters)
+                         self.proc_file)
                  
                  nr_of_processed = len(glob.glob(opj(
-                    self.processing_dir, '*', 'Timescan', '.processed')))
+                    self.processing_dir, '*', 'Timescan', '.*processed')))
                  
                  i += 1
         
@@ -778,22 +759,22 @@ class Sentinel1_GRDBatch(Sentinel1):
                  if i == 5:
                      break
                 
+            if i < 5 and exec_file:
+                print(' create vrt command')                
                 
+
         if mosaic and timeseries and not subset:
-            grd_batch.mosaic_timeseries(inventory_df,
-                                  self.processing_dir,
-                                  self.temp_dir)
+            grd_batch.mosaic_timeseries(
+                    inventory_df,
+                    self.processing_dir,
+                    self.temp_dir, 
+                    self.aoi
+            )
+
 
         if mosaic and timescan and not subset:
             grd_batch.mosaic_timescan(inventory_df,
                                   self.processing_dir,
                                   self.temp_dir,
-                                  self.ard_parameters)
-#            nr_of_processed = len(
-#                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
-#
-#            i += 1
-#
-#            # not more than 5 trys
-#            if i == 5:
-#                break
+                                  self.proc_file,
+                                  self.aoi)
