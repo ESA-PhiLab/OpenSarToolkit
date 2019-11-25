@@ -638,7 +638,7 @@ class Sentinel1_GRDBatch(Sentinel1):
                          'image resampling': img_res})
         self.ard_parameters['single ARD']['dem'] = dem_dict
         
-    def grd_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
+    def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
                    timescan=False, mosaic=False, overwrite=False, exec_file=None):
 
         self.update_ard_parameters()
