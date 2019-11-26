@@ -226,7 +226,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
     # check for file size of the dim file
     dim_size_in_mb = os.path.getsize('{}.dim'.format(dimap_prefix)) / 1048576
 
-    if dim_size_in_mb < 1:
+    if dim_size_in_mb < 0.2:
         return 666
 
     for file in glob.glob(opj('{}.data'.format(dimap_prefix), '*.img')):
@@ -234,7 +234,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         # check size
         data_size_in_mb = os.path.getsize(file) / 1048576
 
-        if data_size_in_mb < 1:
+        if data_size_in_mb < 0.2:
             return 666
 
         if test_stats:
@@ -267,8 +267,7 @@ def check_out_tiff(file, test_stats=True):
 
     # check for file size of the dim file
     tiff_size_in_mb = os.path.getsize(file) / 1048576
-
-    if tiff_size_in_mb < 0.3:
+    if tiff_size_in_mb < 0.2:
         return 666
 
     if test_stats:

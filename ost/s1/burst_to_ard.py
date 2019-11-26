@@ -753,7 +753,6 @@ def burst_to_ard(master_file,
     h.delete_dimap(out_cal)
 
     if coherence:
-
         # import slave
         slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
         import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
@@ -765,16 +764,19 @@ def burst_to_ard(master_file,
             return return_code
 
         # co-registration
-        #filelist = ['{}.dim'.format(master_import),
+        # filelist = ['{}.dim'.format(master_import),
         #            '{}.dim'.format(slave_import)]
-        #filelist = '\'{}\''.format(','.join(filelist))
+        # filelist = '\'{}\''.format(','.join(filelist))
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
         # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
+        print('{}.dim'.format(master_import))
+        print('{}.dim'.format(slave_import))
         return_code = _coreg2('{}.dim'.format(master_import),
                               '{}.dim'.format(slave_import),
-                               out_coreg,
-                               coreg_log, dem)
+                              out_coreg,
+                              coreg_log, dem
+                              )
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
@@ -826,7 +828,7 @@ def burst_to_ard(master_file,
     return return_code
 
 
-#if __name__ == "__main__":
+# if __name__ == "__main__":
 #
 #    import argparse
 #

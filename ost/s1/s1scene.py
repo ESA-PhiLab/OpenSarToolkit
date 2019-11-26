@@ -92,7 +92,6 @@ class Sentinel1_Scene():
         self.set_ard_parameters(ard_type)
 
     def info(self):
-
         print(" -------------------------------------------------")
         print(" Scene Information:")
         print(" Scene Identifier:        " + str(self.scene_id))
@@ -109,7 +108,7 @@ class Sentinel1_Scene():
 
     def download(self, download_dir, mirror=None):
         
-        #if not mirror:
+        # if not mirror:
         #    print(' INFO: One or more of your scenes need to be downloaded.')
         #    print(' Select the server from where you want to download:')
         #    print(' (1) Copernicus Apihub (ESA, rolling archive)')
@@ -118,16 +117,14 @@ class Sentinel1_Scene():
         #    mirror = input(' Type 1, 2 or 3: ')
 
         from ost.s1 import download
-        
-       # if mirror == 1:
-       #     df = pd.DataFrame({'identifier': [self.scene_id]
-       #                    {'uuid'}: self.scihub_uuid(opener)})
+        # if mirror == 1:
+        #     df = pd.DataFrame({'identifier': [self.scene_id]
+        #                    {'uuid'}: self.scihub_uuid(opener)})
         df = pd.DataFrame({'identifier': [self.scene_id]})
         download.download_sentinel1(df, download_dir)
 
     # location of file (including diases)
     def _download_path(self, download_dir, mkdir=False):
-
         download_path = opj(download_dir, 'SAR',
                             self.product_type,
                             self.year,
@@ -144,15 +141,13 @@ class Sentinel1_Scene():
         return filepath
 
     def _creodias_path(self, data_mount='/eodata'):
-
-
         path = opj(data_mount, 'Sentinel-1', 'SAR',
                    self.product_type,
                    self.year,
                    self.month,
                    self.day,
-                   '{}.SAFE'.format(self.scene_id))
-            
+                   '{}.SAFE'.format(self.scene_id)
+                   )
         return path
 
     def _aws_path(self, data_mount):
@@ -166,31 +161,27 @@ class Sentinel1_Scene():
         return '/foo/foo/foo'
     
     def _onda_path(self, data_mount):
-
- 
         path = opj(data_mount, 'S1', 'LEVEL-1',
                    '{}'.format(self.onda_class),
                    self.year,
                    self.month,
                    self.day,
                    '{}.zip'.format(self.scene_id),
-                   '{}.SAFE'.format(self.scene_id))
-       
+                   '{}.SAFE'.format(self.scene_id)
+                   )
         return path
 
     def get_path(self, download_dir=None, data_mount='/eodata'):
-
         if download_dir:
             if os.path.isfile(self._download_path(download_dir) + '.downloaded'):
                 path = self._download_path(download_dir)
             else:
                 path = None
         else:
-            path=None
+            path = None
         
         if data_mount and not path:
-            if os.path.isfile(opj(self._creodias_path(data_mount), 
-                                    'manifest.safe')):
+            if os.path.isfile(opj(self._creodias_path(data_mount), 'manifest.safe')):
                 path = self._creodias_path(data_mount)
             elif os.path.isdir(self._onda_path(data_mount)):
                 path = self._onda_path(data_mount)
@@ -199,9 +190,7 @@ class Sentinel1_Scene():
             elif os.path.isfile(self._aws_path(data_mount)):
                 path = self._aws_path(data_mount)
             else:
-                #print(' Scene {} is not found.'.format(self.scene_id))
                 path = None
-            
         return path
 
     # scihub related
@@ -209,7 +198,8 @@ class Sentinel1_Scene():
 
         # construct the basic the url
         base_url = ('https://scihub.copernicus.eu/apihub/odata/v1/'
-                    'Products?$filter=')
+                    'Products?$filter='
+                    )
         action = urllib.request.quote('Name eq \'{}\''.format(self.scene_id))
         # construct the download url
         url = base_url + action
@@ -293,7 +283,6 @@ class Sentinel1_Scene():
         return response
 
     def scihub_trigger_production(self, opener):
-
         uuid = self.scihub_uuid(opener)
         scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
 
@@ -324,7 +313,6 @@ class Sentinel1_Scene():
 
     # burst part
     def _scihub_annotation_url(self, opener):
-
         uuid = self.scihub_uuid(opener)
 
         print(' INFO: Getting URLS of annotation files'
@@ -620,7 +608,6 @@ class Sentinel1_Scene():
 
     # processing related functions
     def set_ard_parameters(self, ard_type='OST'):
-
         if ard_type == 'OST':
             self.ard_parameters['type'] = ard_type
             self.ard_parameters['resolution'] = 20
@@ -680,7 +667,7 @@ class Sentinel1_Scene():
             print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
                   ' DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-        #self.ard_parameters['resolution'] = h.resolution_in_degree(
+        # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
@@ -689,7 +676,7 @@ class Sentinel1_Scene():
                       ' Using the OST standard ARD defintion'
                       ' Use object.set_ard_defintion() first if you want to'
                       ' change the ARD defintion.')
-                self.set_ard_definition('OST')
+                self.set_ard_parameters('OST')
             if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
                 self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
                 print(' WARNING: Invalid resampling method using BILINEAR_INTERPOLATION')
@@ -713,7 +700,6 @@ class Sentinel1_Scene():
                 subset=subset,
                 polarisation=polar
             )
-
             # write to class attribute
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
                                            .format(out_prefix)))[0]
@@ -727,7 +713,6 @@ class Sentinel1_Scene():
             raise RuntimeError
 
     def create_rgb(self, outfile, driver='GTiff'):
-
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
         if self.ard_parameters['to_db']:
@@ -737,9 +722,9 @@ class Sentinel1_Scene():
 
         ard_to_rgb(self.ard_dimap, outfile, driver, to_db)
         self.ard_rgb = outfile
+        return outfile
 
     def create_rgb_thumbnail(self, outfile, driver='JPEG', shrink_factor=25):
-
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
         if self.ard_parameters['to_db']:
@@ -750,14 +735,13 @@ class Sentinel1_Scene():
         self.rgb_thumbnail = outfile
         ard_to_thumbnail(self.ard_dimap, self.rgb_thumbnail,
                          driver, shrink_factor, to_db)
+        return outfile
 
     def visualise_rgb(self, shrink_factor=25):
-
         ras.visualise_rgb(self.ard_rgb, shrink_factor)
 
     # other functions
     def _get_center_lat(self, scene_path=None):
-
         if scene_path[-4:] == '.zip':
             zip_archive = zipfile.ZipFile(scene_path)
             manifest = zip_archive.read('{}.SAFE/manifest.safe'
@@ -787,5 +771,4 @@ class Sentinel1_Scene():
         sums = 0
         for i, coords in enumerate(coordinates):
             sums = sums + float(coords.split(',')[0])
-
         return sums / (i + 1)
