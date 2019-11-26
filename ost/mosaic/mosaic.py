@@ -63,8 +63,8 @@ def mosaic(filelist, outfile, temp_dir, cut_to_aoi=False):
         with rasterio.open(outfile, 'w', **out_meta) as dest:
             dest.write(out_image.data)
     
-    # remove intermediate file
-    os.remove(tempfile)
+        # remove intermediate file
+        os.remove(tempfile)
     
     # check     
     return_code = h.check_out_tiff(outfile)

@@ -480,7 +480,7 @@ class Sentinel1_SLCBatch(Sentinel1):
         self.ard_parameters['single ARD']['dem'] = dem_dict
 
     def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
-                     overwrite=False, exec_file=None):
+                     overwrite=False, exec_file=None, cut_to_aoi=False):
 
         # in case ard parameters have been updated, write them to json file
         self.update_ard_parameters()
@@ -539,18 +539,24 @@ class Sentinel1_SLCBatch(Sentinel1):
                                              self.temp_dir,
                                              self.proc_file)
 
+
+        if cut_to_aoi:
+            cut_to_aoi = self.aoi
+            
         if mosaic and timeseries:
             burst.mosaic_timeseries(self.burst_inventory,
                                   self.processing_dir,
                                   self.temp_dir,
-                                  self.aoi)
+                                  cut_to_aoi
+            )
 
         if mosaic and timescan:
             burst.mosaic_timescan(self.burst_inventory,
                                   self.processing_dir,
                                   self.temp_dir,
                                   self.proc_file,
-                                  self.aoi)
+                                  cut_to_aoi
+            )
 
     def create_timeseries_animation(timeseries_dir, product_list, outfile, 
                                     shrink_factor=1, duration=1, 
@@ -639,7 +645,8 @@ class Sentinel1_GRDBatch(Sentinel1):
         self.ard_parameters['single ARD']['dem'] = dem_dict
         
     def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
-                   timescan=False, mosaic=False, overwrite=False, exec_file=None):
+                   timescan=False, mosaic=False, overwrite=False, 
+                   exec_file=None, cut_to_aoi=False):
 
         self.update_ard_parameters()
         
@@ -762,13 +769,15 @@ class Sentinel1_GRDBatch(Sentinel1):
             if i < 5 and exec_file:
                 print(' create vrt command')                
                 
-
+        if cut_to_aoi:
+            cut_to_aoi = self.aoi
+            
         if mosaic and timeseries and not subset:
             grd_batch.mosaic_timeseries(
                     inventory_df,
                     self.processing_dir,
                     self.temp_dir, 
-                    self.aoi
+                    cut_to_aoi
             )
 
 
@@ -777,4 +786,5 @@ class Sentinel1_GRDBatch(Sentinel1):
                                   self.processing_dir,
                                   self.temp_dir,
                                   self.proc_file,
-                                  self.aoi)
+                                  cut_to_aoi
+            )

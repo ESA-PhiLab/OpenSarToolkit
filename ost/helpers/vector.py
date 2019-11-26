@@ -291,11 +291,10 @@ def wkt_to_gdf(wkt):
             geoms.append(geom)
             i += 1
 
-        data = {'id': ['1'],
-                'geometry': loads(wkt[0])}
-        gdf = gpd.GeoDataFrame(data)
-
-    gdf.crs = {'init': 'epsg:4326',  'no_defs': True}
+        gdf = gpd.GeoDataFrame({'id': ids,
+                                'geometry': geoms},
+                                crs = {'init': 'epsg:4326',  'no_defs': True}
+              )
 
     return gdf
 
