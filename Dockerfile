@@ -51,7 +51,7 @@ RUN groupadd -r ost && \
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --list --refresh
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all
 # set usable memory to 12G
-RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
+RUN echo "-Xmx13G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
 RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
