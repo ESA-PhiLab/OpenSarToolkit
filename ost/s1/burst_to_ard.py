@@ -781,8 +781,9 @@ def burst_to_ard(master_file,
         # import slave
         slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
         import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
+        polars = ard['polarisation'].replace(' ', '')
         return_code = _import(slave_file, slave_import, import_log,
-                              swath, slave_burst_nr, ard['polarisation'])
+                              swath, slave_burst_nr, polars)
 
         if return_code != 0:
             h.remove_folder_content(temp_dir)
