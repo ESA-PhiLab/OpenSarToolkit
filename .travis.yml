@@ -12,7 +12,6 @@ before_install:
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
   - pip install pytest coveralls pytest-cov pytest-flask
-  - python setup.py install
 script:
   - pytest -v --cov ost tests/
 after_success:
