@@ -71,7 +71,6 @@ import time
 import rasterio
 import numpy as np
 import gdal
-from retry import retry
 
 from os.path import join as opj
 from ost.helpers import helpers as h, raster as ras
