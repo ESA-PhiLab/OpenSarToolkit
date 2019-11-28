@@ -33,6 +33,8 @@ RUN groupadd -r ost && \
         libgfortran3 \
         wget \
         nodejs \
+        unzip \
+        imagemagick \        
         npm && \
     rm -rf /var/lib/apt/lists/*  && \
     python3 -m pip install jupyterlab && \

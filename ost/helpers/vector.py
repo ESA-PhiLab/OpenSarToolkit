@@ -382,7 +382,7 @@ def buffer_shape(infile, outfile, buffer=None):
                 })
 
 
-def plot_inventory(aoi, inventory_df, transperancy=0.05):
+def plot_inventory(aoi, inventory_df, transparency=0.05):
 
     import matplotlib.pyplot as plt
 
@@ -402,7 +402,7 @@ def plot_inventory(aoi, inventory_df, transperancy=0.05):
     aoi_gdf.plot(ax=base, color='None', edgecolor='black')
 
     # plot footprints
-    inventory_df.plot(ax=base, alpha=transperancy)
+    inventory_df.plot(ax=base, alpha=transparency)
 
     # set bounds
     plt.xlim([bounds.minx.min()-2, bounds.maxx.max()+2])

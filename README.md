@@ -38,11 +38,12 @@ as the Open SAR Toolkit the tutorial notebooks.
 Docker installation is possible on various OS. Installation instructions can be 
 found at https://docs.docker.com/install/
 
-After docker is installed and running, launch the container with:
+After docker is installed and running, launch the container with 
+(adapt the path to the shared host folder):
 
 ```
 docker pull buddyvolly/opensartoolkit
-docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared opensartoolkit
+docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared buddyvolly/opensartoolkit
 ```
 
 The docker image automatically executes the jupyter lab and runs it on 
