@@ -1,9 +1,8 @@
 import os
-import math
 import shutil
-import rasterio
+
 from tempfile import TemporaryDirectory
-from rasterio.windows import Window
+
 
 from shapely.geometry import box, Point
 
