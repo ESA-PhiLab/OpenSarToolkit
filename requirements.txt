@@ -11,3 +11,4 @@ scipy
 shapely
 tqdm
 imageio
+environs
