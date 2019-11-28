@@ -20,7 +20,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
-from ost.helpers import scihub, peps, raster as ras
+from ost.helpers import scihub, peps, onda, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
@@ -114,8 +114,8 @@ class Sentinel1_Scene():
             print(' Select the server from where you want to download:')
             print(' (1) Copernicus Apihub (ESA, rolling archive)')
             print(' (2) Alaska Satellite Facility (NASA, full archive)')
-            print(' (3) PEPS (CNES, 1 year rolling archive)')
-            mirror = input(' Type 1, 2 or 3: ')
+            print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
+            mirror = input(' Type 1, 2, 3 or 4: ')
 
         from ost.s1 import download
         
@@ -132,6 +132,14 @@ class Sentinel1_Scene():
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
                  'uuid': [self.peps_uuid(uname=uname, pword=pword)]
+                }   
+            )
+        elif mirror == '4':
+            uname, pword = onda.ask_credentials()
+            opener = onda.connect(uname=uname, pword=pword)
+            df = pd.DataFrame(
+                {'identifier': [self.scene_id],
+                 'uuid': [self.ondadias_uuid(opener)]
                 }   
             )
         else:   # ASF
@@ -567,6 +575,49 @@ class Sentinel1_Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
+    # onda dias uuid extractor
+    def ondadias_uuid(self,opener):
+
+        # construct the basic the url
+        base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
+                    'Products?$search=')
+        action = '"'+self.scene_id+'.zip"'
+        # construct the download url
+        url = base_url + action
+
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from onda dias)
+            response = req.read().decode('utf-8')
+
+            # parse the uuid from the response (a messy pseudo xml)
+            uuid=response.split('":"')[3].split('","')[0]
+            #except IndexError as error:
+            #    print('Image not available on ONDA DIAS now, please select another repository')
+            #    sys.exit()
+            # parse the xml page from the response - does not work at present
+            """dom = xml.dom.minidom.parseString(response)
+
+            # loop thorugh each entry (with all metadata)
+            for node in dom.getElementsByTagName('a:entry'):
+                download_url = node.getElementsByTagName(
+                    'a:id')[0].firstChild.nodeValue
+                uuid = download_url.split('(\'')[1].split('\')')[0]"""
+        
+        return uuid
+    
     # other data providers
     def asf_url(self):
 

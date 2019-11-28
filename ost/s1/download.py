@@ -13,7 +13,7 @@ import getpass
 
 # import OST libs
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
-from ost.helpers import scihub, peps, asf
+from ost.helpers import scihub, peps, asf, onda
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -77,7 +77,8 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         print(' (1) Copernicus Apihub (ESA, rolling archive)')
         print(' (2) Alaska Satellite Facility (NASA, full archive)')
         print(' (3) PEPS (CNES, 1 year rolling archive)')
-        mirror = input(' Type 1, 2 or 3: ')
+        print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
+        mirror = input(' Type 1, 2, 3 or 4: ')
 
     if not uname:
         print(' Please provide username for the selected server')
@@ -100,7 +101,9 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     
     elif int(mirror) == 3:
         error_code = peps.check_connection(uname, pword)
-
+    elif int(mirror) == 4:
+        error_code = onda.check_connection(uname, pword)
+        
     if error_code == 401:
         raise ValueError(' ERROR: Username/Password are incorrect')
     elif error_code != 200:
@@ -115,4 +118,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
                            uname, pword, concurrent)
     elif int(mirror) == 3:   # PEPS
         peps.batch_download(inventory_df, download_dir,
+                            uname, pword, concurrent)
+    elif int(mirror) == 4:   # ONDA DIAS
+        onda.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)
