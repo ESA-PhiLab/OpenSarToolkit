@@ -130,7 +130,7 @@ https://docs.conda.io/projects/conda/en/latest/user-guide/install/
 
 Then run the conda command to install OST's dependencies:
 ```
-conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
+conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio geopandas fiona shapely matplotlib tqdm scipy
 ```
 
 Finally get the OST by using pip 
