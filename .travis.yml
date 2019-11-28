@@ -4,7 +4,7 @@ language: python
 python:
   - '3.6'
 before_install:
-  - sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
+  - sudo add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable
   - sudo apt-get -y update
   - sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev libgdal-dev
   - pip install numpy cython
@@ -18,7 +18,6 @@ after_success:
   - coveralls
 env:
   matrix:
-    - RASTERIO_VERSION="1.0.21"
     - RASTERIO_VERSION="latest"
 matrix:
   allow_failures:
