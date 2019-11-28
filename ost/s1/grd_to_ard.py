@@ -76,15 +76,6 @@ from retry import retry
 from os.path import join as opj
 from ost.helpers import helpers as h, raster as ras
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product

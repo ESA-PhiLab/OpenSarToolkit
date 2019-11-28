@@ -235,6 +235,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         data_size_in_mb = os.path.getsize(file) / 1048576
 
         if data_size_in_mb < 0.2:
+            print('data small')
             return 666
 
         if test_stats:

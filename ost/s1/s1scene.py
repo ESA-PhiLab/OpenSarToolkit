@@ -23,10 +23,6 @@ from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
-__author__ = "Andreas Vollrath"
-__version__ = 1.0
-__license__ = 'MIT'
-
 
 class Sentinel1_Scene():
 

@@ -25,6 +25,34 @@ def s1_grd_notnr():
 
 
 @pytest.fixture
+def s1_slc_master():
+    return os.path.join(
+        CACHE_DIR,
+        'S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip',
+     )
+
+
+@pytest.fixture
+def s1_slc_slave():
+    return os.path.join(
+        CACHE_DIR,
+        'S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip',
+    )
+
+
+@pytest.fixture
+def s1_slc_ost_master(s1_slc_master):
+    scene_id = os.path.basename(s1_slc_master).replace('.zip', '')
+    return (scene_id, Sentinel1_Scene(scene_id))
+
+
+@pytest.fixture
+def s1_slc_ost_slave(s1_slc_slave):
+    scene_id = os.path.basename(s1_slc_slave).replace('.zip', '')
+    return (scene_id, Sentinel1_Scene(scene_id))
+
+
+@pytest.fixture
 def s1_grd_notnr_ost_product(s1_grd_notnr):
     scene_id = s1_grd_notnr.split('/')[-2]
     return (scene_id, Sentinel1_Scene(scene_id))
@@ -33,3 +61,8 @@ def s1_grd_notnr_ost_product(s1_grd_notnr):
 @pytest.fixture
 def some_bounds():
     return [9.404296875, 54.84375, 9.4921875, 54.931640625]
+
+
+@pytest.fixture
+def some_bounds_slc():
+    return [8.02001953125, 46.34033203125, 8.0419921875, 46.3623046875]

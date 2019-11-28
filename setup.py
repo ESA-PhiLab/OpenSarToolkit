@@ -11,6 +11,13 @@ def parse_requirements(file):
 
 setup(
     name='ost',
+    url='https://github.com/ESA-PhiLab/OpenSarToolkit',
+    author='Andreas Vollrath',
+    author_email='andreas.vollrath[at]esa.int',
+    license='MIT License',
+    keywords=['Sentinel-1', 'ESA', 'SAR', 'Radar',
+              'Earth Observation', 'Remote Sensing',
+              'Synthetic Aperture Radar'],
     packages=find_packages(),
     include_package_data=True,
     version='0.8.31',
@@ -20,13 +27,7 @@ setup(
     extras_require={
       'test': parse_requirements('requirements_test.txt')
     },
-    url='https://github.com/ESA-PhiLab/OpenSarToolkit',
-    author='Andreas Vollrath',
-    author_email='andreas.vollrath[at]esa.int',
-    license='MIT License',
-    keywords=['Sentinel-1', 'ESA', 'SAR', 'Radar',
-              'Earth Observation', 'Remote Sensing',
-              'Synthetic Aperture Radar'],
+
     zip_safe=False,
     setup_requires=['pytest-runner'],
     tests_require=['pytest']

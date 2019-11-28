@@ -784,7 +784,7 @@ def burst_to_ard(master_file,
         #  remove imports
         h.delete_dimap(master_import)
 
-        if remove_slave_import is True:
+        if remove_slave_import:
             h.delete_dimap(slave_import)
 
         # calculate coherence and deburst
