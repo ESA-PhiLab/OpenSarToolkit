@@ -13,12 +13,9 @@ before_install:
 install:
   - pip install pytest coveralls pytest-cov pytest-flask
 script:
-  - pytest -v --cov ost test/
+  - pytest -v --cov ost tests/
 after_success:
   - coveralls
 env:
   matrix:
     - RASTERIO_VERSION="latest"
-matrix:
-  allow_failures:
-    - env: RASTERIO_VERSION="latest"
