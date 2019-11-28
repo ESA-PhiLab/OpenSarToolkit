@@ -1,5 +1,7 @@
 # Open SAR Toolkit (OST)
 
+[![Build Status](https://travis-ci.org/Scartography/OpenSarToolkit.svg?branch=ost_tests)](https://travis-ci.org/Scartography/OpenSarToolkit)
+
 ## Objective
 
 This python package lowers the entry barrier for accessing and pre-processing 
