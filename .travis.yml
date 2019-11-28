@@ -11,6 +11,7 @@ before_install:
   - if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
+  - pip install -U setuptools
   - pip install -e .[test]
 script:
   - pytest -v --cov ost tests/
