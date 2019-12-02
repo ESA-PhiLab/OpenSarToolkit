@@ -103,7 +103,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     elif int(mirror) == 3:
         error_code = peps.check_connection(uname, pword)
     elif int(mirror) == 4:
-        error_code = ondadias.check_connection(uname, pword)
+        error_code = onda.check_connection(uname, pword)
     elif int(mirror) == 5:
         error_code = asf_wget.check_connection(uname, pword)
 
@@ -123,7 +123,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         peps.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)
     elif int(mirror) == 4:   # ONDA DIAS
-        ondadias.batch_download(inventory_df, download_dir,
+        onda.batch_download(inventory_df, download_dir,
                               uname, pword, concurrent)
     elif int(mirror) == 5:    # ASF WGET
         asf_wget.batch_download(inventory_df, download_dir,
