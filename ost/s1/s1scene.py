@@ -20,7 +20,7 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
-from ost.helpers import scihub, peps, ondadias, raster as ras
+from ost.helpers import scihub, peps, onda, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
@@ -137,11 +137,11 @@ class Sentinel1_Scene():
                 }   
             )
         elif mirror == '4':
-            uname, pword = ondadias.ask_credentials()
-            opener = ondadias.connect(uname=uname, pword=pword)
+            uname, pword = onda.ask_credentials()
+            opener = onda.connect(uname=uname, pword=pword)
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
-                 'uuid': [self.ondadias_uuid(opener)]
+                 'uuid': [self.onda_uuid(opener)]
                 }   
             )
 
@@ -274,7 +274,7 @@ class Sentinel1_Scene():
 
         return uuid
     # onda dias uuid extractor
-    def ondadias_uuid(self,opener):
+    def onda_uuid(self,opener):
 
         # construct the basic the url
         base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
