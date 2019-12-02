@@ -115,7 +115,7 @@ def s1_download(argument_list):
 
     zip_test = 1
     while zip_test is not None and zip_test <= 10:
-        command='wget --check-certificate=off -c --http-user='+uname+' --http-passwd="'+pword+'" -O '+filename+' '+url
+        command='wget --check-certificate=off -c -nv --http-user='+uname+' --http-passwd="'+pword+'" -O '+filename+' '+url
         process = Popen(command, stdout=PIPE, stderr=PIPE, shell=True)    
         astdout, astderr = process.communicate()    
         print(astdout, astderr)
