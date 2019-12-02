@@ -13,7 +13,7 @@ import getpass
 
 # import OST libs
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
-from ost.helpers import scihub, peps, asf, ondadias,asf_wget
+from ost.helpers import scihub, peps, asf, onda, asf_wget
 
 # script infos
 __author__ = 'Andreas Vollrath'
