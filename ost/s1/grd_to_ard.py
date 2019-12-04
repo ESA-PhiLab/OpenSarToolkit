@@ -1,6 +1,3 @@
-#! /usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 '''
 Based on a reduced set of processing parameters, this script allows to
 produce Sentinel-1 backscatter ARD data from GRD products.
@@ -71,9 +68,12 @@ import time
 import rasterio
 import numpy as np
 import gdal
+import logging
 
 from os.path import join as opj
 from ost.helpers import helpers as h, raster as ras
+
+logger = logging.getLogger(__name__)
 
 
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
@@ -96,8 +96,8 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
                      default value: 'VV,VH,HH,HV'
     '''
 
-    print(' INFO: Importing {} by applying precise orbit file and'
-          ' removing thermal noise'.format(os.path.basename(infile)))
+    logger.debug('INFO: Importing {} by applying precise orbit file and'
+          'removing thermal noise'.format(os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
@@ -116,9 +116,9 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Frame import exited with an error. \
+        logger.debug('ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(102)
 
@@ -150,8 +150,8 @@ def _grd_frame_import_subset(infile, outfile, georegion,
                          subset region
     '''
 
-    print(' INFO: Importing {} by applying precise orbit file and'
-          ' removing thermal noise, as well as subsetting.'.format(
+    logger.debug('INFO: Importing {} by applying precise orbit file and'
+          'removing thermal noise, as well as subsetting.'.format(
         os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
@@ -172,9 +172,9 @@ def _grd_frame_import_subset(infile, outfile, georegion,
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Frame import exited with an error. \
+        logger.debug('ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(102)
 
@@ -196,14 +196,14 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
                  where SNAP'S STDOUT/STDERR is written to
     '''
 
-    print(' INFO: Assembling consecutive frames:')
+    logger.debug('INFO: Assembling consecutive frames:')
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
     # construct command
     command = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
-               -t \'{}\' {}'.format(
+               -t \'{}\'{}'.format(
         gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
 
     # run command and get return code
@@ -211,9 +211,9 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully assembled products')
+        logger.debug('INFO: Succesfully assembled products')
     else:
-        print(' ERROR: Slice Assembly exited with an error. \
+        logger.debug('ERROR: Slice Assembly exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(101)
 
@@ -243,7 +243,7 @@ def _grd_subset(infile, outfile, logfile, region):
     region = ','.join([str(int(x)) for x in region])
 
     # construct command
-    command = '{} Subset -x -q {} -Pregion={} -t \'{}\' \'{}\''.format(
+    command = '{} Subset -x -q {} -Pregion={} -t \'{}\'\'{}\''.format(
         gpt_file, os.cpu_count(), region, outfile, infile)
 
     # run command and get return code
@@ -251,9 +251,9 @@ def _grd_subset(infile, outfile, logfile, region):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully subsetted product')
+        logger.debug('INFO: Succesfully subsetted product')
     else:
-        print(' ERROR: Subsetting exited with an error. \
+        logger.debug('ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(107)
 
@@ -277,12 +277,12 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
                    subset region
     '''
     
-    print(' INFO: Subsetting imported imagery.')
+    logger.debug('INFO: Subsetting imported imagery.')
     # get Snap's gpt file
     gpt_file = h.gpt_path()
 
     # extract window from scene
-    command = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' \
+    command = '{} Subset -x -q {} -Ssource=\'{}\'-t \'{}\'\
                  -PcopyMetadata=true -PgeoRegion=\'{}\''.format(
         gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
 
@@ -291,9 +291,9 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully subsetted product.')
+        logger.debug('INFO: Succesfully subsetted product.')
     else:
-        print(' ERROR: Subsetting exited with an error. \
+        logger.debug('ERROR: Subsetting exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(107)
 
@@ -325,7 +325,7 @@ def _grd_remove_border(infile):
         no new outfile is created.
     '''
 
-    # print(' INFO: Removing the GRD Border Noise.')
+    # logger.debug('INFO: Removing the GRD Border Noise.')
     currtime = time.time()
 
     # read raster file and get number of columns adn rows
@@ -360,9 +360,9 @@ def _grd_remove_border(infile):
         cols_left = 3000
 
     # write array_left to disk
-    # print(' INFO: Total amount of columns: {}'.format(cols_left))
-    # print(' INFO: Number of colums set to 0 on the left side: '
-    #     ' {}'.format(cols_left))
+    # logger.debug('INFO: Total amount of columns: {}'.format(cols_left))
+    # logger.debug('INFO: Number of colums set to 0 on the left side: '
+    #     '{}'.format(cols_left))
     # raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0, 1)
     raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0)
 
@@ -395,9 +395,9 @@ def _grd_remove_border(infile):
 
     #
     col_right_start = cols - 3000 + cols_right
-    # print(' INFO: Number of columns set to 0 on the'
-    #     ' right side: {}'.format(3000 - cols_right))
-    # print(' INFO: Amount of columns kept: {}'.format(col_right_start))
+    # logger.debug('INFO: Number of columns set to 0 on the'
+    #     'right side: {}'.format(3000 - cols_right))
+    # logger.debug('INFO: Amount of columns kept: {}'.format(col_right_start))
     raster.GetRasterBand(1).WriteArray(array_right[:, cols_right:],
                                        col_right_start, 0)
     array_right = None
@@ -435,7 +435,7 @@ def _grd_backscatter(
                             i.e. RTC, GTCgamma or GTCsigma
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -450,7 +450,7 @@ def _grd_backscatter(
 
     # select xml according to product type
     if product_type == 'RTC':
-        print(' INFO: Calibrating the product to a RTC product.')
+        logger.debug('INFO: Calibrating the product to a RTC product.')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
         if dem_file != '':
             with rasterio.open(dem_file, 'r') as dem_f:
@@ -458,13 +458,13 @@ def _grd_backscatter(
         else:
             dem_nodata = 0.0
     elif product_type == 'GTCgamma':
-        print(' INFO: Calibrating the product to a GTC product (Gamma0).')
+        logger.debug('INFO: Calibrating the product to a GTC product (Gamma0).')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
     elif product_type == 'GTCsigma':
-        print(' INFO: Calibrating the product to a GTC product (Sigma0).')
+        logger.debug('INFO: Calibrating the product to a GTC product (Sigma0).')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
     else:
-        print(' ERROR: Wrong product type selected.')
+        logger.debug('ERROR: Wrong product type selected.')
         sys.exit(103)
 
     # construct command sring
@@ -482,12 +482,11 @@ def _grd_backscatter(
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
-
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully calibrated product')
+        logger.debug('INFO: Succesfully calibrated product')
     else:
-        print(' ERROR: Backscatter calibration exited with an error. \
+        logger.debug('ERROR: Backscatter calibration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(103)
 
@@ -513,7 +512,7 @@ def _grd_speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying the Refined-Lee Speckle Filter')
+    logger.debug('INFO: Applying the Refined-Lee Speckle Filter')
     # contrcut command string
     command = '{} Speckle-Filter -x -q {} -PestimateENL=true -Pfilter=\'Refined Lee\' \
               -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
@@ -524,9 +523,9 @@ def _grd_speckle_filter(infile, outfile, logfile):
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Speckle Filtering exited with an error. \
+        logger.debug('ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(111)
 
@@ -551,7 +550,7 @@ def _grd_to_db(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Converting the image to dB-scale.')
+    logger.debug('INFO: Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
         gpt_file, 2 * os.cpu_count(), outfile, infile)
@@ -561,9 +560,9 @@ def _grd_to_db(infile, outfile, logfile):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully converted product to dB-scale.')
+        logger.debug('INFO: Succesfully converted product to dB-scale.')
     else:
-        print(' ERROR: Linear to dB conversion exited with an error. \
+        logger.debug('ERROR: Linear to dB conversion exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(113)
 
@@ -594,7 +593,7 @@ def _grd_terrain_correction(
         resolution (int): the resolution of the output product in meters
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -606,7 +605,7 @@ def _grd_terrain_correction(
 
     # get path to ost package
     root_path = imp.find_module('ost')[1]
-    print(' INFO: Geocoding the calibrated product')
+    logger.debug('INFO: Geocoding the calibrated product')
 
     # calculate the multi-look factor
     multilook_factor = int(int(resolution) / 10)
@@ -631,9 +630,9 @@ def _grd_terrain_correction(
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Terain Correction exited with an error. \
+        logger.debug('ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(112)
 
@@ -664,7 +663,7 @@ def _grd_terrain_correction_deg(
         resolution (int): the resolution of the output product in meters
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -676,7 +675,7 @@ def _grd_terrain_correction_deg(
 
     # get path to ost package
     root_path = imp.find_module('ost')[1]
-    print(' INFO: Geocoding the calibrated product')
+    logger.debug('INFO: Geocoding the calibrated product')
 
     # calculate the multi-look factor
     # multilook_factor = int(int(resolution) / 10)
@@ -703,9 +702,9 @@ def _grd_terrain_correction_deg(
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Terain Correction exited with an error. \
+        logger.debug('ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(112)
 
@@ -736,7 +735,7 @@ def _grd_ls_mask(
         resolution (int): the resolution of the output product in meters
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -749,7 +748,7 @@ def _grd_ls_mask(
     # get path to ost package
     root_path = imp.find_module('ost')[1]
 
-    print(' INFO: Creating the Layover/Shadow mask')
+    logger.debug('INFO: Creating the Layover/Shadow mask')
     # get path to workflow xml
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
 
@@ -772,9 +771,9 @@ def _grd_ls_mask(
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully create a Layover/Shadow mask')
+        logger.debug('INFO: Succesfully create a Layover/Shadow mask')
     else:
-        print(' ERROR: Layover/Shadow mask creation exited with an error. \
+        logger.debug('ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         raise RuntimeError
         sys.exit(112)
@@ -911,7 +910,7 @@ def grd_to_ard(filelist,
 
             if len(infile) == 1:
                 # run grd Border Remove
-                print(' INFO: Remove border noise for {} band.'.format(
+                logger.debug('INFO: Remove border noise for {} band.'.format(
                     polarisation))
                 _grd_remove_border(infile[0])
 
@@ -1079,7 +1078,7 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
             with rasterio.open(outfile, 'w', **meta) as dst:
 
                 if co.shape != cr.shape:
-                    print(' dimensions do not match')
+                    logger.debug('dimensions do not match')
                 # loop through blocks
                 for i, window in co.block_windows(1):
 
@@ -1146,7 +1145,7 @@ def ard_to_thumbnail(infile, outfile, driver='JPEG', shrink_factor=25,
             meta.update(height=new_height, width=new_width)
 
             if co.shape != cr.shape:
-                print(' dimensions do not match')
+                logger.debug('dimensions do not match')
 
             # read arrays and turn to dB
 
@@ -1199,29 +1198,29 @@ if __name__ == "__main__":
 
     # search paramenters
     parser.add_argument("-i", "--input",
-                        help=' path to one or more consecutive slices'
-                             ' (given comma separated list)',
+                        help='path to one or more consecutive slices'
+                             '(given comma separated list)',
                         required=True, default=None)
     parser.add_argument("-r", "--resolution",
-                        help=" The output resolution in meters",
+                        help="The output resolution in meters",
                         default=20)
     parser.add_argument("-p", "--producttype",
-                        help=" The Product Type (RTC, GTCgamma, GTCsigma) ",
+                        help="The Product Type (RTC, GTCgamma, GTCsigma) ",
                         default='GTCgamma')
     parser.add_argument("-l", "--layover",
-                        help=" generation of layover/shadow mask (True/False)",
+                        help="generation of layover/shadow mask (True/False)",
                         default=True)
     parser.add_argument("-s", "--speckle",
-                        help=" speckle filtering (True/False) ",
+                        help="speckle filtering (True/False) ",
                         default=False)
     parser.add_argument("-t", "--tempdir",
-                        help=" temporary directory (/path/to/temp) ",
+                        help="temporary directory (/path/to/temp) ",
                         default='/tmp')
     # output parameters
     parser.add_argument("-o", "--output",
-                        help=' Output file in BEAM-dimap format. This should'
-                             ' only be the prefix, since the workflow will'
-                             ' add the file suffixes on its own.',
+                        help='Output file in BEAM-dimap format. This should'
+                             'only be the prefix, since the workflow will'
+                             'add the file suffixes on its own.',
                         required=True)
 
     args = parser.parse_args()

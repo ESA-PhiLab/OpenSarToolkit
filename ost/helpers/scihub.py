@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-'''
-This module provides functions for searching and downloading data from
-Copernicus scihub server.
-'''
-
 import os
 from os.path import join as opj
 import glob
@@ -13,9 +7,12 @@ import multiprocessing
 import urllib
 import requests
 import tqdm
+import logging
 from shapely.wkt import loads
 
 from ost.helpers import helpers as h
+
+logger = logging.getLogger(__name__)
 
 
 def ask_credentials():
@@ -27,7 +24,7 @@ def ask_credentials():
 
     '''
     # SciHub account details (will be asked by execution)
-    print(' If you do not have a Copernicus Scihub user account'
+    logger.debug('If you do not have a Copernicus Scihub user account'
           ' go to: https://scihub.copernicus.eu and register')
     uname = input(' Your Copernicus Scihub Username:')
     pword = getpass.getpass(' Your Copernicus Scihub Password:')
@@ -50,7 +47,7 @@ def connect(base_url='https://scihub.copernicus.eu/apihub/',
     '''
 
     if not uname:
-        print(' If you do not have a Copernicus Scihub user'
+        logger.debug('If you do not have a Copernicus Scihub user'
               ' account go to: https://scihub.copernicus.eu')
         uname = input(' Your Copernicus Scihub Username:')
 
@@ -253,7 +250,7 @@ def s1_download(argument_list):
 
     # ask for username and password in case you have not defined as input
     if not uname:
-        print(' If you do not have a Copernicus Scihub user'
+        logger.debug('If you do not have a Copernicus Scihub user'
               ' account go to: https://scihub.copernicus.eu')
         uname = input(' Your Copernicus Scihub Username:')
     if not pword:
@@ -270,7 +267,7 @@ def s1_download(argument_list):
     if response.status_code == 401:
         raise ValueError(' ERROR: Username/Password are incorrect.')
     elif response.status_code != 200:
-        print(' ERROR: Something went wrong, will try again in 30 seconds.')
+        logger.debug('ERROR: Something went wrong, will try again in 30 seconds.')
         response.raise_for_status()
 
     # get download size
@@ -296,7 +293,7 @@ def s1_download(argument_list):
             # get byte offset for already downloaded file
             header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
 
-            print(' INFO: Downloading scene to: {}'.format(filename))
+            logger.debug('INFO: Downloading scene to: {}'.format(filename))
             response = requests.get(url, headers=header, stream=True,
                                     auth=(uname, pword))
 
@@ -318,20 +315,20 @@ def s1_download(argument_list):
             first_byte = os.path.getsize(filename)
 
         # zipFile check
-        print(' INFO: Checking the zip archive of {} for inconsistency'.format(
+        logger.debug('INFO: Checking the zip archive of {} for inconsistency'.format(
             filename))
         zip_test = h.check_zipfile(filename)
         
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            print(' INFO: {} did not pass the zip test. \
+            logger.debug('INFO: {} did not pass the zip test. \
                   Re-downloading the full scene.'.format(filename))
             os.remove(filename)
             first_byte = 0
         # otherwise we change the status to True
         else:
-            print(' INFO: {} passed the zip test.'.format(filename))
+            logger.debug('INFO: {} passed the zip test.'.format(filename))
             with open(str('{}.downloaded'.format(filename)), 'w') as file:
                 file.write('successfully downloaded \n')
 
@@ -361,7 +358,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                 uuid = scene.scihub_uuid(scihub.connect(uname, pword)) 
             
             if os.path.exists('{}.downloaded'.format(filepath)):
-                print(' INFO: {} is already downloaded.'
+                logger.debug('INFO: {} is already downloaded.'
                       .format(scene.scene_id))
             else:
                 # create list objects for download
@@ -376,7 +373,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                 '*.zip.downloaded'))
     
         if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
-            print(' INFO: All products are downloaded.')
+            logger.debug('INFO: All products are downloaded.')
             check = True
         else:
             check = False

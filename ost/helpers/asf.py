@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
-'''This module provides functions for connecting and downloading
-from Alaska satellite Faciltity's Vertex server
-'''
-
 import os
 from os.path import join as opj
 import glob
+import logging
 import requests
 import tqdm
 import multiprocessing
 
 from ost.helpers import helpers as h
 from ost import Sentinel1Scene as S1Scene
+
+logger = logging.getLogger(__name__)
 
 
 # we need this class for earthdata access
@@ -85,7 +83,7 @@ def s1_download(argument_list):
 
     session = SessionWithHeaderRedirection(uname, pword)
 
-    print(' INFO: Downloading scene to: {}'.format(filename))
+    logger.debug('INFO: Downloading scene to: {}'.format(filename))
     # submit the request using the session
     response = session.get(url, stream=True)
 
@@ -133,22 +131,23 @@ def s1_download(argument_list):
             # updated fileSize
             first_byte = os.path.getsize(filename)
 
-        print(' INFO: Checking the zip archive of {} for inconsistency'
+        logger.debug('INFO: Checking the zip archive of {} for inconsistency'
                   .format(filename))
         zip_test = h.check_zipfile(filename)
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            print(' INFO: {} did not pass the zip test. \
+            logger.debug('INFO: {} did not pass the zip test. \
                   Re-downloading the full scene.'.format(filename))
             if os.path.exists(filename):
                 os.remove(filename)
                 first_byte = 0
             # otherwise we change the status to True
         else:
-            print(' INFO: {} passed the zip test.'.format(filename))
+            logger.debug('INFO: {} passed the zip test.'.format(filename))
             with open(str('{}.downloaded'.format(filename)), 'w') as file:
                 file.write('successfully downloaded \n')
+
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
@@ -167,7 +166,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
             filepath = scene._download_path(download_dir, True)
 
             if os.path.exists('{}.downloaded'.format(filepath)):
-                print(' INFO: {} is already downloaded.'
+                logger.debug('INFO: {} is already downloaded.'
                       .format(scene.scene_id))
             else:
                 asf_list.append([scene.asf_url(), filepath,
@@ -183,7 +182,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
         if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
             check = True
-            print(' INFO: All products are downloaded.')
+            logger.debug('INFO: All products are downloaded.')
         else:
             check = False
             for scene in scenes:

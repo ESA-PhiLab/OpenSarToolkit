@@ -8,6 +8,7 @@ from os.path import join as opj
 import shutil
 import glob
 import time
+import logging
 import datetime
 import itertools
 
@@ -17,6 +18,8 @@ import geopandas as gpd
 from ost.helpers import scihub, vector as vec, raster as ras, helpers as h
 from ost.s1 import burst_to_ard, ts
 from ost import Sentinel1Scene as S1Scene
+
+logger = logging.getLogger(__name__)
 
 
 def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
@@ -43,7 +46,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         # read into S1Scene class
         scene = S1Scene(scene_id)
 
-        print(' INFO: Getting burst info from {}.'.format(scene.scene_id))
+        logger.debug('INFO: Getting burst info from {}.'.format(scene.scene_id))
         
         # get orbit direction
         orbit_direction = inventory_df[
@@ -51,17 +54,17 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
         filepath = scene.get_path(download_dir, data_mount)
         if not filepath:
-            print(' INFO: Retrieving burst info from scihub'
-                  ' (need to download xml files)')
+            logger.debug('INFO: Retrieving burst info from scihub'
+                  '(need to download xml files)')
             if not uname and not pword:
                 uname, pword = scihub.ask_credentials()
                 
             opener = scihub.connect(uname=uname, pword=pword)
             if scene.scihub_online_status(opener) is False:
-                print(' INFO: Product needs to be online'
-                      ' to create a burst database.')
-                print(' INFO: Download the product first and '
-                      ' do the burst list from the local data.')
+                logger.debug('INFO: Product needs to be online'
+                      'to create a burst database.')
+                logger.debug('INFO: Download the product first and '
+                      'do the burst list from the local data.')
             else:
                 single_gdf = scene._scihub_annotation_get(uname, pword)
         elif filepath[-4:] == '.zip':
@@ -89,8 +92,8 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
     # create the acrual burst id
     gdf_full['bid'] = gdf_full.Direction.str[0] + \
-        gdf_full.Track.astype(str) + '_' + \
-        gdf_full.SwathID.astype(str) + '_' + \
+        gdf_full.Track.astype(str) + '_'+ \
+        gdf_full.SwathID.astype(str) + '_'+ \
         gdf_full.AnxTime.astype(str)
 
     # save file to out
@@ -119,13 +122,13 @@ def refine_burst_inventory(aoi, burst_gdf, outfile):
     # get columns of input dataframe for later return function
     cols = burst_gdf.columns
 
-    # 1) get only intersecting footprints (double, since we do this before)
+    # 1) get only intersecting footlogger.debugs (double, since we do this before)
     burst_gdf = gpd.sjoin(burst_gdf, aoi_gdf, how='inner', op='intersects')
 
     # if aoi  gdf has an id field we need to rename the changed id_left field
-    if 'id_left' in burst_gdf.columns.tolist():
+    if 'id_left'in burst_gdf.columns.tolist():
         # rename id_left to id
-        burst_gdf.columns = (['id' if x == 'id_left' else x
+        burst_gdf.columns = (['id'if x == 'id_left'else x
                               for x in burst_gdf.columns.tolist()])
 
     # save file to out
@@ -168,7 +171,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
 
         # loop through dates
         for idx, date in enumerate(dates):      # ******
-            print(' INFO: Entering burst {} at date {}.'.format(burst, date))
+            logger.debug('INFO: Entering burst {} at date {}.'.format(burst, date))
             # get master date
             master_date = dates[idx]
             # we set this for handling the end of the time-series
@@ -180,8 +183,8 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                 slave_date = dates[idx + 1]    # last burst in timeseries?
             except IndexError:
                 end = True
-                print(' INFO: Reached the end of the time-series.'
-                      ' Therefore no coherence calculation is done.')
+                logger.debug('INFO: Reached the end of the time-series.'
+                      'Therefore no coherence calculation is done.')
             else:
                 end = False
 
@@ -207,7 +210,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
 
             # check if already processed
             if os.path.isfile(opj(out_dir, '.processed')):
-                print(' INFO: Burst {} from {} already processed'.format(
+                logger.debug('INFO: Burst {} from {} already processed'.format(
                     burst, date))
                 # return_code = 0
             else:
@@ -266,7 +269,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
     
     # get common burst extent
     list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
-    list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
+    list_of_scenes = [x for x in list_of_scenes if 'layover'not in x]
     extent = opj(burst_dir, '{}.extent.shp'.format(burst))
     ts.mt_extent(list_of_scenes, extent, temp_dir, buffer=-0.0018)
 
@@ -277,14 +280,14 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
     # layover/shadow mask
     if ls_mask_create is True:
         list_of_scenes = glob.glob(opj(burst_dir, '20*', '*data*', '*img'))
-        list_of_layover = [x for x in list_of_scenes if 'layover' in x]
+        list_of_layover = [x for x in list_of_scenes if 'layover'in x]
         out_ls = opj(burst_dir, '{}.ls_mask.tif'.format(burst))
         ts.mt_layover(list_of_layover, out_ls, temp_dir, extent=extent)
-        print(' INFO: Our common layover mask is located at {}'.format(
+        logger.debug('INFO: Our common layover mask is located at {}'.format(
               out_ls))
 
     if ls_mask_apply:
-        print(' INFO: Calculating symetrical difference of extent and ls_mask')
+        logger.debug('INFO: Calculating symetrical difference of extent and ls_mask')
         ras.polygonize_raster(out_ls, '{}.shp'.format(out_ls[:-4]))
         extent_ls_masked = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
         vec.difference(extent, '{}.shp'.format(out_ls[:-4]), extent_ls_masked)
@@ -471,7 +474,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
             list_of_ts_bursts = '\'{}\''.format(','.join(
                 list_of_ts_bursts))
 
-            # print(list_of_ts_bursts)
+            # logger.debug(list_of_ts_bursts)
 
             out_dir = opj(processing_dir, '{}/Timeseries'.format(burst))
             os.makedirs(out_dir, exist_ok=True)
@@ -518,7 +521,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                 outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
                         i, out_date, p, pol))
                 # mask by extent
-                max_value = 90 if pol is 'Alpha' else 1
+                max_value = 90 if pol is 'Alpha'else 1
                 ras.mask_by_shape(
                     infile, outfile,
                     extent,
@@ -557,7 +560,7 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
     for burst in burst_inventory.bid.unique():      # ***
 
         #if os.path.isfile(opj(burst_dir, 'Timeseries', '.processed')):
-        #    print(' INFO: Timeseries for track {} already processed.'.format(burst))
+        #    logger.debug('INFO: Timeseries for track {} already processed.'.format(burst))
         #else:
         _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                burst, to_db_mt, ls_mask_create, ls_mask_apply,
@@ -577,7 +580,7 @@ def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
         for timeseries in glob.glob(opj(burst_dir, 'Timeseries',
                                         '*{}*vrt'.format(product))):
 
-            print(' INFO: Creating timescan for {}'.format(product))
+            logger.debug('INFO: Creating timescan for {}'.format(product))
             timescan_dir = opj(burst_dir, 'Timescan')
             os.makedirs(timescan_dir, exist_ok=True)
 
@@ -594,7 +597,7 @@ def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
                                    polarisation))
 
             start = time.time()
-            if 'BS.' in timescan_prefix:    # backscatter
+            if 'BS.'in timescan_prefix:    # backscatter
                 ts.mt_metrics(timeseries, timescan_prefix, metrics,
                               rescale_to_datatype=True,
                               to_power=to_db,
@@ -608,7 +611,7 @@ def _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
             h.timer(start)
 
     # rename and create vrt
-    # print('renaming')
+    # logger.debug('renaming')
     i, list_of_files = 0, []
     for product in itertools.product(product_list, metrics):
 
@@ -648,7 +651,7 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
 
         burst_dir = opj(processing_dir, burst)
 
-        print(' INFO: Entering burst {}'.format(burst))
+        logger.debug('INFO: Entering burst {}'.format(burst))
         _timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
                                 burst_dir, to_db, metrics, outlier_removal)
 
@@ -683,13 +686,13 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
                     .format(i + 1, product)))
             
             if filelist:
-                print(' INFO: Creating timeseries mosaic {} for {}.'.format(
+                logger.debug('INFO: Creating timeseries mosaic {} for {}.'.format(
                     i + 1, product))
     
                 datelist = []
                 
                 for file in filelist:
-                    if '.coh.' in file:
+                    if '.coh.'in file:
                         datelist.append('{}_{}'.format(
                             os.path.basename(file).split('.')[2],
                             os.path.basename(file).split('.')[1]))
@@ -709,7 +712,7 @@ def mosaic_timeseries(burst_inventory, processing_dir, temp_dir,
                     
                     
                 list_of_files.append(outfile)
-                filelist = ' '.join(filelist)
+                filelist = ''.join(filelist)
 
                 # the command
                 command = ('otbcli_Mosaic -il {} -comp.feather large '
@@ -735,7 +738,7 @@ def mosaic_timescan(burst_inventory, processing_dir, temp_dir, ard_parameters):
     i, list_of_files = 0, []
     for product in itertools.product(product_list, metrics):   # ****
 
-        filelist = ' '.join(glob.glob(
+        filelist = ''.join(glob.glob(
             opj(processing_dir, '*', 'Timescan', '*{}.{}.tif'.format(
                 product[0], product[1]))))
 
@@ -744,7 +747,7 @@ def mosaic_timescan(burst_inventory, processing_dir, temp_dir, ard_parameters):
             outfile = opj(processing_dir, 'Mosaic', 'Timescan',
                           '{}.{}.{}.tif'.format(i, product[0], product[1]))
             command = ('otbcli_Mosaic -il {} -comp.feather large -tmpdir {}'
-                       ' -progress 1 -out {} float'.format(
+                       '-progress 1 -out {} float'.format(
                                filelist, temp_dir, outfile))
             os.system(command)
             list_of_files.append(outfile)

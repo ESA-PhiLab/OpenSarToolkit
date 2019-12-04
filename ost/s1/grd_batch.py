@@ -1,6 +1,3 @@
-#! /usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 '''
 This script allows to produce Sentinel-1 backscatter ARD data
 from a set of different GRD products.
@@ -46,26 +43,25 @@ python3 grd_to_ardBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
     -o    defines the /path/to/the/output
 '''
 
-# import standard python libs
 import os
+from os.path import join as opj
 import glob
 import datetime
 import gdal
+import logging
 import itertools
 import shutil
 
-# for os independent paths use opj shortcut
-from os.path import join as opj
-
-# import ost libs
 from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard, ts
 from ost.helpers import raster as ras, vector as vec
 from ost.helpers import helpers as h
 
+logger = logging.getLogger(__name__)
+
 
 def _create_processing_dict(inventory_df):
-    ''' This function might be obsolete?
+    '''This function might be obsolete?
 
     '''
 
@@ -132,8 +128,8 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
 
                 # check if already processed
                 if os.path.isfile(opj(out_dir, '.processed')):
-                    print(' INFO: Acquisition from {} of track {}'
-                          ' already processed'.format(acquisition_date, track))
+                    logger.debug('INFO: Acquisition from {} of track {}'
+                          'already processed'.format(acquisition_date, track))
                 else:
                     # get the paths to the file
                     scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
@@ -175,18 +171,18 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir, ard_parameters):
 
     for track, allScenes in processing_dict.items():
   
-        print(' INFO: Entering track {}.'.format(track))
+        logger.debug('INFO: Entering track {}.'.format(track))
         track_dir = opj(processing_dir, track)
         all_outfiles = []
         
         if os.path.isfile(opj(track_dir, 'Timeseries', '.processed')):
-            print(' INFO: Timeseries for track {} already processed.'.format(track))
+            logger.debug('INFO: Timeseries for track {} already processed.'.format(track))
         else:
-            print(' INFO: Processing Timeseries for track {}.'.format(track))
+            logger.debug('INFO: Processing Timeseries for track {}.'.format(track))
             # 1) get minimum valid extent (i.e. assure value fo each pixel throughout the whole time-series)
-            print(' INFO: Calculating the minimum extent.')
+            logger.debug('INFO: Calculating the minimum extent.')
             list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-            list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
+            list_of_scenes = [x for x in list_of_scenes if 'layover'not in x]
             extent = opj(track_dir, '{}.extent.shp'.format(track))
             ts.mt_extent(list_of_scenes, extent, temp_dir, buffer=-0.0018)
         
@@ -196,14 +192,14 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir, ard_parameters):
             
             if ls_mask_create:
                 list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-                list_of_layover = [x for x in list_of_scenes if 'layover' in x]
+                list_of_layover = [x for x in list_of_scenes if 'layover'in x]
                 out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
                 ts.mt_layover(list_of_layover, out_ls, temp_dir, extent=extent)
-                print(' INFO: Our common layover mask is located at {}'.format(
+                logger.debug('INFO: Our common layover mask is located at {}'.format(
                         out_ls))
     
             if ls_mask_apply:
-                print(' INFO: Calculating symetrical difference of extent and ls_mask')
+                logger.debug('INFO: Calculating symetrical difference of extent and ls_mask')
                 ras.polygonize_raster(out_ls, '{}.shp'.format(out_ls[:-4]))
                 extent_ls_masked = opj(track_dir, '{}.extent.masked.shp'.format(track))
                 vec.difference(extent, '{}.shp'.format(out_ls[:-4]), extent_ls_masked)
@@ -306,15 +302,15 @@ def timeseries_to_timescan(inventory_df, processing_dir, ard_parameters):
     # loop through tracks
     for track, allScenes in processing_dict.items():
 
-        print(' INFO: Entering track {}.'.format(track))
+        logger.debug('INFO: Entering track {}.'.format(track))
         
         # get track directory
         track_dir = opj(processing_dir, track)
         
         if os.path.isfile(opj(track_dir, 'Timescan', '.processed')):
-            print(' INFO: Timescans for track {} already processed.'.format(track))
+            logger.debug('INFO: Timescans for track {} already processed.'.format(track))
         else:
-            print(' INFO: Processing Timescans for track {}.'.format(track))
+            logger.debug('INFO: Processing Timescans for track {}.'.format(track))
             # define and create Timescan directory
             timescan_dir = opj(track_dir, 'Timescan')
             os.makedirs(timescan_dir, exist_ok=True)
@@ -373,7 +369,7 @@ def timeseries_to_timescan(inventory_df, processing_dir, ard_parameters):
 
 def mosaic_timeseries(inventory_df, processing_dir, temp_dir):
 
-    print('INFO: Mosaicking Time-series layers')
+    logger.debug('INFO: Mosaicking Time-series layers')
     
     for p in ['VV', 'VH', 'HH', 'HV']:
 
@@ -395,13 +391,13 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir):
                 filelist = glob.glob(opj(
                     processing_dir, '*', 'Timeseries', 
                     '{}.*.{}.tif'.format(j, p)))
-                filelist = [file for file in filelist if 'Mosaic' not in file]
-                #print(filelist)
+                filelist = [file for file in filelist if 'Mosaic'not in file]
+                #logger.debug(filelist)
                 datelist = []
                 for file in filelist:
                     datelist.append(os.path.basename(file).split('.')[1])
                     
-                filelist = ' '.join(filelist)
+                filelist = ''.join(filelist)
                 start = sorted(datelist)[0]
                 end = sorted(datelist)[-1]
                     
@@ -417,9 +413,9 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir):
                 outfiles.append(outfile)
                 
                 if os.path.isfile(check_file):
-                    print(' INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
+                    logger.debug('INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
                 else:
-                    print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+                    logger.debug('INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
                     cmd = ('otbcli_Mosaic -ram 4096 -progress 1 \
                             -comp.feather large -harmo.method band \
                             -harmo.cost rmse -temp_dir {} -il {} \
@@ -449,7 +445,7 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir):
 
 def mosaic_timescan(inventory_df, processing_dir, temp_dir, ard_parameters):
     
-    print('INFO: Mosaicking Timescan layers')
+    logger.debug('INFO: Mosaicking Timescan layers')
     metrics = ard_parameters['metrics']
     outfiles = []
     for p in ['VV', 'VH', 'HH', 'HV']: 
@@ -465,7 +461,7 @@ def mosaic_timescan(inventory_df, processing_dir, temp_dir, ard_parameters):
             if len(filelist) >= 2:
                 # get number
                 i = os.path.basename(filelist[0]).split('.')[0]
-                filelist = ' '.join(filelist)
+                filelist = ''.join(filelist)
                 
                 outfile = opj(processing_dir, 'Mosaic', 'Timescan', '{}.BS.{}.{}.tif'.format(i, p, metric))
                 check_file = opj(processing_dir, 'Mosaic', 'Timescan', '.{}.BS.{}.{}.processed'.format(i, p, metric))
@@ -474,9 +470,9 @@ def mosaic_timescan(inventory_df, processing_dir, temp_dir, ard_parameters):
                 outfiles.append(outfile)
                 
                 if os.path.isfile(check_file):
-                    print(' INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
+                    logger.debug('INFO: Mosaic layer {} already processed.'.format(os.path.basename(outfile)))
                 else:
-                    print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+                    logger.debug('INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
                     cmd = ('otbcli_Mosaic -ram 4096 -progress 1 \
                                 -comp.feather large -harmo.method band \
                                 -harmo.cost rmse -temp_dir {} -il {} \

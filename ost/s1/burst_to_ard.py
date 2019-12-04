@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
 from os.path import join as opj
+import logging
 import imp
 import sys
 
 from ost.helpers import helpers as h
+
+logger = logging.getLogger(__name__)
 
 
 def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
@@ -37,20 +40,21 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
 
-    print(' INFO: Importing Burst {} from Swath {}'
-          ' from scene {}'.format(burst, swath, os.path.basename(infile)))
+    logger.debug('INFO: Importing Burst {} from Swath {}'
+                 'from scene {}'.format(burst, swath, os.path.basename(infile))
+                 )
 
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
-                      -Pburst={} -Poutput={}' \
+                      -Pburst={} -Poutput={}'\
         .format(gpt_file, graph, os.cpu_count(), infile, polar, swath,
                 burst, out_prefix)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('INFO: Succesfully imported product')
     else:
-        print(' ERROR: Frame import exited with an error. \
+        logger.debug('ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(119)
 
@@ -89,16 +93,16 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Halpha.xml')
 
-    print(" INFO: Calculating the H-alpha dual polarisation")
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
+    logger.debug("INFO: Calculating the H-alpha dual polarisation")
+    command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
         .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created H/Alpha product')
+        logger.debug('INFO: Succesfully created H/Alpha product')
     else:
-        print(' ERROR: H/Alpha exited with an error. \
+        logger.debug('ERROR: H/Alpha exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -138,31 +142,31 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     rootpath = imp.find_module('ost')[1]
 
     if product_type == 'RTC':
-        print(' INFO: Calibrating the product to a RTC product.')
+        logger.debug('INFO: Calibrating the product to a RTC product.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_Calbeta_Deb.xml')
     elif product_type == 'GTCgamma':
-        print(' INFO: Calibrating the product to a GTC product (Gamma0).')
+        logger.debug('INFO: Calibrating the product to a GTC product (Gamma0).')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalGamma_Deb.xml')
     elif product_type == 'GTCsigma':
-        print(' INFO: Calibrating the product to a GTC product (Sigma0).')
+        logger.debug('INFO: Calibrating the product to a GTC product (Sigma0).')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalSigma_Deb.xml')
     else:
-        print(' ERROR: Wrong product type selected.')
+        logger.debug('ERROR: Wrong product type selected.')
         sys.exit(121)
 
-    print(" INFO: Removing thermal noise, calibrating and debursting")
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
+    logger.debug("INFO: Removing thermal noise, calibrating and debursting")
+    command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
         .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully calibrated product')
+        logger.debug('INFO: Succesfully calibrated product')
     else:
-        print(' ERROR: Frame import exited with an error. \
+        logger.debug('ERROR: Frame import exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -188,13 +192,13 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     # get gpt file
     gpt_file = h.gpt_path()
 
-    print(' INFO: Correcting for the illumination along slopes'
-          ' (Terrain Flattening).')
+    logger.debug('INFO: Correcting for the illumination along slopes'
+          '(Terrain Flattening).')
 
     #snap_list = []
     #if dem is in snap_list:
     command = '{} Terrain-Flattening -x -q {} -PadditionalOverlap=0.15  \
-               -PoversamplingMultiple=1.5 -PdemName=\'{}\' -t {} {}'.format(
+               -PoversamplingMultiple=1.5 -PdemName=\'{}\'-t {} {}'.format(
                    gpt_file, 2 * os.cpu_count(), dem, outfile, infile)
     #elif ospath.isfile(dem ):
     #   external dem
@@ -202,9 +206,9 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully applied the terrain flattening.')
+        logger.debug('INFO: Succesfully applied the terrain flattening.')
     else:
-        print(' ERROR: Terrain Flattening exited with an error. \
+        logger.debug('ERROR: Terrain Flattening exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -230,10 +234,10 @@ def _speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying the Lee-Sigma Speckle Filter')
+    logger.debug('INFO: Applying the Lee-Sigma Speckle Filter')
     # contrcut command string
     command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
+              -t \'{}\'\'{}\''.format(gpt_file, 2 * os.cpu_count(),
                                        outfile, infile)
 
     # run command and get return code
@@ -241,9 +245,9 @@ def _speckle_filter(infile, outfile, logfile):
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully speckle-filtered product')
+        logger.debug('INFO: Succesfully speckle-filtered product')
     else:
-        print(' ERROR: Speckle Filtering exited with an error. \
+        logger.debug('ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(111)
 
@@ -268,9 +272,9 @@ def _linear_to_db(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Converting the image to dB-scale.')
+    logger.debug('INFO: Converting the image to dB-scale.')
     # construct command string
-    command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
+    command = '{} LinearToFromdB -x -q {} -t \'{}\'{}'.format(
         gpt_file, 2 * os.cpu_count(), outfile, infile)
 
     # run command and get return code
@@ -278,9 +282,9 @@ def _linear_to_db(infile, outfile, logfile):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully converted product to dB-scale.')
+        logger.debug('INFO: Succesfully converted product to dB-scale.')
     else:
-        print(' ERROR: Linear to dB conversion exited with an error. \
+        logger.debug('ERROR: Linear to dB conversion exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(113)
     return return_code
@@ -302,7 +306,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1sec HGT'):
         resolution (int): the resolution of the output product in meters
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -316,17 +320,17 @@ def _ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1sec HGT'):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')
 
-    print(" INFO: Compute Layover/Shadow mask")
-    command = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={} -Pdem=\'{}\'' \
+    logger.debug("INFO: Compute Layover/Shadow mask")
+    command = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={} -Pdem=\'{}\''\
         .format(gpt_file, graph, 2 * os.cpu_count(), infile, resolution,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created Layover/Shadow mask')
+        logger.debug('INFO: Succesfully created Layover/Shadow mask')
     else:
-        print(' ERROR: Layover/Shadow mask creation exited with an error. \
+        logger.debug('ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -349,7 +353,7 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
                  where SNAP'S STDOUT/STDERR is written to
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -363,16 +367,16 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
 
-    print(' INFO: Co-registering {}'.format(filelist[0]))
+    logger.debug('INFO: Co-registering {}'.format(filelist[0]))
     command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
         .format(gpt_file, graph, 2 * os.cpu_count(), filelist, outfile, dem)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product.')
+        logger.debug('INFO: Succesfully coregistered product.')
     else:
-        print(' ERROR: Co-registration exited with an error. \
+        logger.debug('ERROR: Co-registration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(112)
 
@@ -395,7 +399,7 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
                  where SNAP'S STDOUT/STDERR is written to
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -409,7 +413,7 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
 
-    print(' INFO: Co-registering {} and {}'.format(master, slave))
+    logger.debug('INFO: Co-registering {} and {}'.format(master, slave))
     command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} -Pdem=\'{}\''\
         .format(gpt_file, graph, 2 * os.cpu_count(), master, slave,
                 outfile, dem)
@@ -417,9 +421,9 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product.')
+        logger.debug('INFO: Succesfully coregistered product.')
     else:
-        print(' ERROR: Co-registration exited with an error. \
+        logger.debug('ERROR: Co-registration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(112)
 
@@ -449,16 +453,16 @@ def _coherence(infile, outfile, logfile):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
 
-    print(' INFO: Coherence estimation')
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
+    logger.debug('INFO: Coherence estimation')
+    command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
         .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created coherence product.')
+        logger.debug('INFO: Succesfully created coherence product.')
     else:
-        print(' ERROR: Coherence exited with an error. \
+        logger.debug('ERROR: Coherence exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -482,7 +486,7 @@ def _terrain_correction(infile, outfile, logfile, resolution,
         resolution (int): the resolution of the output product in meters
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -492,24 +496,24 @@ def _terrain_correction(infile, outfile, logfile, resolution,
     # get gpt file
     gpt_file = h.gpt_path()
 
-    print(" INFO: Geocoding input scene")
+    logger.debug("INFO: Geocoding input scene")
 
     command = '{} Terrain-Correction -x -q {} \
-              -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\' \
-              -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\' \
-              -PnodataValueAtSea=\'false\' \
-              -PpixelSpacingInMeter=\'{}\' \
-              -PdemName=\'{}\' \
-              -t {} {}' \
+              -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\'\
+              -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\'\
+              -PnodataValueAtSea=\'false\'\
+              -PpixelSpacingInMeter=\'{}\'\
+              -PdemName=\'{}\'\
+              -t {} {}'\
               .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully orthorectified product.')
+        logger.debug('INFO: Succesfully orthorectified product.')
     else:
-        print(' ERROR: Geocoding exited with an error. \
+        logger.debug('ERROR: Geocoding exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(122)
 
@@ -533,7 +537,7 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
         resolution (int): the resolution of the output product in degree
         dem (str): A Snap compliant string for the dem to use.
                    Possible choices are:
-                       'SRTM 1sec HGT' (default)
+                       'SRTM 1sec HGT'(default)
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
@@ -543,23 +547,23 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
     # get gpt file
     gpt_file = h.gpt_path()
 
-    print(" INFO: Geocoding input scene")
+    logger.debug("INFO: Geocoding input scene")
     command = '{} Terrain-Correction -x -q {} \
-              -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\' \
-              -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\' \
-              -PnodataValueAtSea=\'false\' \
-              -PpixelSpacingInDegree=\'{}\' \
-              -PdemName=\'{}\' \
-              -t {} {}' \
+              -PdemResamplingMethod=\'BILINEAR_INTERPOLATION\'\
+              -PimgResamplingMethod=\'BILINEAR_INTERPOLATION\'\
+              -PnodataValueAtSea=\'false\'\
+              -PpixelSpacingInDegree=\'{}\'\
+              -PdemName=\'{}\'\
+              -t {} {}'\
               .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully orthorectified product.')
+        logger.debug('INFO: Succesfully orthorectified product.')
     else:
-        print(' ERROR: Geocoding exited with an error. \
+        logger.debug('ERROR: Geocoding exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(122)
 
@@ -770,8 +774,8 @@ def burst_to_ard(master_file,
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
         # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
-        print('{}.dim'.format(master_import))
-        print('{}.dim'.format(slave_import))
+        logger.debug('{}.dim'.format(master_import))
+        logger.debug('{}.dim'.format(slave_import))
         return_code = _coreg2('{}.dim'.format(master_import),
                               '{}.dim'.format(slave_import),
                               out_coreg,
@@ -853,71 +857,71 @@ def burst_to_ard(master_file,
 #
 #    # search paramenters
 #    parser.add_argument('-m', '--master',
-#                        help=' (str) path to the master SLC',
+#                        help='(str) path to the master SLC',
 #                        required=True)
 #    parser.add_argument('-mn', '--master_burst_nr',
-#                        help=' (int) The index number of the master burst',
+#                        help='(int) The index number of the master burst',
 #                        required=True)
 #    parser.add_argument('-mi', '--master_burst_id',
-#                        help=' (str) The OST burst id of the master burst')
+#                        help='(str) The OST burst id of the master burst')
 #    parser.add_argument('-s', '--slave',
-#                        help=' (str) path to the slave SLC')
+#                        help='(str) path to the slave SLC')
 #    parser.add_argument('-sn', '--slave_burst_nr',
-#                        help=' (int) The index number of the slave burst')
+#                        help='(int) The index number of the slave burst')
 #    parser.add_argument('-si', '--slave_burst_id',
-#                        help=' (str) The OST burst id of the slave burst')
+#                        help='(str) The OST burst id of the slave burst')
 #    parser.add_argument('-o', '--out-directory',
 #                        help='The directory where the outputfiles will'
-#                             ' be written to.',
+#                             'be written to.',
 #                        required=True)
 #    parser.add_argument('-t', '--tempdir',
 #                        help='The directory where temporary files will'
-#                             ' be written to.',
+#                             'be written to.',
 #                        required=True)
 #    parser.add_argument('-coh', '--coherence',
-#                        help=' (bool) Set to True if the interferometric '
+#                        help='(bool) Set to True if the interferometric '
 #                        'coherence should be calculated.',
 #                        default=True)
 #    parser.add_argument('-pol', '--polarimetric-decomposition',
-#                        help=' (bool) (bool) Set to True if the polarimetric '
+#                        help='(bool) (bool) Set to True if the polarimetric '
 #                        'H/A/Alpha decomposition should be calculated.',
 #                        default=True)
 #    parser.add_argument('-ps', '--polarimetric-speckle-filter',
-#                        help=' (bool) Set to True if speckle filtering should'
-#                             ' be applied on the polarimetric'
-#                             ' H/A/Alpha decomposition',
+#                        help='(bool) Set to True if speckle filtering should'
+#                             'be applied on the polarimetric'
+#                             'H/A/Alpha decomposition',
 #                        default=True)
 #    parser.add_argument('-ls', '--ls-mask',
-#                        help=' (bool) Set to True for the creation of the'
-#                             ' layover/shadow mask.',
+#                        help='(bool) Set to True for the creation of the'
+#                             'layover/shadow mask.',
 #                        default=True)
 #    parser.add_argument('-sp', "--speckle-filter",
-#                        help=' (bool) Set to True if speckle filtering on'
-#                             ' backscatter should be applied.',
+#                        help='(bool) Set to True if speckle filtering on'
+#                             'backscatter should be applied.',
 #                        default=False)
 #    parser.add_argument('-r', '--resolution',
-#                        help=' (int) Resolution of the desired output data'
-#                             ' in meters',
+#                        help='(int) Resolution of the desired output data'
+#                             'in meters',
 #                        default=20)
 #    parser.add_argument('-pt', '--product-type',
-#                        help=' (str) The product type of the desired output'
-#                             ' in terms of calibrated backscatter'
-#                             ' (i.e.  either GTCsigma, GTCgamma, RTC)',
+#                        help='(str) The product type of the desired output'
+#                             'in terms of calibrated backscatter'
+#                             '(i.e.  either GTCsigma, GTCgamma, RTC)',
 #                        default='RTC')
 #    parser.add_argument('-db', '--to-decibel',
-#                        help=' (bool) Set to True if the desied output should'
-#                             ' be in dB scale',
+#                        help='(bool) Set to True if the desied output should'
+#                             'be in dB scale',
 #                        default=False)
 #    parser.add_argument('-d', '--dem',
-#                        help=' (str) Select the DEM for processing steps where'
-#                             ' the terrain information is needed.'
-#                             ' (Snap format)',
+#                        help='(str) Select the DEM for processing steps where'
+#                             'the terrain information is needed.'
+#                             '(Snap format)',
 #                        default='SRTM 1Sec HGT')
 #    parser.add_argument('-rsi', '--remove-slave-import',
-#                        help=' (bool) Select if during the coherence'
-#                             ' calculation the imported slave file should be'
-#                             ' deleted (for time-series it is advisable to'
-#                             ' keep it)',
+#                        help='(bool) Select if during the coherence'
+#                             'calculation the imported slave file should be'
+#                             'deleted (for time-series it is advisable to'
+#                             'keep it)',
 #                        default=False)
 #
 #    args = parser.parse_args()

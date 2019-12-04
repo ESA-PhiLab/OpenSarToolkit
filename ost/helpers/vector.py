@@ -4,6 +4,7 @@ from functools import partial
 
 import ogr
 import pyproj
+import logging
 import geopandas as gpd
 
 from osgeo import osr
@@ -12,6 +13,8 @@ from shapely.wkt import loads
 from shapely.geometry import Point, Polygon, mapping, shape
 from fiona import collection
 from fiona.crs import from_epsg
+
+logger = logging.getLogger(__name__)
 
 
 def get_epsg(prjfile):
@@ -49,14 +52,17 @@ def get_proj4(prjfile):
     prj_string = prj_file.read()
 
     # Lambert error
-    if '\"Lambert_Conformal_Conic\"' in prj_string:
+    if '\"Lambert_Conformal_Conic\"'in prj_string:
 
-        print(' ERROR: It seems you used an ESRI generated shapefile'
-              ' with Lambert Conformal Conic projection. ')
-        print(' This one is not compatible with Open Standard OGR/GDAL'
-              ' tools used here. ')
-        print(' Reproject your shapefile to a standard Lat/Long projection'
-              ' and try again')
+        logger.debug('ERROR: It seems you used an ESRI generated shapefile'
+                     'with Lambert Conformal Conic projection. '
+                     )
+        logger.debug('This one is not compatible with Open Standard OGR/GDAL'
+                     'tools used here. '
+                     )
+        logger.debug('Reproject your shapefile to a standard Lat/Long projection'
+                     'and try again'
+                     )
         exit(1)
 
     srs = osr.SpatialReference()
@@ -92,7 +98,7 @@ def reproject_geometry(geom, inproj4, out_epsg):
     try:
         geom.Transform(coord_transform)
     except:
-        print(' ERROR: Not able to transform the geometry')
+        logger.debug('ERROR: Not able to transform the geometry')
         sys.exit()
 
     return geom
@@ -198,7 +204,7 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
         wkt = geom.ExportToWkt()
 
     if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
+        logger.debug('INFO: Reprojecting AOI file to Lat/Long (WGS84)')
         wkt = reproject_geometry(wkt, proj4, 4326).ExportToWkt()
 
     # do manipulations if needed
@@ -245,7 +251,7 @@ def shp_to_gdf(shapefile):
     proj4 = get_proj4(prjfile)
 
     if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: reprojecting AOI layer to WGS84.')
+        logger.debug('INFO: reprojecting AOI layer to WGS84.')
         # reproject
         gdf.crs = (proj4)
         gdf = gdf.to_crs({'init': 'epsg:4326'})
@@ -265,7 +271,7 @@ def wkt_to_gdf(wkt):
                 'geometry': loads(wkt)}
         gdf = gpd.GeoDataFrame(data)
 
-    elif loads(wkt).geom_type == 'GeometryCollection' and len(loads(wkt)) == 1:
+    elif loads(wkt).geom_type == 'GeometryCollection'and len(loads(wkt)) == 1:
 
         data = {'id': ['1'],
                 'geometry': loads(wkt)}
@@ -312,9 +318,9 @@ def exterior(infile, outfile, buffer=None):
     gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
     gdf_clean = gdf[gdf.geometry.area >= 1.0e-6]
     gdf_clean.geometry = gdf_clean.geometry.buffer(-0.0018)
-    #if buffer:
+    # if buffer:
     #    gdf.geometry = gdf.geometry.apply(
-     #           lambda row: Polygon(row.buffer(-0.0018)))
+    #           lambda row: Polygon(row.buffer(-0.0018)))
     gdf_clean.to_file(outfile)
 
 
@@ -366,7 +372,7 @@ def plot_inventory(aoi, inventory_df, transperancy=0.05):
     # plot aoi
     aoi_gdf.plot(ax=base, color='None', edgecolor='black')
 
-    # plot footprints
+    # plot footlogger.debugs
     inventory_df.plot(ax=base, alpha=transperancy)
 
     # set bounds

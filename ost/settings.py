@@ -57,10 +57,10 @@ class ConfigParam():
 
         if not isinstance(value, self.type):
             raise TypeError(
-                "value must be type %s, not '%s' (%s)" % (self.type, value, type(value))
+                "value must be type %s, not '%s'(%s)"% (self.type, value, type(value))
             )
         if self.choice and value not in self.choice:
-            raise ValueError("value must be one of %s, not %s" % (self.choice, value))
+            raise ValueError("value must be one of %s, not %s"% (self.choice, value))
         return value
 
 
@@ -72,7 +72,7 @@ class ConfigParamGroup():
         self.required = required
 
     def __repr__(self):
-        return "ConfigParamGroup(required=%s, sub_params=%s)" % (
+        return "ConfigParamGroup(required=%s, sub_params=%s)"% (
             self.required, self.sub_params
         )
 
@@ -113,8 +113,8 @@ def get_param(param_name=None, process_config=None, default_config=None, prefix=
     process configuration, then default values.
     """
     if param_name not in default_config:
-        raise OSTConfigError("%s is not a valid parameter" % param_name)
-    env_prefix = "OST_" + prefix
+        raise OSTConfigError("%s is not a valid parameter"% param_name)
+    env_prefix = "OST_"+ prefix
     # get target type
     target_type = default_config[param_name].type
 
@@ -149,7 +149,7 @@ def get_param(param_name=None, process_config=None, default_config=None, prefix=
     try:
         value = default_config[param_name].parse(value)
     except Exception as e:
-        raise OSTConfigError("error on parameter '%s': %s" % (param_name, e))
+        raise OSTConfigError("error on parameter '%s': %s"% (param_name, e))
 
     logger.debug("use %s value: %s=%s", src, param_name, value)
     return value
@@ -163,7 +163,7 @@ SNAP_S1_RESAMPLING_METHODS = [
     'BISINC_11_POINT_INTERPOLATION',
     'BISINC_21_POINT_INTERPOLATION',
     'BICUBIC_INTERPOLATION',
-    # 'DELAUNAY_INTERPOLATION' not in TF Operator as of 2019-11
+    # 'DELAUNAY_INTERPOLATION'not in TF Operator as of 2019-11
     ]
 
 SINGLE_ARD_OPTIONS = ['CEOS', 'Earth Engine', 'OST Standard']

@@ -1,12 +1,10 @@
-'''This module contains the S1Scene class for handling of a Sentinel-1 product
-'''
-
 import os
 from os.path import join as opj
 import sys
 import json
 import glob
 import urllib
+import logging
 from urllib.error import URLError
 import zipfile
 import fnmatch
@@ -23,8 +21,10 @@ from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
+logger = logging.getLogger(__name__)
 
-class Sentinel1Scene():
+
+class Sentinel1Scene:
 
     def __init__(self, scene_id, ard_type='OST'):
         self.scene_id = scene_id
@@ -88,6 +88,19 @@ class Sentinel1Scene():
         self.set_ard_parameters(ard_type)
 
     def info(self):
+        inf_dict = {}
+        inf_dict.update(
+            Scene_Identifier=str(self.scene_id),
+            Satellite=str(self.satellite),
+            Acquisition_Mode=str(self.acq_mode),
+            Processing_Level=str(self.proc_level),
+            Product_Type=str(self.p_type),
+            Acquisition_Date=str(self.start_date),
+            Start_Time=str(self.start_time),
+            Stop_Time=str(self.stop_time),
+            Absolute_Orbit=str(self.abs_orbit),
+            Relative_Orbit=str(self.rel_orbit),
+        )
         print(" -------------------------------------------------")
         print(" Scene Information:")
         print(" Scene Identifier:        " + str(self.scene_id))
@@ -101,23 +114,24 @@ class Sentinel1Scene():
         print(" Absolute Orbit:          " + str(self.abs_orbit))
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
+        return inf_dict
 
     def download(self, download_dir, mirror=None):
         
         # if not mirror:
-        #    print(' INFO: One or more of your scenes need to be downloaded.')
-        #    print(' Select the server from where you want to download:')
-        #    print(' (1) Copernicus Apihub (ESA, rolling archive)')
-        #    print(' (2) Alaska Satellite Facility (NASA, full archive)')
-        #    print(' (3) PEPS (CNES, 1 year rolling archive)')
+        #    logger.debug('INFO: One or more of your scenes need to be downloaded.')
+        #    logger.debug('Select the server from where you want to download:')
+        #    logger.debug('(1) Copernicus Apihub (ESA, rolling archive)')
+        #    logger.debug('(2) Alaska Satellite Facility (NASA, full archive)')
+        #    logger.debug('(3) PEPS (CNES, 1 year rolling archive)')
         #    mirror = input(' Type 1, 2 or 3: ')
 
-        from ost.s1 import download
+        from ost.s1 import s1_dl
         # if mirror == 1:
         #     df = pd.DataFrame({'identifier': [self.scene_id]
         #                    {'uuid'}: self.scihub_uuid(opener)})
         df = pd.DataFrame({'identifier': [self.scene_id]})
-        download.download_sentinel1(df, download_dir)
+        s1_dl.download_sentinel1(df, download_dir)
 
     # location of file (including diases)
     def _download_path(self, download_dir, mkdir=False):
@@ -153,7 +167,7 @@ class Sentinel1Scene():
     
     def _mundi_path(self, mont_point):
 
-        # print(' Dummy function for mundi paths to be added')
+        # logger.debug('Dummy function for mundi paths to be added')
         return '/foo/foo/foo'
     
     def _onda_path(self, data_mount):
@@ -205,12 +219,12 @@ class Sentinel1Scene():
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.debug('We failed to connect to the server.')
+                logger.debug('Reason: ', error.reason)
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.debug('The server couldn\'t fulfill the request.')
+                logger.debug('Error code: ', error.code)
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -259,12 +273,12 @@ class Sentinel1Scene():
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.debug('We failed to connect to the server.')
+                logger.debug('Reason: ', error.reason)
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.debug('The server couldn\'t fulfill the request.')
+                logger.debug('Error code: ', error.code)
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -290,19 +304,19 @@ class Sentinel1Scene():
 
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.debug('We failed to connect to the server.')
+                logger.debug('Reason: ', error.reason)
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.debug('The server couldn\'t fulfill the request.')
+                logger.debug('Error code: ', error.code)
                 sys.exit()
 
         # write the request to to the response variable
         # (i.e. the xml coming back from scihub)
         code = req.getcode()
         if code == 202:
-            print(' Production of {} successfully requested.'
+            logger.debug('Production of {} successfully requested.'
                   .format(self.scene_id))
 
         return code
@@ -311,8 +325,9 @@ class Sentinel1Scene():
     def _scihub_annotation_url(self, opener):
         uuid = self.scihub_uuid(opener)
 
-        print(' INFO: Getting URLS of annotation files'
-              ' for S1 product: {}.'.format(self.scene_id))
+        logger.debug('INFO: Getting URLS of annotation files'
+                     ' for S1 product: {}.'.format(self.scene_id)
+                     )
         scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
         anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
                      'Nodes'.format(uuid, self.scene_id))
@@ -323,12 +338,12 @@ class Sentinel1Scene():
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.debug('We failed to connect to the server.')
+                logger.debug('Reason: ', error.reason)
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.debug('The server couldn\'t fulfill the request.')
+                logger.debug('Error code: ', error.code)
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -406,7 +421,7 @@ class Sentinel1Scene():
                 try:
                     firstthis = first[firstline]
                 except:
-                    print('First line not found in annotation file')
+                    logger.debug('First line not found in annotation file')
                     firstthis = []
             try:
                 lastthis = last[lastline]
@@ -415,7 +430,7 @@ class Sentinel1Scene():
                 try:
                     lastthis = last[lastline]
                 except:
-                    print('Last line not found in annotation file')
+                    logger.debug('Last line not found in annotation file')
                     lastthis = []
             corners = np.zeros([4, 2], dtype=np.float32)
 
@@ -468,12 +483,12 @@ class Sentinel1Scene():
                 req = opener.open(url)
             except URLError as error:
                 if hasattr(error, 'reason'):
-                    print(' We failed to connect to the server.')
-                    print(' Reason: ', error.reason)
+                    logger.debug('We failed to connect to the server.')
+                    logger.debug('Reason: ', error.reason)
                     sys.exit()
                 elif hasattr(error, 'code'):
-                    print(' The server couldn\'t fulfill the request.')
-                    print(' Error code: ', error.code)
+                    logger.debug('The server couldn\'t fulfill the request.')
+                    logger.debug('Error code: ', error.code)
                     sys.exit()
             else:
                 # write the request to to the response variable
@@ -542,13 +557,13 @@ class Sentinel1Scene():
             mission = 'SB'
 
         if self.product_type == 'SLC':
-            pType = self.product_type
+            product_type = self.product_type
         elif self.product_type == 'GRD':
-            pType = 'GRD_{}{}'.format(self.resolution_class, self.pol_mode[0])
+            product_type = 'GRD_{}{}'.format(self.resolution_class, self.pol_mode[0])
 
-        productURL = '{}/{}/{}/{}.zip'.format(asf_url, pType,
-                                              mission, self.scene_id)
-        return productURL
+        return '{}/{}/{}/{}.zip'.format(asf_url, product_type,
+                                        mission, self.scene_id
+                                        )
 
     def peps_uuid(self, uname, pword):
 
@@ -660,22 +675,26 @@ class Sentinel1Scene():
 
         self.center_lat = self._get_center_lat(infile)
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
+            logger.debug('INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                         ' DEM instead.'
+                         )
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
             if not self.ard_parameters:
-                print(' INFO: No ARD definition given.'
-                      ' Using the OST standard ARD defintion'
-                      ' Use object.set_ard_defintion() first if you want to'
-                      ' change the ARD defintion.')
+                logger.debug('INFO: No ARD definition given.'
+                             ' Using the OST standard ARD defintion'
+                             ' Use object.set_ard_defintion() first if you want to'
+                             ' change the ARD defintion.'
+                             )
                 self.set_ard_parameters('OST')
             if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
                 self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
-                print(' WARNING: Invalid resampling method using BILINEAR_INTERPOLATION')
+                logger.debug('WARNING: Invalid resampling method '
+                             'using BILINEAR_INTERPOLATION'
+                             )
 
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
@@ -701,8 +720,9 @@ class Sentinel1Scene():
                                            .format(out_prefix)))[0]
 
         elif self.product_type != 'GRD':
-            print(' ERROR: create_ard method for single products is currently'
-                  ' only available for GRD products')
+            logger.debug('ERROR: create_ard method for single products is currently'
+                         ' only available for GRD products'
+                         )
         if os.path.isfile(out_file):
             return out_file
         else:
@@ -741,7 +761,8 @@ class Sentinel1Scene():
         if scene_path[-4:] == '.zip':
             zip_archive = zipfile.ZipFile(scene_path)
             manifest = zip_archive.read('{}.SAFE/manifest.safe'
-                                                .format(self.scene_id))
+                                        .format(self.scene_id)
+                                        )
         elif scene_path[-5:] == '.SAFE':
             with open(opj(scene_path, 'manifest.safe'), 'rb') as file:
                 manifest = file.read()
@@ -753,17 +774,18 @@ class Sentinel1Scene():
                 for wrap in meta.findall('metadataWrap'):
                     for data in wrap.findall('xmlData'):
                         for frameSet in data.findall(
-                        '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
+                                '{http://www.esa.int/safe/sentinel-1.0}frameSet'
+                        ):
                             for frame in frameSet.findall(
-                            '{http://www.esa.int/safe/sentinel-1.0}frame'):
+                                    '{http://www.esa.int/safe/sentinel-1.0}frame'
+                            ):
                                 for footprint in frame.findall(
-                                '{http://www.esa.int/'
-                                'safe/sentinel-1.0}footPrint'):
+                                        '{http://www.esa.int/safe/sentinel-1.0}footPrint'
+                                ):
                                     for coords in footprint.findall(
-                                    '{http://www.opengis.net/gml}'
-                                    'coordinates'):
+                                            '{http://www.opengis.net/gml}coordinates'
+                                    ):
                                         coordinates = coords.text.split(' ')
-
         sums = 0
         for i, coords in enumerate(coordinates):
             sums = sums + float(coords.split(',')[0])

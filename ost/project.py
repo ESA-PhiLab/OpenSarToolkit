@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import glob
@@ -11,12 +9,10 @@ from datetime import datetime
 from shapely.wkt import loads
 
 from ost.helpers import vector as vec, raster as ras
-from ost.s1 import search, refine, download, burst, grd_batch
+from ost.s1 import search, refine, s1_dl, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 
-logging.basicConfig(stream=sys.stdout,
-                    format='%(levelname)s:%(message)s',
-                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Generic():
@@ -41,24 +37,25 @@ class Generic():
 
         # handle the import of different aoi formats and transform
         # to a WKT string
-        if aoi.split('.')[-1] != 'shp' and len(aoi) == 3:
+        if aoi.split('.')[-1] != 'shp'and len(aoi) == 3:
 
             # get lowres data
             world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
             country = world.name[world.iso_a3 == aoi].values[0]
-            print(' INFO: Getting the country boundaries from Geopandas low'
-                  ' resolution data for {}'.format(country))
+            logger.debug('INFO: Getting the country boundaries from Geopandas low'
+                         'resolution data for {}'.format(country)
+                         )
 
             self.aoi = (world['geometry']
                         [world['iso_a3'] == aoi].values[0].to_wkt())
         elif aoi.split('.')[-1] == 'shp':
             self.aoi = str(vec.shp_to_wkt(aoi))
-            print(' INFO: Using {} shapefile as Area of Interest definition.')
+            logger.debug('INFO: Using {} shapefile as Area of Interest definition.')
         else:
             try:
                 loads(str(aoi))
             except:
-                print(' ERROR: No valid OST AOI defintion.')
+                logger.debug('ERROR: No valid OST AOI defintion.')
                 sys.exit()
             else:
                 self.aoi = aoi
@@ -87,13 +84,14 @@ class Generic():
         '''
 
         if os.path.isdir(self.project_dir):
-            logging.warning(' Project directory already exists.'
-                            ' No data has been deleted at this point but'
-                            ' make sure you really want to use this folder.')
+            logging.warning('Project directory already exists.'
+                            'No data has been deleted at this point but'
+                            'make sure you really want to use this folder.'
+                            )
         else:
 
             os.makedirs(self.project_dir, exist_ok=True)
-            logging.info(' Created project directory at {}'
+            logging.info('Created project directory at {}'
                          .format(self.project_dir))
 
     def _create_download_dir(self, download_dir=None):
@@ -111,7 +109,7 @@ class Generic():
             self.download_dir = download_dir
 
         os.makedirs(self.download_dir, exist_ok=True)
-        logging.info(' Downloaded data will be stored in:{}'
+        logging.info('Downloaded data will be stored in:{}'
                      .format(self.download_dir))
 
     def _create_processing_dir(self, processing_dir=None):
@@ -129,8 +127,9 @@ class Generic():
             self.processing_dir = processing_dir
 
         os.makedirs(self.processing_dir, exist_ok=True)
-        logging.info(' Processed data will be stored in: {}'
-                     .format(self.processing_dir))
+        logging.info('Processed data will be stored in: {}'
+                     .format(self.processing_dir)
+                     )
 
     def _create_inventory_dir(self, inventory_dir=None):
         '''Creates the high-level inventory directory
@@ -147,7 +146,7 @@ class Generic():
             self.inventory_dir = inventory_dir
 
         os.makedirs(self.inventory_dir, exist_ok=True)
-        logging.info(' Inventory files will be stored in: {}'
+        logging.info('Inventory files will be stored in: {}'
                      .format(self.inventory_dir))
 
     def _create_temp_dir(self, temp_dir=None):
@@ -164,12 +163,12 @@ class Generic():
             self.temp_dir = temp_dir
 
         os.makedirs(self.temp_dir, exist_ok=True)
-        logging.info(' Using {} as  directory for temporary files.'
+        logging.info('Using {} as  directory for temporary files.'
                      .format(self.temp_dir))
 
 
 class Sentinel1(Generic):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
+    '''A Sentinel-1 specific subclass of the Generic OST class
 
     This subclass creates a Sentinel-1 specific
     '''
@@ -225,7 +224,7 @@ class Sentinel1(Generic):
         search.scihub_catalogue(query, self.inventory_file, append,
                                 uname, pword)
         
-         # read inventory into the inventory attribute
+        # read inventory into the inventory attribute
         self.read_inventory()
 
     def read_inventory(self):
@@ -259,12 +258,12 @@ class Sentinel1(Generic):
 
         if inventory_df:
             download_size = inventory_df[
-                'size'].str.replace(' GB', '').astype('float32').sum()
+                'size'].str.replace('GB', '').astype('float32').sum()
         else:
             download_size = self.inventory[
-                'size'].str.replace(' GB', '').astype('float32').sum()
+                'size'].str.replace('GB', '').astype('float32').sum()
 
-        print(' INFO: There are about {} GB need to be downloaded.'.format(
+        logger.debug('INFO: There are about {} GB need to be downloaded.'.format(
                 download_size))
 
     def refine(self,
@@ -283,19 +282,19 @@ class Sentinel1(Generic):
                                        area_reduce=area_reduce)
 
         # summing up information
-        print('--------------------------------------------')
-        print(' Summing up the info about mosaics')
-        print('--------------------------------------------')
+        logger.debug('--------------------------------------------')
+        logger.debug('Summing up the info about mosaics')
+        logger.debug('--------------------------------------------')
         for key in self.refined_inventory_dict:
-            print('')
-            print(' {} mosaics for mosaic key {}'.format(self.coverages[key],
-                                                         key))
+            logger.debug('')
+            logger.debug('{} mosaics for mosaic key {}'.format(self.coverages[key], key)
+                         )
 
     def download(self, inventory_df, mirror=None, concurrent=2,
                  uname=None, pword=None):
 
         # if an old inventory exists dorp download_path
-        if 'download_path' in inventory_df:
+        if 'download_path'in inventory_df:
             inventory_df.drop('download_path', axis=1)
         
         # check if scenes exist
@@ -307,15 +306,15 @@ class Sentinel1(Generic):
 
         # to download or not ot download - that is here the question
         if not download_df.any().any():
-            print(' INFO: All scenes are ready for being processed.')    
+            logger.debug('INFO: All scenes are ready for being processed.')    
         else:
-            print(' INFO: One or more of your scenes need to be downloaded.')
-            download.download_sentinel1(download_df,
-                                        self.download_dir,
-                                        mirror=mirror,
-                                        concurrent=concurrent,
-                                        uname=uname,
-                                        pword=pword)
+            logger.debug('INFO: One or more of your scenes need to be downloaded.')
+            s1_dl.download_sentinel1(download_df,
+                                     self.download_dir,
+                                     mirror=mirror,
+                                     concurrent=concurrent,
+                                     uname=uname,
+                                     pword=pword)
 
     def plot_inventory(self, inventory_df=None, transperancy=0.05):
 
@@ -326,7 +325,7 @@ class Sentinel1(Generic):
 
 
 class Sentinel1_SLCBatch(Sentinel1):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
+    '''A Sentinel-1 specific subclass of the Generic OST class
 
     This subclass creates a Sentinel-1 specific
     '''
@@ -379,7 +378,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                     uname=uname, pword=pword)
 
         if refine:
-            #print('{}.refined.shp'.format(outfile[:-4]))
+            # logger.debug('{}.refined.shp'.format(outfile[:-4]))
             self.burst_inventory = burst.refine_burst_inventory(
                     self.aoi, self.burst_inventory,
                     '{}.refined.shp'.format(outfile[:-4])
@@ -475,7 +474,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                      overwrite=False):
 
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
+            logger.debug('INFO: Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
         if not self.ard_parameters:
@@ -484,8 +483,8 @@ class Sentinel1_SLCBatch(Sentinel1):
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
+            logger.debug('INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                  'DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
         # set resolution to degree
@@ -551,13 +550,11 @@ class Sentinel1_SLCBatch(Sentinel1):
 
 
 class Sentinel1_GRDBatch(Sentinel1):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
+    '''A Sentinel-1 specific subclass of the Generic OST class
 
     This subclass creates a Sentinel-1 specific
     '''
 
-    
-    
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
@@ -670,13 +667,12 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters['metrics'] = ['avg', 'max', 'min',
                                               'std', 'cov']
             self.ard_parameters['outlier_removal'] = False
-            
     
     def grd_to_ard(self, inventory_df=None, subset=None, timeseries=False, 
                    timescan=False, mosaic=False, overwrite=False):
 
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
+            logger.debug('INFO: Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
         if not self.ard_parameters:
@@ -685,8 +681,8 @@ class Sentinel1_GRDBatch(Sentinel1):
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
+            logger.debug('INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+                  'DEM instead.')
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
         if subset:
@@ -695,8 +691,8 @@ class Sentinel1_GRDBatch(Sentinel1):
             elif subset.startswith('POLYGON (('):
                 subset = loads(subset).buffer(0.1).to_wkt()
             else:
-                print(' ERROR: No valid subset given.'
-                      ' Should be either path to a shapefile or a WKT Polygon.')
+                logger.debug('ERROR: No valid subset given.'
+                      'Should be either path to a shapefile or a WKT Polygon.')
                 sys.exit()
             # set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
@@ -727,14 +723,12 @@ class Sentinel1_GRDBatch(Sentinel1):
             # not more than 5 trys
             if i == 5:
                 break
-        
-            
+
         if timeseries or timescan:
-            
             nr_of_processed = len(
             glob.glob(opj(self.processing_dir, '*', 'Timeseries', '.processed')))
         
-            #nr_of_tracks = inventory_df.relativeorbit.unique().values
+            # nr_of_tracks = inventory_df.relativeorbit.unique().values
             # check and retry function
             i = 0
             while len(inventory_df.relativeorbit.unique()) > nr_of_processed:
@@ -774,7 +768,6 @@ class Sentinel1_GRDBatch(Sentinel1):
                 # not more than 5 trys
                  if i == 5:
                      break
-                
                 
         if mosaic and timeseries and not subset:
             grd_batch.mosaic_timeseries(inventory_df,

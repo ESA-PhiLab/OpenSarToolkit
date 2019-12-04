@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 
 '''
 Based on a set of search parameters the script will create a query
@@ -52,21 +51,21 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
       username and password during script execution
 '''
 
-# import stdlib modules
 import os
 import sys
+import logging
 import datetime
 from urllib.error import URLError
 import xml.dom.minidom
 import dateutil.parser
 
-# import external modules
 import geopandas as gpd
 from shapely.wkt import dumps, loads
 
-# internal libs
 from ost.helpers.db import pgHandler
 from ost.helpers import scihub
+
+logger = logging.getLogger(__name__)
 
 
 def _query_scihub(apihub, opener, query):
@@ -83,12 +82,12 @@ def _query_scihub(apihub, opener, query):
         'endposition', 'lastrelativeorbitnumber', 'lastorbitnumber',
         'uuid', 'platformidentifier', 'missiondatatakeid',
         'swathidentifier', 'ingestiondate', 'sensoroperationalmode',
-        'footprint'
+        'footlogger.debug'
         ]
 
     crs = {'init': 'epsg:4326'}
     geo_df = gpd.GeoDataFrame(columns=columns, crs=crs,
-                              geometry='footprint')
+                              geometry='footlogger.debug')
 
     # we need this for the paging
     index = 0
@@ -105,12 +104,12 @@ def _query_scihub(apihub, opener, query):
             req = opener.open(url)
         except URLError as err:
             if hasattr(err, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', err.reason)
+                logger.debug('We failed to connect to the server.')
+                logger.debug('Reason: ', err.reason)
                 sys.exit()
             elif hasattr(err, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', err.code)
+                logger.debug('The server couldn\'t fulfill the request.')
+                logger.debug('Error code: ', err.code)
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -137,11 +136,11 @@ def _query_scihub(apihub, opener, query):
             acq = dict(dict_date, **dict_int, **dict_str)
 
             # fill in emtpy fields in dict by using identifier
-            if 'swathidentifier' not in acq.keys():
+            if 'swathidentifier'not in acq.keys():
                 acq['swathidentifier'] = acq['identifier'].split("_")[1]
-            if 'producttype' not in acq.keys():
+            if 'producttype'not in acq.keys():
                 acq['producttype'] = acq['identifier'].split("_")[2]
-            if 'slicenumber' not in acq.keys():
+            if 'slicenumber'not in acq.keys():
                 acq['slicenumber'] = 0
 
             # append all scenes from this page to a list
@@ -164,11 +163,11 @@ def _query_scihub(apihub, opener, query):
                              acq['swathidentifier'],
                              acq['ingestiondate'].isoformat(),
                              acq['sensoroperationalmode'],
-                             loads(acq['footprint'])])
+                             loads(acq['footlogger.debug'])])
 
         # transofmr all results from that page to a gdf
         gdf = gpd.GeoDataFrame(acq_list, columns=columns,
-                               crs=crs, geometry='footprint')
+                               crs=crs, geometry='footlogger.debug')
 
         # append the gdf to the full gdf
         geo_df = geo_df.append(gdf)
@@ -233,8 +232,8 @@ def _to_postgis(gdf, db_connect, outtable):
                               'LOWER(\'{}\'))'.format(outtable))
     result = db_connect.cursor.fetchall()
     if result[0][0] is False:
-        print(' INFO: Table {} does not exist in the database.'
-              ' Creating it...'.format(outtable))
+        logger.debug('INFO: Table {} does not exist in the database.'
+              'Creating it...'.format(outtable))
         db_connect.pgCreateS1('{}'.format(outtable))
         maxid = 1
     else:
@@ -244,14 +243,14 @@ def _to_postgis(gdf, db_connect, outtable):
             if maxid is None:
                 maxid = 0
 
-            print(' INFO: Table {} already exists with {} entries. Will add'
-                  ' all non-existent results to this table.'.format(outtable,
+            logger.debug('INFO: Table {} already exists with {} entries. Will add'
+                  'all non-existent results to this table.'.format(outtable,
                                                                     maxid))
             maxid = maxid + 1
         except:
-            raise RuntimeError(' ERROR: Existent table {} does not seem to be'
-                               ' compatible with Sentinel-1'
-                               ' data.'.format(outtable))
+            raise RuntimeError('ERROR: Existent table {} does not seem to be'
+                               'compatible with Sentinel-1'
+                               'data.'.format(outtable))
 
     # add an index as first column
     gdf.insert(loc=0, column='id', value=range(maxid, maxid + len(gdf)))
@@ -261,8 +260,8 @@ def _to_postgis(gdf, db_connect, outtable):
     # construct the SQL INSERT line
     for _index, row in gdf.iterrows():
 
-        row['geometry'] = dumps(row['footprint'])
-        row.drop('footprint', inplace=True)
+        row['geometry'] = dumps(row['footlogger.debug'])
+        row.drop('footlogger.debug', inplace=True)
         identifier = row.identifier
         uuid = row.uuid
         line = tuple(row.tolist())
@@ -273,19 +272,19 @@ def _to_postgis(gdf, db_connect, outtable):
         try:
             test_query = result[0][0]
         except IndexError:
-            print('Inserting scene {} to {}'.format(identifier, outtable))
+            logger.debug('Inserting scene {} to {}'.format(identifier, outtable))
             db_connect.pgInsert(outtable, line)
             # apply the dateline correction routine
             db_connect.pgDateline(outtable, uuid)
             maxid += 1
         else:
-            print('Scene {} already exists within table {}.'.format(identifier,
+            logger.debug('Scene {} already exists within table {}.'.format(identifier,
                                                                     outtable))
 
-    print(' INFO: Inserted {} entries into {}.'.format(len(gdf), outtable))
-    print(' INFO: Table {} now contains {} entries.'.format(outtable,
+    logger.debug('INFO: Inserted {} entries into {}.'.format(len(gdf), outtable))
+    logger.debug('INFO: Table {} now contains {} entries.'.format(outtable,
                                                             maxid - 1))
-    print(' INFO: Optimising database table.')
+    logger.debug('INFO: Optimising database table.')
 
     # drop index if existent
     try:
@@ -336,14 +335,14 @@ def scihub_catalogue(query_string, output, append=False,
 
     # define output
     if output[-7:] == ".sqlite":
-        print(' INFO: writing to an sqlite file')
+        logger.debug('INFO: writing to an sqlite file')
         # gdfInv2Sqlite(gdf, output)
     elif output[-4:] == ".shp":
-        print(' INFO: writing inventory data to shape file: {}'.format(output))
+        logger.debug('INFO: writing inventory data to shape file: {}'.format(output))
         _to_shapefile(gdf, output, append)
     else:
-        print(' INFO: writing inventory data toPostGIS'
-              ' table: {}'.format(output))
+        logger.debug('INFO: writing inventory data toPostGIS'
+              'table: {}'.format(output))
         db_connect = pgHandler()
         _to_postgis(gdf, db_connect, output)
 
@@ -377,46 +376,46 @@ if __name__ == "__main__":
 
     # username/password scihub
     PARSER.add_argument("-u", "--username",
-                        help=" Your username of scihub.copernicus.eu ",
+                        help="Your username of scihub.copernicus.eu ",
                         default=None)
     PARSER.add_argument("-p", "--password",
-                        help=" Your secret password of scihub.copernicus.eu ",
+                        help="Your secret password of scihub.copernicus.eu ",
                         default=None)
     PARSER.add_argument("-a", "--areaofinterest",
-                        help=(' The Area of Interest (path to a shapefile'
+                        help=('The Area of Interest (path to a shapefile'
                               'or ISO3 country code)'),
                         dest='aoi', default='*',
                         type=lambda x: helpers.is_valid_aoi(PARSER, x))
     PARSER.add_argument("-b", "--begindate",
-                        help=" The Start Date (format: YYYY-MM-DD) ",
+                        help="The Start Date (format: YYYY-MM-DD) ",
                         default="2014-10-01",
                         type=lambda x: helpers.is_valid_date(PARSER, x))
     PARSER.add_argument("-e", "--enddate",
-                        help=" The End Date (format: YYYY-MM-DD)",
+                        help="The End Date (format: YYYY-MM-DD)",
                         default=NOW,
                         type=lambda x: helpers.is_valid_date(PARSER, x))
     PARSER.add_argument("-t", "--producttype",
-                        help=" The Product Type (RAW, SLC, GRD, *) ",
+                        help="The Product Type (RAW, SLC, GRD, *) ",
                         default='*')
     PARSER.add_argument("-m", "--polarisation",
-                        help=" The Polarisation Mode (VV, VH, HH, HV, *) ",
+                        help="The Polarisation Mode (VV, VH, HH, HV, *) ",
                         default='*')
     PARSER.add_argument("-b", "--beammode",
-                        help=" The Beam Mode (IW, EW, SM, *) ",
+                        help="The Beam Mode (IW, EW, SM, *) ",
                         default='*')
 
     # output parameters
     PARSER.add_argument("-o", "--output",
-                        help=(' Output format/file. Can be a shapefile'
-                              ' (ending with .shp), a SQLite file'
-                              ' (ending with .sqlite) or a PostGreSQL table'
-                              ' (connection needs to be configured). '),
+                        help=('Output format/file. Can be a shapefile'
+                              '(ending with .shp), a SQLite file'
+                              '(ending with .sqlite) or a PostGreSQL table'
+                              '(connection needs to be configured). '),
                         required=True)
 
     ARGS = PARSER.parse_args()
 
     # execute full search
-    if ARGS.aoi != '*' and ARGS.aoi[-4] == 'shp':
+    if ARGS.aoi != '*'and ARGS.aoi[-4] == 'shp':
         AOI = os.path.abspath(ARGS.aoi)
     else:
         AOI = '*'

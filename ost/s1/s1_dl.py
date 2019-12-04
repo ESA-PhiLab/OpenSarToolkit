@@ -1,19 +1,18 @@
-# -*- coding: utf-8 -*-
 '''
 This module handles the download of Sentinel-1, offering download capabilities
 from different servers such as Copernicus Scihub, Alaska Satellite Facility's
 vertex as well as PEPS from CNES.
 '''
-
-# import stdlib modules
 import os
 from os.path import join as opj
 import glob
+import logging
 import getpass
 
-# import OST libs
 from ost.s1.s1scene import Sentinel1Scene as S1Scene
 from ost.helpers import scihub, peps, asf
+
+logger = logging.getLogger(__name__)
 
 
 def restore_download_dir(input_directory, download_dir):
@@ -39,19 +38,19 @@ def restore_download_dir(input_directory, download_dir):
         filepath = scene._download_path(download_dir, True)
 
         # check zipfile
-        print(' INFO: Checking zip file {} for inconsistency.'.format(scene_in))
+        logger.debug('INFO: Checking zip file {} for inconsistency.'.format(scene_in))
         zip_test = h.check_zipfile(scene_in)
         
         if not zip_test:
-            print(' INFO: Passed')
+            logger.debug('INFO: Passed')
             # move file
             os.rename(scene_in, filepath)
         
             # add downloaded (should be zip checked in future)
-            f=open(filepath+".downloaded","w+")
+            f = open(filepath+".downloaded","w+")
             f.close()
         else:
-            print(' INFO: File {} is corrupted and will not be moved.')
+            logger.debug('INFO: File {} is corrupted and will not be moved.')
 
 
 def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
@@ -63,19 +62,19 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     '''
 
     if not mirror:
-        print(' Select the server from where you want to download:')
-        print(' (1) Copernicus Apihub (ESA, rolling archive)')
-        print(' (2) Alaska Satellite Facility (NASA, full archive)')
-        print(' (3) PEPS (CNES, 1 year rolling archive)')
+        logger.debug('Select the server from where you want to download:')
+        logger.debug('(1) Copernicus Apihub (ESA, rolling archive)')
+        logger.debug('(2) Alaska Satellite Facility (NASA, full archive)')
+        logger.debug('(3) PEPS (CNES, 1 year rolling archive)')
         mirror = input(' Type 1, 2 or 3: ')
 
     if not uname:
-        print(' Please provide username for the selected server')
+        logger.debug('Please provide username for the selected server')
         uname = input(' Username:')
 
     if not pword:
-        print(' Please provide password for the selected server')
-        pword = getpass.getpass(' Password:')
+        logger.debug('Please provide password for the selected server')
+        pword = getpass.getpass('Password:')
 
     # check if uname and pwrod are correct
     if int(mirror) == 1:
@@ -84,7 +83,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         error_code = asf.check_connection(uname, pword)
 
         if concurrent > 10:
-            print(' INFO: Maximum allowed parallel downloads \
+            logger.debug('INFO: Maximum allowed parallel downloads \
                   from Earthdata are 10. Setting concurrent accordingly.')
             concurrent = 10
     

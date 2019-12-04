@@ -1,10 +1,10 @@
-# import stdlib modules
 import os
 from os.path import join as opj
 import imp
 import sys
 import glob
 import time
+import logging
 from datetime import datetime
 
 import gdal
@@ -13,6 +13,8 @@ import numpy as np
 from scipy import stats
 
 from ost.helpers import helpers as h, raster as ras, vector as vec
+
+logger = logging.getLogger(__name__)
 
 
 def create_stack(filelist, out_stack, logfile,
@@ -30,10 +32,10 @@ def create_stack(filelist, out_stack, logfile,
     # get path to graph
     rootpath = imp.find_module('ost')[1]
 
-    print(" INFO: Creating multi-temporal stack of images")
+    logger.debug("INFO: Creating multi-temporal stack of images")
     if pattern:
         graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
-        command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
+        command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\'\
                -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                    filelist, pattern, out_stack)
     else:
@@ -45,10 +47,10 @@ def create_stack(filelist, out_stack, logfile,
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created multi-temporal stack')
+        logger.debug('INFO: Succesfully created multi-temporal stack')
     else:
-        print(' ERROR: Stack creation exited with an error.'
-              ' See {} for Snap Error output'.format(logfile))
+        logger.debug('ERROR: Stack creation exited with an error.'
+              'See {} for Snap Error output'.format(logfile))
         sys.exit(201)
 
     return return_code
@@ -65,7 +67,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_TS', '2_MT_Speckle.xml')
 
-    print(" INFO: Applying the multi-temporal speckle-filtering")
+    logger.debug("INFO: Applying the multi-temporal speckle-filtering")
     command = '{} {} -x -q {} -Pinput={} \
                    -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
                                        in_stack, out_stack)
@@ -73,9 +75,9 @@ def mt_speckle_filter(in_stack, out_stack, logfile):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully applied multi-temporal speckle filtering')
+        logger.debug('INFO: Succesfully applied multi-temporal speckle filtering')
     else:
-        print(' ERROR: Multi-temporal speckle filtering exited with an error. \
+        logger.debug('ERROR: Multi-temporal speckle filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         sys.exit(202)
 
@@ -98,7 +100,7 @@ def mt_layover(filelist, outfile, temp_dir, extent):
     ls_layer = opj(temp_dir, os.path.basename(outfile))
 
     # create a vrt-stack out of
-    print(' INFO: Creating common Layover/Shadow Mask')
+    logger.debug('INFO: Creating common Layover/Shadow Mask')
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
     gdal.BuildVRT(opj(temp_dir, 'ls.vrt'), filelist, options=vrt_options)
 
@@ -142,7 +144,7 @@ def mt_extent(list_of_scenes, out_file, temp_dir, buffer=None):
                   list_of_scenes,
                   options=vrt_options)
 
-    print(' INFO: Creating shapefile of common extent.')
+    logger.debug('INFO: Creating shapefile of common extent.')
     start = time.time()
 
     outline_file = opj(temp_dir, os.path.basename(out_file))
@@ -211,7 +213,7 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
         metric_dict = {}
         for metric in metrics:
             metric_dict[metric] = rasterio.open(
-                out_prefix + '.' + metric + '.tif', 'w', **meta)
+                out_prefix + '.'+ metric + '.tif', 'w', **meta)
 
         # scaling factors in case we have to rescale to integer
         minimums = {'avg': -30, 'max': -30, 'min': -30,
@@ -238,16 +240,16 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
             # get stats
             arr = {}
             arr['avg'] = (np.nan_to_num(np.nanmean(stack, axis=0))
-                          if 'avg' in metrics else False)
+                          if 'avg'in metrics else False)
             arr['max'] = (np.nan_to_num(np.nanmax(stack, axis=0))
-                          if 'max' in metrics else False)
+                          if 'max'in metrics else False)
             arr['min'] = (np.nan_to_num(np.nanmin(stack, axis=0))
-                          if 'min' in metrics else False)
+                          if 'min'in metrics else False)
             arr['std'] = (np.nan_to_num(np.nanstd(stack, axis=0))
-                          if 'std' in metrics else False)
+                          if 'std'in metrics else False)
             arr['cov'] = (np.nan_to_num(stats.variation(stack, axis=0,
                                                         nan_policy='omit'))
-                          if 'cov' in metrics else False)
+                          if 'cov'in metrics else False)
 
             # the metrics to be re-turned to dB, in case to_power is True
             metrics_to_convert = ['avg', 'min', 'max']
@@ -285,7 +287,7 @@ def create_datelist(path_to_timeseries):
     with open('{}/datelist.txt'.format(path_to_timeseries), 'w') as file:
         for date in dates:
             file.write(str(datetime.strftime(datetime.strptime(
-                date, '%y%m%d'), '%Y-%m-%d')) + ' \n')
+                date, '%y%m%d'), '%Y-%m-%d')) + '\n')
 
 
 def create_ts_animation(ts_dir, temp_dir, outfile, shrink_factor):

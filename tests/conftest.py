@@ -11,6 +11,11 @@ FAKE_GPT_DIR = os.path.join(TESTDATA_DIR, "helpers_data")
 
 
 @pytest.fixture
+def s1_id():
+    return 'S1A_IW_GRDH_1SDV_20191116T170638_20191116T170703_029939_036AAB_070F'
+
+
+@pytest.fixture
 def ard_types():
     return ('OST', 'OST Flat', 'CEOS', 'EarthEngine', 'Zhuo')
 

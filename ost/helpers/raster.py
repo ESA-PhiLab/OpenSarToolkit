@@ -1,12 +1,8 @@
-#! /usr/bin/env python
-"""
-This script provides wrapper functions for processing Sentinel-1 GRD products.
-"""
-
 import os
 from os.path import join as opj
 import numpy as np
 import glob
+import logging
 
 import gdal
 import osr
@@ -18,6 +14,8 @@ import rasterio.mask
 from rasterio.features import shapes
 
 from ost.helpers import helpers as h
+
+logger = logging.getLogger(__name__)
 
 
 def read_file(rasterfn):
@@ -42,7 +40,7 @@ def read_file(rasterfn):
     if data_type_name == "Byte":
         data_type_name = "uint8"
 
-    print(' INFO: Importing {} bands from {}'.format(raster.RasterCount,
+    logger.debug('INFO: Importing {} bands from {}'.format(raster.RasterCount,
                                                      rasterfn))
 
     geotransform = raster.GetGeoTransform()
@@ -300,7 +298,7 @@ def rescale_to_float(int_array, data_type_name):
         float_array = (int_array.astype(float)
                        * (35. / 65535.) + (-30. - (35. / 65535.)))
     else:
-        print(' ERROR: Unknown datatype')
+        logger.debug('ERROR: Unknown datatype')
 
     return float_array
 
@@ -507,8 +505,8 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
             
         if date:
             label_height = np.floor(np.divide(int(out_meta['height']), 15))
-            cmd = 'convert -background \'#0008\' -fill white -gravity center \
-                  -size {}x{} caption:\"{}\" {} +swap -gravity north \
+            cmd = 'convert -background \'#0008\'-fill white -gravity center \
+                  -size {}x{} caption:\"{}\"{} +swap -gravity north \
                   -composite {}'.format(out_meta['width'], label_height,
                                         date, outfile, outfile)
             h.run_command(cmd, '{}.log'.format(outfile), elapsed=False)
@@ -525,7 +523,7 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
         opj(timeseries_folder, '*{}.tif'.format(product_list[0]))))
     outfiles = []
     # for coherence it must be one less
-    if 'coh.VV' in product_list or 'coh.VH' in product_list:
+    if 'coh.VV'in product_list or 'coh.VH'in product_list:
         nr_of_products == nr_of_products - 1
         
     for i in range(nr_of_products):

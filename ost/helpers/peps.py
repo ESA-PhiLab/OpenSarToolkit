@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import os
 import getpass
 import urllib
 import time
+import logging
 import multiprocessing
 
 import requests
@@ -11,6 +10,8 @@ import tqdm
 
 from ost.helpers import helpers as h
 from ost import Sentinel1Scene as S1Scene
+
+logger = logging.getLogger(__name__)
 
 
 def ask_credentials():
@@ -22,7 +23,7 @@ def ask_credentials():
 
     '''
     # SciHub account details (will be asked by execution)
-    print(' If you do not have a CNES Peps user account'
+    logger.debug('If you do not have a CNES Peps user account'
           ' go to: https://peps.cnes.fr/ and register')
     uname = input(' Your CNES Peps Username:')
     pword = getpass.getpass(' Your CNES Peps Password:')
@@ -45,7 +46,7 @@ def connect(uname=None, pword=None):
     base_url = 'https://peps.cnes.fr/'
 
     if not uname:
-        print(' If you do not have a CNES Peps user account'
+        logger.debug('If you do not have a CNES Peps user account'
               ' go to: https://peps.cnes.fr/ and register')
         uname = input(' Your CNES Peps Username:')
 
@@ -111,13 +112,13 @@ def s1_download(argument_list):
 
         first_byte = os.path.getsize(filename)
         if first_byte == total_length:
-            print(' INFO: {} already downloaded.'.format(filename))
+            logger.debug('INFO: {} already downloaded.'.format(filename))
         else:
-            print(' INFO: Continue downloading scene to: {}'.format(
+            logger.debug('INFO: Continue downloading scene to: {}'.format(
                 filename))
 
     else:
-        print(' INFO: Downloading scene to: {}'.format(filename))
+        logger.debug('INFO: Downloading scene to: {}'.format(filename))
         first_byte = 0
 
     if first_byte >= total_length:
@@ -151,27 +152,27 @@ def s1_download(argument_list):
             first_byte = os.path.getsize(filename)
             
         # zipFile check
-        print(' INFO: Checking the zip archive of {} for inconsistency'.format(
+        logger.debug('INFO: Checking the zip archive of {} for inconsistency'.format(
             filename))
         zip_test = h.check_zipfile(filename)
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            print(' INFO: {} did not pass the zip test. \
+            logger.debug('INFO: {} did not pass the zip test. \
                   Re-downloading the full scene.'.format(filename))
             os.remove(filename)
             first_byte = 0
         # otherwise we change the status to True
         else:
-            print(' INFO: {} passed the zip test.'.format(filename))
+            logger.debug('INFO: {} passed the zip test.'.format(filename))
             with open(str('{}.downloaded'.format(filename)), 'w') as file:
                 file.write('successfully downloaded \n')
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
-    print(' INFO: Getting the storage status (online/onTape) of each scene.')
-    print(' INFO: This may take a while.')
+    logger.debug('INFO: Getting the storage status (online/onTape) of each scene.')
+    logger.debug('INFO: This may take a while.')
 
     # this function does not just check,
     # but it already triggers the production of the S1 scene
@@ -192,8 +193,9 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
         # if all scenes to download are on Tape, we wait for a minute
         if len(inventory_df[inventory_df['pepsStatus'] == 'online']) == 0:
-            print('INFO: Imagery still on tape, we will wait for 1 minute ' \
-                  'and try again.')
+            logger.debug('INFO: Imagery still on tape, we will wait for 1 minute '
+                         'and try again.'
+                         )
             time.sleep(60)
 
         # else we start downloading

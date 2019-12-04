@@ -1,8 +1,3 @@
-#! /usr/bin/env python
-"""
-This script provides core functionalities for the OST package.
-"""
-
 import os
 from os.path import join as opj
 import math
@@ -12,12 +7,14 @@ import shlex
 import shutil
 import subprocess
 import time
+import gdal
 import datetime
+import logging
 from datetime import timedelta
 from pathlib import Path
 import zipfile
 
-import gdal
+logger = logging.getLogger(__name__)
 
 
 def gpt_path():
@@ -36,13 +33,13 @@ def gpt_path():
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
             gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
         else:
-            gptfile = input(r' Please provide the full path to the'
-                            r' SNAP gpt command line executable'
-                            r' (e.g. C:\path\to\snap\bin\gpt.exe)')
+            gptfile = input(r'Please provide the full path to the'
+                            r'SNAP gpt command line executable'
+                            r'(e.g. C:\path\to\snap\bin\gpt.exe)')
             gptfile = Path(gptfile)
 
             if gptfile.is_file() is False:
-                print(' ERROR: path to gpt file is incorrect. No such file.')
+                logger.debug('ERROR: path to gpt file is incorrect. No such file.')
                 sys.exit()
     else:
         homedir = os.getenv("HOME")
@@ -70,18 +67,18 @@ def gpt_path():
         os.path.isfile(gptfile)
 
     if not gptfile:
-        gptfile = input(' Please provide the full path to the SNAP'
-                        ' gpt command line executable'
-                        ' (e.g. /path/to/snap/bin/gpt')
+        gptfile = input('Please provide the full path to the SNAP'
+                        'gpt command line executable'
+                        '(e.g. /path/to/snap/bin/gpt')
 
         os.makedirs(opj(homedir, '.ost'), exist_ok=True)
         os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
 
     if os.path.isfile(gptfile) is False:
-        print(' ERROR: path to gpt file is incorrect. No such file.')
+        logger.debug('ERROR: path to gpt file is incorrect. No such file.')
         sys.exit()
 
-    # print(' INFO: using SNAP CL executable at {}'.format(gptfile))
+    # logger.debug('INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
 
 
@@ -106,7 +103,7 @@ def is_valid_aoi(parser, arg):
 
 
 def timer(start):
-    ''' A helper function to print a time elapsed statement
+    '''A helper function to logger.debug a time elapsed statement
 
     Args:
         start (time): a time class object for the start time
@@ -114,7 +111,7 @@ def timer(start):
     '''
 
     elapsed = time.time() - start
-    print(' INFO: Time elapsed: {}'.format(timedelta(seconds=elapsed)))
+    logger.debug('INFO: Time elapsed: {}'.format(timedelta(seconds=elapsed)))
 
 
 def remove_folder_content(folder):
@@ -132,7 +129,7 @@ def remove_folder_content(folder):
 
 
 def run_command(command, logfile, elapsed=True):
-    ''' A helper function to execute a command line command
+    '''A helper function to execute a command line command
 
     Args:
         command (str): the command to execute
@@ -224,7 +221,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         data_size_in_mb = os.path.getsize(file) / 1048576
 
         if data_size_in_mb < 0.2:
-            print('data small')
+            logger.debug('data small')
             return 666
 
         if test_stats:
@@ -285,13 +282,13 @@ def check_zipfile(filename):
     try:
         zip_archive = zipfile.ZipFile(filename)
     except zipfile.BadZipFile as er:
-        print('Error: {}'.format(er))
+        logger.debug('Error: {}'.format(er))
         return 1
     
     try:
         zip_test = zip_archive.testzip()
     except:
-        print('Error')
+        logger.debug('Error')
         return 1
     else:
         return zip_test
@@ -315,7 +312,7 @@ def zip_s1_safe_dir(dir_path, zip_path, product_id):
     zipf = zipfile.ZipFile(zip_path, mode='w')
     len_dir = len(dir_path)
     for root, _, files in os.walk(dir_path):
-        print(root, _, files)
+        logger.debug(root, _, files)
         for file in files:
             file_path = opj(root, file)
             if '.downloaded' not in zip_path:

@@ -1,20 +1,14 @@
-#! /usr/bin/env python
-"""
-This script allows to sort Sentinel-1 data for homogeneous large-scale mapping.
-"""
-
-# import stdlib modules
+import logging
 import itertools
 
-# some more libs for plotting and DB connection
 import fiona
 import geopandas as gpd
-
 from shapely.ops import unary_union
 
-# import internal modules
 from ost.helpers.db import pgHandler
 from ost.helpers import vector as vec
+
+logger = logging.getLogger(__name__)
 
 
 def read_s1_inventory(inputfile):
@@ -33,8 +27,9 @@ def read_s1_inventory(inputfile):
     '''
 
     if inputfile[-4:] == '.shp':
-        print(' INFO: Importing Sentinel-1 inventory data from ESRI '
-              ' shapefile:\n {}'.format(inputfile))
+        logger.debug('INFO: Importing Sentinel-1 inventory data from ESRI '
+                     'shapefile:\n {}'.format(inputfile)
+                     )
         column_names = ['id', 'identifier', 'polarisationmode',
                         'orbitdirection', 'acquisitiondate', 'relativeorbit',
                         'orbitnumber', 'producttype', 'slicenumber', 'size',
@@ -48,20 +43,21 @@ def read_s1_inventory(inputfile):
         out_frame.columns = column_names
 
     elif inputfile[-7:] == '.sqlite':
-        print(' INFO: Importing Sentinel-1 inventory data from spatialite '
-              ' DB file:\n {}'.format(inputfile))
-        # needs to be added
+        logger.debug('INFO: Importing Sentinel-1 inventory data from spatialite '
+                     'DB file:\n {}'.format(inputfile)
+                     )
+    # needs to be added
     else:
-        print(' INFO: Importing Sentinel-1 inventory data from PostGreSQL DB '
-              ' table:\n {}'.format(inputfile))
+        logger.debug('INFO: Importing Sentinel-1 inventory data from PostGreSQL DB '
+                     'table:\n {}'.format(inputfile))
         db_connect = pgHandler()
         sql = 'select * from {}'.format(inputfile)
         out_frame = gpd.GeoDataFrame.from_postgis(sql, db_connect.connection,
                                                   geom_col='geometry')
 
     if len(out_frame) >= 0:
-        print(' INFO: Succesfully converted inventory data into a'
-              ' GeoPandas Geo-Dataframe.')
+        logger.debug('INFO: Succesfully converted inventory data into a'
+              'GeoPandas Geo-Dataframe.')
 
     return out_frame
 
@@ -83,7 +79,7 @@ def _remove_double_entries(inventory_df):
 
     '''
 
-    # filter footprint data frame for obit direction and polarisation &
+    # filter footlogger.debug data frame for obit direction and polarisation &
     # get unqiue entries
     idx = inventory_df.groupby(
         inventory_df['identifier'].str.slice(0, 63))[
@@ -92,7 +88,7 @@ def _remove_double_entries(inventory_df):
     # re-initialize GDF geometry due to groupby function
     crs = fiona.crs.from_epsg(4326)
     gdf = gpd.GeoDataFrame(inventory_df[idx], geometry='geometry', crs=crs)
-    print(' INFO: {} frames remain after double entry removal'.format(
+    logger.debug('INFO: {} frames remain after double entry removal'.format(
         len(inventory_df[idx])))
     return gdf
 
@@ -118,15 +114,15 @@ def _remove_outside_aoi(aoi_gdf, inventory_df):
     # get columns of input dataframe for later return function
     cols = inventory_df.columns
 
-    # 1) get only intersecting footprints (double, since we do this before)
+    # 1) get only intersecting footlogger.debugs (double, since we do this before)
     inventory_df = gpd.sjoin(inventory_df, aoi_gdf,
                              how='inner', op='intersects')
 
     # if aoi  gdf has an id field we need to rename the changed id_left field
-    if 'id_left' in inventory_df.columns.tolist():
+    if 'id_left'in inventory_df.columns.tolist():
         # rename id_left to id
         inventory_df.columns = [
-            'id' if x == 'id_left' else x
+            'id'if x == 'id_left'else x
             for x in inventory_df.columns.tolist()]
 
     return inventory_df[cols]
@@ -186,7 +182,7 @@ def _handle_equator_crossing(inventory_df):
 
 def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
     '''
-    This function takes the AOI and the footprint inventory
+    This function takes the AOI and the footlogger.debug inventory
     and checks if any of the tracks are unnecessary, i.e.
     if the AOI can be covered by all the remaining tracks.
 
@@ -216,19 +212,19 @@ def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
         intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
 
         if intersect_track >= aoi_area - area_reduce:
-            print(' INFO: excluding track {}'.format(track))
+            logger.debug('INFO: excluding track {}'.format(track))
             inventory_refined = inventory_df[
                 inventory_df['relativeorbit'] != track]
 
     # see if there is actually any marginal track
     try:
         inventory_df = inventory_refined
-        print(' INFO: {} frames remain after non-AOI overlap'.format(
+        logger.debug('INFO: {} frames remain after non-AOI overlap'.format(
             len(inventory_df)))
     except NameError:
         pass
     else:
-        print(' INFO: All tracks fully overlap the AOI. Not removing anything')
+        logger.debug('INFO: All tracks fully overlap the AOI. Not removing anything')
     return inventory_df
 
 
@@ -281,7 +277,7 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
             if intersect_track <= intersect_date + 0.15:
                 out_frame = out_frame.append(gdf_date)
 
-    print(' INFO: {} frames remain after removal of non-full AOI crossing'
+    logger.debug('INFO: {} frames remain after removal of non-full AOI crossing'
           .format(len(out_frame)))
     return out_frame
 
@@ -290,7 +286,7 @@ def _handle_non_continous_swath(inventory_df):
     '''Removes incomplete tracks with respect to the AOI
 
     In some cases the AOI is covered by 2 different parts of the same track.
-    OST assumes that acquisitions with the same "relative orbit" (i.e. track)
+    OST assumes that acquisitions with the same "relative orbit"(i.e. track)
     should be merged. However, SNAP will fail when slices of acquisitions
     are missing in between. Therefore this routine renames the tracks into
     XXX_1, XXX_2, XXX_n, dependent on the number of segments.
@@ -371,7 +367,7 @@ def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
 
         for track in tracklist:
 
-            # get all footprints for each date
+            # get all footlogger.debugs for each date
             gdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
                                (inventory_df['relativeorbit'] == track)]
 
@@ -386,7 +382,7 @@ def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
                 # create new overall union
                 gdf_union = union
             else:
-                # union of unified footprints and footprints before
+                # union of unified footlogger.debugs and footlogger.debugs before
                 polys = [gdf_union, union]
                 gdf_union = unary_union(polys)
 
@@ -405,7 +401,7 @@ def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
 
 def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
     '''
-    This function takes the footprint dataframe and the datelist
+    This function takes the footlogger.debug dataframe and the datelist
     created by the _forward_search function to sort out
     duplicate tracks apparent in the mosaics.
     It searches from the last acqusiition date backwards
@@ -446,7 +442,7 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
 
                     included_tracks.append(track)
 
-                    # get all footprints for each date and track
+                    # get all footlogger.debugs for each date and track
                     track_gdf = gdf[(gdf['acquisitiondate'] == date) &
                                     (gdf['relativeorbit'] == track)]
 
@@ -465,7 +461,7 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                         # create new overall union
                         gdf_union = union
                     else:
-                        # union of unified footprints and footprints before
+                        # union of unified footlogger.debugs and footlogger.debugs before
                         polys = [gdf_union, union]
                         gdf_union = unary_union(polys)
 
@@ -526,15 +522,15 @@ def search_refinement(aoi, inventory_df, inventory_dir,
     # loop through all possible combinations
     for pol, orb in itertools.product(pols, orbit_directions):
 
-        print(' INFO: Coverage analysis for {} tracks in {} polarisation.'
+        logger.debug('INFO: Coverage analysis for {} tracks in {} polarisation.'
               .format(orb, pol))
 
-        # subset the footprint for orbit direction and polarisations
+        # subset the footlogger.debug for orbit direction and polarisations
         inv_df_sorted = inventory_df[
             (inventory_df['polarisationmode'] == pol) &
             (inventory_df['orbitdirection'] == orb)]
 
-        print(' INFO: {} frames for {} tracks in {} polarisation.'.format(
+        logger.debug('INFO: {} frames for {} tracks in {} polarisation.'.format(
             len(inv_df_sorted), orb, pol))
 
         # calculate intersected area
@@ -543,7 +539,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
 
         # we do a first check if the scenes do not fully cover the AOI
         if intersect_area <= aoi_area - area_reduce:
-            print(' WARNING: Set of footprints does not fully cover AOI. ')
+            logger.debug('WARNING: Set of footlogger.debugs does not fully cover AOI. ')
 
         # otherwise we go on
         else:
@@ -558,7 +554,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
 
             # get number of tracks
             nr_of_tracks = len(inventory_refined.relativeorbit.unique())
-            print(nr_of_tracks)
+            logger.debug(nr_of_tracks)
             if exclude_marginal is True and nr_of_tracks > 1:
                 inventory_refined = _exclude_marginal_tracks(
                     aoi_gdf, inventory_refined, area_reduce)
@@ -586,7 +582,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
                 coverage_dict['{}_{}'.format(
                     orb, ''.join(pol.split()))] = len(datelist)
 
-            print(' INFO: Found {} full coverage mosaics.'
+            logger.debug('INFO: Found {} full coverage mosaics.'
                   .format(len(datelist)))
 
     return inventory_dict, coverage_dict

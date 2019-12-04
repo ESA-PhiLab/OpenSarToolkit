@@ -45,7 +45,7 @@ def test_all_grd_to_ard_default_types(
                     subset=out_bounds,
                 )
             except Exception as e:
-                print(e)
+                raise e
             assert os.path.isfile(out_file)
             product.create_rgb(
                 outfile=os.path.join(processing_dir, scene_id+'_'+ard_type+'.tif')
