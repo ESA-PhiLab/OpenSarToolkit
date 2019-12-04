@@ -13,7 +13,6 @@ import multiprocessing
 import urllib
 import requests
 import tqdm
-#import zipfile
 from shapely.wkt import loads
 
 from ost.helpers import helpers as h
@@ -339,7 +338,7 @@ def s1_download(argument_list):
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
     
-    from ost import Sentinel1_Scene as S1Scene
+    from ost import Sentinel1Scene as S1Scene
     from ost.helpers import scihub
     
     # create list of scenes
@@ -390,5 +389,3 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                     scenes.remove(scene.scene_id)
 
         i += 1
-
-            

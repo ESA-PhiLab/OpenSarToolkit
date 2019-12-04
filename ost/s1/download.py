@@ -12,7 +12,7 @@ import glob
 import getpass
 
 # import OST libs
-from ost.s1.s1scene import Sentinel1_Scene as S1Scene
+from ost.s1.s1scene import Sentinel1Scene as S1Scene
 from ost.helpers import scihub, peps, asf
 
 

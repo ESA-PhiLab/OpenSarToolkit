@@ -58,7 +58,7 @@ import shutil
 from os.path import join as opj
 
 # import ost libs
-from ost import Sentinel1_Scene
+from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard, ts
 from ost.helpers import raster as ras, vector as vec
 from ost.helpers import helpers as h
@@ -125,7 +125,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
         for list_of_scenes in processing_dict[track]:
 
                 # get acquisition date
-                acquisition_date = Sentinel1_Scene(list_of_scenes[0]).start_date
+                acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
                 # create a subdirectory baed on acq. date
                 out_dir = opj(processing_dir, track, acquisition_date)
                 os.makedirs(out_dir, exist_ok=True)
@@ -136,7 +136,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
                           ' already processed'.format(acquisition_date, track))
                 else:
                     # get the paths to the file
-                    scene_paths = ([Sentinel1_Scene(i).get_path(download_dir)
+                    scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
                                    for i in list_of_scenes])
     
                     # apply the grd_to_ard function

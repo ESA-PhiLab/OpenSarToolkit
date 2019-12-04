@@ -3,7 +3,6 @@
 This script provides core functionalities for the OST package.
 """
 
-# import stdlib modules
 import os
 from os.path import join as opj
 import math
@@ -19,16 +18,6 @@ from pathlib import Path
 import zipfile
 
 import gdal
-
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
 
 
 def gpt_path():

@@ -16,7 +16,7 @@ import geopandas as gpd
 
 from ost.helpers import scihub, vector as vec, raster as ras, helpers as h
 from ost.s1 import burst_to_ard, ts
-from ost import Sentinel1_Scene as S1Scene
+from ost import Sentinel1Scene as S1Scene
 
 
 def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
@@ -40,7 +40,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     # uname, pword = scihub.askScihubCreds()
 
     for scene_id in inventory_df.identifier:
-        # read into S1scene class
+        # read into S1Scene class
         scene = S1Scene(scene_id)
 
         print(' INFO: Getting burst info from {}.'.format(scene.scene_id))

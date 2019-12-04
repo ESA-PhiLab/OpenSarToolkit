@@ -1,6 +1,6 @@
 '''This module contains the S1Scene class for handling of a Sentinel-1 product
-
 '''
+
 import os
 from os.path import join as opj
 import sys
@@ -24,7 +24,7 @@ from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 
-class Sentinel1_Scene():
+class Sentinel1Scene():
 
     def __init__(self, scene_id, ard_type='OST'):
         self.scene_id = scene_id

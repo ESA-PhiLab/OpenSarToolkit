@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
 
-# import standard libs
 import os
 import getpass
 import urllib
 import time
 import multiprocessing
 
-# import non-standar libes
 import requests
 import tqdm
 
-# import ost classes/functions
 from ost.helpers import helpers as h
-from ost import Sentinel1_Scene as S1Scene
+from ost import Sentinel1Scene as S1Scene
 
 
 def ask_credentials():

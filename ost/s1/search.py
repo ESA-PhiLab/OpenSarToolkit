@@ -307,11 +307,11 @@ def check_availability(inventory_gdf, download_dir, data_mount):
     
     '''
     
-    from ost import Sentinel1_Scene
+    from ost import Sentinel1Scene
     
     # add download path, or set to None if not found
     inventory_gdf['download_path'] = inventory_gdf.identifier.apply(
-        lambda row: Sentinel1_Scene(row).get_path(download_dir, data_mount))    
+        lambda row: Sentinel1Scene(row).get_path(download_dir, data_mount))
     
     return inventory_gdf
 

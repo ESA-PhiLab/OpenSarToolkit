@@ -11,7 +11,7 @@ import tqdm
 import multiprocessing
 
 from ost.helpers import helpers as h
-from ost import Sentinel1_Scene as S1Scene
+from ost import Sentinel1Scene as S1Scene
 
 
 # we need this class for earthdata access

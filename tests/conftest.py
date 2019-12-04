@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from ost import Sentinel1_Scene
+from ost import Sentinel1Scene
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
@@ -43,19 +43,19 @@ def s1_slc_slave():
 @pytest.fixture
 def s1_slc_ost_master(s1_slc_master):
     scene_id = os.path.basename(s1_slc_master).replace('.zip', '')
-    return (scene_id, Sentinel1_Scene(scene_id))
+    return (scene_id, Sentinel1Scene(scene_id))
 
 
 @pytest.fixture
 def s1_slc_ost_slave(s1_slc_slave):
     scene_id = os.path.basename(s1_slc_slave).replace('.zip', '')
-    return (scene_id, Sentinel1_Scene(scene_id))
+    return (scene_id, Sentinel1Scene(scene_id))
 
 
 @pytest.fixture
 def s1_grd_notnr_ost_product(s1_grd_notnr):
     scene_id = s1_grd_notnr.split('/')[-2]
-    return (scene_id, Sentinel1_Scene(scene_id))
+    return (scene_id, Sentinel1Scene(scene_id))
 
 
 @pytest.fixture

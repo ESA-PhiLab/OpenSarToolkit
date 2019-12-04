@@ -7,22 +7,12 @@ www.scihub.copernicus.eu and return the results either as shapefile,
 sqlite, or PostGreSQL database.
 """
 
-# import modules
 import getpass
 import os
 import ogr
 import psycopg2 as pg
 
 from ost.helpers.vector import get_proj4, reproject_geometry
-
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
 
 
 # see if the pg-file is there

@@ -3,13 +3,11 @@
 This script provides wrapper functions for processing Sentinel-1 GRD products.
 """
 
-# import stdlib modules
 import os
 from os.path import join as opj
 import numpy as np
 import glob
 
-# geo libs
 import gdal
 import osr
 import ogr
@@ -20,16 +18,6 @@ import rasterio.mask
 from rasterio.features import shapes
 
 from ost.helpers import helpers as h
-
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
 
 
 def read_file(rasterfn):

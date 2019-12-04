@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# import standard libs
 import os
 import sys
 import glob
 import logging
 import geopandas as gpd
 
-# create the opj alias to handle independent os paths
 from os.path import join as opj
 from datetime import datetime
 from shapely.wkt import loads
@@ -16,7 +14,6 @@ from ost.helpers import vector as vec, raster as ras
 from ost.s1 import search, refine, download, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 
-# set logging
 logging.basicConfig(stream=sys.stdout,
                     format='%(levelname)s:%(message)s',
                     level=logging.INFO)
