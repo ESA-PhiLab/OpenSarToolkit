@@ -15,16 +15,6 @@ import getpass
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
 from ost.helpers import scihub, peps, asf
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def restore_download_dir(input_directory, download_dir):
     '''Function to create the OST download directory structure

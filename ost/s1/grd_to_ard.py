@@ -75,15 +75,6 @@ import gdal
 from os.path import join as opj
 from ost.helpers import helpers as h, raster as ras
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product
@@ -704,7 +695,8 @@ def _grd_terrain_correction_deg(
                  -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
-                                         dem, dem_file, dem_nodata, resampling, outfile)
+                                         dem, dem_file, dem_nodata, resampling, outfile
+                                         )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -720,7 +712,15 @@ def _grd_terrain_correction_deg(
     return return_code
 
 
-def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
+def _grd_ls_mask(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
     This function takes OST imported Sentinel-1 product and calculates
@@ -753,10 +753,19 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     # get path to workflow xml
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
-             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                     infile, resolution, dem, outfile)
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
+                 -Poutput=\'{}\''.format(
+        gpt_file, graph, 2 * os.cpu_count(), infile, resolution, dem, dem_file,
+        dem_nodata, resampling, outfile
+    )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -767,6 +776,7 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     else:
         print(' ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
+        raise RuntimeError
         sys.exit(112)
 
     return return_code
@@ -925,10 +935,10 @@ def grd_to_ard(filelist,
     data_dir = glob.glob(opj(temp_dir, '{}*imported.data'.format(file_id)))
     h.delete_dimap(str(data_dir[0])[:-5])
 
+    infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
     # -------------------------------------------
     # in case we want to apply Speckle filtering
     if speckle_filter:
-        infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
         logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
         outfile = opj(temp_dir, '{}_imported_spk'.format(file_id))
 
@@ -943,15 +953,20 @@ def grd_to_ard(filelist,
         infile = opj(temp_dir, '{}_imported_spk.dim'.format(file_id))
         data_dir = opj(temp_dir, '{}.{}'.format(file_id, product_type))
         h.delete_dimap(str(data_dir))
-    else:
-        infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
 
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
     if ls_mask_create is True:
         outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
-        return_code = _grd_ls_mask(infile, outfile, logfile, resolution, dem)
+        return_code = _grd_ls_mask(infile,
+                                   outfile,
+                                   logfile,
+                                   resolution,
+                                   dem,
+                                   dem_file,
+                                   resampling
+                                   )
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
@@ -1027,6 +1042,7 @@ def grd_to_ard(filelist,
         check_file = opj(output_dir, '.processed')
         with open(str(check_file), 'w') as file:
             file.write('passed all tests \n')
+        return check_file
     else:
         h.remove_folder_content(temp_dir)
         h.remove_folder_content(output_dir)

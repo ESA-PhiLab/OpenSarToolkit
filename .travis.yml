@@ -1,0 +1,26 @@
+dist: bionic
+sudo: required
+language: python
+python:
+  - '3.6'
+services:
+  - docker
+before_install:
+  - docker pull mrmoor/esa-snap-with-python
+  - sudo add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable
+  - sudo apt-get -y update
+  - sudo apt-get install -y gdal-bin python-tk libgdal-dev libspatialindex-dev
+  - pip install GDAL==$(gdal-config --version) --global-option=build_ext --global-option="-I/usr/include/gdal"
+  - pip install numpy
+  - 'pip install fiona --no-binary :all:'
+  - if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
+  - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+install:
+  - pip install -e .[test]
+script:
+  - pytest -v --cov ost tests/
+after_success:
+  - coveralls
+env:
+  matrix:
+    - RASTERIO_VERSION="latest"

@@ -1,4 +1,3 @@
-descartes
 fiona
 gdal
 geopandas
@@ -8,8 +7,8 @@ pandas
 psycopg2-binary
 rasterio
 requests
-rtree
 scipy
 shapely
 tqdm
 imageio
+environs

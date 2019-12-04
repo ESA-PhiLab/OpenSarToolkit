@@ -16,16 +16,6 @@ from shapely.ops import unary_union
 from ost.helpers.db import pgHandler
 from ost.helpers import vector as vec
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def read_s1_inventory(inputfile):
     '''Reads a Sentinel-1 OST conform inventory shapefile into GeoDataFrame
