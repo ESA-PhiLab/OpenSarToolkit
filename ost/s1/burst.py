@@ -40,7 +40,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     # uname, pword = scihub.askScihubCreds()
 
     for scene_id in inventory_df.identifier:
-
         # read into S1scene class
         scene = S1Scene(scene_id)
 
@@ -69,7 +68,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
             single_gdf = scene._zip_annotation_get(download_dir, data_mount)
         elif filepath[-5:] == '.SAFE':
             single_gdf = scene._safe_annotation_get(download_dir, data_mount)
-           
 
         # add orbit direction
         single_gdf['Direction'] = orbit_direction
@@ -77,9 +75,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         # append
         gdf_full = gdf_full.append(single_gdf)
 
-
     gdf_full = gdf_full.reset_index(drop=True)
-
     for i in gdf_full['AnxTime'].unique():
 
         # get similar burst times
@@ -165,15 +161,13 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
     polarimetry = ard_parameters['polarimetry']
     pol_speckle_filter = ard_parameters['pol_speckle_filter']
 
-    for burst in burst_inventory.bid.unique():      # ***
-
+    for burst in burst_inventory.bid.unique():
         # create a list of dates over which we loop
         dates = burst_inventory.Date[
                 burst_inventory.bid == burst].sort_values().tolist()
 
         # loop through dates
         for idx, date in enumerate(dates):      # ******
-
             print(' INFO: Entering burst {} at date {}.'.format(burst, date))
             # get master date
             master_date = dates[idx]
@@ -364,15 +358,14 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                     # sort them
                     dates.sort()
                     # write them back to string for following loop
-                    sortedDates = [datetime.datetime.strftime(
+                    sorted_dates = [datetime.datetime.strftime(
                         ts, "%d%b%Y") for ts in dates]
 
                     i, outfiles = 1, []
-                    for date in sortedDates:
-
+                    for date in sorted_dates:
                         # restructure date to YYMMDD
-                        inDate = datetime.datetime.strptime(date, '%d%b%Y')
-                        outDate = datetime.datetime.strftime(inDate,
+                        in_date = datetime.datetime.strptime(date, '%d%b%Y')
+                        out_date = datetime.datetime.strftime(in_date,
                                                              '%y%m%d')
 
                         infile = glob.glob(opj('{}.data'.format(out_stack),
@@ -381,7 +374,7 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
 
                         # create outfile
                         outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
-                            i, outDate, p, pol))
+                            i, out_date, p, pol))
 
                         # mask by extent
                         ras.mask_by_shape(
@@ -405,7 +398,6 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
                                   options=vrt_options)
 
                 if p == 'coh':
-
                     # get slave and master Date
                     mstDates = [datetime.datetime.strptime(
                         os.path.basename(x).split('_')[3].split('.')[0],
@@ -511,21 +503,20 @@ def _ard_to_ts(burst_inventory, processing_dir, temp_dir,
             # sort them
             dates.sort()
             # write them back to string for following loop
-            sortedDates = [datetime.datetime.strftime(
+            sorted_dates = [datetime.datetime.strftime(
                 ts, "%d%b%Y") for ts in dates]
 
             i, outfiles = 1, []
-            for date in sortedDates:
-
+            for date in sorted_dates:
                 # restructure date to YYMMDD
-                inDate = datetime.datetime.strptime(date, '%d%b%Y')
-                outDate = datetime.datetime.strftime(inDate, '%y%m%d')
+                in_date = datetime.datetime.strptime(date, '%d%b%Y')
+                out_date = datetime.datetime.strftime(in_date, '%y%m%d')
 
                 infile = glob.glob(opj('{}.data'.format(out_stack),
                                        '*{}*{}*img'.format(pol, date)))[0]
                 # create outfile
                 outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
-                        i, outDate, p, pol))
+                        i, out_date, p, pol))
                 # mask by extent
                 max_value = 90 if pol is 'Alpha' else 1
                 ras.mask_by_shape(

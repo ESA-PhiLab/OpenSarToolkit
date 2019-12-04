@@ -1,5 +1,7 @@
 # Open SAR Toolkit (OST)
 
+[![Build Status](https://travis-ci.org/Scartography/OpenSarToolkit.svg?branch=ost_tests)](https://travis-ci.org/Scartography/OpenSarToolkit)
+
 ## Objective
 
 This python package lowers the entry barrier for accessing and pre-processing 
@@ -128,7 +130,7 @@ https://docs.conda.io/projects/conda/en/latest/user-guide/install/
 
 Then run the conda command to install OST's dependencies:
 ```
-conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
+conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio geopandas fiona shapely matplotlib tqdm scipy
 ```
 
 Finally get the OST by using pip 

@@ -42,7 +42,7 @@ def gpt_path():
     Returns:
         path to SNAP's gpt command line executable
     '''
-
+    gptfile = None
     if os.name == 'nt':
         if Path(r'c:/Program Files/snap/bin/gpt.exe').is_file() is True:
             gptfile = Path(r'c:/Program Files/snap/bin/gpt.exe')
@@ -66,20 +66,25 @@ def gpt_path():
             '/opt/snap/bin/gpt',
             '/usr/local/snap/bin/gpt',
             '/usr/local/lib/snap/bin/gpt',
-            '/Applications/snap/bin/gpt'
-            ]
+            '/Applications/snap/bin/gpt',
+            homedir+'/SNAP_Toolbox/snap/bin/gpt',
+            homedir+'/snap/bin/gpt'
+        ]
 
         for path in paths:
             if os.path.isfile(path):
                 gptfile = path
                 break
-            else:
-                gptfile = None
+
+    if gptfile is None:
+        gptfile = os.getenv('GPT_PATH')
+        os.path.isfile(gptfile)
 
     if not gptfile:
         gptfile = input(' Please provide the full path to the SNAP'
                         ' gpt command line executable'
                         ' (e.g. /path/to/snap/bin/gpt')
+
         os.makedirs(opj(homedir, '.ost'), exist_ok=True)
         os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
 
@@ -89,22 +94,6 @@ def gpt_path():
 
     # print(' INFO: using SNAP CL executable at {}'.format(gptfile))
     return gptfile
-
-
-def is_valid_directory(parser, arg):
-    if not os.path.isdir(arg):
-        parser.error('The directory {} does not exist!'.format(arg))
-    else:
-        # File exists so return the directory
-        return arg
-
-
-def is_valid_file(parser, arg):
-    if not os.path.isfile(arg):
-        parser.error('The file {} does not exist!'.format(arg))
-    else:
-        # File exists so return the filename
-        return arg
 
 
 # check the validity of the date function
@@ -178,7 +167,7 @@ def run_command(command, logfile, elapsed=True):
 
     if elapsed:
         timer(currtime)
-        
+
     return process.returncode
 
 
@@ -237,7 +226,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
     # check for file size of the dim file
     dim_size_in_mb = os.path.getsize('{}.dim'.format(dimap_prefix)) / 1048576
 
-    if dim_size_in_mb < 1:
+    if dim_size_in_mb < 0.2:
         return 666
 
     for file in glob.glob(opj('{}.data'.format(dimap_prefix), '*.img')):
@@ -245,7 +234,8 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         # check size
         data_size_in_mb = os.path.getsize(file) / 1048576
 
-        if data_size_in_mb < 1:
+        if data_size_in_mb < 0.2:
+            print('data small')
             return 666
 
         if test_stats:
@@ -278,8 +268,7 @@ def check_out_tiff(file, test_stats=True):
 
     # check for file size of the dim file
     tiff_size_in_mb = os.path.getsize(file) / 1048576
-
-    if tiff_size_in_mb < 0.3:
+    if tiff_size_in_mb < 0.2:
         return 666
 
     if test_stats:
@@ -317,7 +306,8 @@ def check_zipfile(filename):
         return 1
     else:
         return zip_test
-    
+
+
 def resolution_in_degree(latitude, meters):
     '''Convert resolution in meters to degree based on Latitude
 
@@ -330,3 +320,15 @@ def resolution_in_degree(latitude, meters):
     # Find the radius of a circle around the earth at given latitude.
     r = earth_radius*math.cos(latitude*degrees_to_radians)
     return (meters/r)*radians_to_degrees
+
+
+def zip_s1_safe_dir(dir_path, zip_path, product_id):
+    zipf = zipfile.ZipFile(zip_path, mode='w')
+    len_dir = len(dir_path)
+    for root, _, files in os.walk(dir_path):
+        print(root, _, files)
+        for file in files:
+            file_path = opj(root, file)
+            if '.downloaded' not in zip_path:
+                zipf.write(file_path, product_id+'.SAFE'+file_path[len_dir:])
+    zipf.close()

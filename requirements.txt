@@ -1,15 +1,14 @@
-descartes
 fiona
 gdal
 geopandas
 matplotlib
 numpy
 pandas
-psycopg2
+psycopg2-binary
 rasterio
 requests
-rtree
 scipy
 shapely
 tqdm
 imageio
+environs

@@ -75,15 +75,6 @@ import gdal
 from os.path import join as opj
 from ost.helpers import helpers as h, raster as ras
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product
@@ -118,7 +109,7 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolarisation={} \
                -Poutput=\'{}\''.format(
-                   gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
+        gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
 
     # run command
     return_code = h.run_command(command, logfile)
@@ -161,7 +152,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
 
     print(' INFO: Importing {} by applying precise orbit file and'
           ' removing thermal noise, as well as subsetting.'.format(
-              os.path.basename(infile)))
+        os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
@@ -173,8 +164,8 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolarisation={} \
                       -Poutput=\'{}\''.format(
-                          gpt_file, graph, 2 * os.cpu_count(),
-                          infile, georegion, polarisation, outfile)
+        gpt_file, graph, 2 * os.cpu_count(),
+        infile, georegion, polarisation, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -213,7 +204,7 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # construct command
     command = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
                -t \'{}\' {}'.format(
-                   gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
+        gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -293,7 +284,7 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
     # extract window from scene
     command = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' \
                  -PcopyMetadata=true -PgeoRegion=\'{}\''.format(
-                     gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
+        gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -413,8 +404,15 @@ def _grd_remove_border(infile):
     h.timer(currtime)
 
 
-def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
-                     dem='SRTM 1Sec HGT'):
+def _grd_backscatter(
+        infile,
+        outfile,
+        logfile,
+        product_type='GTCgamma',
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
@@ -454,6 +452,11 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     if product_type == 'RTC':
         print(' INFO: Calibrating the product to a RTC product.')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
+        if dem_file != '':
+            with rasterio.open(dem_file, 'r') as dem_f:
+                dem_nodata = dem_f.nodata
+        else:
+            dem_nodata = 0.0
     elif product_type == 'GTCgamma':
         print(' INFO: Calibrating the product to a GTC product (Gamma0).')
         graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
@@ -467,14 +470,18 @@ def _grd_backscatter(infile, outfile, logfile, product_type='GTCgamma',
     # construct command sring
     if product_type == 'RTC':
         command = '{} {} -x -q {} -Pinput=\'{}\' -Pdem=\'{}\' \
+                   -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                    -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                           infile, dem, outfile)
+                                           infile, dem, dem_file, dem_nodata, resampling,
+                                           outfile
+                                           )
     else:
         command = '{} {} -x -q {} -Pinput=\'{}\' -Poutput=\'{}\''.format(
             gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
+
 
     # handle errors and logs
     if return_code == 0:
@@ -506,9 +513,9 @@ def _grd_speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying the Lee-Sigma Speckle Filter')
+    print(' INFO: Applying the Refined-Lee Speckle Filter')
     # contrcut command string
-    command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
+    command = '{} Speckle-Filter -x -q {} -PestimateENL=true -Pfilter=\'Refined Lee\' \
               -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
                                        outfile, infile)
 
@@ -563,8 +570,15 @@ def _grd_to_db(infile, outfile, logfile):
     return return_code
 
 
-def _grd_terrain_correction(infile, outfile, logfile, resolution,
-                            dem='SRTM 1Sec HGT'):
+def _grd_terrain_correction(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -599,11 +613,18 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
 
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
-                                         dem, outfile)
+                                         dem, dem_file, dem_nodata, resampling, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -619,8 +640,15 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution,
     return return_code
 
 
-def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
-                                dem='SRTM 1Sec HGT'):
+def _grd_terrain_correction_deg(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -656,11 +684,19 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
 
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
                  -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
-                                         dem, outfile)
+                                         dem, dem_file, dem_nodata, resampling, outfile
+                                         )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -676,7 +712,15 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     return return_code
 
 
-def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
+def _grd_ls_mask(
+        infile,
+        outfile,
+        logfile,
+        resolution,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION'
+):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
     This function takes OST imported Sentinel-1 product and calculates
@@ -709,10 +753,19 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     # get path to workflow xml
     graph = opj(root_path, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
 
+    if dem_file != '':
+        with rasterio.open(dem_file, 'r') as dem_f:
+            dem_nodata = dem_f.nodata
+    else:
+        dem_nodata = 0.0
+
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
-             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-                                     infile, resolution, dem, outfile)
+                 -Pdem_file=\'{}\' -Pdem_nodata={} -Presampling={} \
+                 -Poutput=\'{}\''.format(
+        gpt_file, graph, 2 * os.cpu_count(), infile, resolution, dem, dem_file,
+        dem_nodata, resampling, outfile
+    )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -723,23 +776,25 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1Sec HGT'):
     else:
         print(' ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
+        raise RuntimeError
         sys.exit(112)
 
     return return_code
 
 
-def grd_to_ard(filelist, 
-               output_dir, 
-               file_id, 
-               temp_dir, 
-               resolution, 
+def grd_to_ard(filelist,
+               output_dir,
+               file_id,
+               temp_dir,
+               resolution,
+               resampling,
                product_type,
                ls_mask_create,
                speckle_filter,
-               dem, 
-               to_db, 
+               dem,
+               to_db,
                border_noise,
-               subset=None, 
+               subset=None,
                polarisation='VV,VH,HH,HV'):
     '''The main function for the grd to ard generation
 
@@ -770,13 +825,20 @@ def grd_to_ard(filelist,
     '''
 
     # get processing parameters from dict
-#    resolution = processing_dict['resolution']
-#    product_type = processing_dict['product_type']
-#    ls_mask = processing_dict['ls_mask']
-#    speckle_filter = processing_dict['speckle_filter']
-#    border_noise = processing_dict['border_noise']
-#    dem = processing_dict['dem']
-#    to_db = processing_dict['to_db']
+    #    resolution = processing_dict['resolution']
+    #    product_type = processing_dict['product_type']
+    #    ls_mask = processing_dict['ls_mask']
+    #    speckle_filter = processing_dict['speckle_filter']
+    #    border_noise = processing_dict['border_noise']
+    #    dem = processing_dict['dem']
+    #    to_db = processing_dict['to_db']
+
+    # Check if dem is file, else use default dem
+    if dem.endswith('.tif') or dem.endswith('.hgt') or dem.endswith('.hdf'):
+        dem_file = dem
+        dem = 'External DEM'
+    else:
+        dem_file = ''
 
     # slice assembly if more than one scene
     if len(filelist) > 1:
@@ -787,7 +849,7 @@ def grd_to_ard(filelist,
                 os.path.basename(file)[:-5]))
             logfile = opj(output_dir, '{}.Import.errLog'.format(
                 os.path.basename(file)[:-5]))
-            
+
             return_code = _grd_frame_import(file, grd_import, logfile)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
@@ -800,7 +862,7 @@ def grd_to_ard(filelist,
         # create file strings
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
-        return_code = _slice_assembly(scenelist, grd_import, logfile, 
+        return_code = _slice_assembly(scenelist, grd_import, logfile,
                                       polarisation)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
@@ -812,12 +874,12 @@ def grd_to_ard(filelist,
 
         if subset:
             grd_subset = opj(temp_dir, '{}_imported_subset'.format(file_id))
-            return_code = _grd_subset_georegion('{}.dim'.format(grd_import), 
+            return_code = _grd_subset_georegion('{}.dim'.format(grd_import),
                                                 grd_subset, logfile, subset)
             if return_code != 0:
                 h.remove_folder_content(temp_dir)
                 return return_code
-            
+
             # delete slice assembly
             h.delete_dimap(grd_import)
     
@@ -827,9 +889,10 @@ def grd_to_ard(filelist,
         logfile = opj(output_dir, '{}.Import.errLog'.format(file_id))
 
         if subset is None:
-            return_code = _grd_frame_import(filelist[0], grd_import, logfile, 
+            return_code = _grd_frame_import(filelist[0], grd_import, logfile,
                                             polarisation)
         else:
+            # georegion = vec.shp_to_wkt(subset, buffer=0.1, envelope=True)
             return_code = _grd_frame_import_subset(filelist[0], grd_import, 
                                                    subset, logfile, 
                                                    polarisation)
@@ -843,8 +906,8 @@ def grd_to_ard(filelist,
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
             infile = glob.glob(opj(
-                    temp_dir, '{}_imported*data'.format(file_id),
-                    'Intensity_{}.img'.format(polarisation)))
+                temp_dir, '{}_imported*data'.format(file_id),
+                'Intensity_{}.img'.format(polarisation)))
 
             if len(infile) == 1:
                 # run grd Border Remove
@@ -852,47 +915,58 @@ def grd_to_ard(filelist,
                     polarisation))
                 _grd_remove_border(infile[0])
 
-    # set new infile
-    infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
-    # -------------------------------------------
-    # in case we want to apply Speckle filtering
-    if speckle_filter:
-        
-        logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_spk'.format(file_id))
-
-        # run processing
-        return_code = _grd_speckle_filter(infile, outfile, logfile)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # delete input
-        h.delete_dimap(infile[:-4])
-        # define infile for next processing step
-        infile = '{}.dim'.format(outfile)
-        
     # ----------------------
     # do the calibration
+    infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
     outfile = opj(temp_dir, '{}.{}'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
-    return_code = _grd_backscatter(infile, outfile, logfile, product_type, dem)
+    return_code = _grd_backscatter(infile,
+                                   outfile,
+                                   logfile,
+                                   product_type,
+                                   dem,
+                                   dem_file,
+                                   resampling
+                                   )
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
 
-    # delete input file
-    h.delete_dimap(infile[:-4])
+    data_dir = glob.glob(opj(temp_dir, '{}*imported.data'.format(file_id)))
+    h.delete_dimap(str(data_dir[0])[:-5])
 
-    # input file for follwoing
-    infile = '{}.dim'.format(outfile)
+    infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
+    # -------------------------------------------
+    # in case we want to apply Speckle filtering
+    if speckle_filter:
+        logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
+        outfile = opj(temp_dir, '{}_imported_spk'.format(file_id))
+
+        # run processing
+        return_code = _grd_speckle_filter(infile, outfile, logfile)
+
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
+
+        # define infile for next processing step
+        infile = opj(temp_dir, '{}_imported_spk.dim'.format(file_id))
+        data_dir = opj(temp_dir, '{}.{}'.format(file_id, product_type))
+        h.delete_dimap(str(data_dir))
 
     # ----------------------------------------------
     # let's create a Layover shadow mask if needed
     if ls_mask_create is True:
         outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
-        return_code = _grd_ls_mask(infile, outfile, logfile, resolution, dem)
+        return_code = _grd_ls_mask(infile,
+                                   outfile,
+                                   logfile,
+                                   resolution,
+                                   dem,
+                                   dem_file,
+                                   resampling
+                                   )
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
@@ -902,7 +976,7 @@ def grd_to_ard(filelist,
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
-        
+
         # move to final destination
         out_ls_mask = opj(output_dir, '{}.LS'.format(file_id))
 
@@ -913,7 +987,7 @@ def grd_to_ard(filelist,
         # move out of temp
         shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_ls_mask))
         shutil.move('{}.data'.format(outfile), '{}.data'.format(out_ls_mask))
-    
+
     # to db
     if to_db:
         logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
@@ -922,7 +996,7 @@ def grd_to_ard(filelist,
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
-        
+
         # delete
         h.delete_dimap(infile[:-4])
         # re-define infile
@@ -933,11 +1007,18 @@ def grd_to_ard(filelist,
     # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
     outfile = opj(temp_dir, '{}.{}.TC'.format(file_id, product_type))
     logfile = opj(output_dir, '{}.TC.errLog'.format(file_id))
-    return_code = _grd_terrain_correction(infile, outfile, logfile, resolution, dem)
+    return_code = _grd_terrain_correction(infile,
+                                          outfile,
+                                          logfile,
+                                          resolution,
+                                          dem,
+                                          dem_file,
+                                          resampling
+                                          )
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
-    
+
     # remove calibrated files
     h.delete_dimap(infile[:-4])
 
@@ -952,7 +1033,7 @@ def grd_to_ard(filelist,
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
-        
+
     shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_final))
     shutil.move('{}.data'.format(outfile), '{}.data'.format(out_final))
 
@@ -961,11 +1042,11 @@ def grd_to_ard(filelist,
         check_file = opj(output_dir, '.processed')
         with open(str(check_file), 'w') as file:
             file.write('passed all tests \n')
+        return check_file
     else:
         h.remove_folder_content(temp_dir)
         h.remove_folder_content(output_dir)
-        
-    
+
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
 
@@ -990,7 +1071,7 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
         meta = co.meta
 
         # update meta
-        meta.update(driver=driver, count=3, nodata=0)
+        meta.update(driver=driver, count=3, nodata=0, compress='Deflate')
 
         with rasterio.open(cross_pol) as cr:
 
@@ -1002,9 +1083,10 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
                 # loop through blocks
                 for i, window in co.block_windows(1):
 
+                    from rasterio.enums import Resampling
                     # read arrays and turn to dB (in case it isn't)
-                    co_array = co.read(window=window)
-                    cr_array = cr.read(window=window)
+                    co_array = co.read(window=window, resampling=Resampling.cubic_spline)
+                    cr_array = cr.read(window=window, resampling=Resampling.cubic_spline)
 
                     if to_db:
                         # turn to db
