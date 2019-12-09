@@ -318,3 +318,29 @@ def zip_s1_safe_dir(dir_path, zip_path, product_id):
             if '.downloaded' not in zip_path:
                 zipf.write(file_path, product_id+'.SAFE'+file_path[len_dir:])
     zipf.close()
+
+
+def _slc_zip_to_processing_dir(
+        processing_dir,
+        product,
+        product_path
+):
+    import shutil
+    download_path = os.path.join(processing_dir, 'SAR',
+                                 product.product_type,
+                                 product.year,
+                                 product.month,
+                                 product.day
+                                 )
+    os.makedirs(download_path, exist_ok=True)
+
+    if not os.path.exists(
+            os.path.join(download_path, os.path.basename(product_path))
+    ):
+        shutil.copy(product_path, download_path)
+        with open(
+                os.path.join(
+                    download_path, os.path.basename(product_path)
+                )+'.downloaded', 'w'
+        ) as zip_dl:
+            zip_dl.write('1')

@@ -20,6 +20,9 @@ from shapely.wkt import loads
 from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
+from ost.s1.burst_to_ard import burst_to_ard
+from ost.s1.s1coherence import get_bursts_by_polygon
+
 
 logger = logging.getLogger(__name__)
 
@@ -719,7 +722,66 @@ class Sentinel1Scene:
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
                                            .format(out_prefix)))[0]
 
-        elif self.product_type != 'GRD':
+        elif self.product_type == 'SLC':
+            if not self.ard_parameters:
+                logger.debug('INFO: No ARD definition given.'
+                             ' Using the OST standard ARD defintion'
+                             ' Use object.set_ard_defintion() first if you want to'
+                             ' change the ARD defintion.'
+                             )
+                self.set_ard_parameters('OST')
+            if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
+                self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
+                logger.debug('WARNING: Invalid resampling method '
+                             'using BILINEAR_INTERPOLATION'
+                             )
+            # we need to convert the infile t a list for the grd_to_ard routine
+            if subset is not None:
+                try:
+                    processing_poly = loads(subset)
+                except Exception as e:
+                    raise e
+            else:
+                processing_poly = None
+            # get file paths
+            master_file = self.get_path(out_dir)
+            # get bursts
+            master_bursts = self._zip_annotation_get(download_dir=out_dir)
+
+            bursts_dict = get_bursts_by_polygon(
+                master_annotation=master_bursts,
+                out_poly=processing_poly
+            )
+            for swath, b in bursts_dict.items():
+                if b != []:
+                    for burst in b:
+                        m_nr, m_burst_id, b_bbox = burst
+                        # run the processing
+                        out_file = burst_to_ard(
+                            master_file=master_file,
+                            swath=swath,
+                            master_burst_nr=m_nr,
+                            master_burst_id=str(m_burst_id),
+                            out_dir=out_dir,
+                            temp_dir=temp_dir,
+                            slave_file=None,
+                            slave_burst_nr=None,
+                            slave_burst_id=None,
+                            polarimetry=False,
+                            pol_speckle_filter=False,
+                            resolution=self.ard_parameters['resolution'],
+                            product_type=self.ard_parameters['type'],
+                            speckle_filter=False,
+                            to_db=False,
+                            ls_mask_create=False,
+                            dem=self.ard_parameters['dem'],
+                            remove_slave_import=False
+                        )
+            # write to class attribute
+            self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
+                                           .format(out_prefix)))[0]
+
+        else:
             logger.debug('ERROR: create_ard method for single products is currently'
                          ' only available for GRD products'
                          )

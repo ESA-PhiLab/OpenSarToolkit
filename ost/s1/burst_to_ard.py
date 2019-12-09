@@ -583,7 +583,7 @@ def burst_to_ard(master_file,
                  polarimetry=False,
                  pol_speckle_filter=False,
                  resolution=20,
-                 product_type='GTCgamma',
+                 product_type='OST',
                  speckle_filter=False,
                  to_db=False,
                  ls_mask_create=False,
@@ -657,7 +657,7 @@ def burst_to_ard(master_file,
         # remove HAalpha tmp files
         h.delete_dimap(out_haa)
 
-    # calibrate
+    # Calibrate
     out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
     cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
     return_code = _calibration(
