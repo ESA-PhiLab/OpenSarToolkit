@@ -1,4 +1,5 @@
 import os
+import jpy
 from os.path import join as opj
 import sys
 import json
@@ -21,7 +22,7 @@ from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 from ost.s1.burst_to_ard import burst_to_ard
-from ost.s1.s1coherence import get_bursts_by_polygon
+from ost.helpers.bursts import get_bursts_by_polygon
 
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,6 @@ class Sentinel1Scene:
         return inf_dict
 
     def download(self, download_dir, mirror=None):
-        
         # if not mirror:
         #    logger.debug('INFO: One or more of your scenes need to be downloaded.')
         #    logger.debug('Select the server from where you want to download:')
@@ -222,12 +222,12 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                logger.debug('We failed to connect to the server.')
-                logger.debug('Reason: ', error.reason)
+                logger.error('We failed to connect to the server.')
+                logger.error('Reason: ', error.reason)
                 sys.exit()
             elif hasattr(error, 'code'):
-                logger.debug('The server couldn\'t fulfill the request.')
-                logger.debug('Error code: ', error.code)
+                logger.error('The server couldn\'t fulfill the request.')
+                logger.error('Error code: ', error.code)
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -675,8 +675,14 @@ class Sentinel1Scene:
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
-
-        self.center_lat = self._get_center_lat(infile)
+        if subset is not None:
+            p_poly = loads(subset)
+            self.center_lat = p_poly.bounds[3]-p_poly.bounds[1]
+        else:
+            try:
+                self.center_lat = self._get_center_lat(infile)
+            except Exception as e:
+                raise
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
             logger.debug('INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
                          ' DEM instead.'
@@ -723,13 +729,20 @@ class Sentinel1Scene:
                                            .format(out_prefix)))[0]
 
         elif self.product_type == 'SLC':
+            # TODO align ARD types with GRD
+            """
+            Works for only one product at a time, all products are handled as 
+            master products in this condition, returning an ARD with 
+            the provided ARD parameters!
+            """
             if not self.ard_parameters:
                 logger.debug('INFO: No ARD definition given.'
                              ' Using the OST standard ARD defintion'
                              ' Use object.set_ard_defintion() first if you want to'
                              ' change the ARD defintion.'
                              )
-                self.set_ard_parameters('OST')
+                self.set_ard_parameters('GTCgamma')
+                self.ard_parameters['type'] = 'GTCgamma'
             if self.ard_parameters['resampling'] not in SNAP_S1_RESAMPLING_METHODS:
                 self.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
                 logger.debug('WARNING: Invalid resampling method '
@@ -757,12 +770,13 @@ class Sentinel1Scene:
                     for burst in b:
                         m_nr, m_burst_id, b_bbox = burst
                         # run the processing
-                        out_file = burst_to_ard(
+                        return_code = burst_to_ard(
                             master_file=master_file,
                             swath=swath,
                             master_burst_nr=m_nr,
                             master_burst_id=str(m_burst_id),
                             out_dir=out_dir,
+                            out_prefix=self.scene_id,
                             temp_dir=temp_dir,
                             slave_file=None,
                             slave_burst_nr=None,
@@ -770,17 +784,22 @@ class Sentinel1Scene:
                             polarimetry=False,
                             pol_speckle_filter=False,
                             resolution=self.ard_parameters['resolution'],
-                            product_type=self.ard_parameters['type'],
+                            product_type=self.ard_parameters['product_type'],
                             speckle_filter=False,
-                            to_db=False,
+                            # To_db not working
+                            to_db=self.ard_parameters['to_db'],
                             ls_mask_create=False,
                             dem=self.ard_parameters['dem'],
                             remove_slave_import=False
                         )
-            # write to class attribute
-            self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
-                                           .format(out_prefix)))[0]
-
+                        if return_code != 0:
+                            raise RuntimeError(
+                                'Somethign went wrong with the GPT processing!'
+                            )
+                        out_file = opj(out_dir, '_'.join([
+                            self.scene_id, str(m_burst_id), 'BS.dim'
+                        ])
+                                       )
         else:
             logger.debug('ERROR: create_ard method for single products is currently'
                          ' only available for GRD products'

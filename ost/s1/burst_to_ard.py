@@ -140,7 +140,6 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
 
     # get path to graph
     rootpath = imp.find_module('ost')[1]
-
     if product_type == 'RTC':
         logger.debug('INFO: Calibrating the product to a RTC product.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
@@ -193,16 +192,13 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     gpt_file = h.gpt_path()
 
     logger.debug('INFO: Correcting for the illumination along slopes'
-          '(Terrain Flattening).')
+                 '(Terrain Flattening).'
+                 )
 
-    #snap_list = []
-    #if dem is in snap_list:
     command = '{} Terrain-Flattening -x -q {} -PadditionalOverlap=0.15  \
                -PoversamplingMultiple=1.5 -PdemName=\'{}\'-t {} {}'.format(
                    gpt_file, 2 * os.cpu_count(), dem, outfile, infile)
-    #elif ospath.isfile(dem ):
-    #   external dem
-        
+
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
@@ -237,8 +233,7 @@ def _speckle_filter(infile, outfile, logfile):
     logger.debug('INFO: Applying the Lee-Sigma Speckle Filter')
     # contrcut command string
     command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\'\'{}\''.format(gpt_file, 2 * os.cpu_count(),
-                                       outfile, infile)
+              -t \'{}\'\'{}\''.format(gpt_file, 2 * os.cpu_count(), outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -274,7 +269,7 @@ def _linear_to_db(infile, outfile, logfile):
 
     logger.debug('INFO: Converting the image to dB-scale.')
     # construct command string
-    command = '{} LinearToFromdB -x -q {} -t \'{}\'{}'.format(
+    command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
         gpt_file, 2 * os.cpu_count(), outfile, infile)
 
     # run command and get return code
@@ -575,6 +570,7 @@ def burst_to_ard(master_file,
                  master_burst_nr,
                  master_burst_id,
                  out_dir,
+                 out_prefix,
                  temp_dir,
                  slave_file=None,
                  slave_burst_nr=None,
@@ -583,7 +579,7 @@ def burst_to_ard(master_file,
                  polarimetry=False,
                  pol_speckle_filter=False,
                  resolution=20,
-                 product_type='OST',
+                 product_type='GTCgamma',
                  speckle_filter=False,
                  to_db=False,
                  ls_mask_create=False,
@@ -641,7 +637,7 @@ def burst_to_ard(master_file,
         out_htc = opj(temp_dir, '{}_ha_alpha'.format(master_burst_id))
         haa_tc_log = opj(out_dir, '{}_haa_tc.err_log'.format(
             master_burst_id))
-        return_code = _terrain_correction(
+        _terrain_correction(
             '{}.dim'.format(out_haa), out_htc, haa_tc_log, resolution, dem)
 
         # last check on the output files
@@ -720,9 +716,9 @@ def burst_to_ard(master_file,
         out_cal = out_db
 
     # geo code backscatter products
-    out_tc = opj(temp_dir, '{}_BS'.format(master_burst_id))
+    out_tc = opj(temp_dir, '{}_{}_BS'.format(out_prefix, master_burst_id))
     tc_log = opj(out_dir, '{}_BS_tc.err_log'.format(master_burst_id))
-    return_code = _terrain_correction(
+    _terrain_correction(
         '{}.dim'.format(out_cal), out_tc, tc_log, resolution, dem)
 
     # last check on backscatter data
@@ -732,11 +728,11 @@ def burst_to_ard(master_file,
         return return_code
 
     # we move backscatter to final destination
-    h.move_dimap(out_tc, opj(out_dir, '{}_BS'.format(master_burst_id)))
+    h.move_dimap(out_tc, opj(out_dir, '{}_{}_BS'.format(out_prefix, master_burst_id)))
 
     if ls_mask_create:
         # create LS map
-        out_ls = opj(temp_dir, '{}_LS'.format(master_burst_id))
+        out_ls = opj(temp_dir, '{}_{}_LS'.format(out_prefix, master_burst_id))
         ls_log = opj(out_dir, '{}_LS.err_log'.format(master_burst_id))
         return_code = _ls_mask('{}.dim'.format(out_cal), out_ls, ls_log,
                                resolution, dem)
@@ -751,12 +747,12 @@ def burst_to_ard(master_file,
             return return_code
 
         # move ls data to final destination
-        h.move_dimap(out_ls, opj(out_dir, '{}_LS'.format(master_burst_id)))
+        h.move_dimap(out_ls, opj(out_dir, '{}_{}_LS'.format(out_prefix, master_burst_id)))
 
     # remove calibrated files
     h.delete_dimap(out_cal)
 
-    if coherence:
+    if coherence and slave_burst_id is not None and slave_burst_nr is not None:
         # import slave
         slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
         import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
@@ -804,9 +800,9 @@ def burst_to_ard(master_file,
         h.delete_dimap(out_coreg)
 
         # geocode
-        out_tc = opj(temp_dir, '{}_coh'.format(master_burst_id))
+        out_tc = opj(temp_dir, '{}_{}_coh'.format(out_prefix, master_burst_id))
         tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
-        return_code = _terrain_correction(
+        _terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log, resolution, dem)
         # last check on coherence data
         return_code = h.check_out_dimap(out_tc)
@@ -815,7 +811,10 @@ def burst_to_ard(master_file,
             return return_code
 
         # move to final destination
-        h.move_dimap(out_tc, opj(out_dir, '{}_coh'.format(master_burst_id)))
+        h.move_dimap(out_tc, opj(
+            out_dir, '{}_{}_coh'.format(out_prefix, master_burst_id)
+        )
+                     )
 
         # remove tmp files
         h.delete_dimap(out_coh)

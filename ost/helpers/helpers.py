@@ -128,24 +128,36 @@ def remove_folder_content(folder):
             shutil.rmtree(os.path.join(root, d))
 
 
-def run_command(command, logfile, elapsed=True):
+def run_command(command, logfile, elapsed=True, silent=True):
     '''A helper function to execute a command line command
 
     Args:
         command (str): the command to execute
         logfile (str): path to the logfile in case of errors
+        silent (bool): if you want to shut GPT up or not
 
     '''
 
     currtime = time.time()
+    if silent:
+        dev_null = open(os.devnull, 'w')
+        stderr = subprocess.STDOUT
+    else:
+        stderr = subprocess.PIPE
+        dev_null = None
 
     if os.name == 'nt':
-        process = subprocess.run(command, stderr=subprocess.PIPE)
+        process = subprocess.run(command,
+                                 stdout=dev_null,
+                                 stderr=stderr
+                                 )
     else:
-        process = subprocess.run(shlex.split(command), stderr=subprocess.PIPE)
+        process = subprocess.run(shlex.split(command),
+                                 stderr=stderr,
+                                 stdout=dev_null,
+                                 )
 
     return_code = process.returncode
-
     if return_code != 0:
         with open(str(logfile), 'w') as file:
             for line in process.stderr.decode().splitlines():

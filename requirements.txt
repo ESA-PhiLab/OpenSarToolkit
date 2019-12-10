@@ -8,7 +8,6 @@ psycopg2-binary
 rasterio
 requests
 scipy
-snappy
 shapely
 tqdm
 imageio

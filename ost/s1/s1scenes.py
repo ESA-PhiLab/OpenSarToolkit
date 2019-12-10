@@ -1,16 +1,20 @@
 import os
 from os.path import join as opj
 import logging
+import rasterio
+import warnings
 from datetime import datetime
 from tempfile import TemporaryDirectory
 
-from shapely.geometry import box
+from rasterio.errors import NotGeoreferencedWarning
+
 from shapely.wkt import loads as shp_loads
 
 from ost.s1.s1scene import Sentinel1Scene as S1scene
 from ost.helpers import helpers as h
 from ost.s1.burst_to_ard import _import, _coreg2, _coherence, _terrain_correction
 from ost.helpers.helpers import _slc_zip_to_processing_dir
+from ost.helpers.bursts import get_bursts_pairs
 
 logger = logging.getLogger(__name__)
 
@@ -46,30 +50,37 @@ class Sentinel1Scenes:
 
     def s1_scenes_to_ard(self,
                          processing_dir,
-                         dem='SRTM 1Sec HGT',
                          subset=None,
                          ):
         if self.master.ard_parameters['type'] is None:
             raise RuntimeError('Need to specify or setup ard_type')
         # more custom ARD params, see whats in s1scene.py and complement corespondingly
-        self.master.ard_parameters['dem'] = dem
         out_files = []
-        # process the amster first
+        # process the master to ARD first
         with TemporaryDirectory() as temp:
             out_file = self.master.create_ard(
                 infile=None,
                 out_dir=processing_dir,
-                out_prefix='SLC_ARD',
+                out_prefix=self.master.scene_id,
                 temp_dir=temp,
-                subset=None,
+                subset=subset,
                 polar='VV,VH,HH,HV'
             )
         out_files.append(out_file)
-
         # Process all slaves as ARD
-        # for s in self.slaves:
-        #     out_file = s.create_ard()
-        #     out_files.append(out_file)
+        for s in self.slaves:
+            with TemporaryDirectory() as temp:
+                s.ard_parameters = self.master.ard_parameters
+                out_file = s.create_ard(
+                    infile=None,
+                    out_dir=processing_dir,
+                    out_prefix=s.scene_id,
+                    temp_dir=temp,
+                    subset=subset,
+                    polar='VV,VH,HH,HV'
+                )
+                out_files.append(out_file)
+        self.ard_dimap = out_files
         return out_files
 
     def get_weekly_pairs(self):
@@ -126,7 +137,7 @@ class Sentinel1Scenes:
         if timeliness == '14days':
             pairs = self.get_biweekly_pairs()
         elif timeliness == '7days':
-            pairs = self.get_biweekly_pairs()
+            pairs = self.get_weekly_pairs()
         else:
             raise RuntimeError(
                 'Just weekly or biweekly are your options, take it or leave it!'
@@ -158,7 +169,9 @@ class Sentinel1Scenes:
                     for burst in b:
                         m_nr, m_burst_id, sl_burst_nr, sl_burst_id, b_bbox = burst
                         return_code = _2products_coherence_tc(
+                            master_scene=pair[0],
                             master_file=master_file,
+                            slave_scene=pair[1],
                             slave_file=slave_file,
                             out_dir=processing_dir,
                             temp_dir=temp_dir,
@@ -172,15 +185,25 @@ class Sentinel1Scenes:
                             dem_file=dem_file,
                             resampling=resampling
                         )
-                        if return_code != 0:
+                        if return_code == 333:
+                            logger.debug('Burst %s is empty', m_burst_id)
+                            continue
+                        elif return_code != 0:
                             print(return_code)
                             raise RuntimeError
-
-        return processing_dir
+                        out_file = opj(out_dir, str(m_burst_id)+'_coh.dim')
+        coh_list = []
+        for f in os.listdir(processing_dir):
+            if f.endswith('_coh.dim'):
+                coh_list.append(opj(processing_dir, f))
+        self.coherece_dimap = coh_list
+        return coh_list
 
 
 def _2products_coherence_tc(
+        master_scene,
         master_file,
+        slave_scene,
         slave_file,
         out_dir,
         temp_dir,
@@ -195,7 +218,9 @@ def _2products_coherence_tc(
         resampling='BILINEAR_INTERPOLATION',
         polar='VV,VH,HH,HV'
 ):
-    # import slave
+    warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
+    return_code = None
+    # import master
     master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
     if not os.path.exists('{}.dim'.format(master_import)):
         import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
@@ -210,7 +235,23 @@ def _2products_coherence_tc(
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code
-
+    # check if master has data or not
+    data_path = opj(temp_dir, '{}_import.data'.format(master_burst_id))
+    if not os.path.exists(data_path):
+        return 333
+    for f in os.listdir(data_path):
+        if f.endswith('.img') and 'q' in f:
+            f = opj(data_path, f)
+            with rasterio.open(f, 'r') as in_img:
+                if not in_img.read(1).any():
+                    return_code = 333
+                else:
+                    return_code = 0
+    if return_code != 0:
+        #  remove imports
+        h.delete_dimap(master_import)
+        return return_code
+    # import slave
     slave_import = opj(temp_dir, '{}_slave_import'.format(slave_burst_id))
     import_log = opj(out_dir, '{}_slave_import.err_log'.format(slave_burst_id))
     return_code = _import(
@@ -221,9 +262,24 @@ def _2products_coherence_tc(
         burst=slave_burst_nr,
         polar=polar
     )
-
     if return_code != 0:
         h.remove_folder_content(temp_dir)
+        return return_code
+    # check if slave has data or not
+    data_path = opj(temp_dir, '{}_slave_import.data'.format(master_burst_id))
+    if not os.path.exists(data_path):
+        return 333
+    for f in os.listdir(data_path):
+        if f.endswith('.img') and 'q' in f:
+            f = opj(data_path, f)
+            with rasterio.open(f, 'r') as in_img:
+                if not in_img.read(1).any():
+                    return_code = 333
+                else:
+                    return_code = 0
+    if return_code != 0:
+        #  remove imports
+        h.delete_dimap(slave_import)
         return return_code
 
     # co-registration
@@ -258,8 +314,12 @@ def _2products_coherence_tc(
     h.delete_dimap(out_coreg)
 
     # geocode
-    out_tc = opj(temp_dir, '{}_coh'.format(master_burst_id))
-    tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
+    out_tc = opj(temp_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
+                                              slave_scene.start_date,
+                                              master_burst_id)
+                 )
+    tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id)
+                 )
     _terrain_correction(
         '{}.dim'.format(out_coh),
         out_tc,
@@ -274,7 +334,11 @@ def _2products_coherence_tc(
         return return_code
 
     # move to final destination
-    h.move_dimap(out_tc, opj(out_dir, '{}_coh'.format(master_burst_id)))
+    h.move_dimap(out_tc, opj(out_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
+                                                            slave_scene.start_date,
+                                                            master_burst_id)
+                             )
+                 )
     # remove tmp files
     h.delete_dimap(out_coh)
 
@@ -287,77 +351,6 @@ def _2products_coherence_tc(
         h.remove_folder_content(temp_dir)
         h.remove_folder_content(out_dir)
     return return_code
-
-
-def get_bursts_by_polygon(master_annotation, out_poly=None):
-    master_bursts = master_annotation
-
-    bursts_dict = {'IW1': [], 'IW2': [], 'IW3': []}
-    for subswath, nr, id, b in zip(
-            master_bursts['SwathID'],
-            master_bursts['BurstNr'],
-            master_bursts['AnxTime'],
-            master_bursts['geometry']
-    ):
-
-        # Return all burst combinations if out poly is None
-        if out_poly is None:
-            if (nr, id) not in bursts_dict[subswath]:
-                b_bounds = b.bounds
-                burst_buffer = abs(b_bounds[2]-b_bounds[0])/75
-                burst_bbox = box(
-                    b_bounds[0], b_bounds[1], b_bounds[2], b_bounds[3]
-                ).buffer(burst_buffer).envelope
-                bursts_dict[subswath].append((nr, id, burst_bbox))
-        elif b.intersects(out_poly):
-            if (nr, id) not in bursts_dict[subswath]:
-                b_bounds = b.bounds
-                burst_buffer = abs(out_poly.bounds[2]-out_poly.bounds[0])/75
-                burst_bbox = box(
-                    b_bounds[0], b_bounds[1], b_bounds[2], b_bounds[3]
-                ).buffer(burst_buffer).envelope
-                bursts_dict[subswath].append((nr, id, burst_bbox))
-    return bursts_dict
-
-
-def get_bursts_pairs(master_annotation, slave_annotation, out_poly=None):
-    master_bursts = master_annotation
-    slave_bursts = slave_annotation
-
-    bursts_dict = {'IW1': [], 'IW2': [], 'IW3': []}
-    for subswath, nr, id, b in zip(
-            master_bursts['SwathID'],
-            master_bursts['BurstNr'],
-            master_bursts['AnxTime'],
-            master_bursts['geometry']
-    ):
-        for sl_subswath, sl_nr, sl_id, sl_b in zip(
-                slave_bursts['SwathID'],
-                slave_bursts['BurstNr'],
-                slave_bursts['AnxTime'],
-                slave_bursts['geometry']
-        ):
-            # Return all burst combinations if out poly is None
-            if out_poly is None and b.intersects(sl_b):
-                if subswath == sl_subswath and \
-                        (nr, id, sl_nr, sl_id) not in bursts_dict[subswath]:
-                    b_bounds = b.union(sl_b).bounds
-                    burst_buffer = abs(b_bounds[2]-b_bounds[0])/75
-                    burst_bbox = box(
-                        b_bounds[0], b_bounds[1], b_bounds[2], b_bounds[3]
-                    ).buffer(burst_buffer).envelope
-                    bursts_dict[subswath].append((nr, id, sl_nr, sl_id, burst_bbox))
-            elif b.intersects(sl_b) \
-                    and b.intersects(out_poly) and sl_b.intersects(out_poly):
-                if subswath == sl_subswath and \
-                        (nr, id, sl_nr, sl_id) not in bursts_dict[subswath]:
-                    b_bounds = b.union(sl_b).bounds
-                    burst_buffer = abs(out_poly.bounds[2]-out_poly.bounds[0])/75
-                    burst_bbox = box(
-                        b_bounds[0], b_bounds[1], b_bounds[2], b_bounds[3]
-                    ).buffer(burst_buffer).envelope
-                    bursts_dict[subswath].append((nr, id, sl_nr, sl_id, burst_bbox))
-    return bursts_dict
 
 
 def check_for_beam_mode(master, slave):
@@ -387,22 +380,35 @@ def get_scene_id(product_path):
     return scene_id
 
 
-file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
-file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
-
-out_dir = '/home/suprd/OST_out_test/'
-os.makedirs(out_dir, exist_ok=True)
-
-s1 = Sentinel1Scenes(filelist=[file1, file2], processing_dir=out_dir, cleanup=True)
-
-with TemporaryDirectory() as temp:
-    s1.create_coherence(
-        processing_dir=out_dir,
-        temp_dir=temp,
-        timeliness='14days',
-        dem='SRTM 1Sec HGT',
-        dem_file='',
-        resolution=20,
-        resampling='BILINEAR_INTERPOLATION',
-        subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-        )
+# file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
+# file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
+#
+# from ost.log import setup_logfile, set_log_level
+# set_log_level(logging.DEBUG)
+# setup_logfile('/home/suprd/OST_out_test/log.log')
+# out_dir = '/home/suprd/OST_out_test/'
+# os.makedirs(out_dir, exist_ok=True)
+#
+# s1 = Sentinel1Scenes(filelist=[file1, file2],
+#                      processing_dir=out_dir,
+#                      cleanup=True,
+#                      ard_type='GTCgamma'
+#                      )
+#
+# with TemporaryDirectory() as temp:
+#     s1.master.ard_parameters['to_db'] = True
+#     s1.s1_scenes_to_ard(
+#         processing_dir=out_dir,
+#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+#     )
+#     s1.create_coherence(
+#         processing_dir=out_dir,
+#         temp_dir=temp,
+#         timeliness='14days',
+#         dem='SRTM 1Sec HGT',
+#         dem_file='',
+#         resolution=20,
+#         resampling='BILINEAR_INTERPOLATION',
+#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+#         # subset=None,
+#         )
