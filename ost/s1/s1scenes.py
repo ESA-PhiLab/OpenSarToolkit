@@ -47,11 +47,15 @@ class Sentinel1Scenes:
         # ARD type is controled by master, kinda makes sense doesn't it
         if ard_type is not None:
             self.master.set_ard_parameters(ard_type)
+        else:
+            self.ard_type = ard_type
 
     def s1_scenes_to_ard(self,
                          processing_dir,
                          subset=None,
                          ):
+        if self.ard_type is None:
+            raise RuntimeError('Need to specify or setup ard_type')
         if self.master.ard_parameters['type'] is None:
             raise RuntimeError('Need to specify or setup ard_type')
         # more custom ARD params, see whats in s1scene.py and complement corespondingly
@@ -150,7 +154,7 @@ class Sentinel1Scenes:
                 raise e
         else:
             processing_poly = None
-
+        coh_list = []
         for pair in pairs:
             # get file paths
             master_file = pair[0].get_path(processing_dir)
@@ -191,11 +195,9 @@ class Sentinel1Scenes:
                         elif return_code != 0:
                             print(return_code)
                             raise RuntimeError
-                        out_file = opj(out_dir, str(m_burst_id)+'_coh.dim')
-        coh_list = []
-        for f in os.listdir(processing_dir):
-            if f.endswith('_coh.dim'):
-                coh_list.append(opj(processing_dir, f))
+                        out_file = opj(processing_dir, str(m_burst_id)+'_coh.dim')
+                        if os.path.isfile(out_file):
+                            coh_list.append(out_file)
         self.coherece_dimap = coh_list
         return coh_list
 
@@ -315,8 +317,9 @@ def _2products_coherence_tc(
 
     # geocode
     out_tc = opj(temp_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
-                                              slave_scene.start_date,
-                                              master_burst_id)
+                                                 slave_scene.start_date,
+                                                 master_burst_id
+                                                 )
                  )
     tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id)
                  )

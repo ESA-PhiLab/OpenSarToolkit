@@ -1,8 +1,6 @@
 import os
 import shutil
-
 from tempfile import TemporaryDirectory
-
 
 from shapely.geometry import box
 
@@ -100,12 +98,14 @@ def test_burst_to_ard(
                     # slave burst nr, slave_burst ID,
                     # bouding box of both bursts
                     m_nr, m_burst_id, sl_burst_nr, sl_burst_id, b_bbox = burst
+                    out_prefix = product.start_date+'_'+slave.start_date
                     return_code = burst_to_ard(
                         master_file=s1_slc_master,
                         swath=swath,
                         master_burst_nr=m_nr,
                         master_burst_id=str(m_burst_id),
                         out_dir=processing_dir,
+                        out_prefix=out_prefix,
                         temp_dir=temp,
                         slave_file=s1_slc_slave,
                         slave_burst_nr=sl_burst_nr,
@@ -120,7 +120,7 @@ def test_burst_to_ard(
                         ls_mask_create=False,
                         dem='SRTM 1sec HGT',
                         remove_slave_import=False
-                        )
+                    )
                     if return_code != 0:
                         raise GPTRuntimeError
                     assert return_code == 0
