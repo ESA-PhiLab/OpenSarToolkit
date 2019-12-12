@@ -45,10 +45,10 @@ class Sentinel1Scenes:
         self.cleanup = cleanup
 
         # ARD type is controled by master, kinda makes sense doesn't it
+        self.ard_type = ard_type
         if ard_type is not None:
             self.master.set_ard_parameters(ard_type)
-        else:
-            self.ard_type = ard_type
+            self.master.ard_parameters['product_type'] = (ard_type)
 
     def s1_scenes_to_ard(self,
                          processing_dir,
@@ -88,13 +88,13 @@ class Sentinel1Scenes:
         return out_files
 
     def get_weekly_pairs(self):
-        master_date = datetime.strptime(s1.master.start_date, '%Y%m%d')
+        master_date = datetime.strptime(self.master.start_date, '%Y%m%d')
 
         slave_dates = [datetime.strptime(slave.start_date, '%Y%m%d')
-                       for slave in s1.slaves
+                       for slave in self.slaves
                        ]
         weekly_pairs = []
-        for s, slave in zip(slave_dates, s1.slaves):
+        for s, slave in zip(slave_dates, self.slaves):
             if not check_for_orbit(master=self.master, slave=slave):
                 logger.debug('Passing product with different relative orbit!')
                 continue
@@ -107,13 +107,13 @@ class Sentinel1Scenes:
         return weekly_pairs
 
     def get_biweekly_pairs(self):
-        master_date = datetime.strptime(s1.master.start_date, '%Y%m%d')
+        master_date = datetime.strptime(self.master.start_date, '%Y%m%d')
 
         slave_dates = [datetime.strptime(slave.start_date, '%Y%m%d')
-                       for slave in s1.slaves
+                       for slave in self.slaves
                        ]
         biweekly_pairs = []
-        for s, slave in zip(slave_dates, s1.slaves):
+        for s, slave in zip(slave_dates, self.slaves):
             if not check_for_orbit(master=self.master, slave=slave):
                 logger.debug('Passing product with different relative orbit!')
                 continue
@@ -130,10 +130,6 @@ class Sentinel1Scenes:
             processing_dir,
             temp_dir=None,
             timeliness='14days',
-            dem='SRTM 1Sec HGT',
-            dem_file='',
-            resolution=20,
-            resampling='BILINEAR_INTERPOLATION',
             subset=None,
     ):
         if self.master.product_type != 'SLC':
@@ -184,10 +180,10 @@ class Sentinel1Scenes:
                             master_burst_nr=m_nr,
                             slave_burst_id=sl_burst_id,
                             slave_burst_nr=sl_burst_nr,
-                            resolution=resolution,
-                            dem=dem,
-                            dem_file=dem_file,
-                            resampling=resampling
+                            resolution=self.master.ard_parameters['resolution'],
+                            dem=self.master.ard_parameters['dem'],
+                            dem_file=self.master.ard_parameters['dem_file'],
+                            resampling=self.master.ard_parameters['resampling']
                         )
                         if return_code == 333:
                             logger.debug('Burst %s is empty', m_burst_id)
@@ -383,35 +379,31 @@ def get_scene_id(product_path):
     return scene_id
 
 
-# file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
-# file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
-#
-# from ost.log import setup_logfile, set_log_level
-# set_log_level(logging.DEBUG)
-# setup_logfile('/home/suprd/OST_out_test/log.log')
-# out_dir = '/home/suprd/OST_out_test/'
-# os.makedirs(out_dir, exist_ok=True)
-#
-# s1 = Sentinel1Scenes(filelist=[file1, file2],
-#                      processing_dir=out_dir,
-#                      cleanup=True,
-#                      ard_type='GTCgamma'
-#                      )
-#
-# with TemporaryDirectory() as temp:
-#     s1.master.ard_parameters['to_db'] = True
-#     s1.s1_scenes_to_ard(
-#         processing_dir=out_dir,
-#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-#     )
-#     s1.create_coherence(
-#         processing_dir=out_dir,
-#         temp_dir=temp,
-#         timeliness='14days',
-#         dem='SRTM 1Sec HGT',
-#         dem_file='',
-#         resolution=20,
-#         resampling='BILINEAR_INTERPOLATION',
-#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-#         # subset=None,
-#         )
+file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
+file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
+
+from ost.log import setup_logfile, set_log_level
+set_log_level(logging.DEBUG)
+setup_logfile('/home/suprd/OST_out_test/log.log')
+out_dir = '/home/suprd/OST_out_test/'
+os.makedirs(out_dir, exist_ok=True)
+
+s1 = Sentinel1Scenes(filelist=[file1, file2],
+                     processing_dir=out_dir,
+                     cleanup=True,
+                     ard_type='RTC'
+                     )
+
+with TemporaryDirectory() as temp:
+    s1.master.ard_parameters['to_db'] = True
+    s1.s1_scenes_to_ard(
+        processing_dir=out_dir,
+        subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+    )
+    # s1.create_coherence(
+    #     processing_dir=out_dir,
+    #     temp_dir=temp,
+    #     timeliness='14days',
+    #     subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+    #     # subset=None,
+    #     )

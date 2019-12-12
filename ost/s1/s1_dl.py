@@ -66,11 +66,11 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         logger.debug('(1) Copernicus Apihub (ESA, rolling archive)')
         logger.debug('(2) Alaska Satellite Facility (NASA, full archive)')
         logger.debug('(3) PEPS (CNES, 1 year rolling archive)')
-        mirror = input(' Type 1, 2 or 3: ')
+        mirror = input('Type 1, 2 or 3: ')
 
     if not uname:
         logger.debug('Please provide username for the selected server')
-        uname = input(' Username:')
+        uname = input('Username:')
 
     if not pword:
         logger.debug('Please provide password for the selected server')
@@ -91,17 +91,19 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         error_code = peps.check_connection(uname, pword)
 
     if error_code == 401:
-        raise ValueError(' ERROR: Username/Password are incorrect')
+        raise ValueError('ERROR: Username/Password are incorrect')
     elif error_code != 200:
-        raise ValueError(' ERROR: Some connection error. Error code {}.'.format(error_code))
+        raise ValueError('ERROR: Some connection error. Error code {}.'.format(error_code))
     
     # download in parallel
-    if int(mirror) == 1:
+    if int(mirror) == 1: # scihub
         scihub.batch_download(inventory_df, download_dir,
-                              uname, pword, concurrent) # scihub
-    elif int(mirror) == 2:    # ASF
+                              uname, pword, concurrent
+                              )
+    elif int(mirror) == 2:  # ASF
         asf.batch_download(inventory_df, download_dir,
-                           uname, pword, concurrent)
+                           uname, pword, concurrent
+                           )
     elif int(mirror) == 3:   # PEPS
         peps.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)

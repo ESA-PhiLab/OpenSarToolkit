@@ -37,9 +37,10 @@
       <demResamplingMethod>${resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
-      <outputSimulatedImage>false</outputSimulatedImage>
       <additionalOverlap>0.15</additionalOverlap>
       <oversamplingMultiple>1.5</oversamplingMultiple>
+      <outputSimulatedImage>false</outputSimulatedImage>
+      <reGridMethod>false</reGridMethod>
     </parameters>
   </node>
   <node id="Write">

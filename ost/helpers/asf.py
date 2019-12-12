@@ -3,8 +3,12 @@ from os.path import join as opj
 import glob
 import logging
 import requests
-import tqdm
+from tqdm import tqdm
 import multiprocessing
+from http.cookiejar import CookieJar
+import urllib.error
+import urllib.request as urlreq
+
 
 from ost.helpers import helpers as h
 from ost import Sentinel1Scene as S1Scene
@@ -56,12 +60,36 @@ def check_connection(uname, pword):
     Returns
         int: status code of the get request
     '''
+    password_manager = urlreq.HTTPPasswordMgrWithDefaultRealm()
+    password_manager.add_password(
+        None, "https://urs.earthdata.nasa.gov", uname, pword
+    )
+
+    cookie_jar = CookieJar()
+
+    opener = urlreq.build_opener(
+        urlreq.HTTPBasicAuthHandler(password_manager),
+        urlreq.HTTPCookieProcessor(cookie_jar)
+    )
+    urlreq.install_opener(opener)
 
     url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
-           '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
-    session = SessionWithHeaderRedirection(uname, pword)
-    response = session.get(url, stream=True)
-    return response.status_code
+           '20160801T234454_20160801T234520_012413_0135F9_B926.zip'
+           )
+
+    try:
+        urlreq.urlopen(url=url)
+    except urllib.error.HTTPError as e:
+        # Return code error (e.g. 404, 501, ...)
+        # ...
+        response_code = e.reason
+    except urllib.error.URLError as e:
+        # Not an HTTP-specific error (e.g. connection refused)
+        # ...
+        response_code = e.reason
+    else:
+        response_code = 200
+    return response_code
 
 
 def s1_download(argument_list):
@@ -81,14 +109,32 @@ def s1_download(argument_list):
     uname = argument_list[2]
     pword = argument_list[3]
 
-    session = SessionWithHeaderRedirection(uname, pword)
+    password_manager = urlreq.HTTPPasswordMgrWithDefaultRealm()
+    password_manager.add_password(
+        None, "https://urs.earthdata.nasa.gov", uname, pword
+    )
+
+    cookie_jar = CookieJar()
+
+    opener = urlreq.build_opener(
+        urlreq.HTTPBasicAuthHandler(password_manager),
+        urlreq.HTTPCookieProcessor(cookie_jar)
+    )
+    urlreq.install_opener(opener)
 
     logger.debug('INFO: Downloading scene to: {}'.format(filename))
     # submit the request using the session
-    response = session.get(url, stream=True)
-
+    try:
+        response = urlreq.urlopen(url=url)
     # raise an exception in case of http errors
-    response.raise_for_status()
+    except urllib.error.HTTPError as e:
+        # Raise error (e.g. 404, 501, ...)
+        # ...
+        raise e
+    except urllib.error.URLError as e:
+        # Not an HTTP-specific error (e.g. connection refused)
+        # ...
+        raise e
 
     # get download size
     total_length = int(response.headers.get('content-length', 0))
@@ -101,38 +147,23 @@ def s1_download(argument_list):
         first_byte = os.path.getsize(filename)
     else:
         first_byte = 0
-
+    if first_byte == total_length:
+        first_byte = total_length
+    elif first_byte > 0 and first_byte < total_length:
+        os.remove(filename)
+    print(total_length)
     zip_test = 1
     while zip_test is not None and zip_test <= 10:
-
         while first_byte < total_length:
-
-            # get byte offset for already downloaded file
-            header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
-            response = session.get(url, headers=header, stream=True)
-
-            # actual download
-            with open(filename, "ab") as file:
-
-                if total_length is None:
-                    file.write(response.content)
-                else:
-                    pbar = tqdm.tqdm(total=total_length, initial=first_byte,
-                                     unit='B', unit_scale=True,
-                                     desc=' INFO: Downloading ')
-
-                    for chunk in response.iter_content(chunk_size):
-                        if chunk:
-                            file.write(chunk)
-                            pbar.update(chunk_size)
-
-            pbar.close()
-
+            with TqdmUpTo(unit='B', unit_scale=True, miniters=1,
+                          desc=url.split('/')[-1]) as t:
+                filename, headers = urlreq.urlretrieve(
+                    url, filename=filename, reporthook=t.update_to
+                )
             # updated fileSize
             first_byte = os.path.getsize(filename)
-
         logger.debug('INFO: Checking the zip archive of {} for inconsistency'
-                  .format(filename))
+                     .format(filename))
         zip_test = h.check_zipfile(filename)
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
@@ -149,7 +180,6 @@ def s1_download(argument_list):
                 file.write('successfully downloaded \n')
 
 
-
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
     # create list of scenes
@@ -157,21 +187,17 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
     
     check, i = False, 1
     while check is False and i <= 10:
-
         asf_list = []
-
         for scene_id in scenes:
-
             scene = S1Scene(scene_id)
             filepath = scene._download_path(download_dir, True)
 
             if os.path.exists('{}.downloaded'.format(filepath)):
                 logger.debug('INFO: {} is already downloaded.'
-                      .format(scene.scene_id))
+                             .format(scene.scene_id))
             else:
                 asf_list.append([scene.asf_url(), filepath,
                                  uname, pword])
-
         if asf_list:
             pool = multiprocessing.Pool(processes=concurrent)
             pool.map(s1_download, asf_list)
@@ -194,3 +220,19 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                     scenes.remove(scene.scene_id)
 
         i += 1
+
+
+class TqdmUpTo(tqdm):
+    """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize

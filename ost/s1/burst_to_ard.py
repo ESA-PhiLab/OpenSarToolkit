@@ -6,6 +6,7 @@ import imp
 import sys
 
 from ost.helpers import helpers as h
+from ost.settings import SNAP_S1_RESAMPLING_METHODS
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     rootpath = imp.find_module('ost')[1]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
 
-    logger.debug('INFO: Importing Burst {} from Swath {}'
+    logger.debug('INFO: Importing Burst {} from Swath {} '
                  'from scene {}'.format(burst, swath, os.path.basename(infile))
                  )
 
@@ -109,7 +110,11 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
     return return_code
 
 
-def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
+def _calibration(infile,
+                 outfile,
+                 logfile,
+                 product_type='GTCgamma'
+                 ):
     '''A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
@@ -137,7 +142,6 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
 
     # get gpt file
     gpt_file = h.gpt_path()
-
     # get path to graph
     rootpath = imp.find_module('ost')[1]
     if product_type == 'RTC':
@@ -172,7 +176,14 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     return return_code
 
 
-def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
+def _terrain_flattening(infile,
+                        outfile,
+                        logfile,
+                        dem='SRTM 1sec HGT',
+                        resampling=SNAP_S1_RESAMPLING_METHODS[2],
+                        dem_file='',
+                        dem_nodata=0.0
+                        ):
     '''A wrapper around SNAP's terrain flattening
 
     This function takes OST calibrated Sentinel-1 SLC product and applies
@@ -191,14 +202,19 @@ def _terrain_flattening(infile, outfile, logfile, dem='SRTM 1sec HGT'):
     # get gpt file
     gpt_file = h.gpt_path()
 
-    logger.debug('INFO: Correcting for the illumination along slopes'
+    logger.debug('INFO: Correcting for the illumination along slopes '
                  '(Terrain Flattening).'
                  )
 
-    command = '{} Terrain-Flattening -x -q {} -PadditionalOverlap=0.15  \
-               -PoversamplingMultiple=1.5 -PdemName=\'{}\'-t {} {}'.format(
-                   gpt_file, 2 * os.cpu_count(), dem, outfile, infile)
+    rootpath = imp.find_module('ost')[1]
+    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
+                'S1_SLC_TF.xml')
 
+    command = '{} {} -x -q {} -Pdem=\'{}\' -Pdem_file="{}" ' \
+              '-Pdem_nodata={} -Presampling={} -Poutput={} -Pinput={}'.format(
+        gpt_file, graph, 2 * os.cpu_count(), dem, dem_file,
+        dem_nodata, resampling, outfile, infile
+    )
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
@@ -692,7 +708,8 @@ def burst_to_ard(master_file,
             master_burst_id))
         # do the TF
         return_code = _terrain_flattening('{}.dim'.format(out_cal),
-                                          out_rtc, rtc_log, dem)
+                                          out_rtc, rtc_log, dem
+                                          )
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             return return_code

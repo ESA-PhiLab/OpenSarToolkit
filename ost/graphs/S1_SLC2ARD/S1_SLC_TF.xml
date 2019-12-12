@@ -1,0 +1,54 @@
+<graph id="Graph">
+    <version>1.0</version>
+    <node id="Read">
+        <operator>Read</operator>
+        <sources/>
+        <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+            <file>${input}</file>
+        </parameters>
+    </node>
+    <node id="Terrain-Flattening">
+        <operator>Terrain-Flattening</operator>
+        <sources>
+            <sourceProduct refid="Read"/>
+        </sources>
+        <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+            <sourceBands/>
+            <demName>${dem}</demName>
+            <demResamplingMethod>${resampling}</demResamplingMethod>
+            <externalDEMFile>${dem_file}</externalDEMFile>
+            <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
+            <additionalOverlap>0.0</additionalOverlap>
+            <oversamplingMultiple>1.5</oversamplingMultiple>
+            <outputSimulatedImage>false</outputSimulatedImage>
+        </parameters>
+    </node>
+        <node id="Write">
+        <operator>Write</operator>
+        <sources>
+            <sourceProduct refid="Terrain-Flattening"/>
+        </sources>
+        <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+            <file>${output}</file>
+            <formatName>BEAM-DIMAP</formatName>
+        </parameters>
+    </node>
+    <applicationData id="Presentation">
+        <Description/>
+        <node id="Read">
+            <displayPosition x="31.0" y="56.0"/>
+        </node>
+        <node id="ThermalNoiseRemoval">
+            <displayPosition x="122.0" y="116.0"/>
+        </node>
+        <node id="Calibration">
+            <displayPosition x="282.0" y="177.0"/>
+        </node>
+        <node id="TOPSAR-Deburst">
+            <displayPosition x="379.0" y="234.0"/>
+        </node>
+        <node id="Write">
+            <displayPosition x="536.0" y="287.0"/>
+        </node>
+    </applicationData>
+</graph>
