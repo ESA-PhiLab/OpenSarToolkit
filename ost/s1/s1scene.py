@@ -775,6 +775,7 @@ class Sentinel1Scene:
                             swath=swath,
                             master_burst_nr=m_nr,
                             master_burst_id=str(m_burst_id),
+                            master_burst_poly=b_bbox,
                             out_dir=out_dir,
                             out_prefix=self.scene_id,
                             temp_dir=temp_dir,
