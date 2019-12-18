@@ -152,7 +152,7 @@ def _calibration(infile,
     if product_type == 'RTC':
         logger.debug('INFO: Calibrating the product to a RTC product.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_TNR_Calbeta_Deb.xml')
+                    'S1_SLC_TNR_Calbeta_Deb_ML_TF_SUB.xml')
         command = '{} {} -x -q {} -Pdem=\'{}\' -Pdem_file="{}" ' \
                   '-Pdem_nodata={} -Presampling={} -Pregion="{}" -Pinput={} ' \
                   '-Poutput={}' \
@@ -181,59 +181,6 @@ def _calibration(infile,
         logger.debug('INFO: Succesfully calibrated product')
     else:
         logger.debug('ERROR: Frame import exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        # sys.exit(121)
-
-    return return_code
-
-
-def _terrain_flattening(infile,
-                        outfile,
-                        logfile,
-                        dem='SRTM 1sec HGT',
-                        resampling=SNAP_S1_RESAMPLING_METHODS[2],
-                        dem_file='',
-                        dem_nodata=0.0,
-                        region=''
-                        ):
-    '''A wrapper around SNAP's terrain flattening
-
-    This function takes OST calibrated Sentinel-1 SLC product and applies
-    the terrain flattening to correct for radiometric distortions along slopes
-
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
-
-    logger.debug('INFO: Correcting for the illumination along slopes '
-                 '(Terrain Flattening).'
-                 )
-
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                'S1_SLC_TF.xml')
-
-    command = '{} {} -x -q {} -Pdem=\'{}\' -Pdem_file="{}" ' \
-              '-Pdem_nodata={} -Presampling={} -Pregion="{}" -Poutput={} ' \
-              '-Pinput={}'.format(
-        gpt_file, graph, 2 * os.cpu_count(), dem, dem_file,
-        dem_nodata, resampling, region, outfile, infile
-    )
-    return_code = h.run_command(command, logfile)
-
-    if return_code == 0:
-        logger.debug('INFO: Succesfully applied the terrain flattening.')
-    else:
-        logger.debug('ERROR: Terrain Flattening exited with an error. \
                 See {} for Snap Error output'.format(logfile))
         # sys.exit(121)
 
@@ -622,7 +569,7 @@ def burst_to_ard(master_file,
         swath (str): subswath
         master_burst_nr (): index number of the burst
         master_burst_id ():
-        master_burst_poly ():
+        master_burst_poly (): burst WKT used for faster calibration
         out_dir (str):
         temp_dir (str):
         slave_file (str):
@@ -719,26 +666,6 @@ def burst_to_ard(master_file,
 
         # reset master_import for follwoing routine
         out_cal = speckle_import
-
-    # do terrain flattening in case it is selected
-    # if product_type == 'RTC':
-    #     # define outfile
-    #     out_rtc = opj(temp_dir, '{}_rtc'.format(master_burst_id))
-    #     rtc_log = opj(out_dir, '{}_rtc.err_log'.format(
-    #         master_burst_id))
-    #     # do the TF
-    #     return_code = _terrain_flattening('{}.dim'.format(out_cal),
-    #                                       out_rtc, rtc_log, dem,
-    #                                       region=master_burst_poly
-    #                                       )
-    #     if return_code != 0:
-    #         h.remove_folder_content(temp_dir)
-    #         return return_code
-    #
-    #     # remove tmp files
-    #     h.delete_dimap(out_cal)
-    #     # set out_rtc to out_cal for further processing
-    #     out_cal = out_rtc
 
     if to_db:
         out_db = opj(temp_dir, '{}_cal_db'.format(master_burst_id))

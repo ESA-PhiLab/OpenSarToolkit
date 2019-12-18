@@ -786,7 +786,7 @@ class Sentinel1Scene:
                             pol_speckle_filter=False,
                             resolution=self.ard_parameters['resolution'],
                             product_type=self.ard_parameters['product_type'],
-                            speckle_filter=False,
+                            speckle_filter=self.ard_parameters['speckle_filter'],
                             # To_db not working
                             to_db=self.ard_parameters['to_db'],
                             ls_mask_create=False,

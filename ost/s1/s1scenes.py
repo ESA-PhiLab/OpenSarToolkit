@@ -164,6 +164,8 @@ class Sentinel1Scenes:
                                            slave_annotation=slave_bursts,
                                            out_poly=processing_poly
                                            )
+            if self.master.ard_parameters['dem'] != 'External DEM':
+                self.master.ard_parameters['dem_file'] = ''
             for swath, b in bursts_dict.items():
                 if b != []:
                     for burst in b:
@@ -392,20 +394,20 @@ s1 = Sentinel1Scenes(filelist=[file1, file2],
                      processing_dir=out_dir,
                      cleanup=True,
                      ard_type='RTC'
-                     #ard_type='GTCgamma'
+                     # ard_type='GTCgamma'
                      )
 
 with TemporaryDirectory() as temp:
     s1.master.ard_parameters['to_db'] = True
     s1.master.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
-    s1.s1_scenes_to_ard(
-        processing_dir=out_dir,
-        subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-    )
-    # s1.create_coherence(
+    # s1.s1_scenes_to_ard(
     #     processing_dir=out_dir,
-    #     temp_dir=temp,
-    #     timeliness='14days',
     #     subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-    #     # subset=None,
-    #     )
+    # )
+    s1.create_coherence(
+        processing_dir=out_dir,
+        temp_dir=temp,
+        timeliness='14days',
+        subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+        # subset=None,
+        )
