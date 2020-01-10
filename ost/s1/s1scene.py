@@ -18,10 +18,12 @@ import geopandas as gpd
 import requests
 from shapely.wkt import loads
 
+from godale import Executor
+
 from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
+from ost.helpers.helpers import execute_ard
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
-from ost.s1.burst_to_ard import burst_to_ard
 from ost.helpers.bursts import get_bursts_by_polygon
 
 
@@ -675,6 +677,7 @@ class Sentinel1Scene:
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
+        out_paths = []
         if subset is not None:
             p_poly = loads(subset)
             self.center_lat = p_poly.bounds[3]-p_poly.bounds[1]
@@ -727,6 +730,9 @@ class Sentinel1Scene:
             # write to class attribute
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
                                            .format(out_prefix)))[0]
+            if not os.path.isfile(out_file):
+                raise RuntimeError
+            out_paths.append(out_file)
 
         elif self.product_type == 'SLC':
             # TODO align ARD types with GRD
@@ -765,50 +771,34 @@ class Sentinel1Scene:
                 master_annotation=master_bursts,
                 out_poly=processing_poly
             )
+            executor_type = 'concurrent_processes'
+            max_workers = int(os.cpu_count()/2)
+            executor = Executor(executor=executor_type, max_workers=max_workers)
             for swath, b in bursts_dict.items():
                 if b != []:
-                    for burst in b:
-                        m_nr, m_burst_id, b_bbox = burst
-                        # run the processing
-                        return_code = burst_to_ard(
-                            master_file=master_file,
-                            swath=swath,
-                            master_burst_nr=m_nr,
-                            master_burst_id=str(m_burst_id),
-                            master_burst_poly=b_bbox,
-                            out_dir=out_dir,
-                            out_prefix=self.scene_id,
-                            temp_dir=temp_dir,
-                            slave_file=None,
-                            slave_burst_nr=None,
-                            slave_burst_id=None,
-                            polarimetry=False,
-                            pol_speckle_filter=False,
-                            resolution=self.ard_parameters['resolution'],
-                            product_type=self.ard_parameters['product_type'],
-                            speckle_filter=self.ard_parameters['speckle_filter'],
-                            # To_db not working
-                            to_db=self.ard_parameters['to_db'],
-                            ls_mask_create=False,
-                            dem=self.ard_parameters['dem'],
-                            remove_slave_import=False
-                        )
-                        if return_code != 0:
-                            raise RuntimeError(
-                                'Somethign went wrong with the GPT processing!'
-                            )
-                        out_file = opj(out_dir, '_'.join([
-                            self.scene_id, str(m_burst_id), 'BS.dim'
-                        ])
+                    try:
+                        for task in executor.as_completed(
+                                func=execute_ard,
+                                iterable=b,
+                                fargs=(swath,
+                                       master_file,
+                                       out_dir,
+                                       temp_dir,
+                                       self.scene_id,
+                                       self.ard_parameters
                                        )
+
+                        ):
+                            return_code, out_file = task.result()
+                            out_paths.append(out_file)
+                    except Exception as e:
+                        logger.debug(e)
+
         else:
             logger.debug('ERROR: create_ard method for single products is currently'
                          ' only available for GRD products'
                          )
-        if os.path.isfile(out_file):
-            return out_file
-        else:
-            raise RuntimeError
+        return out_paths
 
     def create_rgb(self, outfile, driver='GTiff'):
         # invert ot db from create_ard workflow for rgb creation
@@ -840,7 +830,7 @@ class Sentinel1Scene:
 
     # other functions
     def _get_center_lat(self, scene_path=None):
-        if scene_path[-4:] == '.zip':
+        if scene_path.endswith('.zip'):
             zip_archive = zipfile.ZipFile(scene_path)
             manifest = zip_archive.read('{}.SAFE/manifest.safe'
                                         .format(self.scene_id)

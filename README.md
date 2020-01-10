@@ -193,3 +193,4 @@ that are developed in parallel to this core package and should help to get start
 ## Author
 
 - Andreas Vollrath, ESA
+- Petr Sevcik, EOX

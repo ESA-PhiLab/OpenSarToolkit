@@ -3,6 +3,7 @@ fiona
 gdal
 geopandas
 matplotlib
+godale
 numpy
 pandas
 psycopg2-binary

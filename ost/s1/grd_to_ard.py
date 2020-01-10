@@ -494,7 +494,7 @@ def _grd_backscatter(
 
 
 def _grd_speckle_filter(infile, outfile, logfile):
-    '''A wrapper around SNAP's Lee-Sigma Speckle Filter
+    '''A wrapper around SNAP's Refined Lee Speckle Filter
 
     This function takes OST imported Sentinel-1 product and applies
     a standardised version of the Lee-Sigma Speckle Filter with

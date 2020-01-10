@@ -44,12 +44,10 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     logger.debug('INFO: Importing Burst {} from Swath {} '
                  'from scene {}'.format(burst, swath, os.path.basename(infile))
                  )
-
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
                       -Pburst={} -Poutput={}'\
-        .format(gpt_file, graph, os.cpu_count(), infile, polar, swath,
+        .format(gpt_file, graph, 1, infile, polar, swath,
                 burst, out_prefix)
-
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
@@ -96,7 +94,7 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
 
     logger.debug("INFO: Calculating the H-alpha dual polarisation")
     command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+        .format(gpt_file, graph, 1, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -156,20 +154,20 @@ def _calibration(infile,
         command = '{} {} -x -q {} -Pdem=\'{}\' -Pdem_file="{}" ' \
                   '-Pdem_nodata={} -Presampling={} -Pregion="{}" -Pinput={} ' \
                   '-Poutput={}' \
-            .format(gpt_file, graph, 2 * os.cpu_count(), dem, dem_file,
+            .format(gpt_file, graph, 1, dem, dem_file,
                     dem_nodata, resampling, region, infile, outfile)
     elif product_type == 'GTCgamma':
         logger.debug('INFO: Calibrating the product to a GTC product (Gamma0).')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalGamma_Deb.xml')
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+            .format(gpt_file, graph, 1, infile, outfile)
     elif product_type == 'GTCsigma':
         logger.debug('INFO: Calibrating the product to a GTC product (Sigma0).')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalSigma_Deb.xml')
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+            .format(gpt_file, graph, 1, infile, outfile)
     else:
         logger.debug('ERROR: Wrong product type selected.')
         sys.exit(121)
@@ -188,7 +186,7 @@ def _calibration(infile,
 
 
 def _speckle_filter(infile, outfile, logfile):
-    '''A wrapper around SNAP's Lee-Sigma Speckle Filter
+    '''A wrapper around SNAP's Refined Lee Speckle Filter
 
     This function takes OST imported Sentinel-1 product and applies
     a standardised version of the Lee-Sigma Speckle Filter with
@@ -206,21 +204,22 @@ def _speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    logger.debug('INFO: Applying the Lee-Sigma Speckle Filter')
+    logger.debug('INFO: Applying the Refined-Lee Speckle Filter')
     # contrcut command string
-    command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\'\'{}\''.format(gpt_file, 2 * os.cpu_count(), outfile, infile)
+    command = '{} Speckle-Filter -x -q {} -PestimateENL=true -Pfilter=\'Refined Lee\' \
+              -t \'{}\' \'{}\''.format(gpt_file, 1,
+                                       outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
     # hadle errors and logs
     if return_code == 0:
-        logger.debug('INFO: Succesfully speckle-filtered product')
+        logger.debug('INFO: Succesfully imported product')
     else:
         logger.debug('ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
-        # sys.exit(111)
+        sys.exit(111)
 
     return return_code
 
@@ -246,7 +245,7 @@ def _linear_to_db(infile, outfile, logfile):
     logger.debug('INFO: Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
-        gpt_file, 2 * os.cpu_count(), outfile, infile)
+        gpt_file, 1, outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -293,7 +292,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1sec HGT'):
 
     logger.debug("INFO: Compute Layover/Shadow mask")
     command = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, resolution,
+        .format(gpt_file, graph, 1, infile, resolution,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
@@ -340,7 +339,7 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
 
     logger.debug('INFO: Co-registering {}'.format(filelist[0]))
     command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 2 * os.cpu_count(), filelist, outfile, dem)
+        .format(gpt_file, graph, 1, filelist, outfile, dem)
 
     return_code = h.run_command(command, logfile)
 
@@ -386,7 +385,7 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
 
     logger.debug('INFO: Co-registering {} and {}'.format(master, slave))
     command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 2 * os.cpu_count(), master, slave,
+        .format(gpt_file, graph, 1, master, slave,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
@@ -426,7 +425,7 @@ def _coherence(infile, outfile, logfile):
 
     logger.debug('INFO: Coherence estimation')
     command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+        .format(gpt_file, graph, 1, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -476,7 +475,7 @@ def _terrain_correction(infile, outfile, logfile, resolution,
               -PpixelSpacingInMeter=\'{}\'\
               -PdemName=\'{}\'\
               -t {} {}'\
-              .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
+              .format(gpt_file, 1, resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
@@ -526,7 +525,7 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
               -PpixelSpacingInDegree=\'{}\'\
               -PdemName=\'{}\'\
               -t {} {}'\
-              .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
+              .format(gpt_file, 1, resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
@@ -664,7 +663,7 @@ def burst_to_ard(master_file,
         # remove temp file
         h.delete_dimap(out_cal)
 
-        # reset master_import for follwoing routine
+        # reset master_import for next routine
         out_cal = speckle_import
 
     if to_db:

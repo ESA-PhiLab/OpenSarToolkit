@@ -14,6 +14,8 @@ from datetime import timedelta
 from pathlib import Path
 import zipfile
 
+from ost.s1.burst_to_ard import burst_to_ard
+
 logger = logging.getLogger(__name__)
 
 
@@ -356,3 +358,50 @@ def _slc_zip_to_processing_dir(
                 )+'.downloaded', 'w'
         ) as zip_dl:
             zip_dl.write('1')
+
+
+def execute_ard(
+        burst,
+        swath,
+        master_file,
+        out_dir,
+        temp_dir,
+        scene_id,
+        ard_parameters
+):
+    m_nr, m_burst_id, b_bbox = burst
+    return_code = burst_to_ard(
+        master_file=master_file,
+        swath=swath,
+        master_burst_nr=m_nr,
+        master_burst_id=str(m_burst_id),
+        master_burst_poly=b_bbox,
+        out_dir=out_dir,
+        out_prefix=scene_id,
+        temp_dir=temp_dir,
+        slave_file=None,
+        slave_burst_nr=None,
+        slave_burst_id=None,
+        polarimetry=False,
+        pol_speckle_filter=False,
+        resolution=ard_parameters['resolution'],
+        product_type=ard_parameters['product_type'],
+        speckle_filter=ard_parameters['speckle_filter'],
+        # To_db not working
+        to_db=ard_parameters['to_db'],
+        ls_mask_create=False,
+        dem=ard_parameters['dem'],
+        remove_slave_import=False
+    )
+    if return_code != 0:
+        raise RuntimeError(
+            'Something went wrong with the GPT processing! with return code: %s' %
+            return_code
+        )
+    out_file = opj(out_dir, '_'.join([
+        scene_id, str(m_burst_id), 'BS.dim'
+    ])
+                   )
+    if not os.path.isfile(out_file):
+        raise RuntimeError
+    return return_code, out_file

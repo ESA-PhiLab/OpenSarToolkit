@@ -62,8 +62,9 @@ class Sentinel1Scenes:
         out_files = []
         # process the master to ARD first
         with TemporaryDirectory() as temp:
+            infile = self.master.get_path(download_dir=processing_dir)
             out_file = self.master.create_ard(
-                infile=None,
+                infile=infile,
                 out_dir=processing_dir,
                 out_prefix=self.master.scene_id,
                 temp_dir=temp,
@@ -75,8 +76,9 @@ class Sentinel1Scenes:
         for s in self.slaves:
             with TemporaryDirectory() as temp:
                 s.ard_parameters = self.master.ard_parameters
+                infile = s.get_path(download_dir=processing_dir)
                 out_file = s.create_ard(
-                    infile=None,
+                    infile=infile,
                     out_dir=processing_dir,
                     out_prefix=s.scene_id,
                     temp_dir=temp,
@@ -381,33 +383,35 @@ def get_scene_id(product_path):
     return scene_id
 
 
-file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
-file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
-
-from ost.log import setup_logfile, set_log_level
-set_log_level(logging.DEBUG)
-setup_logfile('/home/suprd/OST_out_test/log.log')
-out_dir = '/home/suprd/OST_out_test/'
-os.makedirs(out_dir, exist_ok=True)
-
-s1 = Sentinel1Scenes(filelist=[file1, file2],
-                     processing_dir=out_dir,
-                     cleanup=True,
-                     ard_type='RTC'
-                     # ard_type='GTCgamma'
-                     )
-
-with TemporaryDirectory() as temp:
-    s1.master.ard_parameters['to_db'] = True
-    s1.master.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
-    # s1.s1_scenes_to_ard(
+# file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
+# # file1 = '/home/suprd/Downloads/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
+# file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
+#
+# from ost.log import setup_logfile, set_log_level
+# set_log_level(logging.DEBUG)
+# setup_logfile('/home/suprd/OST_out_test/log.log')
+# out_dir = '/home/suprd/OST_out_test/'
+# os.makedirs(out_dir, exist_ok=True)
+#
+# s1 = Sentinel1Scenes(filelist=[file1, file2],
+#                      processing_dir=out_dir,
+#                      cleanup=True,
+#                      ard_type='RTC'
+#                      # ard_type='GTCgamma'
+#                      )
+#
+# with TemporaryDirectory() as temp:
+#     s1.master.ard_parameters['to_db'] = True
+#     s1.master.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
+#     s1.master.ard_parameters['speckle_filter'] = True
+#     s1.s1_scenes_to_ard(
+#         processing_dir=out_dir,
+#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
+#     )
+    # s1.create_coherence(
     #     processing_dir=out_dir,
+    #     temp_dir=temp,
+    #     timeliness='14days',
     #     subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-    # )
-    s1.create_coherence(
-        processing_dir=out_dir,
-        temp_dir=temp,
-        timeliness='14days',
-        subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-        # subset=None,
-        )
+    #     # subset=None,
+    #     )
