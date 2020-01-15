@@ -365,11 +365,20 @@ def execute_ard(
         swath,
         master_file,
         out_dir,
+        out_prefix,
         temp_dir,
-        scene_id,
         ard_parameters
 ):
     m_nr, m_burst_id, b_bbox = burst
+    out_file = opj(out_dir, '_'.join([
+        out_prefix, str(m_burst_id), 'BS.dim'
+    ])
+                   ).replace(' ', '_')
+    if os.path.isfile(out_file):
+        logger.debug('File for burst %s exists', m_burst_id)
+        return_code = 0
+        return return_code, out_file
+
     return_code = burst_to_ard(
         master_file=master_file,
         swath=swath,
@@ -377,7 +386,7 @@ def execute_ard(
         master_burst_id=str(m_burst_id),
         master_burst_poly=b_bbox,
         out_dir=out_dir,
-        out_prefix=scene_id,
+        out_prefix=out_prefix,
         temp_dir=temp_dir,
         slave_file=None,
         slave_burst_nr=None,
@@ -398,10 +407,6 @@ def execute_ard(
             'Something went wrong with the GPT processing! with return code: %s' %
             return_code
         )
-    out_file = opj(out_dir, '_'.join([
-        scene_id, str(m_burst_id), 'BS.dim'
-    ])
-                   )
     if not os.path.isfile(out_file):
         raise RuntimeError
     return return_code, out_file

@@ -2,11 +2,10 @@
 import os
 from os.path import join as opj
 import logging
-import imp
 import sys
 
 from ost.helpers import helpers as h
-from ost.settings import SNAP_S1_RESAMPLING_METHODS
+from ost.settings import SNAP_S1_RESAMPLING_METHODS, OST_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +36,14 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
 
     logger.debug('INFO: Importing Burst {} from Swath {} '
                  'from scene {}'.format(burst, swath, os.path.basename(infile))
                  )
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
                       -Pburst={} -Poutput={}'\
-        .format(gpt_file, graph, 1, infile, polar, swath,
+        .format(gpt_file, graph, 2, infile, polar, swath,
                 burst, out_prefix)
     return_code = h.run_command(command, logfile)
 
@@ -82,19 +79,19 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
 
     if pol_speckle_filter:
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Spk_Halpha.xml')
+        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
+                    'S1_SLC_Deb_Spk_Halpha.xml'
+                    )
     else:
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Halpha.xml')
+        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
+                    'S1_SLC_Deb_Halpha.xml'
+                    )
 
     logger.debug("INFO: Calculating the H-alpha dual polarisation")
     command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
-        .format(gpt_file, graph, 1, infile, outfile)
+        .format(gpt_file, graph, 2, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -145,29 +142,27 @@ def _calibration(infile,
 
     # get gpt file
     gpt_file = h.gpt_path()
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
     if product_type == 'RTC':
         logger.debug('INFO: Calibrating the product to a RTC product.')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
+        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_Calbeta_Deb_ML_TF_SUB.xml')
         command = '{} {} -x -q {} -Pdem=\'{}\' -Pdem_file="{}" ' \
                   '-Pdem_nodata={} -Presampling={} -Pregion="{}" -Pinput={} ' \
                   '-Poutput={}' \
-            .format(gpt_file, graph, 1, dem, dem_file,
+            .format(gpt_file, graph, 2, dem, dem_file,
                     dem_nodata, resampling, region, infile, outfile)
     elif product_type == 'GTCgamma':
         logger.debug('INFO: Calibrating the product to a GTC product (Gamma0).')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
+        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalGamma_Deb.xml')
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, 1, infile, outfile)
+            .format(gpt_file, graph, 2, infile, outfile)
     elif product_type == 'GTCsigma':
         logger.debug('INFO: Calibrating the product to a GTC product (Sigma0).')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
+        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalSigma_Deb.xml')
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, 1, infile, outfile)
+            .format(gpt_file, graph, 2, infile, outfile)
     else:
         logger.debug('ERROR: Wrong product type selected.')
         sys.exit(121)
@@ -207,7 +202,7 @@ def _speckle_filter(infile, outfile, logfile):
     logger.debug('INFO: Applying the Refined-Lee Speckle Filter')
     # contrcut command string
     command = '{} Speckle-Filter -x -q {} -PestimateENL=true -Pfilter=\'Refined Lee\' \
-              -t \'{}\' \'{}\''.format(gpt_file, 1,
+              -t \'{}\' \'{}\''.format(gpt_file, 2,
                                        outfile, infile)
 
     # run command and get return code
@@ -245,7 +240,7 @@ def _linear_to_db(infile, outfile, logfile):
     logger.debug('INFO: Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
-        gpt_file, 1, outfile, infile)
+        gpt_file, 2, outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -286,13 +281,11 @@ def _ls_mask(infile, outfile, logfile, resolution, dem='SRTM 1sec HGT'):
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')
 
     logger.debug("INFO: Compute Layover/Shadow mask")
     command = '{} {} -x -q {} -Pinput={} -Presol={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 1, infile, resolution,
+        .format(gpt_file, graph, 2, infile, resolution,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
@@ -329,17 +322,14 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
                        'ACE30'
 
     '''
-
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
 
     logger.debug('INFO: Co-registering {}'.format(filelist[0]))
     command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 1, filelist, outfile, dem)
+        .format(gpt_file, graph, 2, filelist, outfile, dem)
 
     return_code = h.run_command(command, logfile)
 
@@ -375,17 +365,14 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
                        'ACE30'
 
     '''
-
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
 
     logger.debug('INFO: Co-registering {} and {}'.format(master, slave))
     command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} -Pdem=\'{}\''\
-        .format(gpt_file, graph, 1, master, slave,
+        .format(gpt_file, graph, 2, master, slave,
                 outfile, dem)
 
     return_code = h.run_command(command, logfile)
@@ -415,17 +402,14 @@ def _coherence(infile, outfile, logfile):
                  where SNAP'S STDOUT/STDERR is written to
 
     '''
-
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = imp.find_module('ost')[1]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
 
     logger.debug('INFO: Coherence estimation')
     command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
-        .format(gpt_file, graph, 1, infile, outfile)
+        .format(gpt_file, graph, 2, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -475,7 +459,7 @@ def _terrain_correction(infile, outfile, logfile, resolution,
               -PpixelSpacingInMeter=\'{}\'\
               -PdemName=\'{}\'\
               -t {} {}'\
-              .format(gpt_file, 1, resolution, dem,
+              .format(gpt_file, 2, resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
@@ -525,7 +509,7 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
               -PpixelSpacingInDegree=\'{}\'\
               -PdemName=\'{}\'\
               -t {} {}'\
-              .format(gpt_file, 1, resolution, dem,
+              .format(gpt_file, 2, resolution, dem,
                       outfile, infile)
 
     return_code = h.run_command(command, logfile)
@@ -587,8 +571,19 @@ def burst_to_ard(master_file,
 
     '''
 
+    # Check for empty spaces in prefix
+    out_prefix = out_prefix.replace(' ', '_')
+
     # import master
     master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
+
+    out_ard_path = opj(out_dir, '{}_{}_BS'.format(out_prefix, master_burst_id))
+    if os.path.isfile(out_ard_path+'.dim'):
+        return_code = 0
+        logger.debug('File for burst %s and its swath exists, skipping!',
+                     master_burst_id
+                     )
+        return return_code
 
     if not os.path.exists('{}.dim'.format(master_import)):
         import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
@@ -690,7 +685,6 @@ def burst_to_ard(master_file,
     if return_code != 0:
         h.remove_folder_content(temp_dir)
         return return_code
-
     # we move backscatter to final destination
     h.move_dimap(out_tc, opj(out_dir, '{}_{}_BS'.format(out_prefix, master_burst_id)))
 
@@ -711,7 +705,10 @@ def burst_to_ard(master_file,
             return return_code
 
         # move ls data to final destination
-        h.move_dimap(out_ls, opj(out_dir, '{}_{}_LS'.format(out_prefix, master_burst_id)))
+        h.move_dimap(out_ls, opj(
+            out_dir,
+            '{}_{}_LS'.format(out_prefix, master_burst_id))
+                     )
 
     # remove calibrated files
     h.delete_dimap(out_cal)
@@ -728,9 +725,6 @@ def burst_to_ard(master_file,
             return return_code
 
         # co-registration
-        # filelist = ['{}.dim'.format(master_import),
-        #            '{}.dim'.format(slave_import)]
-        # filelist = '\'{}\''.format(','.join(filelist))
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
         # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
@@ -764,7 +758,6 @@ def burst_to_ard(master_file,
         h.delete_dimap(out_coreg)
 
         # geocode
-        out_tc = opj(temp_dir, '{}_{}_coh'.format(out_prefix, master_burst_id))
         tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
         _terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log, resolution, dem)
@@ -775,126 +768,19 @@ def burst_to_ard(master_file,
             return return_code
 
         # move to final destination
-        h.move_dimap(out_tc, opj(
+        h.move_dimap(out_coh, opj(
             out_dir, '{}_{}_coh'.format(out_prefix, master_burst_id)
         )
                      )
-
-        # remove tmp files
-        h.delete_dimap(out_coh)
-
     # write file, so we know this burst has been succesfully processed
     if return_code == 0:
         check_file = opj(out_dir, '.processed')
         with open(str(check_file), 'w') as file:
             file.write('passed all tests \n')
     else:
-        h.remove_folder_content(temp_dir)
-        h.remove_folder_content(out_dir)
-
+        try:
+            h.remove_folder_content(temp_dir)
+            h.remove_folder_content(out_dir)
+        except Exception as e:
+            logger.debug(e)
     return return_code
-
-
-# if __name__ == "__main__":
-#
-#    import argparse
-#
-#    # write a description
-#    descript = """
-#               This is a command line client for the creation of
-#               Sentinel-1 ARD data from Level 1 SLC bursts
-#
-#               to do
-#               """
-#
-#    epilog = """
-#             Example:
-#             to do
-#
-#
-#             """
-#
-#
-#    # create a parser
-#    parser = argparse.ArgumentParser(description=descript, epilog=epilog)
-#
-#    # search paramenters
-#    parser.add_argument('-m', '--master',
-#                        help='(str) path to the master SLC',
-#                        required=True)
-#    parser.add_argument('-mn', '--master_burst_nr',
-#                        help='(int) The index number of the master burst',
-#                        required=True)
-#    parser.add_argument('-mi', '--master_burst_id',
-#                        help='(str) The OST burst id of the master burst')
-#    parser.add_argument('-s', '--slave',
-#                        help='(str) path to the slave SLC')
-#    parser.add_argument('-sn', '--slave_burst_nr',
-#                        help='(int) The index number of the slave burst')
-#    parser.add_argument('-si', '--slave_burst_id',
-#                        help='(str) The OST burst id of the slave burst')
-#    parser.add_argument('-o', '--out-directory',
-#                        help='The directory where the outputfiles will'
-#                             'be written to.',
-#                        required=True)
-#    parser.add_argument('-t', '--tempdir',
-#                        help='The directory where temporary files will'
-#                             'be written to.',
-#                        required=True)
-#    parser.add_argument('-coh', '--coherence',
-#                        help='(bool) Set to True if the interferometric '
-#                        'coherence should be calculated.',
-#                        default=True)
-#    parser.add_argument('-pol', '--polarimetric-decomposition',
-#                        help='(bool) (bool) Set to True if the polarimetric '
-#                        'H/A/Alpha decomposition should be calculated.',
-#                        default=True)
-#    parser.add_argument('-ps', '--polarimetric-speckle-filter',
-#                        help='(bool) Set to True if speckle filtering should'
-#                             'be applied on the polarimetric'
-#                             'H/A/Alpha decomposition',
-#                        default=True)
-#    parser.add_argument('-ls', '--ls-mask',
-#                        help='(bool) Set to True for the creation of the'
-#                             'layover/shadow mask.',
-#                        default=True)
-#    parser.add_argument('-sp', "--speckle-filter",
-#                        help='(bool) Set to True if speckle filtering on'
-#                             'backscatter should be applied.',
-#                        default=False)
-#    parser.add_argument('-r', '--resolution',
-#                        help='(int) Resolution of the desired output data'
-#                             'in meters',
-#                        default=20)
-#    parser.add_argument('-pt', '--product-type',
-#                        help='(str) The product type of the desired output'
-#                             'in terms of calibrated backscatter'
-#                             '(i.e.  either GTCsigma, GTCgamma, RTC)',
-#                        default='RTC')
-#    parser.add_argument('-db', '--to-decibel',
-#                        help='(bool) Set to True if the desied output should'
-#                             'be in dB scale',
-#                        default=False)
-#    parser.add_argument('-d', '--dem',
-#                        help='(str) Select the DEM for processing steps where'
-#                             'the terrain information is needed.'
-#                             '(Snap format)',
-#                        default='SRTM 1Sec HGT')
-#    parser.add_argument('-rsi', '--remove-slave-import',
-#                        help='(bool) Select if during the coherence'
-#                             'calculation the imported slave file should be'
-#                             'deleted (for time-series it is advisable to'
-#                             'keep it)',
-#                        default=False)
-#
-#    args = parser.parse_args()
-#
-#    # create args for grd_to_ard
-#    infiles = args.input.split(',')
-#    output_dir = os.path.dirname(args.out-directory)
-#    file_id = os.path.basename(args.output)
-#
-#    # execute processing
-#    burst_to_ard(infiles, output_dir, file_id, args.tempdir,
-#               int(args.resolution), args.producttype, args.ls_mask,
-#               args.speckle_filter)

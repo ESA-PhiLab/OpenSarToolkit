@@ -11,6 +11,7 @@ import zipfile
 import fnmatch
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
+from retry import retry
 
 import numpy as np
 import pandas as pd
@@ -23,7 +24,9 @@ from godale import Executor
 from ost.settings import SNAP_S1_RESAMPLING_METHODS
 from ost.helpers import scihub, raster as ras
 from ost.helpers.helpers import execute_ard
-from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
+from ost.s1.grd_to_ard import grd_to_ard
+from ost.s1.convert_format import ard_to_rgb, ard_to_thumbnail, ard_slc_to_rgb, \
+    ard_slc_to_thumbnail
 from ost.helpers.bursts import get_bursts_by_polygon
 
 
@@ -377,14 +380,11 @@ class Sentinel1Scene:
         Much of the code is taken from RapidSAR
         package (once upon a time on github).
         '''
-
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
         gdf = gpd.GeoDataFrame(columns=column_names)
-
         track = self.rel_orbit
         acq_date = self.start_date
-
         # pol = root.find('adsHeader').find('polarisation').text
         swath = et_root.find('adsHeader').find('swath').text
         lines_per_burst = np.int(et_root.find('swathTiming').find(
@@ -406,7 +406,6 @@ class Sentinel1Scene:
                 last[geo_point.find('line').text] = np.float32(
                     [geo_point.find('latitude').text,
                      geo_point.find('longitude').text])
-
         for i, b in enumerate(burstlist):
             firstline = str(i*lines_per_burst)
             lastline = str((i+1)*lines_per_burst)
@@ -462,7 +461,6 @@ class Sentinel1Scene:
                         'Date': acq_date, 'SwathID': swath,
                         'AnxTime': azi_anx_time, 'BurstNr': i+1,
                         'geometry': loads(wkt)}
-
             gdf = gdf.append(geo_dict, ignore_index=True)
 
         return gdf
@@ -513,7 +511,6 @@ class Sentinel1Scene:
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
-
         # crs for empty dataframe
         crs = {'init': 'epsg:4326'}
         gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
@@ -528,7 +525,6 @@ class Sentinel1Scene:
         # loop through xml annotation files
         for xml_file in xml_files:
             xml_string = archive.open(xml_file)
-
             gdf = self._burst_database(ET.parse(xml_string))
             gdf_final = gdf_final.append(gdf)
 
@@ -676,12 +672,14 @@ class Sentinel1Scene:
             self.ard_parameters['resampling'] = SNAP_S1_RESAMPLING_METHODS[2]
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
-                   subset=None, polar='VV,VH,HH,HV'):
+                   subset=None, polar='VV,VH,HH,HV', max_workers=int(os.cpu_count()/2)):
         out_paths = []
         if subset is not None:
             p_poly = loads(subset)
+            self.processing_poly = p_poly
             self.center_lat = p_poly.bounds[3]-p_poly.bounds[1]
         else:
+            self.processing_poly = None
             try:
                 self.center_lat = self._get_center_lat(infile)
             except Exception as e:
@@ -691,9 +689,6 @@ class Sentinel1Scene:
                          ' DEM instead.'
                          )
             self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-        # self.ard_parameters['resolution'] = h.resolution_in_degree(
-        #    self.center_lat, self.ard_parameters['resolution'])
-
         if self.product_type == 'GRD':
             if not self.ard_parameters:
                 logger.debug('INFO: No ARD definition given.'
@@ -710,8 +705,9 @@ class Sentinel1Scene:
 
             # we need to convert the infile t a list for the grd_to_ard routine
             infile = [infile]
+            out_prefix = out_prefix.replace(' ', '_')
             # run the processing
-            out_file = grd_to_ard(
+            return_code = grd_to_ard(
                 infile,
                 out_dir,
                 out_prefix,
@@ -727,12 +723,17 @@ class Sentinel1Scene:
                 subset=subset,
                 polarisation=polar
             )
+            if return_code != 0:
+                raise RuntimeError(
+                    'Something went wrong with the GPT processing! '
+                    'with return code: %s' % return_code
+                )
             # write to class attribute
             self.ard_dimap = glob.glob(opj(out_dir, '{}*TC.dim'
                                            .format(out_prefix)))[0]
-            if not os.path.isfile(out_file):
+            if not os.path.isfile(self.ard_dimap):
                 raise RuntimeError
-            out_paths.append(out_file)
+            out_paths.append(self.ard_dimap)
 
         elif self.product_type == 'SLC':
             # TODO align ARD types with GRD
@@ -758,6 +759,7 @@ class Sentinel1Scene:
             if subset is not None:
                 try:
                     processing_poly = loads(subset)
+                    self.processing_poly = processing_poly
                 except Exception as e:
                     raise e
             else:
@@ -766,63 +768,94 @@ class Sentinel1Scene:
             master_file = self.get_path(out_dir)
             # get bursts
             master_bursts = self._zip_annotation_get(download_dir=out_dir)
-
             bursts_dict = get_bursts_by_polygon(
                 master_annotation=master_bursts,
                 out_poly=processing_poly
             )
-            executor_type = 'concurrent_processes'
-            max_workers = int(os.cpu_count()/2)
-            executor = Executor(executor=executor_type, max_workers=max_workers)
-            for swath, b in bursts_dict.items():
-                if b != []:
-                    try:
-                        for task in executor.as_completed(
-                                func=execute_ard,
-                                iterable=b,
-                                fargs=(swath,
-                                       master_file,
-                                       out_dir,
-                                       temp_dir,
-                                       self.scene_id,
-                                       self.ard_parameters
-                                       )
+            exception_flag = True
+            exception_counter = 0
+            while exception_flag is True:
+                executor_type = 'concurrent_processes'
+                executor = Executor(executor=executor_type, max_workers=max_workers)
+                if exception_counter > 3 or exception_flag is False:
+                    break
+                for swath, b in bursts_dict.items():
+                    if b != []:
+                        try:
+                            for task in executor.as_completed(
+                                    func=execute_ard,
+                                    iterable=b,
+                                    fargs=(swath,
+                                           master_file,
+                                           out_dir,
+                                           out_prefix,
+                                           temp_dir,
+                                           self.ard_parameters
+                                           )
 
-                        ):
-                            return_code, out_file = task.result()
-                            out_paths.append(out_file)
-                    except Exception as e:
-                        logger.debug(e)
-
+                            ):
+                                return_code, out_file = task.result()
+                                out_paths.append(out_file)
+                        except Exception as e:
+                            print(e)
+                            logger.debug(e)
+                            max_workers = int(max_workers/2)
+                            exception_flag = True
+                            exception_counter += 1
+                        else:
+                            exception_flag = False
+                    else:
+                        exception_flag = False
+                        continue
+            self.ard_dimap = out_paths
         else:
-            logger.debug('ERROR: create_ard method for single products is currently'
-                         ' only available for GRD products'
-                         )
+            raise RuntimeError('ERROR: create_ard needs S1 SLC or GRD')
         return out_paths
 
-    def create_rgb(self, outfile, driver='GTiff'):
+    def create_rgb(self, outfile, process_bounds=None, driver='GTiff'):
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
+        logger.debug('Creating RGB Geotiff for scene: %s', self.scene_id)
         if self.ard_parameters['to_db']:
             to_db = False
         else:
             to_db = True
-
-        ard_to_rgb(self.ard_dimap, outfile, driver, to_db)
+        if self.product_type == 'GRD':
+            self.processing_poly = None
+            ard_to_rgb(self.ard_dimap, outfile, driver, to_db)
+        elif self.product_type == 'SLC':
+            if process_bounds is None:
+                process_bounds = self.processing_poly.bounds
+            ard_slc_to_rgb(self.ard_dimap, outfile, process_bounds, driver)
         self.ard_rgb = outfile
+        logger.debug('RGB Geotiff done for scene: %s', self.scene_id)
         return outfile
 
     def create_rgb_thumbnail(self, outfile, driver='JPEG', shrink_factor=25):
-        # invert ot db from create_ard workflow for rgb creation
+        # invert to db from create_ard workflow for rgb creation
         # (otherwise we do it double)
-        if self.ard_parameters['to_db']:
+        if self.product_type == 'GRD':
+            if self.ard_parameters['to_db']:
+                to_db = False
+            else:
+                to_db = True
+            self.rgb_thumbnail = outfile
+            ard_to_thumbnail(
+                self.ard_dimap,
+                self.rgb_thumbnail,
+                driver,
+                shrink_factor,
+                to_db
+            )
+        elif self.product_type == 'SLC':
             to_db = False
-        else:
-            to_db = True
-
-        self.rgb_thumbnail = outfile
-        ard_to_thumbnail(self.ard_dimap, self.rgb_thumbnail,
-                         driver, shrink_factor, to_db)
+            self.rgb_thumbnail = outfile
+            ard_slc_to_thumbnail(
+                self.ard_rgb,
+                self.rgb_thumbnail,
+                driver,
+                shrink_factor
+            )
         return outfile
 
     def visualise_rgb(self, shrink_factor=25):

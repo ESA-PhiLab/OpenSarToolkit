@@ -11,7 +11,6 @@ def get_bursts_by_polygon(master_annotation, out_poly=None):
             master_bursts['AnxTime'],
             master_bursts['geometry']
     ):
-
         # Return all burst combinations if out poly is None
         if out_poly is None:
             if (nr, id) not in bursts_dict[subswath]:

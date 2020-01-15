@@ -104,6 +104,7 @@ def test_burst_to_ard(
                         swath=swath,
                         master_burst_nr=m_nr,
                         master_burst_id=str(m_burst_id),
+                        master_burst_poly=b_bbox,
                         out_dir=processing_dir,
                         out_prefix=out_prefix,
                         temp_dir=temp,
