@@ -3,6 +3,10 @@ import os
 from os.path import join as opj
 import logging
 import sys
+import rasterio
+import warnings
+
+from rasterio.errors import NotGeoreferencedWarning
 
 from ost.helpers import helpers as h
 from ost.settings import SNAP_S1_RESAMPLING_METHODS, OST_ROOT
@@ -343,7 +347,7 @@ def _coreg(filelist, outfile, logfile, dem='SRTM 1sec HGT'):
     return return_code
 
 
-def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
+def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT', master_burst_poly=''):
     '''A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes a list of 2 OST imported Sentinel-1 SLC products
@@ -371,9 +375,11 @@ def _coreg2(master, slave,  outfile, logfile, dem='SRTM 1sec HGT'):
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
 
     logger.debug('INFO: Co-registering {} and {}'.format(master, slave))
-    command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} -Pdem=\'{}\''\
+    command = '{} {} -x -q {} -Pmaster={} -Pslave={} -Poutput={} ' \
+              '-Pdem=\'{}\' -Pregion="{}"' \
         .format(gpt_file, graph, 2, master, slave,
-                outfile, dem)
+                outfile, dem, master_burst_poly
+                )
 
     return_code = h.run_command(command, logfile)
 
@@ -408,7 +414,7 @@ def _coherence(infile, outfile, logfile):
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
 
     logger.debug('INFO: Coherence estimation')
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}'\
+    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
         .format(gpt_file, graph, 2, infile, outfile)
 
     return_code = h.run_command(command, logfile)
@@ -524,27 +530,24 @@ def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
     return return_code
 
 
-def burst_to_ard(master_file,
-                 swath,
-                 master_burst_nr,
-                 master_burst_id,
-                 master_burst_poly,
-                 out_dir,
-                 out_prefix,
-                 temp_dir,
-                 slave_file=None,
-                 slave_burst_nr=None,
-                 slave_burst_id=None,
-                 coherence=False,
-                 polarimetry=False,
-                 pol_speckle_filter=False,
-                 resolution=20,
-                 product_type='GTCgamma',
-                 speckle_filter=False,
-                 to_db=False,
-                 ls_mask_create=False,
-                 dem='SRTM 1sec HGT',
-                 remove_slave_import=False):
+def burst_to_ard(
+        master_file,
+        swath,
+        master_burst_nr,
+        master_burst_id,
+        master_burst_poly,
+        out_dir,
+        out_prefix,
+        temp_dir,
+        polarimetry=False,
+        pol_speckle_filter=False,
+        resolution=20,
+        product_type='GTCgamma',
+        speckle_filter=False,
+        to_db=False,
+        ls_mask_create=False,
+        dem='SRTM 1sec HGT'
+):
     '''The main routine to turn a burst into an ARD product
 
     Args:
@@ -639,9 +642,8 @@ def burst_to_ard(master_file,
         h.remove_folder_content(temp_dir)
         return return_code
 
-    if not coherence:
-        #  remove imports
-        h.delete_dimap(master_import)
+    #  remove imports
+    h.delete_dimap(master_import)
 
     # speckle filtering
     if speckle_filter:
@@ -713,65 +715,6 @@ def burst_to_ard(master_file,
     # remove calibrated files
     h.delete_dimap(out_cal)
 
-    if coherence and slave_burst_id is not None and slave_burst_nr is not None:
-        # import slave
-        slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
-        import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
-        return_code = _import(slave_file, slave_import, import_log,
-                              swath, slave_burst_nr)
-
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # co-registration
-        out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
-        coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
-        # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
-        logger.debug('{}.dim'.format(master_import))
-        logger.debug('{}.dim'.format(slave_import))
-        return_code = _coreg2('{}.dim'.format(master_import),
-                              '{}.dim'.format(slave_import),
-                              out_coreg,
-                              coreg_log, dem
-                              )
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        #  remove imports
-        h.delete_dimap(master_import)
-
-        if remove_slave_import:
-            h.delete_dimap(slave_import)
-
-        # calculate coherence and deburst
-        out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
-        coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
-        return_code = _coherence('{}.dim'.format(out_coreg),
-                                 out_coh, coh_log)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # remove coreg tmp files
-        h.delete_dimap(out_coreg)
-
-        # geocode
-        tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
-        _terrain_correction(
-            '{}.dim'.format(out_coh), out_tc, tc_log, resolution, dem)
-        # last check on coherence data
-        return_code = h.check_out_dimap(out_tc)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # move to final destination
-        h.move_dimap(out_coh, opj(
-            out_dir, '{}_{}_coh'.format(out_prefix, master_burst_id)
-        )
-                     )
     # write file, so we know this burst has been succesfully processed
     if return_code == 0:
         check_file = opj(out_dir, '.processed')
@@ -783,4 +726,161 @@ def burst_to_ard(master_file,
             h.remove_folder_content(out_dir)
         except Exception as e:
             logger.debug(e)
+    return return_code
+
+
+def _2products_coherence_tc(
+        master_scene,
+        master_file,
+        master_burst_poly,
+        slave_scene,
+        slave_file,
+        out_dir,
+        temp_dir,
+        swath,
+        master_burst_id,
+        master_burst_nr,
+        slave_burst_id,
+        slave_burst_nr,
+        resolution=20,
+        dem='SRTM 1Sec HGT',
+        dem_file='',
+        resampling='BILINEAR_INTERPOLATION',
+        polar='VV,VH,HH,HV'
+):
+    warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
+    return_code = None
+    # import master
+    master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
+    if not os.path.exists('{}.dim'.format(master_import)):
+        import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
+        return_code = _import(
+            infile=master_file,
+            out_prefix=master_import,
+            logfile=import_log,
+            swath=swath,
+            burst=master_burst_nr,
+            polar=polar
+        )
+        if return_code != 0:
+            h.remove_folder_content(temp_dir)
+            return return_code
+    # check if master has data or not
+    data_path = opj(temp_dir, '{}_import.data'.format(master_burst_id))
+    if not os.path.exists(data_path):
+        return 333
+    for f in os.listdir(data_path):
+        if f.endswith('.img') and 'q' in f:
+            f = opj(data_path, f)
+            with rasterio.open(f, 'r') as in_img:
+                if not in_img.read(1).any():
+                    return_code = 333
+                else:
+                    return_code = 0
+    if return_code != 0:
+        #  remove imports
+        h.delete_dimap(master_import)
+        return return_code
+    # import slave
+    slave_import = opj(temp_dir, '{}_slave_import'.format(slave_burst_id))
+    import_log = opj(out_dir, '{}_slave_import.err_log'.format(slave_burst_id))
+    return_code = _import(
+        infile=slave_file,
+        out_prefix=slave_import,
+        logfile=import_log,
+        swath=swath,
+        burst=slave_burst_nr,
+        polar=polar
+    )
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+    # check if slave has data or not
+    data_path = opj(temp_dir, '{}_slave_import.data'.format(master_burst_id))
+    if not os.path.exists(data_path):
+        return 333
+    for f in os.listdir(data_path):
+        if f.endswith('.img') and 'q' in f:
+            f = opj(data_path, f)
+            with rasterio.open(f, 'r') as in_img:
+                if not in_img.read(1).any():
+                    return_code = 333
+                else:
+                    return_code = 0
+    if return_code != 0:
+        #  remove imports
+        h.delete_dimap(slave_import)
+        return return_code
+
+    # co-registration
+    out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
+    coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
+    logger.debug('{}.dim'.format(master_import))
+    logger.debug('{}.dim'.format(slave_import))
+    return_code = _coreg2('{}.dim'.format(master_import),
+                          '{}.dim'.format(slave_import),
+                          out_coreg,
+                          coreg_log,
+                          dem,
+                          master_burst_poly
+                          )
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+
+    #  remove imports
+    h.delete_dimap(master_import)
+    h.delete_dimap(slave_import)
+
+    # calculate coherence and deburst
+    out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
+    coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
+    return_code = _coherence('{}.dim'.format(out_coreg),
+                             out_coh, coh_log
+                             )
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+
+    # remove coreg tmp files
+    h.delete_dimap(out_coreg)
+
+    # geocode
+    out_tc = opj(temp_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
+                                                 slave_scene.start_date,
+                                                 master_burst_id
+                                                 )
+                 )
+    tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id)
+                 )
+    _terrain_correction(
+        '{}.dim'.format(out_coh),
+        out_tc,
+        tc_log,
+        resolution,
+        dem
+    )
+    # last check on coherence data
+    return_code = h.check_out_dimap(out_tc)
+    if return_code != 0:
+        h.remove_folder_content(temp_dir)
+        return return_code
+
+    # move to final destination
+    h.move_dimap(out_tc, opj(out_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
+                                                            slave_scene.start_date,
+                                                            master_burst_id)
+                             )
+                 )
+    # remove tmp files
+    h.delete_dimap(out_coh)
+
+    # write file, so we know this burst has been succesfully processed
+    if return_code == 0:
+        check_file = opj(out_dir, '.processed')
+        with open(str(check_file), 'w') as file:
+            file.write('passed all tests \n')
+    else:
+        h.remove_folder_content(temp_dir)
+        h.remove_folder_content(out_dir)
     return return_code

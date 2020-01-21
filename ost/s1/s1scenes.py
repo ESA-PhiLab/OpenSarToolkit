@@ -1,46 +1,50 @@
 import os
 from os.path import join as opj
 import logging
-import rasterio
-import warnings
 from datetime import datetime
 from tempfile import TemporaryDirectory
-
-from rasterio.errors import NotGeoreferencedWarning
 
 from shapely.wkt import loads as shp_loads
 
 from ost.s1.s1scene import Sentinel1Scene as S1scene
-from ost.helpers import helpers as h
-from ost.s1.burst_to_ard import _import, _coreg2, _coherence, _terrain_correction
 from ost.helpers.helpers import _slc_zip_to_processing_dir
 from ost.helpers.bursts import get_bursts_pairs
+from ost.s1.burst_to_ard import _2products_coherence_tc
 
 logger = logging.getLogger(__name__)
 
 
 class Sentinel1Scenes:
 
-    def __init__(self, filelist, processing_dir=None, ard_type=None, cleanup=False):
+    def __init__(self, filelist, processing_dir=None, ard_type='OST', cleanup=False):
         slave_list = []
         for idx, s in zip(range(len(filelist)), filelist):
-            scene_id = get_scene_id(product_path=s)
-            if idx == 0:
-                self.master = S1scene(scene_id=scene_id)
-                # Copy files to processing dir
-                _slc_zip_to_processing_dir(
-                    processing_dir=processing_dir,
-                    product=self.master,
-                    product_path=s
-                )
+            if isinstance(s, S1scene):
+                scene_id = s.scene_id
             else:
-                slave_list.append(S1scene(scene_id=scene_id))
-                # Copy files to processing dir
-                _slc_zip_to_processing_dir(
-                    processing_dir=processing_dir,
-                    product=self.master,
-                    product_path=s
-                )
+                scene_id = get_scene_id(product_path=s)
+            if idx == 0:
+                if isinstance(s, S1scene):
+                    self.master = s
+                else:
+                    self.master = S1scene(scene_id=scene_id)
+                    # Copy files to processing dir
+                    _slc_zip_to_processing_dir(
+                        processing_dir=processing_dir,
+                        product=self.master,
+                        product_path=s
+                    )
+            else:
+                if isinstance(s, S1scene):
+                    slave_list.append(s)
+                else:
+                    slave_list.append(S1scene(scene_id=scene_id))
+                    # Copy files to processing dir
+                    _slc_zip_to_processing_dir(
+                        processing_dir=processing_dir,
+                        product=S1scene(scene_id=scene_id),
+                        product_path=s
+                    )
         self.slaves = slave_list
         self.cleanup = cleanup
 
@@ -175,6 +179,7 @@ class Sentinel1Scenes:
                         return_code = _2products_coherence_tc(
                             master_scene=pair[0],
                             master_file=master_file,
+                            master_burst_poly=b_bbox,
                             slave_scene=pair[1],
                             slave_file=slave_file,
                             out_dir=processing_dir,
@@ -202,160 +207,6 @@ class Sentinel1Scenes:
         return coh_list
 
 
-def _2products_coherence_tc(
-        master_scene,
-        master_file,
-        slave_scene,
-        slave_file,
-        out_dir,
-        temp_dir,
-        swath,
-        master_burst_id,
-        master_burst_nr,
-        slave_burst_id,
-        slave_burst_nr,
-        resolution=20,
-        dem='SRTM 1Sec HGT',
-        dem_file='',
-        resampling='BILINEAR_INTERPOLATION',
-        polar='VV,VH,HH,HV'
-):
-    warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
-    return_code = None
-    # import master
-    master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
-    if not os.path.exists('{}.dim'.format(master_import)):
-        import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
-        return_code = _import(
-            infile=master_file,
-            out_prefix=master_import,
-            logfile=import_log,
-            swath=swath,
-            burst=master_burst_nr,
-            polar=polar
-        )
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-    # check if master has data or not
-    data_path = opj(temp_dir, '{}_import.data'.format(master_burst_id))
-    if not os.path.exists(data_path):
-        return 333
-    for f in os.listdir(data_path):
-        if f.endswith('.img') and 'q' in f:
-            f = opj(data_path, f)
-            with rasterio.open(f, 'r') as in_img:
-                if not in_img.read(1).any():
-                    return_code = 333
-                else:
-                    return_code = 0
-    if return_code != 0:
-        #  remove imports
-        h.delete_dimap(master_import)
-        return return_code
-    # import slave
-    slave_import = opj(temp_dir, '{}_slave_import'.format(slave_burst_id))
-    import_log = opj(out_dir, '{}_slave_import.err_log'.format(slave_burst_id))
-    return_code = _import(
-        infile=slave_file,
-        out_prefix=slave_import,
-        logfile=import_log,
-        swath=swath,
-        burst=slave_burst_nr,
-        polar=polar
-    )
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-    # check if slave has data or not
-    data_path = opj(temp_dir, '{}_slave_import.data'.format(master_burst_id))
-    if not os.path.exists(data_path):
-        return 333
-    for f in os.listdir(data_path):
-        if f.endswith('.img') and 'q' in f:
-            f = opj(data_path, f)
-            with rasterio.open(f, 'r') as in_img:
-                if not in_img.read(1).any():
-                    return_code = 333
-                else:
-                    return_code = 0
-    if return_code != 0:
-        #  remove imports
-        h.delete_dimap(slave_import)
-        return return_code
-
-    # co-registration
-    out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
-    coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
-    logger.debug('{}.dim'.format(master_import))
-    logger.debug('{}.dim'.format(slave_import))
-    return_code = _coreg2('{}.dim'.format(master_import),
-                          '{}.dim'.format(slave_import),
-                          out_coreg,
-                          coreg_log,
-                          dem
-                          )
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-
-    #  remove imports
-    h.delete_dimap(master_import)
-    h.delete_dimap(slave_import)
-
-    # calculate coherence and deburst
-    out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
-    coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
-    return_code = _coherence('{}.dim'.format(out_coreg),
-                             out_coh, coh_log)
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-
-    # remove coreg tmp files
-    h.delete_dimap(out_coreg)
-
-    # geocode
-    out_tc = opj(temp_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
-                                                 slave_scene.start_date,
-                                                 master_burst_id
-                                                 )
-                 )
-    tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id)
-                 )
-    _terrain_correction(
-        '{}.dim'.format(out_coh),
-        out_tc,
-        tc_log,
-        resolution,
-        dem
-    )
-    # last check on coherence data
-    return_code = h.check_out_dimap(out_tc)
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-
-    # move to final destination
-    h.move_dimap(out_tc, opj(out_dir, '{}_{}_{}_coh'.format(master_scene.start_date,
-                                                            slave_scene.start_date,
-                                                            master_burst_id)
-                             )
-                 )
-    # remove tmp files
-    h.delete_dimap(out_coh)
-
-    # write file, so we know this burst has been succesfully processed
-    if return_code == 0:
-        check_file = opj(out_dir, '.processed')
-        with open(str(check_file), 'w') as file:
-            file.write('passed all tests \n')
-    else:
-        h.remove_folder_content(temp_dir)
-        h.remove_folder_content(out_dir)
-    return return_code
-
-
 def check_for_beam_mode(master, slave):
     flag = False
     if master.mode_beam == slave.mode_beam:
@@ -381,37 +232,3 @@ def get_scene_id(product_path):
     else:
         scene_id = product_basename
     return scene_id
-
-
-# file1 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
-# # file1 = '/home/suprd/Downloads/S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip'
-# file2 = '/home/suprd/PycharmProjects/_Sentinel-1_mosaic_test/git/OpenSarToolkit/tests/testdata/cache/S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip'
-#
-# from ost.log import setup_logfile, set_log_level
-# set_log_level(logging.DEBUG)
-# setup_logfile('/home/suprd/OST_out_test/log.log')
-# out_dir = '/home/suprd/OST_out_test/'
-# os.makedirs(out_dir, exist_ok=True)
-#
-# s1 = Sentinel1Scenes(filelist=[file1, file2],
-#                      processing_dir=out_dir,
-#                      cleanup=True,
-#                      ard_type='RTC'
-#                      # ard_type='GTCgamma'
-#                      )
-#
-# with TemporaryDirectory() as temp:
-#     s1.master.ard_parameters['to_db'] = True
-#     s1.master.ard_parameters['resampling'] = 'BILINEAR_INTERPOLATION'
-#     s1.master.ard_parameters['speckle_filter'] = True
-#     s1.s1_scenes_to_ard(
-#         processing_dir=out_dir,
-#         subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-#     )
-    # s1.create_coherence(
-    #     processing_dir=out_dir,
-    #     temp_dir=temp,
-    #     timeliness='14days',
-    #     subset='POLYGON ((8.0419921875 46.34033203125, 8.0419921875 46.3623046875, 8.02001953125 46.3623046875, 8.02001953125 46.34033203125, 8.0419921875 46.34033203125))',
-    #     # subset=None,
-    #     )

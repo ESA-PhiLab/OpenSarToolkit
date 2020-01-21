@@ -20,7 +20,7 @@ ENV \
   HOME=/home/ost \
   PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
    
-# installall dependencies
+# install all dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
     apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
@@ -52,8 +52,9 @@ RUN groupadd -r ost && \
 #RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all
 
 # get OST and tutorials
-RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
-    git clone https://github.com/ESA-PhiLab/OST_Notebooks
+RUN git clone https://github.com/ESA-PhiLab/OpenSarToolkit.git
+RUN pip isntall -r requirements.txt
+RUN python3 setup.py install && git clone https://github.com/ESA-PhiLab/OST_Notebooks
 
 #ENV SHELL="/bin/bash/" 
 

@@ -7,15 +7,6 @@
       <file>${input}</file>
     </parameters>
   </node>
-  <node id="TOPSAR-Deburst">
-    <operator>TOPSAR-Deburst</operator>
-    <sources>
-      <sourceProduct refid="Coherence"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
-    </parameters>
-  </node>
   <node id="Coherence">
     <operator>Coherence</operator>
     <sources>
@@ -25,10 +16,19 @@
       <cohWinAz>4</cohWinAz>
       <cohWinRg>15</cohWinRg>
       <subtractFlatEarthPhase>true</subtractFlatEarthPhase>
-      <srpPolynomialDegree>5</srpPolynomialDegree>
+      <srpPolynomialDegree>3</srpPolynomialDegree>
       <srpNumberPoints>501</srpNumberPoints>
       <orbitDegree>3</orbitDegree>
       <squarePixel>true</squarePixel>
+    </parameters>
+  </node>
+  <node id="TOPSAR-Deburst">
+    <operator>TOPSAR-Deburst</operator>
+    <sources>
+      <sourceProduct refid="Coherence"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <selectedPolarisations/>
     </parameters>
   </node>
   <node id="Write">

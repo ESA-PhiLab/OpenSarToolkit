@@ -1,5 +1,5 @@
 import os
-import jpy
+from datetime import datetime
 from os.path import join as opj
 import sys
 import json
@@ -11,7 +11,6 @@ import zipfile
 import fnmatch
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
-from retry import retry
 
 import numpy as np
 import pandas as pd
@@ -66,6 +65,10 @@ class Sentinel1Scene:
 
         self.rel_orbit = (((int(self.abs_orbit)
                             - int(self.orbit_offset)) % 175) + 1)
+
+        self.timestamp = datetime.strptime(
+            self.start_date+'T'+self.start_time, '%Y%m%dT%H%M%S'
+        )
 
         # get acquisition mode
         if self.mode_beam == 'IW':
@@ -169,7 +172,6 @@ class Sentinel1Scene:
         return path
 
     def _aws_path(self, data_mount):
-
         # print('Dummy function for aws path to be added')
         return '/foo/foo/foo'
     
