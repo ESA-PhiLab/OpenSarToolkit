@@ -53,15 +53,20 @@ def restore_download_dir(input_directory, download_dir):
             logger.debug('INFO: File {} is corrupted and will not be moved.')
 
 
-def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
-                       uname=None, pword=None):
+def download_sentinel1(inventory_df,
+                       download_dir,
+                       mirror=None,
+                       concurrent=2,
+                       uname=None,
+                       pword=None
+                       ):
     '''Main function to download Sentinel-1 data
 
     This is an interactive function
 
     '''
 
-    if not mirror:
+    if mirror is None:
         logger.debug('Select the server from where you want to download:')
         logger.debug('(1) Copernicus Apihub (ESA, rolling archive)')
         logger.debug('(2) Alaska Satellite Facility (NASA, full archive)')
@@ -71,7 +76,6 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     if not uname:
         logger.debug('Please provide username for the selected server')
         uname = input('Username:')
-
     if not pword:
         logger.debug('Please provide password for the selected server')
         pword = getpass.getpass('Password:')
@@ -81,12 +85,10 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         error_code = scihub.check_connection(uname, pword)
     elif int(mirror) == 2:
         error_code = asf.check_connection(uname, pword)
-
         if concurrent > 10:
             logger.debug('INFO: Maximum allowed parallel downloads \
                   from Earthdata are 10. Setting concurrent accordingly.')
             concurrent = 10
-    
     elif int(mirror) == 3:
         error_code = peps.check_connection(uname, pword)
 
@@ -94,9 +96,9 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         raise ValueError('ERROR: Username/Password are incorrect')
     elif error_code != 200:
         raise ValueError('ERROR: Some connection error. Error code {}.'.format(error_code))
-    
+
     # download in parallel
-    if int(mirror) == 1: # scihub
+    if int(mirror) == 1:    # scihub
         scihub.batch_download(inventory_df, download_dir,
                               uname, pword, concurrent
                               )
@@ -104,6 +106,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         asf.batch_download(inventory_df, download_dir,
                            uname, pword, concurrent
                            )
-    elif int(mirror) == 3:   # PEPS
+    elif int(mirror) == 3:  # PEPS
         peps.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)
+    return download_dir

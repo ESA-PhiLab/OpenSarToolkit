@@ -10,6 +10,7 @@ import time
 import gdal
 import datetime
 import logging
+from tqdm import tqdm
 from datetime import timedelta
 from pathlib import Path
 import zipfile
@@ -292,20 +293,19 @@ def check_out_tiff(file, test_stats=True):
 
 
 def check_zipfile(filename):
-        
     try:
         zip_archive = zipfile.ZipFile(filename)
     except zipfile.BadZipFile as er:
         logger.debug('Error: {}'.format(er))
         return 1
-    
     try:
         zip_test = zip_archive.testzip()
+        return_code = 0
     except:
         logger.debug('Error')
         return 1
     else:
-        return zip_test
+        return return_code
 
 
 def resolution_in_degree(latitude, meters):
@@ -410,3 +410,19 @@ def execute_ard(
     if not os.path.isfile(out_file):
         raise RuntimeError
     return return_code, out_file
+
+
+class TqdmUpTo(tqdm):
+    """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize

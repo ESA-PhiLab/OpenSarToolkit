@@ -3,7 +3,6 @@ from os.path import join as opj
 import glob
 import logging
 import requests
-from tqdm import tqdm
 import multiprocessing
 from http.cookiejar import CookieJar
 import urllib.error
@@ -11,6 +10,7 @@ import urllib.request as urlreq
 
 
 from ost.helpers import helpers as h
+from ost.helpers.helpers import TqdmUpTo
 from ost import Sentinel1Scene as S1Scene
 
 logger = logging.getLogger(__name__)
@@ -139,9 +139,6 @@ def s1_download(argument_list):
     # get download size
     total_length = int(response.headers.get('content-length', 0))
 
-    # define chunk_size
-    chunk_size = 1024
-
     # check if file is partially downloaded
     if os.path.exists(filename):
         first_byte = os.path.getsize(filename)
@@ -151,7 +148,6 @@ def s1_download(argument_list):
         first_byte = total_length
     elif first_byte > 0 and first_byte < total_length:
         os.remove(filename)
-    print(total_length)
     zip_test = 1
     while zip_test is not None and zip_test <= 10:
         while first_byte < total_length:
@@ -181,10 +177,8 @@ def s1_download(argument_list):
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
-
     # create list of scenes
     scenes = inventory_df['identifier'].tolist()
-    
     check, i = False, 1
     while check is False and i <= 10:
         asf_list = []
@@ -204,7 +198,8 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                     
         downloaded_scenes = glob.glob(
             opj(download_dir, 'SAR', '*', '20*', '*', '*',
-                '*.zip.downloaded'))
+                '*.zip.downloaded')
+        )
 
         if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
             check = True
@@ -220,19 +215,3 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                     scenes.remove(scene.scene_id)
 
         i += 1
-
-
-class TqdmUpTo(tqdm):
-    """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
-    def update_to(self, b=1, bsize=1, tsize=None):
-        """
-        b  : int, optional
-            Number of blocks transferred so far [default: 1].
-        bsize  : int, optional
-            Size of each block (in tqdm units) [default: 1].
-        tsize  : int, optional
-            Total size (in tqdm units). If [default: None] remains unchanged.
-        """
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)  # will also set self.n = b * bsize

@@ -4,8 +4,8 @@ from os.path import join as opj
 import sys
 import json
 import glob
-import urllib
 import logging
+from urllib import parse
 from urllib.error import URLError
 import zipfile
 import fnmatch
@@ -138,11 +138,8 @@ class Sentinel1Scene:
         #    mirror = input(' Type 1, 2 or 3: ')
 
         from ost.s1 import s1_dl
-        # if mirror == 1:
-        #     df = pd.DataFrame({'identifier': [self.scene_id]
-        #                    {'uuid'}: self.scihub_uuid(opener)})
         df = pd.DataFrame({'identifier': [self.scene_id]})
-        s1_dl.download_sentinel1(df, download_dir)
+        s1_dl.download_sentinel1(df, download_dir, mirror=mirror)
 
     # location of file (including diases)
     def _download_path(self, download_dir, mkdir=False):
@@ -215,17 +212,16 @@ class Sentinel1Scene:
 
     # scihub related
     def scihub_uuid(self, opener):
-
         # construct the basic the url
         base_url = ('https://scihub.copernicus.eu/apihub/odata/v1/'
                     'Products?$filter='
                     )
-        action = urllib.request.quote('Name eq \'{}\''.format(self.scene_id))
+        action = parse.quote('Name eq \'{}\''.format(self.scene_id))
         # construct the download url
         url = base_url + action
-
         try:
             # get the request
+            # requests.get(url, stream=False, auth=(uname, pword))
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
@@ -551,21 +547,20 @@ class Sentinel1Scene:
 
     # other data providers
     def asf_url(self):
-
         asf_url = 'https://datapool.asf.alaska.edu'
-
         if self.mission_id == 'S1A':
             mission = 'SA'
         elif self.mission_id == 'S1B':
             mission = 'SB'
-
         if self.product_type == 'SLC':
             product_type = self.product_type
         elif self.product_type == 'GRD':
             product_type = 'GRD_{}{}'.format(self.resolution_class, self.pol_mode[0])
 
-        return '{}/{}/{}/{}.zip'.format(asf_url, product_type,
-                                        mission, self.scene_id
+        return '{}/{}/{}/{}.zip'.format(asf_url,
+                                        product_type,
+                                        mission,
+                                        self.scene_id
                                         )
 
     def peps_uuid(self, uname, pword):
