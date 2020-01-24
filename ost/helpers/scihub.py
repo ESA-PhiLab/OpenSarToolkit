@@ -126,15 +126,12 @@ def create_aoi_str(aoi_wkt):
         str: Copernicus' scihub compliant AOI string
 
     '''
-
     geom = loads(aoi_wkt)
     if geom.geom_type == 'Point':
         aoi_str = "( footprint:\"Intersects({}, {})\")".format(geom.y, geom.x)
-
     else:
         # simplify geometry
         aoi_convex = geom.convex_hull
-
         # create scihub-confrom aoi string
         aoi_str = '( footprint:\"Intersects({})\")'.format(aoi_convex)
 

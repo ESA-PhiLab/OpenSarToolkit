@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_stack(filelist, out_stack, logfile,
-                 polarisation=None, pattern=None):
+                 polarisation=None, pattern=None
+                 ):
     '''
 
     :param filelist: list of single Files (space separated)
@@ -50,7 +51,8 @@ def create_stack(filelist, out_stack, logfile,
         logger.debug('INFO: Succesfully created multi-temporal stack')
     else:
         logger.debug('ERROR: Stack creation exited with an error.'
-              'See {} for Snap Error output'.format(logfile))
+                     'See {} for Snap Error output'.format(logfile)
+                     )
         sys.exit(201)
 
     return return_code
@@ -201,7 +203,6 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
                to_power=False, outlier_removal=False):
 
     with rasterio.open(stack) as src:
-
         # get metadata
         meta = src.profile
 
@@ -213,7 +214,7 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
         metric_dict = {}
         for metric in metrics:
             metric_dict[metric] = rasterio.open(
-                out_prefix + '.'+ metric + '.tif', 'w', **meta)
+                out_prefix + '.' + metric + '.tif', 'w', **meta)
 
         # scaling factors in case we have to rescale to integer
         minimums = {'avg': -30, 'max': -30, 'min': -30,
@@ -293,7 +294,6 @@ def create_datelist(path_to_timeseries):
 def create_ts_animation(ts_dir, temp_dir, outfile, shrink_factor):
 
     for file in sorted(glob.glob(opj(ts_dir, '*VV.tif'))):
-
         file_index = os.path.basename(file).split('.')[0]
         date = os.path.basename(file).split('.')[1]
         file_vv = file
@@ -302,7 +302,6 @@ def create_ts_animation(ts_dir, temp_dir, outfile, shrink_factor):
         out_temp = opj(temp_dir, '{}.jpg'.format(date))
 
         with rasterio.open(file_vv) as vv_pol:
-
             # get metadata
             out_meta = vv_pol.meta.copy()
 
