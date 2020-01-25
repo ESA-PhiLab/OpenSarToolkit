@@ -108,10 +108,6 @@ def test_burst_to_ard(
                         out_dir=processing_dir,
                         out_prefix=out_prefix,
                         temp_dir=temp,
-                        slave_file=s1_slc_slave,
-                        slave_burst_nr=sl_burst_nr,
-                        slave_burst_id=str(sl_burst_id)+'_sl',
-                        coherence=True,
                         polarimetry=False,
                         pol_speckle_filter=False,
                         resolution=20,
@@ -120,7 +116,6 @@ def test_burst_to_ard(
                         to_db=False,
                         ls_mask_create=False,
                         dem='SRTM 1sec HGT',
-                        remove_slave_import=False
                     )
                     if return_code != 0:
                         raise GPTRuntimeError

@@ -52,7 +52,7 @@ def test_esa_scihub_download(s1_grd_notnr_ost_product, mirror=1):
                                                             data_mount='/eodata'
                                                             )
         return_code = check_zipfile(product_path)
-        assert return_code == 0
+        assert return_code is None
 
 
 def test_asf_download(s1_grd_notnr_ost_product, mirror=2):
@@ -73,4 +73,4 @@ def test_asf_download(s1_grd_notnr_ost_product, mirror=2):
                                                             data_mount='/eodata'
                                                             )
         return_code = check_zipfile(product_path)
-        assert return_code == 0
+        assert return_code is None

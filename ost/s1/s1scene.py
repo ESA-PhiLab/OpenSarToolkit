@@ -338,7 +338,6 @@ class Sentinel1Scene:
         anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
                      'Nodes'.format(uuid, self.scene_id))
         url = scihub_url + anno_path
-        # print(url)
         try:
             # get the request
             req = opener.open(url)
@@ -794,7 +793,6 @@ class Sentinel1Scene:
                                 return_code, out_file = task.result()
                                 out_paths.append(out_file)
                         except Exception as e:
-                            print(e)
                             logger.debug(e)
                             max_workers = int(max_workers/2)
                             exception_flag = True

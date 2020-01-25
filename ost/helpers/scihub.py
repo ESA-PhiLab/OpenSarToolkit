@@ -289,11 +289,11 @@ def s1_download(argument_list):
     else:
         first_byte = 0
 
-    # if first_byte >= total_length:
-    #     return total_length
+    if first_byte >= total_length:
+        return total_length
+
     zip_test = 1
-    while zip_test is not None:
-        # while first_byte < total_length:
+    while zip_test is not None and zip_test <= 10:
         logger.debug('INFO: Downloading scene to: {}'.format(filename))
         with TqdmUpTo(unit='B', unit_scale=True, miniters=1,
                       desc=url.split('/')[-1]) as t:

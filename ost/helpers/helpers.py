@@ -300,7 +300,7 @@ def check_zipfile(filename):
         return 1
     try:
         zip_test = zip_archive.testzip()
-        return_code = 0
+        return_code = None
     except:
         logger.debug('Error')
         return 1
@@ -388,9 +388,6 @@ def execute_ard(
         out_dir=out_dir,
         out_prefix=out_prefix,
         temp_dir=temp_dir,
-        slave_file=None,
-        slave_burst_nr=None,
-        slave_burst_id=None,
         polarimetry=False,
         pol_speckle_filter=False,
         resolution=ard_parameters['resolution'],
@@ -400,7 +397,6 @@ def execute_ard(
         to_db=ard_parameters['to_db'],
         ls_mask_create=False,
         dem=ard_parameters['dem'],
-        remove_slave_import=False
     )
     if return_code != 0:
         raise RuntimeError(
@@ -425,4 +421,5 @@ class TqdmUpTo(tqdm):
         """
         if tsize is not None:
             self.total = tsize
-        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
+        # will also set self.n = b * bsize
+        self.update(b * bsize - self.n)
