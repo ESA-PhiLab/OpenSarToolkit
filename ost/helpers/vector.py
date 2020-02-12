@@ -8,7 +8,6 @@ import ogr
 import pyproj
 import geopandas as gpd
 
-from osgeo import osr
 from shapely.ops import transform
 from shapely.wkt import loads
 from shapely.geometry import Point, Polygon, mapping, shape
@@ -264,24 +263,27 @@ def shp_to_gdf(shapefile):
 
 
 def wkt_to_gdf(wkt):
-
-    if loads(wkt).geom_type == 'Point':
+    
+    geometry = loads(wkt)
+    # point wkt
+    if geometry.geom_type == 'Point':
         data = {'id': ['1'],
                 'geometry': loads(wkt).buffer(0.05).envelope}
         gdf = gpd.GeoDataFrame(data)
-
-    elif loads(wkt).geom_type == 'Polygon':
+    
+    # polygon wkt
+    elif geometry.geom_type == 'Polygon':
         data = {'id': ['1'],
                 'geometry': loads(wkt)}
         gdf = gpd.GeoDataFrame(data)
 
-    elif loads(wkt).geom_type == 'GeometryCollection' and len(loads(wkt)) == 1:
+    # geometry collection of single multiploygon
+    elif geometry.geom_type == 'GeometryCollection' and len(geometry) == 1 and 'MULTIPOLYGON' in str(geometry):
 
         data = {'id': ['1'],
-                'geometry': loads(wkt)}
-        gdf = gpd.GeoDataFrame(data)
+                'geometry': geometry}
+        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
         
-        # split the different elemets and put into single features
         ids, feats =[], []
         for i, feat in enumerate(gdf.geometry.values[0]):
             ids.append(i)
@@ -289,13 +291,22 @@ def wkt_to_gdf(wkt):
 
         gdf = gpd.GeoDataFrame({'id': ids,
                                 'geometry': feats}, 
-                                    geometry='geometry', 
-                                    crs = gdf.crs
-                                    )
+                                 geometry='geometry', 
+                                 crs = gdf.crs
+                                  )
+    
+    # geometry collection of single polygon
+    elif geometry.geom_type == 'GeometryCollection' and len(geometry) == 1:
+        
+        data = {'id': ['1'],
+                'geometry': geometry}
+        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
+
+    # everything else (hopefully)
     else:
 
         i, ids, geoms = 1, [], []
-        for geom in loads(wkt):
+        for geom in geometry:
             ids.append(i)
             geoms.append(geom)
             i += 1
@@ -304,7 +315,7 @@ def wkt_to_gdf(wkt):
                                 'geometry': geoms},
                                 crs = {'init': 'epsg:4326',  'no_defs': True}
               )
-
+    
     return gdf
 
 
