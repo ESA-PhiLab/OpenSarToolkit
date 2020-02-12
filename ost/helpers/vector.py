@@ -3,6 +3,7 @@ import sys
 import json
 from functools import partial
 
+import osr
 import ogr
 import pyproj
 import geopandas as gpd
@@ -63,6 +64,14 @@ def get_proj4(prjfile):
     srs = osr.SpatialReference()
     srs.ImportFromESRI([prj_string])
     return srs.ExportToProj4()
+
+
+def epsg_to_wkt_projection(epsg_code):
+    
+    spatial_ref = osr.SpatialReference()
+    spatial_ref.ImportFromEPSG(epsg_code)  
+            
+    return spatial_ref.ExpotToWkt()
 
 
 def reproject_geometry(geom, inproj4, out_epsg):

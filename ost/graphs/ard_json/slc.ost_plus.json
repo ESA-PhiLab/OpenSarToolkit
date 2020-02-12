@@ -3,7 +3,7 @@
         "single ARD": {
             "type": "OST Plus",
             "resolution": 10,
-            "product type": "RTC",
+            "product type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to db": false,
             "remove speckle": false,
@@ -14,21 +14,34 @@
                 "sigma": 0.9,
                 "filter x size": 3,
                 "filter y size": 3,   
-                "window size": "3x3",
-                "target window size": "7x7",
+                "window size": "7x7",
+                "target window size": "3x3",
                 "num of looks": 1,
                 "damping": 2,
                 "pan size": 50
             },
             "remove pol speckle": true,
+            "pol speckle filter": {
+                "filter": "Refined Lee Filter",
+                "sigma": 0.9,
+                "filter size": 3,
+                "window size": "7x7",
+                "search window size": 15,
+                "target window size": "3x3",
+                "num of looks": 1,
+                "scale size": 1,
+                "pan size": 50
+            },
             "create ls mask": true,
             "apply ls mask": false,
             "dem": {
                 "dem name": "SRTM 1Sec HGT",
-                "dem file": "",
+                "dem file": null,
                 "dem nodata": 0,
                 "dem resampling": "BILINEAR_INTERPOLATION",
-                "image resampling": "BICUBIC_INTERPOLATION"
+                "image resampling": "BICUBIC_INTERPOLATION",
+                "egm correction": false,
+                "out projection": "WGS84(DD)"
             },            
             "coherence": true,
             "coherence bands": "VV, VH, HH, HV",
@@ -44,8 +57,8 @@
                 "sigma": 0.9,
                 "filter x size": 3,
                 "filter y size": 3,   
-                "window size": "3x3",
-                "target window size": "7x7",
+                "window size": "7x7",
+                "target window size": "3x3",
                 "num of looks": 1,
                 "damping": 2,
                 "pan size": 50

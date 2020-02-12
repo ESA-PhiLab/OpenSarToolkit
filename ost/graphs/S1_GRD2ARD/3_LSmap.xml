@@ -18,7 +18,7 @@
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
-      <externalDEMApplyEGM>true</externalDEMApplyEGM>
+      <externalDEMApplyEGM>${egm_correction}</externalDEMApplyEGM>
       <saveLayoverShadowMask>true</saveLayoverShadowMask>
     </parameters>
   </node>
@@ -32,7 +32,7 @@
       <demName>${dem}</demName>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
-      <externalDEMApplyEGM>true</externalDEMApplyEGM>
+      <externalDEMApplyEGM>${egm_correction}</externalDEMApplyEGM>
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <imgResamplingMethod>${image_resampling}</imgResamplingMethod>
       <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>

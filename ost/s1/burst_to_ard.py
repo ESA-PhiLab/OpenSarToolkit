@@ -6,7 +6,7 @@ import json
 import sys
 
 from ost.helpers import helpers as h
-
+from ost.snap_common import common
 
 def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
@@ -58,7 +58,8 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     return return_code
 
 
-def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
+def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False, 
+              pol_speckle_dict=None):
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst
@@ -86,18 +87,39 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False):
     if pol_speckle_filter:
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Spk_Halpha.xml')
+        print(' INFO: Applying the polarimetric speckle filter and'
+              ' calculating the H-alpha dual-pol decomposition')
+        command = ('{} {} -x -q {} -Pinput={} -Poutput={}' 
+                       ' -Pfilter=\'{}\''
+                       ' -Pfilter_size=\'{}\''
+                       ' -Pnr_looks={}'
+                       ' -Pwindow_size={}'
+                       ' -Ptarget_window_size={}'
+                       ' -Ppan_size={}'
+                       ' -Psigma={}'.format(
+                    gpt_file, graph, 2 * os.cpu_count(), 
+                    infile, outfile, 
+                    pol_speckle_dict['filter'],
+                    pol_speckle_dict['filter size'],
+                    pol_speckle_dict['num of looks'],
+                    pol_speckle_dict['window size'],
+                    pol_speckle_dict['target window size'],
+                    pol_speckle_dict['pan size'],
+                    pol_speckle_dict['sigma']
+                )
+        )
     else:
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Halpha.xml')
 
-    print(" INFO: Calculating the H-alpha dual polarisation")
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+        print(" INFO: Calculating the H-alpha dual polarisation")
+        command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
+            .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created H/Alpha product')
+        print(' INFO: Succesfully created H/A/Alpha product')
     else:
         print(' ERROR: H/Alpha exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -138,16 +160,16 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     # get path to graph
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
 
-    if product_type == 'RTC':
-        print(' INFO: Calibrating the product to a RTC product.')
+    if product_type == 'RTC-gamma0':
+        print(' INFO: Calibrating the product to beta0.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_Calbeta_Deb.xml')
-    elif product_type == 'GTCgamma':
-        print(' INFO: Calibrating the product to a GTC product (Gamma0).')
+    elif product_type == 'GTC-gamma0':
+        print(' INFO: Calibrating the product to gamma0.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalGamma_Deb.xml')
-    elif product_type == 'GTCsigma':
-        print(' INFO: Calibrating the product to a GTC product (Sigma0).')
+    elif product_type == 'GTC-sigma0':
+        print(' INFO: Calibrating the product to sigma0.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalSigma_Deb.xml')
     else:
@@ -631,7 +653,9 @@ def burst_to_ard(master_file,
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing parameters']
         ard = ard_params['single ARD']
-        
+     
+    # ---------------------------------------------------------------------
+    # 1 Import
     # import master
     master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
 
@@ -639,135 +663,168 @@ def burst_to_ard(master_file,
         import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
         polars = ard['polarisation'].replace(' ', '')
         return_code = _import(master_file, master_import, import_log,
-                              swath, master_burst_nr, polars)
+                              swath, master_burst_nr, polars
+        )
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(master_import)
             return return_code
 
+    imported = '{}.dim'.format(master_import)
+    # ---------------------------------------------------------------------
+    # 2 H-A-Alpha
     if ard['H-A-Alpha']:
         # create HAalpha file
         out_haa = opj(temp_dir, '{}_h'.format(master_burst_id))
-        haa_log = opj(out_dir, '{}_haa.err_log'.format(
-            master_burst_id))
-        return_code = _ha_alpha('{}.dim'.format(master_import),
-                                out_haa, haa_log, ard['remove pol speckle'])
+        haa_log = opj(out_dir, '{}_haa.err_log'.format(master_burst_id))
+        return_code = _ha_alpha(imported,
+                                out_haa, haa_log, 
+                                ard['remove pol speckle'], 
+                                ard['pol speckle filter']
+        )
 
+        # delete files in case of error
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(out_haa)
+            h.delete_dimap(master_import)
             return return_code
 
         # geo code HAalpha
         out_htc = opj(temp_dir, '{}_pol'.format(master_burst_id))
         haa_tc_log = opj(out_dir, '{}_haa_tc.err_log'.format(
             master_burst_id))
-        return_code = _terrain_correction(
+        return_code = common._terrain_correction(
             '{}.dim'.format(out_haa), out_htc, haa_tc_log, 
-            ard['resolution'], ard['dem'])
-
-        # last check on the output files
-        return_code = h.check_out_dimap(out_htc)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # move to final destination
-        h.move_dimap(
-            out_htc, opj(out_dir, '{}_pol'.format(master_burst_id)))
+            ard['resolution'], ard['dem']
+        )
 
         # remove HAalpha tmp files
         h.delete_dimap(out_haa)
+        
+        # last check on the output files
+        return_code = h.check_out_dimap(out_htc)
+        if return_code != 0:
+            h.delete_dimap(out_htc)
+            h.delete_dimap(master_import)
+            return return_code
 
-    # calibrate
+        # move to final destination
+        h.move_dimap(out_htc, opj(out_dir, '{}_pol'.format(master_burst_id)))
+
+    # ---------------------------------------------------------------------
+    # 3 Calibration
     out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
     cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
-    return_code = _calibration(
-        '{}.dim'.format(master_import), out_cal, cal_log, ard['product type'])
+    return_code = _calibration(imported, out_cal, cal_log, ard['product type'])
+    
+    # delete output if command failed for some reason and return
     if return_code != 0:
-        h.remove_folder_content(temp_dir)
+        h.delete_dimap(out_cal)
+        h.delete_dimap(master_import)
         return return_code
 
     if not coherence:
         #  remove imports
         h.delete_dimap(master_import)
 
-    # speckle filtering
+    # ---------------------------------------------------------------------
+    # 4 Speckle filtering
     if ard['remove speckle']:
         speckle_import = opj(temp_dir, '{}_speckle_import'.format(
             master_burst_id))
         speckle_log = opj(out_dir, '{}_speckle.err_log'.format(
             master_burst_id))
-        return_code = _speckle_filter('{}.dim'.format(out_cal),
-                                      speckle_import, speckle_log)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        # remove temp file
+        return_code = common._speckle_filter('{}.dim'.format(out_cal),
+                                      speckle_import, speckle_log, 
+                                      ard['speckle filter']
+        )
+        
+        # remove input 
         h.delete_dimap(out_cal)
+
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(speckle_import)
+            h.delete_dimap(master_import)
+            return return_code
 
         # reset master_import for follwoing routine
         out_cal = speckle_import
 
-    # do terrain flattening in case it is selected
-    if ard['product type'] == 'RTC':
+    # ---------------------------------------------------------------------
+    # 5 Terrain Flattening
+    if ard['product type'] == 'RTC-gamma0':
         # define outfile
         out_rtc = opj(temp_dir, '{}_rtc'.format(master_burst_id))
         rtc_log = opj(out_dir, '{}_rtc.err_log'.format(
             master_burst_id))
         # do the TF
-        return_code = _terrain_flattening('{}.dim'.format(out_cal),
+        return_code = common._terrain_flattening('{}.dim'.format(out_cal),
                                           out_rtc, rtc_log, ard['dem'])
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
+        
         # remove tmp files
         h.delete_dimap(out_cal)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_rtc)
+            h.delete_dimap(master_import)
+            return return_code
+
         # set out_rtc to out_cal for further processing
         out_cal = out_rtc
 
+    # ---------------------------------------------------------------------
+    # 7 to dB scale
     if ard['to db']:
         out_db = opj(temp_dir, '{}_cal_db'.format(master_burst_id))
         db_log = opj(out_dir, '{}_cal_db.err_log'.format(master_burst_id))
-        return_code = _linear_to_db('{}.dim'.format(out_cal), out_db, db_log)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
+        return_code = common._linear_to_db('{}.dim'.format(out_cal), out_db, db_log)
+        
         # remove tmp files
         h.delete_dimap(out_cal)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_db)
+            h.delete_dimap(master_import)
+            return return_code
+
         # set out_cal to out_db for further processing
         out_cal = out_db
-
-    # geo code backscatter products
+ 
+    # ---------------------------------------------------------------------
+    # 8 Geocode backscatter
     out_tc = opj(temp_dir, '{}_bs'.format(master_burst_id))
     tc_log = opj(out_dir, '{}_bs_tc.err_log'.format(master_burst_id))
-    return_code = _terrain_correction(
-        '{}.dim'.format(out_cal), out_tc, tc_log, ard['resolution'], ard['dem'])
+    return_code = common._terrain_correction(
+        '{}.dim'.format(out_cal), out_tc, tc_log, 
+        ard['resolution'], ard['dem'])
 
     # last check on backscatter data
     return_code = h.check_out_dimap(out_tc)
     if return_code != 0:
-        h.remove_folder_content(temp_dir)
+        h.delete_dimap(out_tc)
         return return_code
 
     # we move backscatter to final destination
     h.move_dimap(out_tc, opj(out_dir, '{}_bs'.format(master_burst_id)))
 
+    # ---------------------------------------------------------------------
+    # 9 Layover/Shadow mask
     if ard['create ls mask']:
-        # create LS map
+        
         out_ls = opj(temp_dir, '{}_LS'.format(master_burst_id))
         ls_log = opj(out_dir, '{}_LS.err_log'.format(master_burst_id))
-        return_code = _ls_mask('{}.dim'.format(out_cal), out_ls, ls_log,
+        return_code = common._ls_mask('{}.dim'.format(out_cal), out_ls, ls_log,
                                ard['resolution'], ard['dem'])
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(out_ls)
             return return_code
 
         # last check on ls data
         return_code = h.check_out_dimap(out_ls, test_stats=False)
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(out_ls)
             return return_code
 
         # move ls data to final destination
@@ -800,15 +857,18 @@ def burst_to_ard(master_file,
                               '{}.dim'.format(slave_import),
                                out_coreg,
                                coreg_log, ard['dem'])
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
-        #  remove imports
+        
+        # remove imports
         h.delete_dimap(master_import)
-
+        
         if remove_slave_import is True:
             h.delete_dimap(slave_import)
+        
+        # delete output if command failed for some reason and return   
+        if return_code != 0:
+            h.delete_dimap(out_coreg)
+            h.delete_dimap(slave_import)
+            return return_code
 
         # calculate coherence and deburst
         out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
@@ -816,41 +876,45 @@ def burst_to_ard(master_file,
         coh_polars = ard['coherence bands'].replace(' ', '')
         return_code = _coherence('{}.dim'.format(out_coreg),
                                  out_coh, coh_log, coh_polars)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
+        
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_coh)
+            h.delete_dimap(slave_import)
+            return return_code
 
         # geocode
         out_tc = opj(temp_dir, '{}_coh'.format(master_burst_id))
         tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
-        return_code = _terrain_correction(
+        return_code = common._terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log, 
             ard['resolution'], ard['dem'])
+        
+        # remove tmp files
+        h.delete_dimap(out_coh)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_tc)
+            h.delete_dimap(slave_import)
+            return return_code
         
         # last check on coherence data
         return_code = h.check_out_dimap(out_tc)
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(out_tc)
             return return_code
 
         # move to final destination
         h.move_dimap(out_tc, opj(out_dir, '{}_coh'.format(master_burst_id)))
 
-        # remove tmp files
-        h.delete_dimap(out_coh)
-
-    # write file, so we know this burst has been succesfully processed
-    if return_code == 0:
-        check_file = opj(out_dir, '.processed')
-        with open(str(check_file), 'w') as file:
-            file.write('passed all tests \n')
-    else:
-        h.remove_folder_content(temp_dir)
-        h.remove_folder_content(out_dir)
-
+    # write out check file for tracking that it is processed
+    with open(opj(out_dir, '.processed'), 'w') as file:
+        file.write('passed all tests \n')
+    
     return return_code
 
 

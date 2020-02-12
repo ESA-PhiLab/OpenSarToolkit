@@ -22,13 +22,13 @@
       <sourceProduct refid="TOPSAR-Deburst"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <filter>Improved Lee Sigma Filter</filter>
-      <filterSize>5</filterSize>
-      <numLooksStr>1</numLooksStr>
-      <windowSize>7x7</windowSize>
-      <targetWindowSizeStr>3x3</targetWindowSizeStr>
-      <anSize>50</anSize>
-      <sigmaStr>0.9</sigmaStr>
+      <filter>${filter}</filter>
+      <filterSize>${filter_size}</filterSize>
+      <numLooksStr>${nr_looks}</numLooksStr>
+      <windowSize>${window_size}</windowSize>
+      <targetWindowSizeStr>${target_window_size}</targetWindowSizeStr>
+      <anSize>${pan_size}</anSize>
+      <sigmaStr>${sigma}</sigmaStr>
     </parameters>
   </node>
   <node id="Polarimetric-Decomposition">

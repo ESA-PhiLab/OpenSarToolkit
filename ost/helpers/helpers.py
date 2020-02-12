@@ -192,8 +192,11 @@ def delete_dimap(dimap_prefix):
 
     '''
 
-    shutil.rmtree('{}.data'.format(dimap_prefix))
-    os.remove('{}.dim'.format(dimap_prefix))
+    if os.path.isdir('{}.data'.format(dimap_prefix)):
+        shutil.rmtree('{}.data'.format(dimap_prefix))
+    
+    if os.path.isfile('{}.dim'.format(dimap_prefix)):
+        os.remove('{}.dim'.format(dimap_prefix))
 
 
 def delete_shapefile(shapefile):

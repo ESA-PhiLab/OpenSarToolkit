@@ -114,6 +114,7 @@ class Sentinel1_Scene():
             print(' Select the server from where you want to download:')
             print(' (1) Copernicus Apihub (ESA, rolling archive)')
             print(' (2) Alaska Satellite Facility (NASA, full archive)')
+            print(' (3) PEPS (CNES, 1 year rolling archive)')
             print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
             mirror = input(' Type 1, 2, 3 or 4: ')
 
