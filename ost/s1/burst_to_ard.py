@@ -214,7 +214,10 @@ def _terrain_flattening(infile, outfile, logfile, dem_dict):
     print(' INFO: Correcting for the illumination along slopes'
           ' (Terrain Flattening).'
     )
-
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     command = ('{} Terrain-Flattening -x -q {} '
                ' -PadditionalOverlap=0.15'
                ' -PoversamplingMultiple=1.5'
@@ -346,6 +349,10 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')
 
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     print(" INFO: Compute Layover/Shadow mask")
     command = ('{} {} -x -q {}'
                ' -Pinput={}'
@@ -450,7 +457,11 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict):
     # get path to graph
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
-
+    
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     print(' INFO: Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
                 ' -Pmaster={}'
@@ -543,7 +554,10 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
     gpt_file = h.gpt_path()
 
     print(" INFO: Geocoding input scene")
-
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     command = ('{} Terrain-Correction -x -q {}'
                    ' -PdemName=\'{}\''
                    ' -PexternalDEMFile=\'{}\''
