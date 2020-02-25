@@ -668,12 +668,14 @@ class Sentinel1_SLCBatch(Sentinel1):
                     if i == 5:
                         break
 
-            #pool = multiprocessing.Pool(processes=multiproc)
-            #pool.map(run_burst_ard_multiprocess, burst_ard_params)
+            # pool = multiprocessing.Pool(processes=multiproc)
+            # pool.map(run_burst_ard_multiprocess, burst_ard_params)
 
-        # test existence of multitemporal extent exec files and run them in parallel
+        # test existence of multitemporal extent exec files and run them
+        # in parallel
         if timeseries:
-            print("Rerunning exec file generation and Calculating ARD extents in parallel mode")
+            print("Rerunning exec file generation and "
+                  "Calculating ARD extents in parallel mode")
 
             _stdout = sys.stdout
             sys.stdout = DevNull()
@@ -687,24 +689,34 @@ class Sentinel1_SLCBatch(Sentinel1):
                     mt_extent_params = [line.strip() for line in fp]
                 fp.close()
 
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                #def run_mt_extent_multiprocess(params):
+                ## replaced multiprocessing pools with joblib (only prints
+                # when run in ipython or command line though)
+                # def run_mt_extent_multiprocess(params):
                 #    from ost.multitemporal import common_extent
                 #    common_extent.mt_extent(*params.split(','))
                 Parallel(n_jobs=multiproc, verbose=53, backend=multiprocessing)(delayed(common_extent.mt_extent)(*params.split(';')) for params in mt_extent_params)
 
-                #pool = multiprocessing.Pool(processes=multiproc)
-                #pool.map(run_mt_extent_multiprocess, mt_extent_params)
+                # pool = multiprocessing.Pool(processes=multiproc)
+                # pool.map(run_mt_extent_multiprocess, mt_extent_params)
 
-        # test existence of multitemporal layover shadow generation exec files and run them in parallel
+        # test existence of multitemporal layover shadow generation exec
+        # files and run them in parallel
         if os.path.isfile(exec_mt_ls):
-            print("Rerunning exec file generation and Calculating ARD layover in parallel mode")
+            print("Rerunning exec file generation and Calculating ARD "
+                  "layover in parallel mode")
 
             _stdout = sys.stdout
             sys.stdout = DevNull()
 
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan, mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file, cut_to_aoi=cut_to_aoi, ncores=ncores)
+            self.bursts_to_ard(
+                timeseries=timeseries,
+                timescan=timescan,
+                mosaic=mosaic,
+                overwrite=overwrite,
+                exec_file=exec_file,
+                cut_to_aoi=cut_to_aoi,
+                ncores=ncores
+            )
             sys.stdout = _stdout
 
             if os.path.isfile(exec_mt_ls):
@@ -714,18 +726,27 @@ class Sentinel1_SLCBatch(Sentinel1):
                     mt_ls_params = [line.strip() for line in fp]
                 fp.close()
 
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                #def run_mt_ls_multiprocess(params):
+                ## replaced multiprocessing pools with joblib (only
+                # prints when run in ipython or command line though)
+                # def run_mt_ls_multiprocess(params):
                 #    from ost.multitemporal import common_ls_mask
                 #    common_ls_mask.mt_layover(*params.split(','))
-                Parallel(n_jobs=multiproc, verbose=53, backend=multiprocessing)(delayed(common_ls_mask.mt_layover)(*params.split(';')) for params in mt_ls_params)
+                Parallel(
+                    n_jobs=multiproc,
+                    verbose=53,
+                    backend=multiprocessing
+                )(
+                    delayed(common_ls_mask.mt_layover)(*params.split(';'))
+                    for params in mt_ls_params
+                )
 
-                #pool = multiprocessing.Pool(processes=multiproc)
-                #pool.map(run_mt_ls_multiprocess, mt_ls_params)
+                # pool = multiprocessing.Pool(processes=multiproc)
+                # pool.map(run_mt_ls_multiprocess, mt_ls_params)
 
-        #test existence of ard to timeseries exec files and run them in parallel
+        # test existence of ard to timeseries exec files and run them in parallel
         if timeseries:
-            print("Rerunning exec file generation and processing ARD to timeseries in parallel mode")
+            print("Rerunning exec file generation and processing ARD to "
+                  "timeseries in parallel mode")
 
             _stdout = sys.stdout
             sys.stdout = DevNull()
