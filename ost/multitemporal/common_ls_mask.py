@@ -20,7 +20,11 @@ def mt_layover(filelist, outfile, temp_dir, extent, update_extent=False):
     :param out_dir - directory where the output file will be stored
     :return path to the multi-temporal layover/shadow mask file generated
     '''
-    
+    if type(filelist) == str:
+        filelist = filelist.replace("'", '').strip('][').split(', ')
+    if type(update_extent) == str:
+        if update_extent == 'False':
+            update_extent = False
     # get some info
     burst_dir = os.path.dirname(outfile)
     burst = os.path.basename(burst_dir)

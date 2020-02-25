@@ -221,8 +221,10 @@ def _to_shapefile(gdf, outfile, append=False):
     gdf.insert(loc=0, column='id', value=range(1, 1 + len(gdf)))
 
     # write to new file
-    gdf.to_file(outfile)
-
+    if len(gdf.index) >= 1:
+        gdf.to_file(outfile)
+    else:
+        print('No scenes found in this AOI during this time')
 
 def _to_postgis(gdf, db_connect, outtable):
 

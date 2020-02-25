@@ -156,7 +156,7 @@ def convert_to_power(db_array):
 
 # convert power to dB
 def convert_to_db(pow_array):
-
+    #print('Converting to dB')
     pow_array[pow_array == 0] = np.nan
     pow_array[pow_array < 0] = 0.0000001
     db_array = 10 * np.log10(pow_array.clip(min=0.0000000000001))
@@ -274,7 +274,7 @@ def create_tscan_vrt(timescan_dir, proc_file):
         # else
         i += 1
         outfile = opj(timescan_dir,
-                      '{}.{}.{}.tif'.format(i, product, metric))
+                      '{:02d}.{}.{}.tif'.format(i, product, metric))
         outfiles.append(outfile)
         # otherwise rename the file
         shutil.move(infile, outfile)
@@ -321,26 +321,50 @@ def get_min(file):
 
     mins = {'bs.VV': -20, 'bs.VH': -25, 'bs.HH': -20, 'bs.HV': -25,
             'coh.VV': 0.1, 'coh.VH': 0.1,
-            'pol.Alpha': 60, 'pol.Entropy': 0.1, 'pol.Anisotropy': 0.1}
+            'pol.Alpha': 60, 'pol.Entropy': 0.1, 'pol.Anisotropy': 0.1,
+            'coh_IW1_VV': 0.1, 'coh_IW2_VV': 0.1, 'coh_IW3_VV': 0.1,
+            'coh_IW1_VH': 0.1, 'coh_IW2_VH': 0.1, 'coh_IW3_VH': 0.1}
 
     for key, items in mins.items():
         if key in file:
             return items
 
-
 def get_max(file):
 
     maxs = {'bs.VV': 0, 'bs.VH': -12, 'bs.HH': 0, 'bs.HV': -5,
             'coh.VV': 0.8, 'coh.VH': 0.75,
-            'pol.Alpha': 80, 'pol.Entropy': 0.8, 'pol.Anisotropy': 0.8}
+            'pol.Alpha': 80, 'pol.Entropy': 0.8, 'pol.Anisotropy': 0.8,
+            'coh_IW1_VV': 0.8, 'coh_IW2_VV': 0.8, 'coh_IW3_VV': 0.8,
+            'coh_IW1_VH': 0.75, 'coh_IW2_VH': 0.75, 'coh_IW3_VH': 0.75}
 
     for key, items in maxs.items():
         if key in file:
             return items
 
 
-def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
-                   minimum_list=None, maximum_list=None, date=None):
+def calc_min(band, stretch='minmax'):
+
+    if stretch == 'percentile':
+        band_min = np.percentile(band, 2)
+    elif stretch == 'minmax':
+        band_min = np.nanmin(band)
+    else:
+        print("Please select one of percentile or minmax for the stretch parameter")
+
+    return band_min
+
+
+def calc_max(band, stretch='minmax'):
+    if stretch == 'percentile':
+        band_max = np.percentile(band, 98)
+    elif stretch == 'minmax':
+        band_max = np.nanmax(band)
+    else:
+        print("Please select one of percentile or minmax for the stretch parameter")
+    return band_max
+
+def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5, plot=False,
+                   minimum_list=None, maximum_list=None, date=None, filetype=None, stretch=False):
 
     import matplotlib.pyplot as plt
 
@@ -360,20 +384,28 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
         
         layer1 = src.read(
                 out_shape=(src.count, new_height, new_width),
-                resampling=5    # 5 = average
+                resampling=resampling_factor    # 5 = average
                 )[0]
-        minimum_list.append(get_min(filelist[0]))
-        maximum_list.append(get_max(filelist[0]))
+        if stretch:
+            minimum_list.append(calc_min(layer1, stretch))
+            maximum_list.append(calc_max(layer1, stretch))
+        else:
+            minimum_list.append(get_min(filelist[0]))
+            maximum_list.append(get_max(filelist[0]))
         layer1[layer1 == 0] = np.nan
         
     if len(filelist) > 1:
         with rasterio.open(filelist[1]) as src:
             layer2 = src.read(
                     out_shape=(src.count, new_height, new_width),
-                    resampling=5    # 5 = average
+                    resampling=resampling_factor    # 5 = average
                     )[0]
-            minimum_list.append(get_min(filelist[1]))
-            maximum_list.append(get_max(filelist[1]))
+            if stretch:
+                minimum_list.append(calc_min(layer2, stretch))
+                maximum_list.append(calc_max(layer2, stretch))
+            else:
+                minimum_list.append(get_min(filelist[1]))
+                maximum_list.append(get_max(filelist[1]))
             layer2[layer2 == 0] = np.nan
             count=3
             
@@ -387,12 +419,15 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
         with rasterio.open(filelist[2]) as src:
             layer3 = src.read(
                     out_shape=(src.count, new_height, new_width),
-                    resampling=5    # 5 = average
+                    resampling=resampling_factor    # 5 = average
                     )[0]
-        minimum_list.append(get_min(filelist[2]))
-        maximum_list.append(get_max(filelist[2]))
+        if stretch:
+            minimum_list.append(calc_min(layer3, stretch))
+            maximum_list.append(calc_max(layer3, stretch))
+        else:
+            minimum_list.append(get_min(filelist[2]))
+            maximum_list.append(get_max(filelist[2]))
         layer3[layer3 == 0] = np.nan
-
     # create empty array
     arr = np.zeros((int(out_meta['height']),
                     int(out_meta['width']),
@@ -409,7 +444,12 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
     arr = np.transpose(arr, [2, 0, 1])
 
     # update outfile's metadata
-    out_meta.update({'driver': 'JPEG',
+    if filetype:
+        out_meta.update({'driver': filetype,
+                         'dtype': 'uint8',
+                         'count': count})
+    else:
+        out_meta.update({'driver': 'JPEG',
                      'dtype': 'uint8',
                      'count': count})
 
@@ -431,7 +471,7 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, plot=False,
 
     
 def create_timeseries_animation(timeseries_folder, product_list, out_folder,
-                                shrink_factor=1, duration=1, add_dates=False):
+                                shrink_factor=1, resampling_factor=5, duration=1, add_dates=False, prefix=False):
 
     
     nr_of_products = len(glob.glob(
@@ -453,13 +493,18 @@ def create_timeseries_animation(timeseries_folder, product_list, out_folder,
         
         create_rgb_jpeg(filelist, 
                         opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)),
-                        shrink_factor, 
+                        shrink_factor,
+                        resampling_factor,
                         date=date)
 
         outfiles.append(opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)))
 
     # create gif
-    with imageio.get_writer(opj(out_folder, 'ts_animation.gif'), mode='I',
+    if prefix:
+        gif_name = '{}_{}_ts_animation.gif'.format(prefix,product_list[0])
+    else:
+        gif_name = '{}_ts_animation.gif'.format(product_list[0])
+    with imageio.get_writer(opj(out_folder, gif_name), mode='I',
         duration=duration) as writer:
 
         for file in outfiles:

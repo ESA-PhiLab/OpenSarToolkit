@@ -108,19 +108,20 @@ class Sentinel1_Scene():
         print(" -------------------------------------------------")
 
     def download(self, download_dir, mirror=None):
-        
+
         if not mirror:
             print(' INFO: One or more of your scenes need to be downloaded.')
             print(' Select the server from where you want to download:')
             print(' (1) Copernicus Apihub (ESA, rolling archive)')
-            print(' (2) Alaska Satellite Facility (NASA, full archive - try 5 in case of failure)')
+            print(' (2) Alaska Satellite Facility (NASA, full archive)')
             print(' (3) PEPS (CNES, 1 year rolling archive)')
-            print(' (4) ONDA DIAS (Full archive)')
+            print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
             print(' (5) Alaska Satellite Facility (using WGET - unstable - use only if 2 fails)')
             mirror = input(' Type 1, 2, 3, 4 or 5: ')
 
+
         from ost.s1 import download
-        
+
         if mirror == '1':
             uname, pword = scihub.ask_credentials()
             opener = scihub.connect(uname=uname, pword=pword)
@@ -134,28 +135,27 @@ class Sentinel1_Scene():
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
                  'uuid': [self.peps_uuid(uname=uname, pword=pword)]
-                }   
+                }
             )
         elif mirror == '4':
             uname, pword = onda.ask_credentials()
             opener = onda.connect(uname=uname, pword=pword)
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
-                 'uuid': [self.onda_uuid(opener)]
-                }   
+                 'uuid': [self.ondadias_uuid(opener)]
+                }
             )
-
         else:   # ASF
             df = pd.DataFrame({'identifier': [self.scene_id]})
             download.download_sentinel1(df, download_dir, mirror)
             return
-        
-        download.download_sentinel1(df, download_dir, mirror, 
-                                        uname=uname, pword=pword)
-        
+
+        download.download_sentinel1(df, download_dir, mirror,
+                                    uname=uname, pword=pword)
+
 
         del uname, pword
-        
+
     # location of file (including diases)
     def _download_path(self, download_dir, mkdir=False):
 
@@ -183,22 +183,22 @@ class Sentinel1_Scene():
                    self.month,
                    self.day,
                    '{}.SAFE'.format(self.scene_id))
-            
+
         return path
 
     def _aws_path(self, data_mount):
 
         # print('Dummy function for aws path to be added')
         return '/foo/foo/foo'
-    
+
     def _mundi_path(self, mont_point):
 
         # print(' Dummy function for mundi paths to be added')
         return '/foo/foo/foo'
-    
+
     def _onda_path(self, data_mount):
 
- 
+
         path = opj(data_mount, 'S1', 'LEVEL-1',
                    '{}'.format(self.onda_class),
                    self.year,
@@ -206,7 +206,7 @@ class Sentinel1_Scene():
                    self.day,
                    '{}.zip'.format(self.scene_id),
                    '{}.SAFE'.format(self.scene_id))
-       
+
         return path
 
     def get_path(self, download_dir=None, data_mount='/eodata'):
@@ -218,9 +218,9 @@ class Sentinel1_Scene():
                 path = None
         else:
             path=None
-        
+
         if data_mount and not path:
-            if os.path.isfile(opj(self._creodias_path(data_mount), 
+            if os.path.isfile(opj(self._creodias_path(data_mount),
                                     'manifest.safe')):
                 path = self._creodias_path(data_mount)
             elif os.path.isdir(self._onda_path(data_mount)):
@@ -232,7 +232,7 @@ class Sentinel1_Scene():
             else:
                 #print(' Scene {} is not found.'.format(self.scene_id))
                 path = None
-            
+
         return path
 
     # scihub related
@@ -272,48 +272,6 @@ class Sentinel1_Scene():
 #                    'id')[0].firstChild.nodeValue
 #                uuid = download_url.split('(\'')[1].split('\')')[0]
 
-        return uuid
-    # onda dias uuid extractor
-    def onda_uuid(self,opener):
-
-        # construct the basic the url
-        base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
-                    'Products?$search=')
-        action = '"'+self.scene_id+'.zip"'
-        # construct the download url
-        url = base_url + action
-
-        try:
-            # get the request
-            req = opener.open(url)
-        except URLError as error:
-            if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
-                sys.exit()
-            elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
-                sys.exit()
-        else:
-            # write the request to to the response variable
-            # (i.e. the xml coming back from onda dias)
-            response = req.read().decode('utf-8')
-
-            # parse the uuid from the response (a messy pseudo xml)
-
-            uuid=response.split('":"')[3].split('","')[0]
-            #except IndexError as error:
-            #    print('Image not available on ONDA DIAS now, please select another repository')
-            #    sys.exit()
-            # parse the xml page from the response - does not work at present
-            """dom = xml.dom.minidom.parseString(response)
-
-            # loop thorugh each entry (with all metadata)
-            for node in dom.getElementsByTagName('a:entry'):
-                download_url = node.getElementsByTagName(
-                    'a:id')[0].firstChild.nodeValue
-                uuid = download_url.split('(\'')[1].split('\')')[0]"""
         return uuid
 
     def scihub_url(self, opener):
@@ -620,6 +578,49 @@ class Sentinel1_Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
+    # onda dias uuid extractor
+    def ondadias_uuid(self,opener):
+
+        # construct the basic the url
+        base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
+                    'Products?$search=')
+        action = '"'+self.scene_id+'.zip"'
+        # construct the download url
+        url = base_url + action
+
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                print(' We failed to connect to the server.')
+                print(' Reason: ', error.reason)
+                sys.exit()
+            elif hasattr(error, 'code'):
+                print(' The server couldn\'t fulfill the request.')
+                print(' Error code: ', error.code)
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from onda dias)
+            response = req.read().decode('utf-8')
+
+            # parse the uuid from the response (a messy pseudo xml)
+            uuid=response.split('":"')[3].split('","')[0]
+            #except IndexError as error:
+            #    print('Image not available on ONDA DIAS now, please select another repository')
+            #    sys.exit()
+            # parse the xml page from the response - does not work at present
+            """dom = xml.dom.minidom.parseString(response)
+
+            # loop thorugh each entry (with all metadata)
+            for node in dom.getElementsByTagName('a:entry'):
+                download_url = node.getElementsByTagName(
+                    'a:id')[0].firstChild.nodeValue
+                uuid = download_url.split('(\'')[1].split('\')')[0]"""
+
+        return uuid
+
     # other data providers
     def asf_url(self):
 
@@ -693,75 +694,75 @@ class Sentinel1_Scene():
 
     # processing related functions
     def get_ard_parameters(self, ard_type='OST Standard'):
-        
+
         # get path to ost package
         rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
         rootpath = opj(rootpath, 'graphs', 'ard_json')
-    
+
         template_file = opj(rootpath, '{}.{}.json'.format(
                 self.product_type.lower(),
                 ard_type.replace(' ', '_').lower()))
-        
+
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing parameters']
-            
-    
+
+
     def set_external_dem(self, dem_file):
-        
+
         import rasterio
-        
+
         # check if file exists
         if not os.path.isfile(dem_file):
             print(' ERROR: No dem file found at location {}.'.format(dem_file))
             return
-        
+
         # get no data value
         with rasterio.open(dem_file) as file:
             dem_nodata = file.nodata
-        
+
         # get resapmpling
         img_res = self.ard_parameters['single ARD']['dem']['image resampling']
         dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
-        
+
         # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM', 
+        dem_dict = dict({'dem name': 'External DEM',
                          'dem file': dem_file,
                          'dem nodata': dem_nodata,
                          'dem resampling': dem_res ,
                          'image resampling': img_res})
         self.ard_parameters['single ARD']['dem'] = dem_dict
-        
+
     def update_ard_parameters(self):
-        
+
         with open (self.proc_file, 'w') as outfile:
             json.dump(dict({'processing parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
-            
-            
+
+
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
 
         self.proc_file = opj(out_dir, 'processing.json')
         self.update_ard_parameters()
          # check for correctness of ARD paramters
-         
-          
+
+
 #        self.center_lat = self._get_center_lat(infile)
 #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
 #            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
 #                  ' DEM instead.')
 #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-        
+
         #self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
 
             # run the processing
-            grd_to_ard([infile], 
-                       out_dir, 
-                       out_prefix, 
+            grd_to_ard([infile],
+                       out_dir,
+                       out_prefix,
                        temp_dir,
                        self.proc_file,
                        subset=subset)

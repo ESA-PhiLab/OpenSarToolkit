@@ -10,7 +10,8 @@ from ost.helpers import helpers as h, raster as ras, vector as vec
 
 
 def mt_extent(list_of_scenes, out_file, temp_dir, buffer=None):
-
+    if type(list_of_scenes) == str:
+        list_of_scenes = list_of_scenes.replace("'", '').strip('][').split(', ')
     out_dir = os.path.dirname(out_file)
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
 
@@ -18,7 +19,6 @@ def mt_extent(list_of_scenes, out_file, temp_dir, buffer=None):
     gdal.BuildVRT(opj(out_dir, 'extent.vrt'),
                   list_of_scenes,
                   options=vrt_options)
-
     start = time.time()
 
     outline_file = opj(temp_dir, os.path.basename(out_file))

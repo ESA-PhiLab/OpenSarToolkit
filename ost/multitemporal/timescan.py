@@ -132,6 +132,25 @@ def nan_percentile(arr, q):
 
 def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
                to_power=False, outlier_removal=False, datelist=None):
+    if type(rescale_to_datatype) == str:
+        if rescale_to_datatype == 'True':
+            rescale_to_datatype = True
+        elif rescale_to_datatype == 'False':
+            rescale_to_datatype = False
+    if type(to_power) == str:
+        if to_power == 'True':
+            to_power = True
+        elif to_power == 'False':
+            to_power = False
+    if type(outlier_removal) == str:
+        if outlier_removal == 'True':
+            outlier_removal = True
+        elif outlier_removal == 'False':
+            outlier_removal = False
+    if type(metrics) == str:
+        metrics = metrics.replace("'", '').strip('][').split(', ')
+    if type(datelist) == str:
+        datelist = datelist.replace("'", '').strip('][').split(', ')
 
     # from datetime import datetime
     with rasterio.open(stack) as src:

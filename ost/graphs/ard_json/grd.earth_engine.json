@@ -4,7 +4,7 @@
             "type": "Earth Engine",
             "resolution": 10,
             "remove border noise": "true",
-            "product type": "GTCsigma",
+            "product type": "GTC-sigma0",
             "polarisation": "VV, VH, HH, HV",
             "to db": true,
             "remove speckle": false,
@@ -15,8 +15,8 @@
                 "sigma": 0.9,
                 "filter x size": 3,
                 "filter y size": 3,   
-                "window size": "3x3",
-                "target window size": "7x7",
+                "window size": "7x7",
+                "target window size": "3x3",
                 "num of looks": 1,
                 "damping": 2,
                 "pan size": 50
@@ -28,8 +28,10 @@
                 "dem file": null,
                 "dem nodata": 0,
                 "dem resampling": "BILINEAR_INTERPOLATION",
-                "image resampling": "BICUBIC_INTERPOLATION"
-            }
+                "image resampling": "BICUBIC_INTERPOLATION",
+                "egm correction": false,
+                "out projection": "WGS84(DD)"
+            }    
         },
         "time-series ARD": {
             "to db": true,
@@ -41,8 +43,8 @@
                 "sigma": 0.9,
                 "filter x size": 3,
                 "filter y size": 3,   
-                "window size": "3x3",
-                "target window size": "7x7",
+                "window size": "7x7",
+                "target window size": "3x3",
                 "num of looks": 1,
                 "damping": 2,
                 "pan size": 50

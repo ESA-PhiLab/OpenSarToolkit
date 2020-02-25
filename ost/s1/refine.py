@@ -507,7 +507,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
                       exclude_marginal=True,
                       full_aoi_crossing=True,
                       mosaic_refine=True,
-                      area_reduce=0.05):
+                      area_reduce=0.05, complete_coverage=True):
     '''A function to refine the Sentinel-1 search by certain criteria
 
     Args:
@@ -552,7 +552,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
         intersect_area = inter.area.sum()
 
         # we do a first check if the scenes do not fully cover the AOI
-        if intersect_area <= aoi_area - area_reduce:
+        if (intersect_area <= aoi_area - area_reduce) and complete_coverage:
             print(' WARNING: Set of footprints does not fully cover AOI. ')
 
         # otherwise we go on

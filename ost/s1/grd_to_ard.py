@@ -74,6 +74,7 @@ import numpy as np
 import gdal
 
 from os.path import join as opj
+from ost.snap_common import common
 from ost.helpers import helpers as h, raster as ras
 
 # script infos
@@ -489,7 +490,7 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
     return return_code
 
 
-def _grd_speckle_filter(infile, outfile, logfile):
+def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
     '''A wrapper around SNAP's Lee-Sigma Speckle Filter
 
     This function takes OST imported Sentinel-1 product and applies
@@ -508,18 +509,42 @@ def _grd_speckle_filter(infile, outfile, logfile):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying the Lee-Sigma Speckle Filter')
+    print(' INFO: Applying speckle filtering.')
     # contrcut command string
-    command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
-                                       outfile, infile)
+    command = ('{} Speckle-Filter -x -q {}'
+                  ' -PestimateENL={}'
+                  ' -PanSize={}'
+                  ' -PdampingFactor={}'
+                  ' -Penl={}'
+                  ' -Pfilter={}'
+                  ' -PfilterSizeX={}'
+                  ' -PfilterSizeY={}'
+                  ' -PnumLooksStr={}'
+                  ' -PsigmaStr={}'
+                  ' -PtargetWindowSizeStr={}'
+                  ' -PwindowSize={}'
+                  '-t \'{}\' \'{}\''.format(
+                      gpt_file, 2 * os.cpu_count(),
+                      speckle_dict['estimate ENL'],
+                      speckle_dict['pan size'],
+                      speckle_dict['damping'],
+                      speckle_dict['ENL'],
+                      speckle_dict['filter'],
+                      speckle_dict['filter x size'],
+                      speckle_dict['filter y size'],
+                      speckle_dict['num of looks'],
+                      speckle_dict['sigma'],
+                      speckle_dict['target window size'],
+                      speckle_dict['window size'],
+                      outfile, infile)
+              )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully applied speckle filtering.')
     else:
         print(' ERROR: Speckle Filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -620,7 +645,7 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        print(' INFO: Succesfully terrain corrected product')
     else:
         print(' ERROR: Terain Correction exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -737,7 +762,7 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully create a Layover/Shadow mask')
+        print(' INFO: Succesfully created a Layover/Shadow mask')
     else:
         print(' ERROR: Layover/Shadow mask creation exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -785,6 +810,9 @@ def grd_to_ard(filelist,
         ard = ard_params['single ARD']
         polars = ard['polarisation'].replace(' ', '')
         
+    # ---------------------------------------------------------------------
+    # 1 Import
+    
     # slice assembly if more than one scene
     if len(filelist) > 1:
 
@@ -797,7 +825,7 @@ def grd_to_ard(filelist,
             
             return_code = _grd_frame_import(file, grd_import, logfile, polars)
             if return_code != 0:
-                h.remove_folder_content(temp_dir)
+                h.delete_dimap(grd_import)
                 return return_code
 
         # create list of scenes for full acquisition in
@@ -807,27 +835,32 @@ def grd_to_ard(filelist,
         # create file strings
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
         logfile = opj(output_dir, '{}._slice_assembly.errLog'.format(file_id))
-        return_code = _slice_assembly(scenelist, grd_import, logfile, 
-                                      )
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
+        return_code = _slice_assembly(scenelist, grd_import, logfile)
+        
+        # delete inputs
         for file in filelist:
             h.delete_dimap(opj(temp_dir, '{}_imported'.format(
                 os.path.basename(str(file))[:-5])))
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(grd_import)
+            return return_code
 
+        # subset mode after slice assembly
         if subset:
             grd_subset = opj(temp_dir, '{}_imported_subset'.format(file_id))
             return_code = _grd_subset_georegion('{}.dim'.format(grd_import), 
                                                 grd_subset, logfile, subset)
+            
+            # delete slice assembly input to subset
+            h.delete_dimap(grd_import)
+            
+            # delete output if command failed for some reason and return
             if return_code != 0:
-                h.remove_folder_content(temp_dir)
+                h.delete_dimap(grd_subset)
                 return return_code
             
-            # delete slice assembly
-            h.delete_dimap(grd_import)
-    
     # single scene case
     else:
         grd_import = opj(temp_dir, '{}_imported'.format(file_id))
@@ -840,12 +873,14 @@ def grd_to_ard(filelist,
             return_code = _grd_frame_import_subset(filelist[0], grd_import, 
                                                    subset, logfile, 
                                                    polars)
+        
+        # delete output if command failed for some reason and return
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(grd_import)
             return return_code
+    
     # ---------------------------------------------------------------------
-    # Remove the grd border noise from existent channels (OST routine)
-
+    # 2 GRD Border Noise
     if ard['remove border noise'] and not subset:
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
@@ -859,58 +894,72 @@ def grd_to_ard(filelist,
                     polarisation))
                 _grd_remove_border(infile[0])
 
-    # set new infile
+    # set input for next step
     infile = glob.glob(opj(temp_dir, '{}_imported*dim'.format(file_id)))[0]
-    # -------------------------------------------
-    # in case we want to apply Speckle filtering
-    if ard['remove speckle']:
+    
+    # ---------------------------------------------------------------------
+    # 3 Calibration
+    if ard['product type'] == 'GTC-sigma0':
+        calibrate_to = 'sigma0'
+    elif ard['product type'] == 'GTC-gamma0':
+        calibrate_to = 'gamma0'
+    elif ard['product type'] == 'RTC-gamma0':
+        calibrate_to = 'beta0'
+       
+    calibrated = opj(temp_dir, '{}_cal'.format(file_id))
+    logfile = opj(output_dir, '{}.Calibration.errLog'.format(file_id))
+    return_code = common._calibration(infile, calibrated, logfile, calibrate_to)
+    
+    # delete input
+    h.delete_dimap(infile[:-4])
+    
+    # delete output if command failed for some reason and return
+    if return_code != 0:
+        h.delete_dimap(calibrated)
+        return return_code
+    
+    # input for next step
+    infile = '{}.dim'.format(calibrated)
+    
+    # ---------------------------------------------------------------------
+    # 4 Multi-looking
+    if int(ard['resolution']) >= 20:
+        # calculate the multi-look factor
+        ml_factor = int(int(ard['resolution']) / 10)
         
-        logfile = opj(temp_dir, '{}.Speckle.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_spk'.format(file_id))
-
-        # run processing
-        return_code = _grd_speckle_filter(infile, outfile, logfile)
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
-
+        multi_looked = opj(temp_dir, '{}_ml'.format(file_id))
+        logfile = opj(output_dir, '{}.multilook.errLog'.format(file_id))
+        return_code = common._multi_look(infile, multi_looked, logfile,
+                                         ml_factor, ml_factor)
+        
         # delete input
         h.delete_dimap(infile[:-4])
-        # define infile for next processing step
-        infile = '{}.dim'.format(outfile)
         
-    # ----------------------
-    # do the calibration
-    outfile = opj(temp_dir, '{}.{}'.format(file_id, ard['product type']))
-    logfile = opj(output_dir, '{}.Backscatter.errLog'.format(file_id))
-    return_code = _grd_backscatter(infile, outfile, logfile,  
-                                   ard['dem'], ard['product type'])
-    
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-
-    # delete input file
-    h.delete_dimap(infile[:-4])
-
-    # input file for follwoing
-    infile = '{}.dim'.format(outfile)
-
-    # ----------------------------------------------
-    # let's create a Layover shadow mask if needed
-    if  ard['create ls mask'] is True:
-        outfile = opj(temp_dir, '{}.ls_mask'.format(file_id))
-        logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
-        return_code = _grd_ls_mask(infile, outfile, logfile, ard['resolution'], 
-                                   ard['dem'])
+        # delete output if command failed for some reason and return
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(multi_looked)
+            return return_code
+            
+        # define input for next step
+        infile = '{}.dim'.format(multi_looked)
+    
+    # ---------------------------------------------------------------------
+    # 5 Layover shadow mask
+    if  ard['create ls mask'] is True:
+        ls_mask = opj(temp_dir, '{}.ls_mask'.format(file_id))
+        logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
+        return_code = common._ls_mask(infile, ls_mask, logfile, ard['resolution'],
+                                      ard['dem'])
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(ls_mask)
             return return_code
 
         # last check on ls data
-        return_code = h.check_out_dimap(outfile, test_stats=False)
+        return_code = h.check_out_dimap(ls_mask, test_stats=False)
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(ls_mask)
             return return_code
         
         # move to final destination
@@ -921,65 +970,108 @@ def grd_to_ard(filelist,
             h.delete_dimap(out_ls_mask)
 
         # move out of temp
-        shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_ls_mask))
-        shutil.move('{}.data'.format(outfile), '{}.data'.format(out_ls_mask))
-    
-    # to db
-    if ard['to db']:
-        logfile = opj(output_dir, '{}.linToDb.errLog'.format(file_id))
-        outfile = opj(temp_dir, '{}_{}_db'.format(file_id, 
-                      ard['product type']))
-        return_code = _grd_to_db(infile, outfile, logfile)
+        shutil.move('{}.dim'.format(ls_mask), '{}.dim'.format(out_ls_mask))
+        shutil.move('{}.data'.format(ls_mask), '{}.data'.format(out_ls_mask))
+        
+    # ---------------------------------------------------------------------
+    # 6 Speckle filtering
+    if ard['remove speckle']:
+        
+        logfile = opj(output_dir, '{}.Speckle.errLog'.format(file_id))
+        filtered = opj(temp_dir, '{}_spk'.format(file_id))
+
+        # run processing
+        return_code = common._speckle_filter(infile, filtered, logfile,
+                                             ard['speckle filter'])
+        
+        # delete input
+        h.delete_dimap(infile[:-4])
+        
+        # delete output if command failed for some reason and return
         if return_code != 0:
-            h.remove_folder_content(temp_dir)
+            h.delete_dimap(filtered)
+            return return_code
+       
+        # define input for next step
+        infile = '{}.dim'.format(filtered)
+        
+    # ---------------------------------------------------------------------
+    # 7 Terrain flattening
+    if ard['product type'] == 'RTC-gamma0':
+        flattened = opj(temp_dir, '{}_flat'.format(file_id))
+        logfile = opj(output_dir, '{}.tf.errLog'.format(file_id))
+        return_code = common._terrain_flattening(infile, flattened, logfile,
+                                                 ard['dem']
+                                                 )
+        
+        # delete input file
+        h.delete_dimap(infile[:-4])
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(flattened)
             return return_code
         
-        # delete
+        # define input for next step
+        infile = '{}.dim'.format(flattened)
+
+    # ---------------------------------------------------------------------
+    # 8 Linear to db
+    if ard['to db']:
+        db_scaled = opj(temp_dir, '{}_db'.format(file_id))
+        logfile = opj(output_dir, '{}.db.errLog'.format(file_id))
+        return_code = common._linear_to_db(infile, db_scaled, logfile)
+        
+        # delete input file
         h.delete_dimap(infile[:-4])
-        # re-define infile
-        infile = opj(temp_dir, '{}_{}_db.dim'.format(file_id, 
-                     ard['product type']))
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(db_scaled)
+            return return_code
+        
+        # set input for next step
+        infile = '{}.dim'.format(db_scaled)
 
-    # -----------------------
-    # let's geocode the data
-    # infile = opj(temp_dir, '{}.{}.dim'.format(file_id, product_type))
-    outfile = opj(temp_dir, '{}.bs'.format(file_id))
-    logfile = opj(output_dir, '{}.bs.errLog'.format(file_id))
-    return_code = _grd_terrain_correction(infile, outfile, logfile, 
-                                          ard['resolution'], 
-                                          ard['dem'])
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
+    # ---------------------------------------------------------------------
+    # 9 Geocoding
+    geocoded = opj(temp_dir, '{}_bs'.format(file_id))
+    logfile = opj(output_dir, '{}_bs.errLog'.format(file_id))
+    return_code = common._terrain_correction(
+        infile, geocoded, logfile, ard['resolution'], ard['dem']
+    )
     
-    # remove calibrated files
+    # delete input file
     h.delete_dimap(infile[:-4])
+    
+    # delete output if command failed for some reason and return
+    if return_code != 0:
+        h.delete_dimap(geocoded)
+        return return_code
 
-    # move to final destination
+    # define final destination
     out_final = opj(output_dir, '{}.bs'.format(file_id))
 
-    # remove file if exists
+    # ---------------------------------------------------------------------
+    # 10 Checks and move to output directory
+    # remove output file if exists
     if os.path.exists(out_final + '.dim'):
-        h.delete_dimap(out_final)
-
-    return_code = h.check_out_dimap(outfile)
-    if return_code != 0:
-        h.remove_folder_content(temp_dir)
-        return return_code
-        
-    shutil.move('{}.dim'.format(outfile), '{}.dim'.format(out_final))
-    shutil.move('{}.data'.format(outfile), '{}.data'.format(out_final))
-
-    # write file, so we know this burst has been succesfully processed
-    if return_code == 0:
-        check_file = opj(output_dir, '.processed')
-        with open(str(check_file), 'w') as file:
-            file.write('passed all tests \n')
-    else:
-        h.remove_folder_content(temp_dir)
-        h.remove_folder_content(output_dir)
-        
+        h.delete_dimap(out_final)   
     
+    # check final output
+    return_code = h.check_out_dimap(geocoded)
+    if return_code != 0:
+        h.delete_dimap(geocoded)
+        return return_code
+    
+    # move to final destination
+    shutil.move('{}.dim'.format(geocoded), '{}.dim'.format(out_final))
+    shutil.move('{}.data'.format(geocoded), '{}.data'.format(out_final))
+
+    # write processed file to keep track of files already processed
+    with open(opj(output_dir, '.processed'), 'w') as file:
+        file.write('passed all tests \n')
+            
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
 

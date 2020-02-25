@@ -12,7 +12,7 @@ import gdal
 from ost.helpers import raster as ras, helpers as h
 
 def create_stack(filelist, out_stack, logfile,
-                 polarisation=None, pattern=None):
+                 polarisation=None, pattern=None, ncores=os.cpu_count()):
     '''
 
     :param filelist: list of single Files (space separated)
@@ -29,18 +29,18 @@ def create_stack(filelist, out_stack, logfile,
     if pattern:
         graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
         command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
-               -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+               -Poutput={}'.format(gpt_file, graph, ncores,
                                    filelist, pattern, out_stack)
     else:
         graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking.xml')
         command = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
-               -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+               -Poutput={}'.format(gpt_file, graph, ncores,
                                    filelist, polarisation, out_stack)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created multi-temporal stack')
+        print(' INFO: Successfully created multi-temporal stack')
     else:
         print(' ERROR: Stack creation exited with an error.'
               ' See {} for Snap Error output'.format(logfile))
@@ -48,25 +48,56 @@ def create_stack(filelist, out_stack, logfile,
     return return_code
 
 
-def mt_speckle_filter(in_stack, out_stack, logfile):
+def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_count()):
     '''
     '''
 
     # get gpt file
     gpt_file = h.gpt_path()
 
-    # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_TS', '2_MT_Speckle.xml')
+#    # get path to graph
+#    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+#    graph = opj(rootpath, 'graphs', 'S1_TS', '2_MT_Speckle.xml')
+#
+#    command = '{} {} -x -q {} -Pinput={} \
+#                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
+#                                       in_stack, out_stack)
 
-    command = '{} {} -x -q {} -Pinput={} \
-                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
-                                       in_stack, out_stack)
-
+    print(' INFO: Applying multi-temporal speckle filtering.')
+    # contrcut command string
+    command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
+                  ' -PestimateENL={}'
+                  ' -PanSize={}'
+                  ' -PdampingFactor={}'
+                  ' -Penl={}'
+                  ' -Pfilter=\'{}\''
+                  ' -PfilterSizeX={}'
+                  ' -PfilterSizeY={}'
+                  ' -PnumLooksStr={}'
+                  ' -PsigmaStr={}'
+                  ' -PtargetWindowSizeStr={}'
+                  ' -PwindowSize={}'
+                  ' -t \'{}\' \'{}\''.format(
+                      gpt_file, ncores,
+                      speckle_dict['estimate ENL'],
+                      speckle_dict['pan size'],
+                      speckle_dict['damping'],
+                      speckle_dict['ENL'],
+                      speckle_dict['filter'],
+                      speckle_dict['filter x size'],
+                      speckle_dict['filter y size'],
+                      speckle_dict['num of looks'],
+                      speckle_dict['sigma'],
+                      speckle_dict['target window size'],
+                      speckle_dict['window size'],
+                      out_stack, in_stack
+                      )
+    )
+                  
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully applied multi-temporal speckle filtering')
+        print(' INFO: Successfully applied multi-temporal speckle filtering')
     else:
         print(' ERROR: Multi-temporal speckle filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -75,7 +106,9 @@ def mt_speckle_filter(in_stack, out_stack, logfile):
 
   
 def ard_to_ts(list_of_files, processing_dir, temp_dir, 
-              burst, proc_file, product, pol):
+              burst, proc_file, product, pol, ncores=os.cpu_count()):
+    if type(list_of_files) == str:
+        list_of_files = list_of_files.replace("'", '').strip('][').split(', ')
 
     # get the burst directory
     burst_dir = opj(processing_dir, burst)
@@ -92,13 +125,17 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         ard_params = json.load(ard_file)['processing parameters']
         ard = ard_params['single ARD']
         ard_mt = ard_params['time-series ARD']
-    
+        if ard_mt['remove mt speckle'] is True:
+            ard_mt_speck = ard_params['time-series ARD']['mt speckle filter']
     # get the db scaling right
     to_db = ard['to db']
-    if to_db or product is not 'bs':
+    if to_db or product != 'bs':
         to_db = False
+        print('INFO: Not converting to dB for {}'.format(product))
     else:
         to_db = ard_mt['to db']
+        print('INFO: Converting to dB for {}'.format(product))
+
     
     if ard['apply ls mask']:
         extent = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
@@ -145,7 +182,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
 
         print(' INFO: Applying multi-temporal speckle filter')
         mt_speckle_filter('{}.dim'.format(temp_stack), 
-                             out_stack, speckle_log)
+                             out_stack, speckle_log, speckle_dict=ard_mt_speck, ncores=ncores)
         # remove tmp files
         h.delete_dimap(temp_stack)
     else:
@@ -184,7 +221,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
             infile = glob.glob(opj('{}.data'.format(out_stack),
                                    '*{}*{}_{}*img'.format(pol, mst, slv)))[0]
             
-            outfile = opj(out_dir, '{}.{}.{}.{}.{}.tif'.format(
+            outfile = opj(out_dir, '{:02d}.{}.{}.{}.{}.tif'.format(
                 i, outMst, outSlv, product, pol))
             
             ras.mask_by_shape(infile, outfile, extent, 
@@ -220,7 +257,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
                                    '*{}*{}*img'.format(pol, date)))[0]
         
             # create outfile
-            outfile = opj(out_dir, '{}.{}.{}.{}.tif'.format(
+            outfile = opj(out_dir, '{:02d}.{}.{}.{}.tif'.format(
                 i, outDate, product, pol))
     
             ras.mask_by_shape(infile, outfile, extent,

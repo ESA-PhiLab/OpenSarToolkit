@@ -34,8 +34,9 @@ RUN groupadd -r ost && \
         wget \
         nodejs \
         unzip \
-        imagemagick \        
-        npm && \
+        imagemagick \
+        npm \
+        cpulimit && \
     rm -rf /var/lib/apt/lists/*  && \
     python3 -m pip install jupyterlab && \
     mkdir /home/ost/programs && \
@@ -56,7 +57,7 @@ RUN groupadd -r ost && \
 RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
-RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
+RUN python3 -m pip install git+https://github.com/jamesemwheeler/OSTParallel.git && \
     git clone https://github.com/ESA-PhiLab/OST_Notebooks
 
 #ENV SHELL="/bin/bash/" 
