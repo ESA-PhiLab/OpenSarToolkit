@@ -63,7 +63,7 @@ def check_connection(uname, pword):
     url = ('https://datapool.asf.alaska.edu/OCN/SB/S1B_IW_OCN__2SDV_20191016T051912_20191016T051937_018496_022DA0_2161.zip')
     #url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
     #       '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
-    command='wget  --server-response -c --check-certificate=off -c -nv --http-user='+uname+' --http-passwd="'+pword+'" "'+url+'" 2>&1|awk "/^  HTTP/{print $2}"'
+    command='wget  --server-response -c --check-certificate=off -nv --http-user='+uname+' --http-passwd="'+pword+'" "'+url+'" 2>&1|awk "/^  HTTP/{print $2}"'
     process = Popen(command, stdout=PIPE, stderr=PIPE, shell=True)    
     astdout, astderr = process.communicate()    
     print(astdout, astderr)

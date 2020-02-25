@@ -134,11 +134,11 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
 
                     # apply the grd_to_ard function
                     grd_to_ard.grd_to_ard(scene_paths,
-                                      out_dir,
-                                      file_id,
-                                      temp_dir,
-                                      proc_file,
-                                      subset=subset)
+                                          out_dir,
+                                          file_id,
+                                          temp_dir,
+                                          proc_file,
+                                          subset=subset)
 
 
 def ards_to_timeseries(inventory_df, processing_dir, temp_dir,

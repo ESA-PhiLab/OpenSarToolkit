@@ -8,7 +8,9 @@ import sys
 from ost.helpers import helpers as h
 from ost.snap_common import common
 
-def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
+def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',
+            ncores=os.cpu_count()):
+
     '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
 
     This function takes an original Sentinel-1 scene (either zip or
@@ -28,7 +30,7 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
         polar (str): a string consisiting of the polarisation (comma separated)
                      e.g. 'VV,VH',
                      default value: 'VV,VH,HH,HV'
-
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
     '''
 
     # get gpt file
@@ -43,7 +45,7 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
 
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
                       -Pburst={} -Poutput={}' \
-        .format(gpt_file, graph, os.cpu_count(), infile, polar, swath,
+        .format(gpt_file, graph, ncores, infile, polar, swath,
                 burst, out_prefix)
 
     return_code = h.run_command(command, logfile)
@@ -59,7 +61,8 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
 
 
 def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False, 
-              pol_speckle_dict=None):
+              pol_speckle_dict=None, ncores=os.cpu_count()):
+
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst
@@ -75,6 +78,8 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
                  where SNAP'S STDOUT/STDERR is written to
         pol_speckle_filter (bool): wether or not to apply the
                                    polarimetric speckle filter
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -97,8 +102,8 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
                        ' -Ptarget_window_size={}'
                        ' -Ppan_size={}'
                        ' -Psigma={}'.format(
-                    gpt_file, graph, 2 * os.cpu_count(), 
-                    infile, outfile, 
+                    gpt_file, graph, ncores,
+                    infile, outfile,
                     pol_speckle_dict['filter'],
                     pol_speckle_dict['filter size'],
                     pol_speckle_dict['num of looks'],
@@ -114,7 +119,7 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
 
         print(" INFO: Calculating the H-alpha dual polarisation")
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+            .format(gpt_file, graph, ncores, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -128,7 +133,7 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
     return return_code
 
 
-def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
+def _calibration(infile, outfile, logfile, product_type='GTCgamma',ncores=os.cpu_count()):
     '''A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
@@ -151,6 +156,8 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
         resolution (int): the resolution of the output product in meters
         product_type (str): the product type of the output product
                             i.e. RTC, GTCgamma or GTCsigma
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -172,13 +179,17 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
         print(' INFO: Calibrating the product to sigma0.')
         graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalSigma_Deb.xml')
+    elif product_type == 'Coherence_only':
+        print('INFO: No need to calibrate just for coherence')
+        return_code=0
+        return return_code
     else:
         print(' ERROR: Wrong product type selected.')
         sys.exit(121)
 
     print(" INFO: Removing thermal noise, calibrating and debursting")
     command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+        .format(gpt_file, graph, ncores, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -192,7 +203,7 @@ def _calibration(infile, outfile, logfile, product_type='GTCgamma'):
     return return_code
 
 
-def _terrain_flattening(infile, outfile, logfile, dem_dict):
+def _terrain_flattening(infile, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     '''A wrapper around SNAP's terrain flattening
 
     This function takes OST calibrated Sentinel-1 SLC product and applies
@@ -205,6 +216,8 @@ def _terrain_flattening(infile, outfile, logfile, dem_dict):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -226,7 +239,7 @@ def _terrain_flattening(infile, outfile, logfile, dem_dict):
                ' -PexternalDEMNoDataValue=\'{}\''
                ' -PdemResamplingMethod=\'{}\''
                ' -t {} {}'.format(
-                   gpt_file, 2 * os.cpu_count(), 
+                   gpt_file, ncores,
                    dem_dict['dem name'], dem_dict['dem file'], 
                    dem_dict['dem nodata'], dem_dict['dem resampling'],
                    outfile, infile)
@@ -244,7 +257,7 @@ def _terrain_flattening(infile, outfile, logfile, dem_dict):
     return return_code
 
 
-def _speckle_filter(infile, outfile, logfile):
+def _speckle_filter(infile, outfile, logfile, ncores=os.cpu_count()):
     '''A wrapper around SNAP's Lee-Sigma Speckle Filter
 
     This function takes OST imported Sentinel-1 product and applies
@@ -258,6 +271,8 @@ def _speckle_filter(infile, outfile, logfile):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
     '''
 
     # get path to SNAP's command line executable gpt
@@ -266,7 +281,7 @@ def _speckle_filter(infile, outfile, logfile):
     print(' INFO: Applying the Lee-Sigma Speckle Filter')
     # contrcut command string
     command = '{} Speckle-Filter -x -q {} -PestimateENL=true \
-              -t \'{}\' \'{}\''.format(gpt_file, 2 * os.cpu_count(),
+              -t \'{}\' \'{}\''.format(gpt_file, ncores,
                                        outfile, infile)
 
     # run command and get return code
@@ -283,7 +298,7 @@ def _speckle_filter(infile, outfile, logfile):
     return return_code
 
 
-def _linear_to_db(infile, outfile, logfile):
+def _linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
     '''A wrapper around SNAP's linear to db routine
 
     This function takes an OST calibrated Sentinel-1 product
@@ -296,6 +311,8 @@ def _linear_to_db(infile, outfile, logfile):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
     '''
 
     # get path to SNAP's command line executable gpt
@@ -304,7 +321,7 @@ def _linear_to_db(infile, outfile, logfile):
     print(' INFO: Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
-        gpt_file, 2 * os.cpu_count(), outfile, infile)
+        gpt_file, ncores, outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -319,7 +336,7 @@ def _linear_to_db(infile, outfile, logfile):
     return return_code
 
 
-def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
+def _ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
     This function takes OST imported Sentinel-1 product and calculates
@@ -339,6 +356,8 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -363,7 +382,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
                ' -Pdem_resampling=\'{}\''
                ' -Pimage_resampling=\'{}\''
                ' -Poutput={}'.format(
-                   gpt_file, graph, 2 * os.cpu_count(), infile, resolution,
+                   gpt_file, graph, ncores, infile, resolution,
                    dem_dict['dem name'], dem_dict['dem file'], 
                    dem_dict['dem nodata'], dem_dict['dem resampling'], 
                    dem_dict['image resampling'],
@@ -382,7 +401,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
     return return_code
 
 
-#def _coreg(filelist, outfile, logfile, dem_dict):
+#def _coreg(filelist, outfile, logfile, dem_dict, ncores=os.cpu_count()):
 #    '''A wrapper around SNAP's back-geocoding co-registration routine
 #
 #    This function takes a list of 2 OST imported Sentinel-1 SLC products
@@ -402,6 +421,8 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
 #                       'SRTM 3sec'
 #                       'ASTER 1sec GDEM'
 #                       'ACE30'
+#        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 #
 #    '''
 #
@@ -414,7 +435,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
 #
 #    print(' INFO: Co-registering {}'.format(filelist[0]))
 #    command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
-#        .format(gpt_file, graph, 2 * os.cpu_count(), filelist, outfile, dem)
+#        .format(gpt_file, graph, ncores, filelist, outfile, dem)
 #
 #    return_code = h.run_command(command, logfile)
 #
@@ -428,7 +449,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
 #    return return_code
 
 
-def _coreg2(master, slave,  outfile, logfile, dem_dict):
+def _coreg2(master, slave,  outfile, logfile, dem_dict, ncores=os.cpu_count()):
     '''A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes a list of 2 OST imported Sentinel-1 SLC products
@@ -448,6 +469,8 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict):
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -457,11 +480,12 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict):
     # get path to graph
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
-    
+
     # make dem file snap readable in case of no external dem
     if not dem_dict['dem file']:
         dem_dict['dem file'] = " "
         
+
     print(' INFO: Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
                 ' -Pmaster={}'
@@ -471,7 +495,7 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict):
                 ' -Pdem_nodata=\'{}\'' 
                 ' -Pdem_resampling=\'{}\''
                 ' -Poutput={} '.format(
-                    gpt_file, graph, 2 * os.cpu_count(), 
+                    gpt_file, graph, ncores,
                     master, slave,
                     dem_dict['dem name'], dem_dict['dem file'], 
                     dem_dict['dem nodata'], dem_dict['dem resampling'], 
@@ -489,7 +513,7 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict):
     return return_code
 
 
-def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV'):
+def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV', ncores=os.cpu_count()):
     '''A wrapper around SNAP's coherence routine
 
     This function takes a co-registered stack of 2 Sentinel-1 SLC products
@@ -502,6 +526,8 @@ def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV'):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -514,7 +540,7 @@ def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV'):
 
     print(' INFO: Coherence estimation')
     command = '{} {} -x -q {} -Pinput={} -Ppolar=\'{}\' -Poutput={}' \
-        .format(gpt_file, graph, 2 * os.cpu_count(), infile, polar, outfile)
+        .format(gpt_file, graph, ncores, infile, polar, outfile)
 
     return_code = h.run_command(command, logfile)
 
@@ -527,7 +553,7 @@ def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV'):
     return return_code
 
 
-def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
+def _terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
     '''A wrapper around SNAP's Terrain Correction routine
 
     This function takes an OST calibrated Sentinel-1 product and
@@ -547,6 +573,8 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
                        'SRTM 3sec'
                        'ASTER 1sec GDEM'
                        'ACE30'
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 
     '''
 
@@ -567,7 +595,7 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
                    ' -PnodataValueAtSea=\'false\''
                    ' -PpixelSpacingInMeter=\'{}\''
                    ' -t {} {}'.format(
-                       gpt_file, 2 * os.cpu_count(), 
+                       gpt_file, ncores,
                        dem_dict['dem name'], dem_dict['dem file'], 
                        dem_dict['dem nodata'], dem_dict['dem resampling'], 
                        dem_dict['image resampling'],
@@ -586,7 +614,7 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
 
 
 #def _terrain_correction_deg(infile, outfile, logfile, resolution=0.001,
-#                            dem='SRTM 1sec HGT'):
+#                            dem='SRTM 1sec HGT', ncores=os.cpu_count()):
 #    '''A wrapper around SNAP's Terrain Correction routine
 #
 #    This function takes an OST calibrated Sentinel-1 product and
@@ -606,6 +634,8 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
 #                       'SRTM 3sec'
 #                       'ASTER 1sec GDEM'
 #                       'ACE30'
+#        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
 #
 #    '''
 #
@@ -620,7 +650,7 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict):
 #              -PpixelSpacingInDegree=\'{}\' \
 #              -PdemName=\'{}\' \
 #              -t {} {}' \
-#              .format(gpt_file, 2 * os.cpu_count(), resolution, dem,
+#              .format(gpt_file, ncores, resolution, dem,
 #                      outfile, infile)
 #
 #    return_code = h.run_command(command, logfile)
@@ -645,7 +675,8 @@ def burst_to_ard(master_file,
                  slave_burst_nr=None,
                  slave_burst_id=None,
                  coherence=False,
-                 remove_slave_import=False):
+                 remove_slave_import=False,
+                 ncores=os.cpu_count()):
     '''The main routine to turn a burst into an ARD product
 
     Args:
@@ -660,9 +691,18 @@ def burst_to_ard(master_file,
         slave_burst_id (str):
         proc_file (str):
         remove_slave_import (bool):
-
+        ncores (int): number of cpus used - useful for parallel processing
     '''
-
+    if type(remove_slave_import) == str:
+        if remove_slave_import == 'True':
+            remove_slave_import = True
+        elif remove_slave_import == 'False':
+            remove_slave_import = False
+    if type(coherence) == str:
+        if coherence == 'True':
+            coherence = True
+        elif coherence == 'False':
+            coherence = False
     # load ards
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing parameters']
@@ -677,7 +717,7 @@ def burst_to_ard(master_file,
         import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
         polars = ard['polarisation'].replace(' ', '')
         return_code = _import(master_file, master_import, import_log,
-                              swath, master_burst_nr, polars
+                              swath, master_burst_nr, polars, ncores
         )
         if return_code != 0:
             h.delete_dimap(master_import)
@@ -693,7 +733,8 @@ def burst_to_ard(master_file,
         return_code = _ha_alpha(imported,
                                 out_haa, haa_log, 
                                 ard['remove pol speckle'], 
-                                ard['pol speckle filter']
+                                ard['pol speckle filter'],
+                                ncores
         )
 
         # delete files in case of error
@@ -708,7 +749,7 @@ def burst_to_ard(master_file,
             master_burst_id))
         return_code = common._terrain_correction(
             '{}.dim'.format(out_haa), out_htc, haa_tc_log, 
-            ard['resolution'], ard['dem']
+            ard['resolution'], ard['dem'], ncores
         )
 
         # remove HAalpha tmp files
@@ -728,8 +769,8 @@ def burst_to_ard(master_file,
     # 3 Calibration
     out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
     cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
-    return_code = _calibration(imported, out_cal, cal_log, ard['product type'])
-    
+    return_code = _calibration(imported, out_cal, cal_log, ard['product type'],ncores)
+
     # delete output if command failed for some reason and return
     if return_code != 0:
         h.delete_dimap(out_cal)
@@ -748,10 +789,10 @@ def burst_to_ard(master_file,
         speckle_log = opj(out_dir, '{}_speckle.err_log'.format(
             master_burst_id))
         return_code = common._speckle_filter('{}.dim'.format(out_cal),
-                                      speckle_import, speckle_log, 
-                                      ard['speckle filter']
-        )
-        
+                                             speckle_import, speckle_log,
+                                             ard['speckle filter'], ncores
+                                             )
+
         # remove input 
         h.delete_dimap(out_cal)
 
@@ -773,8 +814,8 @@ def burst_to_ard(master_file,
             master_burst_id))
         # do the TF
         return_code = common._terrain_flattening('{}.dim'.format(out_cal),
-                                          out_rtc, rtc_log, ard['dem'])
-        
+                                                 out_rtc, rtc_log, ard['dem'], ncores)
+
         # remove tmp files
         h.delete_dimap(out_cal)
         
@@ -792,8 +833,8 @@ def burst_to_ard(master_file,
     if ard['to db']:
         out_db = opj(temp_dir, '{}_cal_db'.format(master_burst_id))
         db_log = opj(out_dir, '{}_cal_db.err_log'.format(master_burst_id))
-        return_code = common._linear_to_db('{}.dim'.format(out_cal), out_db, db_log)
-        
+        return_code = common._linear_to_db('{}.dim'.format(out_cal), out_db, db_log, ncores)
+
         # remove tmp files
         h.delete_dimap(out_cal)
         
@@ -808,20 +849,21 @@ def burst_to_ard(master_file,
  
     # ---------------------------------------------------------------------
     # 8 Geocode backscatter
-    out_tc = opj(temp_dir, '{}_bs'.format(master_burst_id))
-    tc_log = opj(out_dir, '{}_bs_tc.err_log'.format(master_burst_id))
-    return_code = common._terrain_correction(
-        '{}.dim'.format(out_cal), out_tc, tc_log, 
-        ard['resolution'], ard['dem'])
+    if ard['product type'] != "Coherence_only":
+        out_tc = opj(temp_dir, '{}_bs'.format(master_burst_id))
+        tc_log = opj(out_dir, '{}_bs_tc.err_log'.format(master_burst_id))
+        return_code = common._terrain_correction(
+            '{}.dim'.format(out_cal), out_tc, tc_log,
+            ard['resolution'], ard['dem'], ncores)
 
-    # last check on backscatter data
-    return_code = h.check_out_dimap(out_tc)
-    if return_code != 0:
-        h.delete_dimap(out_tc)
-        return return_code
+        # last check on backscatter data
+        return_code = h.check_out_dimap(out_tc)
+        if return_code != 0:
+            h.delete_dimap(out_tc)
+            return return_code
 
-    # we move backscatter to final destination
-    h.move_dimap(out_tc, opj(out_dir, '{}_bs'.format(master_burst_id)))
+        # we move backscatter to final destination
+        h.move_dimap(out_tc, opj(out_dir, '{}_bs'.format(master_burst_id)))
 
     # ---------------------------------------------------------------------
     # 9 Layover/Shadow mask
@@ -830,7 +872,8 @@ def burst_to_ard(master_file,
         out_ls = opj(temp_dir, '{}_LS'.format(master_burst_id))
         ls_log = opj(out_dir, '{}_LS.err_log'.format(master_burst_id))
         return_code = common._ls_mask('{}.dim'.format(out_cal), out_ls, ls_log,
-                               ard['resolution'], ard['dem'])
+                                      ard['resolution'], ard['dem'], ncores)
+
         if return_code != 0:
             h.delete_dimap(out_ls)
             return return_code
@@ -845,7 +888,8 @@ def burst_to_ard(master_file,
         h.move_dimap(out_ls, opj(out_dir, '{}_LS'.format(master_burst_id)))
 
     # remove calibrated files
-    h.delete_dimap(out_cal)
+    if ard['product type'] != "Coherence_only":
+        h.delete_dimap(out_cal)
 
     if coherence:
 
@@ -854,7 +898,7 @@ def burst_to_ard(master_file,
         import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
         polars = ard['polarisation'].replace(' ', '')
         return_code = _import(slave_file, slave_import, import_log,
-                              swath, slave_burst_nr, polars)
+                              swath, slave_burst_nr, polars, ncores)
 
         if return_code != 0:
             h.remove_folder_content(temp_dir)
@@ -870,8 +914,8 @@ def burst_to_ard(master_file,
         return_code = _coreg2('{}.dim'.format(master_import),
                               '{}.dim'.format(slave_import),
                                out_coreg,
-                               coreg_log, ard['dem'])
-        
+                               coreg_log, ard['dem'], ncores)
+
         # remove imports
         h.delete_dimap(master_import)
         
@@ -889,8 +933,8 @@ def burst_to_ard(master_file,
         coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
         coh_polars = ard['coherence bands'].replace(' ', '')
         return_code = _coherence('{}.dim'.format(out_coreg),
-                                 out_coh, coh_log, coh_polars)
-        
+                                 out_coh, coh_log, coh_polars, ncores)
+
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
         
@@ -905,7 +949,16 @@ def burst_to_ard(master_file,
         tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
         return_code = common._terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log, 
-            ard['resolution'], ard['dem'])
+            ard['resolution'], ard['dem'], ncores)
+        
+        # remove tmp files
+        h.delete_dimap(out_coh)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_tc)
+            h.delete_dimap(slave_import)
+            return return_code
         
         # remove tmp files
         h.delete_dimap(out_coh)
@@ -997,6 +1050,11 @@ if __name__ == "__main__":
                              ' deleted (for time-series it is advisable to'
                              ' keep it)',
                         default=False)
+    parser.add_argument('-nc', '--cpu_cores',
+                        help=' (int) Select the number of cpu cores'
+                             ' for running each gpt process'
+                             'if you wish to specify for parallelisation',
+                        default=False)
 
     args = parser.parse_args()
 
@@ -1004,4 +1062,4 @@ if __name__ == "__main__":
     burst_to_ard(args.master, args.master_swath, args.master_burst_nr, 
                  args.master_burst_id, args.proc_file, args.out_directory, args.temp_directory,
                  args.slave, args.slave_burst_nr, args.slave_burst_id,
-                 args.coherence, args.remove_slave_import)
+                 args.coherence, args.remove_slave_import,args.cpu_cores)

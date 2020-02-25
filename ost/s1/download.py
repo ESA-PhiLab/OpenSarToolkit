@@ -75,7 +75,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     if not mirror:
         print(' Select the server from where you want to download:')
         print(' (1) Copernicus Apihub (ESA, rolling archive)')
-        print(' (2) Alaska Satellite Facility (NASA, full archive - some issues as of 2019-11-28, try 5 if this does not work)')
+        print(' (2) Alaska Satellite Facility (NASA, full archive)')
         print(' (3) PEPS (CNES, 1 year rolling archive)')
         print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
         print(' (5) Alaska Satellite Facility (using WGET - unstable - use only if 2 does not work)')
@@ -107,6 +107,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
     elif int(mirror) == 5:
         error_code = asf_wget.check_connection(uname, pword)
 
+        
     if error_code == 401:
         raise ValueError(' ERROR: Username/Password are incorrect')
     elif error_code != 200:
@@ -124,7 +125,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
                             uname, pword, concurrent)
     elif int(mirror) == 4:   # ONDA DIAS
         onda.batch_download(inventory_df, download_dir,
-                              uname, pword, concurrent)
+                            uname, pword, concurrent)
     elif int(mirror) == 5:    # ASF WGET
         asf_wget.batch_download(inventory_df, download_dir,
-                           uname, pword, concurrent)
+                                uname, pword, concurrent)

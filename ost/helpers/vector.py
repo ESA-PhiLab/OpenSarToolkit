@@ -402,7 +402,7 @@ def buffer_shape(infile, outfile, buffer=None):
                 })
 
 
-def plot_inventory(aoi, inventory_df, transparency=0.05):
+def plot_inventory(aoi, inventory_df, transparency=0.05, annotate = False):
 
     import matplotlib.pyplot as plt
 
@@ -428,3 +428,12 @@ def plot_inventory(aoi, inventory_df, transparency=0.05):
     plt.xlim([bounds.minx.min()-2, bounds.maxx.max()+2])
     plt.ylim([bounds.miny.min()-2, bounds.maxy.max()+2])
     plt.grid(color='grey', linestyle='-', linewidth=0.2)
+    if annotate:
+        import math
+        for idx, row in inventory_df.iterrows():
+            # print([row['geometry'].bounds[0],row['geometry'].bounds[3]])
+            coord = [row['geometry'].centroid.x, row['geometry'].centroid.y]
+            x1, y2, x2, y1 = row['geometry'].bounds
+            angle = math.degrees(math.atan2((y2 - y1), (x2 - x1)))
+            # rint(angle)
+            plt.annotate(s=row['bid'], xy=coord, rotation=angle + 5, size=10, color='red', horizontalalignment='center')

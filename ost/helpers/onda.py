@@ -211,7 +211,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                 uuid = (inventory_df['uuid']
                     [inventory_df['identifier'] == scene_id].tolist())
             except KeyError:
-                uuid = scene.ondadias_uuid(opener=onda.connect(uname=uname,pword=pword)) 
+                uuid = scene.ondadias_uuid(opener=onda.connect(uname=uname, pword=pword))
             
             if os.path.exists('{}.downloaded'.format(filepath)):
                 print(' INFO: {} is already downloaded.'

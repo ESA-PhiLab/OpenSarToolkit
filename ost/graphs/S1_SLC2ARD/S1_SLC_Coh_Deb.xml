@@ -23,7 +23,7 @@
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <cohWinAz>4</cohWinAz>
-      <cohWinRg>15</cohWinRg>
+      <cohWinRg>20</cohWinRg>
       <subtractFlatEarthPhase>true</subtractFlatEarthPhase>
       <srpPolynomialDegree>5</srpPolynomialDegree>
       <srpNumberPoints>501</srpNumberPoints>
