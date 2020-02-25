@@ -48,7 +48,7 @@ def create_stack(filelist, out_stack, logfile,
     return return_code
 
 
-def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_count()):
+def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict, ncores=os.cpu_count()):
     '''
     '''
 
@@ -65,33 +65,34 @@ def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_c
 
     print(' INFO: Applying multi-temporal speckle filtering.')
     # contrcut command string
-    command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
-                  ' -PestimateENL={}'
-                  ' -PanSize={}'
-                  ' -PdampingFactor={}'
-                  ' -Penl={}'
-                  ' -Pfilter=\'{}\''
-                  ' -PfilterSizeX={}'
-                  ' -PfilterSizeY={}'
-                  ' -PnumLooksStr={}'
-                  ' -PsigmaStr={}'
-                  ' -PtargetWindowSizeStr={}'
-                  ' -PwindowSize={}'
-                  ' -t \'{}\' \'{}\''.format(
-                      gpt_file, ncores,
-                      speckle_dict['estimate ENL'],
-                      speckle_dict['pan size'],
-                      speckle_dict['damping'],
-                      speckle_dict['ENL'],
-                      speckle_dict['filter'],
-                      speckle_dict['filter x size'],
-                      speckle_dict['filter y size'],
-                      speckle_dict['num of looks'],
-                      speckle_dict['sigma'],
-                      speckle_dict['target window size'],
-                      speckle_dict['window size'],
-                      out_stack, in_stack
-                      )
+    command = (
+        '{} Multi-Temporal-Speckle-Filter -x -q {}'
+        ' -PestimateENL={}'
+        ' -PanSize={}'
+        ' -PdampingFactor={}'
+        ' -Penl={}'
+        ' -Pfilter=\'{}\''
+        ' -PfilterSizeX={}'
+        ' -PfilterSizeY={}'
+        ' -PnumLooksStr={}'
+        ' -PsigmaStr={}'
+        ' -PtargetWindowSizeStr={}'
+        ' -PwindowSize={}'
+        ' -t \'{}\' \'{}\''.format(
+            gpt_file, ncores,
+            speckle_dict['estimate ENL'],
+            speckle_dict['pan size'],
+            speckle_dict['damping'],
+            speckle_dict['ENL'],
+            speckle_dict['filter'],
+            speckle_dict['filter x size'],
+            speckle_dict['filter y size'],
+            speckle_dict['num of looks'],
+            speckle_dict['sigma'],
+            speckle_dict['target window size'],
+            speckle_dict['window size'],
+            out_stack, in_stack
+            )
     )
                   
     return_code = h.run_command(command, logfile)

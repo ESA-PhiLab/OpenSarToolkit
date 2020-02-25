@@ -8,7 +8,6 @@ import ogr
 import pyproj
 import geopandas as gpd
 
-from osgeo import osr
 from shapely.ops import transform
 from shapely.wkt import loads
 from shapely.geometry import Point, Polygon, mapping, shape
@@ -393,7 +392,7 @@ def buffer_shape(infile, outfile, buffer=None):
                 })
 
 
-def plot_inventory(aoi, inventory_df, transparency=0.05, annotate = False):
+def plot_inventory(aoi, inventory_df, transparency=0.05, annotate=False):
 
     import matplotlib.pyplot as plt
 

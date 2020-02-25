@@ -9,6 +9,7 @@ from ost.helpers import helpers as h
 from ost.snap_common import common
 
 def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',ncores=os.cpu_count()):
+
     '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
 
     This function takes an original Sentinel-1 scene (either zip or
@@ -60,6 +61,7 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',ncore
 
 def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False, 
               pol_speckle_dict=None,ncores=os.cpu_count()):
+
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst
@@ -100,7 +102,7 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
                        ' -Ppan_size={}'
                        ' -Psigma={}'.format(
                     gpt_file, graph, ncores,
-                    infile, outfile, 
+                    infile, outfile,
                     pol_speckle_dict['filter'],
                     pol_speckle_dict['filter size'],
                     pol_speckle_dict['num of looks'],
@@ -117,7 +119,6 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
         print(" INFO: Calculating the H-alpha dual polarisation")
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
             .format(gpt_file, graph, ncores, infile, outfile)
-
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
@@ -224,7 +225,10 @@ def _terrain_flattening(infile, outfile, logfile, dem_dict, ncores=os.cpu_count(
     print(' INFO: Correcting for the illumination along slopes'
           ' (Terrain Flattening).'
     )
-
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     command = ('{} Terrain-Flattening -x -q {} '
                ' -PadditionalOverlap=0.15'
                ' -PoversamplingMultiple=1.5'
@@ -362,6 +366,10 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_LS_TC.xml')
 
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     print(" INFO: Compute Layover/Shadow mask")
     command = ('{} {} -x -q {}'
                ' -Pinput={}'
@@ -472,7 +480,6 @@ def _coreg2(master, slave,  outfile, logfile, dem_dict, ncores=os.cpu_count()):
     graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
     if not dem_dict['dem file']:
         dem_dict['dem file'] = " "
-
     print(' INFO: Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
                 ' -Pmaster={}'
@@ -569,7 +576,10 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=o
     gpt_file = h.gpt_path()
 
     print(" INFO: Geocoding input scene")
-
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
     command = ('{} Terrain-Correction -x -q {}'
                    ' -PdemName=\'{}\''
                    ' -PexternalDEMFile=\'{}\''
@@ -754,7 +764,7 @@ def burst_to_ard(master_file,
     out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
     cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
     return_code = _calibration(imported, out_cal, cal_log, ard['product type'],ncores)
-    
+
     # delete output if command failed for some reason and return
     if return_code != 0:
         h.delete_dimap(out_cal)
@@ -776,7 +786,7 @@ def burst_to_ard(master_file,
                                              speckle_import, speckle_log,
                                              ard['speckle filter'], ncores
                                              )
-        
+
         # remove input 
         h.delete_dimap(out_cal)
 
@@ -799,7 +809,6 @@ def burst_to_ard(master_file,
         # do the TF
         return_code = common._terrain_flattening('{}.dim'.format(out_cal),
                                                  out_rtc, rtc_log, ard['dem'], ncores)
-        
         # remove tmp files
         h.delete_dimap(out_cal)
         
@@ -818,7 +827,7 @@ def burst_to_ard(master_file,
         out_db = opj(temp_dir, '{}_cal_db'.format(master_burst_id))
         db_log = opj(out_dir, '{}_cal_db.err_log'.format(master_burst_id))
         return_code = common._linear_to_db('{}.dim'.format(out_cal), out_db, db_log, ncores)
-        
+
         # remove tmp files
         h.delete_dimap(out_cal)
         
@@ -898,7 +907,7 @@ def burst_to_ard(master_file,
                               '{}.dim'.format(slave_import),
                                out_coreg,
                                coreg_log, ard['dem'], ncores)
-        
+
         # remove imports
         h.delete_dimap(master_import)
         
@@ -917,7 +926,6 @@ def burst_to_ard(master_file,
         coh_polars = ard['coherence bands'].replace(' ', '')
         return_code = _coherence('{}.dim'.format(out_coreg),
                                  out_coh, coh_log, coh_polars, ncores)
-        
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
         
@@ -933,6 +941,15 @@ def burst_to_ard(master_file,
         return_code = common._terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log, 
             ard['resolution'], ard['dem'], ncores)
+        
+        # remove tmp files
+        h.delete_dimap(out_coh)
+        
+        # delete output if command failed for some reason and return
+        if return_code != 0:
+            h.delete_dimap(out_tc)
+            h.delete_dimap(slave_import)
+            return return_code
         
         # remove tmp files
         h.delete_dimap(out_coh)

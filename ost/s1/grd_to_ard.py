@@ -931,7 +931,6 @@ def grd_to_ard(filelist,
         logfile = opj(output_dir, '{}.multilook.errLog'.format(file_id))
         return_code = common._multi_look(infile, multi_looked, logfile,
                                          ml_factor, ml_factor)
-        
         # delete input
         h.delete_dimap(infile[:-4])
         
@@ -950,7 +949,6 @@ def grd_to_ard(filelist,
         logfile = opj(output_dir, '{}.ls_mask.errLog'.format(file_id))
         return_code = common._ls_mask(infile, ls_mask, logfile, ard['resolution'],
                                       ard['dem'])
-        
         # delete output if command failed for some reason and return
         if return_code != 0:
             h.delete_dimap(ls_mask)
@@ -983,7 +981,6 @@ def grd_to_ard(filelist,
         # run processing
         return_code = common._speckle_filter(infile, filtered, logfile,
                                              ard['speckle filter'])
-        
         # delete input
         h.delete_dimap(infile[:-4])
         
@@ -1003,7 +1000,6 @@ def grd_to_ard(filelist,
         return_code = common._terrain_flattening(infile, flattened, logfile,
                                                  ard['dem']
                                                  )
-        
         # delete input file
         h.delete_dimap(infile[:-4])
         
