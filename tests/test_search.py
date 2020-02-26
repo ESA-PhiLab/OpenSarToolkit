@@ -38,6 +38,6 @@ def test_default_scihub_catalogue():
         )
         control_fields = 21
         control_products = 34
-        shp = gpd.read_file(out_dest)
+        shp = gpd.read_file(args_dict['output'])
         assert len(shp.columns) == control_fields
         assert len(shp.id) == control_products
