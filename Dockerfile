@@ -27,16 +27,15 @@ RUN groupadd -r ost && \
         python3 \
         python3-pip \
         git \
-        default-libmysqlclient-dev \
         libgdal-dev \
         python3-gdal \
         libspatialindex-dev \
         libgfortran3 \
         wget \
-        nodejs \
         unzip \
-        imagemagick \
-        npm && \
+        imagemagick
+
+RUN alias python=python3 && \
     rm -rf /var/lib/apt/lists/*  && \
     python3 -m pip install jupyterlab && \
     mkdir /home/ost/programs && \
