@@ -19,7 +19,15 @@ ENV \
   OTB=OTB-${OTB_VERSION}-Linux64.run \
   HOME=/home/ost \
   PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
-   
+
+# install gdal as root
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq libgdal-dev \
+    python3-gdal \
+    libspatialindex-dev \
+    libgfortran3 && \
+    rm -rf /var/lib/apt/lists/*  && \
+    alias python=python3
+
 # installall dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
@@ -27,10 +35,6 @@ RUN groupadd -r ost && \
         python3 \
         python3-pip \
         git \
-        libgdal-dev \
-        python3-gdal \
-        libspatialindex-dev \
-        libgfortran3 \
         wget \
         nodejs \
         unzip \
