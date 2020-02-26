@@ -20,13 +20,14 @@ ENV \
   HOME=/home/ost \
   PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
    
-# installall dependencies
+# install all dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
     apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
         python3 \
         python3-pip \
         git \
+        default-libmysqlclient-dev \
         libgdal-dev \
         python3-gdal \
         libspatialindex-dev \
