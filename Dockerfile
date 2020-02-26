@@ -21,25 +21,22 @@ ENV \
   PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
 
 # install gdal as root
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq libgdal-dev \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq python3 \
+    python3-pip \
+    libgdal-dev \
     python3-gdal \
     libspatialindex-dev \
     libgfortran3 && \
-    rm -rf /var/lib/apt/lists/*  && \
     alias python=python3
 
-# installall dependencies
+# install all dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
     apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
-        python3 \
-        python3-pip \
         git \
         wget \
-        nodejs \
         unzip \
-        imagemagick \
-        npm && \
+        imagemagick && \
     rm -rf /var/lib/apt/lists/*  && \
     python3 -m pip install jupyterlab && \
     mkdir /home/ost/programs && \
