@@ -2,8 +2,9 @@
 
 # import stdlib modules
 import os
-from os.path import join as opj
 import time
+from os.path import join as opj
+
 import gdal
 
 from ost.helpers import helpers as h, raster as ras, vector as vec

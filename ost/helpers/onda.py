@@ -6,12 +6,13 @@ This module provides functions for downloading data from
 ONDA Dias server.
 '''
 
-import os
-from os.path import join as opj
-import glob
 import getpass
+import glob
 import multiprocessing
+import os
 import urllib
+from os.path import join as opj
+
 import requests
 import tqdm
 

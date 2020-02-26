@@ -1,27 +1,27 @@
 '''This module contains the S1Scene class for handling of a Sentinel-1 product
 
 '''
-import os
-from os.path import join as opj
-import sys
+import fnmatch
+import glob
 import importlib
 import json
-import glob
+import os
+import sys
 import urllib
-from urllib.error import URLError
-import zipfile
-import fnmatch
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
+import zipfile
+from os.path import join as opj
+from urllib.error import URLError
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 import requests
+from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 from shapely.wkt import loads
 
 from ost.helpers import scihub, peps, onda, raster as ras
-from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
 
 __author__ = "Andreas Vollrath"
 __version__ = 1.0

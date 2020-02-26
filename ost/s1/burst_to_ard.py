@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-import os
-from os.path import join as opj
 import importlib
 import json
+import os
 import sys
+from os.path import join as opj
+
+from ost.snap_common import common
 
 from ost.helpers import helpers as h
-from ost.snap_common import common
+
 
 def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 SLC burst

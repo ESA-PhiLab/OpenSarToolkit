@@ -3,19 +3,19 @@
 This script provides wrapper functions for processing Sentinel-1 GRD products.
 """
 
+import glob
+import itertools
+import json
 # import stdlib modules
 import os
-from os.path import join as opj
-import numpy as np
-import json
-import glob
 import shutil
-import itertools
+from os.path import join as opj
 
+import fiona
 # geo libs
 import gdal
-import fiona
 import imageio
+import numpy as np
 import rasterio
 import rasterio.mask
 from rasterio.features import shapes

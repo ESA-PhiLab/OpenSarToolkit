@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import os
 from os.path import join as opj
+
 import numpy as np
 import rasterio
-from ost.helpers import vector as vec
+
 from ost.helpers import helpers as h
+from ost.helpers import vector as vec
 
 
 def mosaic(filelist, outfile, temp_dir, cut_to_aoi=False):

@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 
+import glob
+import importlib
+import json
+import logging
 # import standard libs
 import os
 import sys
-import importlib
-import json
-import glob
-import logging
-import geopandas as gpd
-
+from datetime import datetime
 # create the opj alias to handle independent os paths
 from os.path import join as opj
-from datetime import datetime
+
+import geopandas as gpd
 from shapely.wkt import loads
 
+from ost.helpers import scihub, helpers as h
 from ost.helpers import vector as vec, raster as ras
 from ost.s1 import search, refine, download, burst, grd_batch
-from ost.helpers import scihub, helpers as h
 
 # set logging
 logging.basicConfig(stream=sys.stdout,

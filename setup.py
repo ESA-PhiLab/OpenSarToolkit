@@ -1,5 +1,7 @@
 import os
+
 from setuptools import setup, find_packages
+
 
 def parse_requirements(file):
     return sorted(set(

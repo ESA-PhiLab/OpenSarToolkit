@@ -61,20 +61,21 @@ python3 grd_to_ard.py -p /path/to/scene -r 20 -p RTC -l True -s False
 '''
 
 
-# import stdlib modules
-import os
-import sys
+import glob
 import importlib
 import json
-import glob
+# import stdlib modules
+import os
 import shutil
+import sys
 import time
-import rasterio
-import numpy as np
-import gdal
-
 from os.path import join as opj
+
+import gdal
+import numpy as np
+import rasterio
 from ost.snap_common import common
+
 from ost.helpers import helpers as h, raster as ras
 
 # script infos

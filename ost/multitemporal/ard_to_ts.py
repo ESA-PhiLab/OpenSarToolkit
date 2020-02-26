@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
+import datetime
+import glob
+import importlib
+import json
 import os
 from os.path import join as opj
-
-import importlib
-import glob
-import json
-import datetime
 
 import gdal
 
 from ost.helpers import raster as ras, helpers as h
+
 
 def create_stack(filelist, out_stack, logfile,
                  polarisation=None, pattern=None):

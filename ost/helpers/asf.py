@@ -3,15 +3,16 @@
 from Alaska satellite Faciltity's Vertex server
 '''
 
+import glob
+import multiprocessing
 import os
 from os.path import join as opj
-import glob
+
 import requests
 import tqdm
-import multiprocessing
 
-from ost.helpers import helpers as h
 from ost import Sentinel1_Scene as S1Scene
+from ost.helpers import helpers as h
 
 
 # we need this class for earthdata access

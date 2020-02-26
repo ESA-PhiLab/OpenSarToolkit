@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
 import os
-from os.path import join as opj
 import time
+from os.path import join as opj
 
 import gdal
-import rasterio
 import numpy as np
+import rasterio
 
 from ost.helpers import helpers as h, raster as ras, vector as vec
 

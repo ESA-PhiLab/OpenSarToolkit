@@ -9,12 +9,11 @@ import itertools
 # some more libs for plotting and DB connection
 import fiona
 import geopandas as gpd
-
 from shapely.ops import unary_union
 
+from ost.helpers import vector as vec
 # import internal modules
 from ost.helpers.db import pgHandler
-from ost.helpers import vector as vec
 
 # script infos
 __author__ = 'Andreas Vollrath'

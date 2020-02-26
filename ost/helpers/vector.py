@@ -1,18 +1,17 @@
+import json
 import os
 import sys
-import json
 from functools import partial
 
-import osr
-import ogr
-import pyproj
 import geopandas as gpd
-
-from shapely.ops import transform
-from shapely.wkt import loads
-from shapely.geometry import Point, Polygon, mapping, shape
+import ogr
+import osr
+import pyproj
 from fiona import collection
 from fiona.crs import from_epsg
+from shapely.geometry import Point, Polygon, mapping, shape
+from shapely.ops import transform
+from shapely.wkt import loads
 
 
 def get_epsg(prjfile):

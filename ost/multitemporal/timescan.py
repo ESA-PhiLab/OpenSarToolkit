@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
 import os
-from os.path import join as opj
-
+from calendar import isleap
 from datetime import datetime
 from datetime import timedelta
-from calendar import isleap
+from os.path import join as opj
 
-import rasterio
 import numpy as np
+import rasterio
 from scipy import stats
 
-from ost.helpers import raster as ras
 from ost.helpers import helpers as h
+from ost.helpers import raster as ras
 
 
 def remove_outliers(arrayin, stddev=3, z_threshold=None):

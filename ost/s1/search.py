@@ -52,21 +52,21 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
       username and password during script execution
 '''
 
+import datetime
 # import stdlib modules
 import os
 import sys
-import datetime
-from urllib.error import URLError
 import xml.dom.minidom
-import dateutil.parser
+from urllib.error import URLError
 
+import dateutil.parser
 # import external modules
 import geopandas as gpd
 from shapely.wkt import dumps, loads
 
+from ost.helpers import scihub
 # internal libs
 from ost.helpers.db import pgHandler
-from ost.helpers import scihub
 
 
 def _query_scihub(apihub, opener, query):

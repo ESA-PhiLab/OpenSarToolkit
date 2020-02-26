@@ -3,20 +3,20 @@
 This script provides core functionalities for the OST package.
 """
 
+import datetime
+import glob
+import math
 # import stdlib modules
 import os
-from os.path import join as opj
-import math
-import sys
-import glob
 import shlex
 import shutil
 import subprocess
+import sys
 import time
-import datetime
-from datetime import timedelta
-from pathlib import Path
 import zipfile
+from datetime import timedelta
+from os.path import join as opj
+from pathlib import Path
 
 import gdal
 

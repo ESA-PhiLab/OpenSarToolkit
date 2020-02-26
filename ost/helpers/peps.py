@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import getpass
+import multiprocessing
 # import standard libs
 import os
-import getpass
-import urllib
 import time
-import multiprocessing
+import urllib
 
 # import non-standar libes
 import requests

@@ -46,24 +46,24 @@ python3 grd_to_ardBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
     -o    defines the /path/to/the/output
 '''
 
+import glob
+import itertools
+import json
 # import standard python libs
 import os
 from os.path import join as opj
-import json
-import glob
-import itertools
 
 import gdal
+from ost.mosaic import mosaic
+from ost.multitemporal import ard_to_ts
+from ost.multitemporal import common_extent
+from ost.multitemporal import common_ls_mask
+from ost.multitemporal import timescan
 
 # import ost libs
 from ost import Sentinel1_Scene
-from ost.s1 import grd_to_ard
 from ost.helpers import raster as ras
-from ost.multitemporal import common_extent
-from ost.multitemporal import common_ls_mask
-from ost.multitemporal import ard_to_ts
-from ost.multitemporal import timescan
-from ost.mosaic import mosaic
+from ost.s1 import grd_to_ard
 
 
 def _create_processing_dict(inventory_df):

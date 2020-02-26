@@ -5,14 +5,15 @@ from different servers such as Copernicus Scihub, Alaska Satellite Facility's
 vertex as well as PEPS from CNES.
 '''
 
+import getpass
+import glob
 # import stdlib modules
 import os
 from os.path import join as opj
-import glob
-import getpass
 
 # import OST libs
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
+
 from ost.helpers import scihub, peps, asf, onda
 
 # script infos

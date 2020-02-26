@@ -1,23 +1,13 @@
 # import stdlib modules
-import os
-from os.path import join as opj
-import imp
-import sys
 import glob
-import time
+import os
 from datetime import datetime
-from datetime import timedelta
-from calendar import isleap
+from os.path import join as opj
 
-import gdal
-import rasterio
 import numpy as np
-from scipy import stats
+import rasterio
 
-from ost.helpers import helpers as h, raster as ras, vector as vec
-
-
-
+from ost.helpers import raster as ras
 
 
 def create_datelist(path_to_timeseries):

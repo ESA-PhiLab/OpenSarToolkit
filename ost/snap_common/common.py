@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import importlib
 # import stdlib modules
 import os
-import importlib
-
 from os.path import join as opj
+
 from ost.helpers import helpers as h
 
 
@@ -334,6 +334,12 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict):
 #    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
 #             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
 #                                     infile, resolution, dem, outfile)
+    
+    # make dem file snap readable in case of no external dem
+    if not dem_dict['dem file']:
+        dem_dict['dem file'] = " "
+        
+        
     command = ('{} {} -x -q {} -Pinput=\'{}\' -Presol={} ' 
                                  ' -Pdem=\'{}\'' 
                                  ' -Pdem_file=\'{}\''

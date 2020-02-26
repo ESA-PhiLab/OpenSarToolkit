@@ -4,16 +4,17 @@ This module provides functions for searching and downloading data from
 Copernicus scihub server.
 '''
 
-import os
-from os.path import join as opj
-import glob
-import getpass
 import datetime
+import getpass
+import glob
 import multiprocessing
+import os
 import urllib
+from os.path import join as opj
+
 import requests
 import tqdm
-#import zipfile
+# import zipfile
 from shapely.wkt import loads
 
 from ost.helpers import helpers as h

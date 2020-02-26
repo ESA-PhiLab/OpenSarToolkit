@@ -3,25 +3,25 @@
 
 '''
 
+import glob
+import imp
+import itertools
+import json
 import os
 from os.path import join as opj
-import imp
-import glob
-import json
-import itertools
 
 import gdal
 import geopandas as gpd
-
-from ost.helpers import scihub, vector as vec 
-from ost.s1 import burst_to_ard
-from ost import Sentinel1_Scene as S1Scene
-from ost.helpers import raster as ras
+from ost.mosaic import mosaic
+from ost.multitemporal import ard_to_ts
 from ost.multitemporal import common_extent
 from ost.multitemporal import common_ls_mask
-from ost.multitemporal import ard_to_ts
 from ost.multitemporal import timescan
-from ost.mosaic import mosaic
+
+from ost import Sentinel1_Scene as S1Scene
+from ost.helpers import raster as ras
+from ost.helpers import scihub, vector as vec
+from ost.s1 import burst_to_ard
 
 
 def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
@@ -295,7 +295,6 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing parameters']
         ard = ard_params['single ARD']
-        ard_mt = ard_params['single ARD']
         
     # create extents
     for burst in burst_inventory.bid.unique():      # ***
@@ -342,7 +341,7 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
             print(' INFO: Creating common Layover/Shadow mask'
                   ' for burst {}'.format(burst))
             common_ls_mask.mt_layover(list_of_layover, out_ls, temp_dir, 
-                                      extent, ard_mt['apply ls mask'])
+                                      extent, ard['apply ls mask'])
         
     # create timeseries
     for burst in burst_inventory.bid.unique():

@@ -28,7 +28,7 @@
                 "dem file": null,
                 "dem nodata": 0,
                 "dem resampling": "BILINEAR_INTERPOLATION",
-                "image resampleing": "BICUBIC_INTERPOLATION",
+                "image resampling": "BICUBIC_INTERPOLATION",
                 "egm correction": false,
                 "out projection": "WGS84(DD)"
             } 
