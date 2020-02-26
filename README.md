@@ -1,4 +1,5 @@
 # Open SAR Toolkit (OST)
+[![Build Status](https://travis-ci.org/ESA-PhiLab/OpenSarToolkit.svg?branch=master)](https://travis-ci.org/ESA-PhiLab/OpenSarToolkit)
 
 ## Objective
 
