@@ -56,7 +56,7 @@ RUN groupadd -r ost && \
 RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
-RUN python3 -m pip install git+https://github.com/jamesemwheeler/OpenSarToolkit.git && \
+RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
     git clone https://github.com/ESA-PhiLab/OST_Notebooks
 
 #ENV SHELL="/bin/bash/" 
