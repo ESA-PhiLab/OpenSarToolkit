@@ -75,10 +75,17 @@ def gpt_path():
                 return gptfile
             else:
                 gptfile = None
-                
+
     # chek if we have an enviromenral variable that contains the path to gpt
     if not gptfile:
         gptfile = os.getenv('GPT_PATH')
+
+    try:
+        if gptfile is None:
+            gptfile = shutil.which('gpt')
+        os.path.isfile(gptfile)
+    except:
+        print('No GPT found!')
         
     if not gptfile:
         gptfile = input(' Please provide the full path to the SNAP'

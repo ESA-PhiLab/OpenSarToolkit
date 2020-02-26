@@ -99,7 +99,6 @@ def _query_scihub(apihub, opener, query):
 
         # construct the final url
         url = apihub + query + "&rows={}&start={}".format(rows, index)
-
         try:
             # get the request
             req = opener.open(url)
