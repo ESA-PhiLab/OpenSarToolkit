@@ -338,7 +338,7 @@ def s1_download(argument_list):
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
-    
+
     from ost import Sentinel1_Scene as S1Scene
     from ost.helpers import scihub
     
@@ -349,9 +349,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
     while check is False and i <= 10:
 
         download_list = []
-
         for scene_id in scenes:
-
             scene = S1Scene(scene_id)
             filepath = scene._download_path(download_dir, True)
             
@@ -359,8 +357,9 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                 uuid = (inventory_df['uuid']
                     [inventory_df['identifier'] == scene_id].tolist())
             except KeyError:
-                uuid = scene.scihub_uuid(scihub.connect(uname, pword)) 
-            
+                uuid = [scene.scihub_uuid(scihub.connect(
+                    uname=uname, pword=pword)
+                )]
             if os.path.exists('{}.downloaded'.format(filepath)):
                 print(' INFO: {} is already downloaded.'
                       .format(scene.scene_id))
@@ -390,5 +389,3 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                     scenes.remove(scene.scene_id)
 
         i += 1
-
-            
