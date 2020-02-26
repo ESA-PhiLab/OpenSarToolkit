@@ -29,7 +29,7 @@ def test_default_scihub_catalogue():
                                                 args_dict['beammode']
                                                 )
         query_string = create_query('Sentinel-1', aoi, toi, product_specs)
-        out_dest = scihub_catalogue(
+        scihub_catalogue(
             query_string,
             output=args_dict['output'],
             append=False,
