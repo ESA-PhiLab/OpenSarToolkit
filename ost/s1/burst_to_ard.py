@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
+import os
+from os.path import join as opj
+import json
 
-
+from ost.helpers import helpers as h
+from ost.snap_common import common
+from ost.s1 import slc_wrappers as slc
 
 def burst_to_ard(master_file,
                  swath,
@@ -54,7 +59,7 @@ def burst_to_ard(master_file,
     if not os.path.exists('{}.dim'.format(master_import)):
         import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
         polars = ard['polarisation'].replace(' ', '')
-        return_code = _import(master_file, master_import, import_log,
+        return_code = slc._import(master_file, master_import, import_log,
                               swath, master_burst_nr, polars, ncores
         )
         if return_code != 0:
@@ -68,7 +73,7 @@ def burst_to_ard(master_file,
         # create HAalpha file
         out_haa = opj(temp_dir, '{}_h'.format(master_burst_id))
         haa_log = opj(out_dir, '{}_haa.err_log'.format(master_burst_id))
-        return_code = _ha_alpha(imported,
+        return_code = slc._ha_alpha(imported,
                                 out_haa, haa_log, 
                                 ard['remove pol speckle'], 
                                 ard['pol speckle filter'],
@@ -107,7 +112,8 @@ def burst_to_ard(master_file,
     # 3 Calibration
     out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
     cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
-    return_code = _calibration(imported, out_cal, cal_log, ard['product type'],ncores)
+    return_code = slc._calibration(
+        imported, out_cal, cal_log, ard['product type'], ncores)
 
     # delete output if command failed for some reason and return
     if return_code != 0:
@@ -122,14 +128,17 @@ def burst_to_ard(master_file,
     # ---------------------------------------------------------------------
     # 4 Speckle filtering
     if ard['remove speckle']:
-        speckle_import = opj(temp_dir, '{}_speckle_import'.format(
-            master_burst_id))
-        speckle_log = opj(out_dir, '{}_speckle.err_log'.format(
-            master_burst_id))
-        return_code = common._speckle_filter('{}.dim'.format(out_cal),
-                                             speckle_import, speckle_log,
-                                             ard['speckle filter'], ncores
-                                             )
+        speckle_import = opj(
+            temp_dir, '{}_speckle_import'.format(master_burst_id)
+        )
+        speckle_log = opj(
+            out_dir, '{}_speckle.err_log'.format(master_burst_id)
+        )
+
+        return_code = common._speckle_filter(
+            '{}.dim'.format(out_cal), speckle_import, speckle_log,
+            ard['speckle filter'], ncores
+        )
 
         # remove input 
         h.delete_dimap(out_cal)
@@ -151,8 +160,9 @@ def burst_to_ard(master_file,
         rtc_log = opj(out_dir, '{}_rtc.err_log'.format(
             master_burst_id))
         # do the TF
-        return_code = common._terrain_flattening('{}.dim'.format(out_cal),
-                                                 out_rtc, rtc_log, ard['dem'], ncores)
+        return_code = common._terrain_flattening(
+            '{}.dim'.format(out_cal), out_rtc, rtc_log, ard['dem'], ncores
+        )
 
         # remove tmp files
         h.delete_dimap(out_cal)
@@ -235,8 +245,10 @@ def burst_to_ard(master_file,
         slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
         import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
         polars = ard['polarisation'].replace(' ', '')
-        return_code = _import(slave_file, slave_import, import_log,
-                              swath, slave_burst_nr, polars, ncores)
+        return_code = slc._import(
+            slave_file, slave_import, import_log, swath, slave_burst_nr,
+            polars, ncores
+        )
 
         if return_code != 0:
             h.remove_folder_content(temp_dir)
@@ -249,7 +261,7 @@ def burst_to_ard(master_file,
         out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
         # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
-        return_code = _coreg2('{}.dim'.format(master_import),
+        return_code = slc._coreg2('{}.dim'.format(master_import),
                               '{}.dim'.format(slave_import),
                                out_coreg,
                                coreg_log, ard['dem'], ncores)
@@ -270,7 +282,7 @@ def burst_to_ard(master_file,
         out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
         coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
         coh_polars = ard['coherence bands'].replace(' ', '')
-        return_code = _coherence('{}.dim'.format(out_coreg),
+        return_code = slc._coherence('{}.dim'.format(out_coreg),
                                  out_coh, coh_log, coh_polars, ncores)
 
         # remove coreg tmp files
