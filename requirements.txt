@@ -14,6 +14,6 @@ shapely
 tqdm
 imageio
 joblib
-retry
+retrying
 pytest
 pytest-cov

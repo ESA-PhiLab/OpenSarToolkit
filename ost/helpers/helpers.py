@@ -244,16 +244,19 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
     # check if both dim and data exist, else return
     if not os.path.isfile('{}.dim'.format(dimap_prefix)):
-        return 666
+        raise FileNotFoundError(' Output file {}.dim has not been generated'
+                                .format(dimap_prefix))
 
     if not os.path.isdir('{}.data'.format(dimap_prefix)):
-        return 666
+        raise NotADirectoryError(' Output directory {}.dim has not been '
+                                 'generated'.format(dimap_prefix)
+        )
 
     # check for file size of the dim file
     dim_size_in_mb = os.path.getsize('{}.dim'.format(dimap_prefix)) / 1048576
 
-    if dim_size_in_mb < 1:
-        return 666
+    if dim_size_in_mb < 0.1:
+        raise ValueError(' File {}.dim seems to small.'.format(dimap_prefix))
 
     for file in glob.glob(opj('{}.data'.format(dimap_prefix), '*.img')):
 
@@ -261,7 +264,9 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         data_size_in_mb = os.path.getsize(file) / 1048576
 
         if data_size_in_mb < 1:
-            return 666
+            raise ValueError(' Data file {} in {}.data seem to small.'
+                             .format(file, dimap_prefix)
+            )
 
         if test_stats:
             # open the file
@@ -270,17 +275,21 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
             # check for mean value of layer
             if stats[2] == 0:
-                return 666
+                raise ValueError(' Data file {} in {}.data contains only'
+                                 ' no data values.'.format(file, dimap_prefix)
+            )
 
             # check for stddev value of layer
             if stats[3] == 0:
-                return 666
+                raise ValueError(' Data file {} in {}.data contains only'
+                                 ' no data values.'.format(file, dimap_prefix)
+                )
 
-            # if difference ofmin and max is 0
+            # if difference of min and max is 0
             if stats[1] - stats[0] == 0:
-                return 666
-
-    return return_code
+                raise ValueError(' Data file {} in {}.data contains only'
+                                 ' no data values.'.format(file, dimap_prefix)
+                )
 
 
 def check_out_tiff(file, test_stats=True):
