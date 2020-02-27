@@ -159,8 +159,8 @@ def calibration(infile, outfile, logfile, proc_file,
         dem_dict = ard['dem']
 
     # calculate Multi-Look factors
-    azimuth_looks = int(np.floor(ard['resolution']))
-    range_looks = int(azimuth_looks * 5)
+    azimuth_looks = 1   #int(np.floor(ard['resolution'] / 10 ))
+    range_looks = 5   #int(azimuth_looks * 5)
 
     # construct command dependent on selected product type
     if ard['product_type'] == 'RTC-gamma0':

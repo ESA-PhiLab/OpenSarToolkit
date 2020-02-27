@@ -226,88 +226,82 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             out_dir = opj(processing_dir, burst, date)
             os.makedirs(out_dir, exist_ok=True)
 
-            # check if already processed
-            if os.path.isfile(opj(out_dir, '.processed')):
-                print(' INFO: Burst {} from {} already processed'.format(
-                      burst, date))
+            if end is True:
+                ard['coherence'] = False
+                slave_file, slave_burst_nr, slave_id = None, None, None
+
             else:
+                # read slave burst
+                slave_burst = burst_inventory[
+                        (burst_inventory.Date == slave_date) &
+                        (burst_inventory.bid == burst)]
+
+                slave_scene = S1Scene(slave_burst.SceneID.values[0])
+
+                # get path to slave file
+                slave_file = slave_scene.get_path(download_dir,
+                                                  data_mount)
+
+                # burst number in slave file (subswath is same)
+                slave_burst_nr = slave_burst.BurstNr.values[0]
+
+                # outfile name
+                slave_id = '{}_{}'.format(slave_date,
+                                          slave_burst.bid.values[0])
+    
+            # just write command into a textfile
+            if exec_file:
+                # remove older files in case they exist - need a better way than this as we would like to append to
+                # a text file which can then be read line by line
+                #if os.path.isfile(exec_file):
+                #    os.remove(exec_file)
+                # construct command arguments
+                '''args = ('-m {} -ms {} -mn {} -mi {} -p {} -o {} -t {} '
+                        '-s {} -sn {} -si {} -c {} -r {} -nc {}').format(
+                              master_file, subswath, master_burst_nr, master_id, 
+                              proc_file, out_dir, temp_dir, 
+                              slave_file, slave_burst_nr, slave_id, 
+                              coherence, False, ncores)                                
                 
-                if end is True:
-                    ard['coherence'] = False
-                    slave_file, slave_burst_nr, slave_id = None, None, None
+                # get path to graph
+                rootpath = imp.find_module('ost')[1]
+                python_exe = opj(rootpath, 's1', 'burst_to_ard.py')
+                with open(exec_file, 'a') as exe:
+                    exe.write('{} {} \n'.format(python_exe, args))'''
 
-                else:
-                    # read slave burst
-                    slave_burst = burst_inventory[
-                            (burst_inventory.Date == slave_date) &
-                            (burst_inventory.bid == burst)]
-    
-                    slave_scene = S1Scene(slave_burst.SceneID.values[0])
-    
-                    # get path to slave file
-                    slave_file = slave_scene.get_path(download_dir,
-                                                      data_mount)
-    
-                    # burst number in slave file (subswath is same)
-                    slave_burst_nr = slave_burst.BurstNr.values[0]
-    
-                    # outfile name
-                    slave_id = '{}_{}'.format(slave_date,
-                                              slave_burst.bid.values[0])
-    
-                # just write command into a textfile
-                if exec_file:
-                    # remove older files in case they exist - need a better way than this as we would like to append to
-                    # a text file which can then be read line by line
-                    #if os.path.isfile(exec_file):
-                    #    os.remove(exec_file)
-                    # construct command arguments
-                    '''args = ('-m {} -ms {} -mn {} -mi {} -p {} -o {} -t {} '
-                            '-s {} -sn {} -si {} -c {} -r {} -nc {}').format(
-                                  master_file, subswath, master_burst_nr, master_id, 
-                                  proc_file, out_dir, temp_dir, 
-                                  slave_file, slave_burst_nr, slave_id, 
-                                  coherence, False, ncores)                                
-                    
-                    # get path to graph
-                    rootpath = imp.find_module('ost')[1]
-                    python_exe = opj(rootpath, 's1', 'burst_to_ard.py')
-                    with open(exec_file, 'a') as exe:
-                        exe.write('{} {} \n'.format(python_exe, args))'''
+                parallel_temp_dir=temp_dir+'/temp_'+burst+'_'+date
+                os.makedirs(parallel_temp_dir, exist_ok=True)
 
-                    parallel_temp_dir=temp_dir+'/temp_'+burst+'_'+date
-                    os.makedirs(parallel_temp_dir, exist_ok=True)
+                args = ('{};{};{};{};{};{};{};{};{};{};{};{};{}').format(
+                              master_file, subswath, master_burst_nr, master_id,
+                              proc_file, out_dir, parallel_temp_dir,
+                              slave_file, slave_burst_nr, slave_id,
+                              False, ncores)
 
-                    args = ('{};{};{};{};{};{};{};{};{};{};{};{};{}').format(
-                                  master_file, subswath, master_burst_nr, master_id,
-                                  proc_file, out_dir, parallel_temp_dir,
-                                  slave_file, slave_burst_nr, slave_id,
-                                  False, ncores)
+                # get path to graph
+                #rootpath = imp.find_module('ost')[1]
+                #python_exe = opj(rootpath, 's1', 'burst_to_ard.py')
+                exec_burst_to_ard=exec_file+'_burst_to_ard.txt'
+                with open(exec_burst_to_ard, 'a') as exe:
+                    exe.write('{}\n'.format(args))
 
-                    # get path to graph
-                    #rootpath = imp.find_module('ost')[1]
-                    #python_exe = opj(rootpath, 's1', 'burst_to_ard.py')
-                    exec_burst_to_ard=exec_file+'_burst_to_ard.txt'
-                    with open(exec_burst_to_ard, 'a') as exe:
-                        exe.write('{}\n'.format(args))
 
-                
-                # run the command      
-                else:
-                    # run routine
-                    burst_to_ard.burst_to_ard(
-                         master_file=master_file,
-                         swath=subswath,
-                         master_burst_nr=master_burst_nr,
-                         master_burst_id=master_id,
-                         proc_file=proc_file,
-                         out_dir=out_dir,
-                         temp_dir=temp_dir,
-                         slave_file=slave_file,
-                         slave_burst_nr=slave_burst_nr,
-                         slave_burst_id=slave_id,
-                         remove_slave_import=False,
-                        ncores = ncores)
+            # run the command
+            else:
+                # run routine
+                burst_to_ard.burst_to_ard(
+                     master_file=master_file,
+                     swath=subswath,
+                     master_burst_nr=master_burst_nr,
+                     master_burst_id=master_id,
+                     proc_file=proc_file,
+                     out_dir=out_dir,
+                     temp_dir=temp_dir,
+                     slave_file=slave_file,
+                     slave_burst_nr=slave_burst_nr,
+                     slave_burst_id=slave_id,
+                     remove_slave_import=False,
+                    ncores = ncores)
 
 
 def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,

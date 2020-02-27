@@ -358,8 +358,8 @@ def burst_to_ard(master_file,
         ard = ard_params['single_ARD']
 
     # check if somethings already processed
-    if (not os.path.exists(opj(out_dir, '.pol.processed')) and
-            not os.path.exists(opj(out_dir, '.bs.processed')) and
+    if (not os.path.exists(opj(out_dir, '.pol.processed')) or
+            not os.path.exists(opj(out_dir, '.bs.processed')) or
             not os.path.exists(opj(out_dir, '.coh.processed'))):
 
         # ---------------------------------------------------------------------
@@ -416,6 +416,9 @@ def burst_to_ard(master_file,
                                     '{}.dim'.format(slave_import),
                                     ard, temp_dir, out_dir,
                                     master_burst_id, remove_slave_import, ncores)
+
+            # remove master import
+            h.delete_dimap(master_import)
 
 
 if __name__ == "__main__":

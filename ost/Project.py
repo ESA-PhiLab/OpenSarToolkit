@@ -523,9 +523,6 @@ class Sentinel1_SLCBatch(Sentinel1):
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
-
         # check and retry function
         if exec_file:
             [os.remove(n) for n in glob.glob(exec_file + '*') if
@@ -540,27 +537,16 @@ class Sentinel1_SLCBatch(Sentinel1):
                                      ncores)
 
         else:
-            i = 0
-            while len(self.burst_inventory) > nr_of_processed:
 
-                burst.burst_to_ard_batch(self.burst_inventory,
-                                         self.download_dir,
-                                         self.processing_dir,
-                                         self.temp_dir,
-                                         self.proc_file,
-                                         self.data_mount,
-                                         exec_file,
-                                         ncores)
+            burst.burst_to_ard_batch(self.burst_inventory,
+                                     self.download_dir,
+                                     self.processing_dir,
+                                     self.temp_dir,
+                                     self.proc_file,
+                                     self.data_mount,
+                                     exec_file,
+                                     ncores)
 
-                nr_of_processed = len(
-                    glob.glob(
-                        opj(self.processing_dir, '*', '*', '.processed')))
-
-                i += 1
-
-                # not more than 5 trys
-                if i == 5:
-                    break
 
         # do we delete the downloads here?
         if timeseries or timescan:
