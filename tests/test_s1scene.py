@@ -14,6 +14,7 @@ def test_s1scene_metadata(s1_id):
                     'Start_Time': '040550',
                     'Stop_Time': '040619',
                     'Absolute_Orbit': '002660',
-                    'Relative_Orbit': '138'}
+                    'Relative_Orbit': '138'
+                    }
     assert control_dict == s1.info()
     assert s1.scene_id == control_id
