@@ -65,6 +65,7 @@ python3 grd_to_ard.py -p /path/to/scene -r 20 -p RTC -l True -s False
 import os
 import sys
 import importlib
+import logging
 import json
 import glob
 import shutil
@@ -72,21 +73,18 @@ import time
 import rasterio
 import numpy as np
 import gdal
+from retry import retry
 
 from os.path import join as opj
+
 from ost.snap_common import common
 from ost.helpers import helpers as h, raster as ras
+from ost.errors import GPTRuntimeError
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
+logger = logging.getLogger(__name__)
 
 
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product
 
@@ -128,14 +126,14 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully imported product')
+        return return_code
     else:
-        print(' ERROR: Frame import exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        sys.exit(102)
-
-    return return_code
+        raise GPTRuntimeError('ERROR: Frame import exited with an error {}. \
+                See {} for Snap Error output'.format(return_code, logfile)
+                              )
 
 
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_frame_import_subset(infile, outfile, georegion,
                              logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a subset of single Sentinel-1 GRD product
@@ -184,13 +182,14 @@ def _grd_frame_import_subset(infile, outfile, georegion,
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully imported product')
+        return return_code
     else:
-        print(' ERROR: Frame import exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError('ERROR: Frame import exited with an error {}. \
+                See {} for Snap Error output'.format(return_code, logfile)
+                              )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP's slice assembly routine
 
@@ -222,13 +221,15 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully assembled products')
+        return return_code
     else:
-        print(' ERROR: Slice Assembly exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Slice Assembly exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_subset(infile, outfile, logfile, region):
     '''A wrapper around SNAP's subset routine
 
@@ -261,13 +262,14 @@ def _grd_subset(infile, outfile, logfile, region):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully subsetted product')
+        return return_code
     else:
-        print(' ERROR: Subsetting exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError('ERROR: Subsetting exited with an error {}.  \
+                See {} for Snap Error output'.format(return_code, logfile)
+                              )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_subset_georegion(infile, outfile, logfile, georegion):
     '''A wrapper around SNAP's subset routine
 
@@ -300,13 +302,15 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully subsetted product.')
+        return return_code
     else:
-        print(' ERROR: Subsetting exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Subsetting exited with an error {}.  See {} for Snap '
+            'Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, logger=logger)
 def _grd_remove_border(infile):
     '''An OST function to remove GRD border noise from Sentinel-1 data
 
@@ -411,6 +415,7 @@ def _grd_remove_border(infile):
     h.timer(currtime)
 
 
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'):
     '''A wrapper around SNAP's radiometric calibration
 
@@ -483,13 +488,15 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully calibrated product')
+        return return_code
     else:
-        print(' ERROR: Backscatter calibration exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Backscatter calibration exited with an error {}.  '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
     '''A wrapper around SNAP's Lee-Sigma Speckle Filter
 
@@ -545,13 +552,15 @@ def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
     # hadle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully applied speckle filtering.')
+        return return_code
     else:
-        print(' ERROR: Speckle Filtering exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Speckle Filtering exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_to_db(infile, outfile, logfile):
     '''A wrapper around SNAP's linear to db routine
 
@@ -581,13 +590,15 @@ def _grd_to_db(infile, outfile, logfile):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully converted product to dB-scale.')
+        return return_code
     else:
-        print(' ERROR: Linear to dB conversion exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Linear to dB conversion exited with an error {}.  '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Terrain Correction routine
 
@@ -646,13 +657,15 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully terrain corrected product')
+        return return_code
     else:
-        print(' ERROR: Terain Correction exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Terain Correction exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
                                 dem='SRTM 1Sec HGT'):
     '''A wrapper around SNAP's Terrain Correction routine
@@ -702,13 +715,15 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully imported product')
+        return return_code
     else:
-        print(' ERROR: Terain Correction exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Terain Correction exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
+@retry(tries=3, delay=1, exceptions=GPTRuntimeError, logger=logger)
 def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
@@ -763,11 +778,12 @@ def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully created a Layover/Shadow mask')
+        return return_code
     else:
-        print(' ERROR: Layover/Shadow mask creation exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        
-    return return_code
+        raise GPTRuntimeError(
+            'ERROR: Layover/Shadow mask creation exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
 
 def grd_to_ard(filelist, 
