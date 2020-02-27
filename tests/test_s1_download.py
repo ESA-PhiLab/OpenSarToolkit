@@ -41,9 +41,9 @@ def test_esa_scihub_connection(s1_grd_notnr_ost_product):
     assert uuid == control_uuid
 
 
-# @pytest.mark.skipif("TRAVIS" in os.environ and os.environ["TRAVIS"] == "true",
-#                     reason="Skipping this test on Travis CI."
-#                     )
+@pytest.mark.skipif("TRAVIS" in os.environ and os.environ["TRAVIS"] == "true",
+                    reason="Skipping this test on Travis CI."
+                    )
 def test_esa_scihub_download(s1_grd_notnr_ost_product, mirror=1):
     herbert_uname = HERBERT_USER['uname']
     herbert_password = HERBERT_USER['pword']
@@ -66,6 +66,9 @@ def test_esa_scihub_download(s1_grd_notnr_ost_product, mirror=1):
         assert return_code is None
 
 
+@pytest.mark.skipif("TRAVIS" in os.environ and os.environ["TRAVIS"] == "true",
+                    reason="Skipping this test on Travis CI."
+                    )
 def test_asf_download(s1_grd_notnr_ost_product, mirror=2):
     herbert_uname = HERBERT_USER['uname']
     herbert_password = HERBERT_USER['asf_pword']
