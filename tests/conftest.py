@@ -98,16 +98,16 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
             os.path.join(download_path, scene_id+'.zip.downloaded')
         )
         shutil.copy(s1_slc_master, download_path)
-        shutil.copy(
-            os.path.join(
-                OST_ROOT, 'graphs', 'ard_json', '.'.join(
-                    [s1_batch.product_type.lower(), 'ost_plus', 'json']
-                )
-            ), s1_batch.project_dir
-        )
-        shutil.move(os.path.join(s1_batch.project_dir, '.'.join(
-            [s1_batch.product_type.lower(), 'ost_plus', 'json']
-        )), s1_batch.project_dir)
+        # shutil.copy(
+        #     os.path.join(
+        #         OST_ROOT, 'graphs', 'ard_json', '.'.join(
+        #             [s1_batch.product_type.lower(), 'ost_plus', 'json']
+        #         )
+        #     ), s1_batch.project_dir
+        # )
+        # shutil.move(os.path.join(s1_batch.project_dir, '.'.join(
+        #     [s1_batch.product_type.lower(), 'ost_plus', 'json']
+        # )), s1_batch.project_dir)
         product.get_path(download_dir=s1_batch.download_dir)
         s1_batch.search(uname=HERBERT_USER['uname'],
                         pword=HERBERT_USER['pword']
