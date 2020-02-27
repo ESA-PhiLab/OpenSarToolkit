@@ -17,7 +17,7 @@ def test_burst_import(s1_slc_master,
             continue
         return_code = burst_import(
             infile=s1_slc_master,
-            out_prefix=os.path.join(
+            outfile=os.path.join(
                 master_project_class.processing_dir, scene_id+'_import'
             ),
             logfile=logger,
