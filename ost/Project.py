@@ -443,7 +443,7 @@ class Sentinel1_SLCBatch(Sentinel1):
         if not ard_type:
             with open(self.proc_file, 'r') as ard_file:
                 self.ard_parameters = json.load(ard_file)[
-                    'processing parameters']
+                    'processing_parameters']
         # when ard_type is defined we read from template
         else:
             # get path to graph
@@ -458,17 +458,17 @@ class Sentinel1_SLCBatch(Sentinel1):
 
             with open(template_file, 'r') as ard_file:
                 self.ard_parameters = json.load(ard_file)[
-                    'processing parameters']
+                    'processing_parameters']
 
         with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
+            json.dump(dict({'processing_parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
 
     def update_ard_parameters(self):
 
         with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
+            json.dump(dict({'processing_parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
 
@@ -486,16 +486,16 @@ class Sentinel1_SLCBatch(Sentinel1):
             dem_nodata = file.nodata
 
         # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        img_res = self.ard_parameters['single_ARD']['dem']['image_resampling']
+        dem_res = self.ard_parameters['single_ARD']['dem']['dem_resampling']
 
         # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM',
-                         'dem file': dem_file,
-                         'dem nodata': dem_nodata,
-                         'dem resampling': dem_res,
-                         'image resampling': img_res})
-        self.ard_parameters['single ARD']['dem'] = dem_dict
+        dem_dict = dict({'dem_name': 'External DEM',
+                         'dem_file': dem_file,
+                         'dem_nodata': dem_nodata,
+                         'dem_resampling': dem_res,
+                         'image_resampling': img_res})
+        self.ard_parameters['single_ARD']['dem'] = dem_dict
 
     def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
                       overwrite=False, exec_file=None, cut_to_aoi=False,
@@ -517,7 +517,7 @@ class Sentinel1_SLCBatch(Sentinel1):
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
             print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
                   ' DEM instead.')
-            self.ard_parameters['single ARD']['dem'] = 'ASTER 1sec GDEM'
+            self.ard_parameters['single_ARD']['dem'] = 'ASTER 1sec GDEM'
 
         # set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
@@ -653,7 +653,7 @@ class Sentinel1_SLCBatch(Sentinel1):
                 glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
 
             i = 0
-            if self.ard_parameters['single ARD'][
+            if self.ard_parameters['single_ARD'][
                 'product type'] == 'Coherence_only':
                 i = 0
 
@@ -1036,12 +1036,12 @@ class Sentinel1_GRDBatch(Sentinel1):
             ard_type.replace(' ', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing parameters']
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
 
     def update_ard_parameters(self):
 
         with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
+            json.dump(dict({'processing_parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
 

@@ -30,7 +30,7 @@ def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
     if not os.path.exists(opj(out_dir, '.pol.processed')):
 
         # temp dir for intermediate files
-        with TemporaryDirectory(temp_dir) as temp:
+        with TemporaryDirectory(prefix=temp_dir + '/') as temp:
 
             # -------------------------------------------------------
             # 1 Polarimetric Decomposition
@@ -43,15 +43,15 @@ def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
 
             # run polarimetric decomposition
             slc.ha_alpha(
-                import_file, out_haa, haa_log, ard['remove pol speckle'],
-                ard['pol speckle filter'], ncores
+                import_file, out_haa, haa_log, ard['remove_pol_speckle'],
+                ard['pol_speckle_filter'], ncores
             )
 
             # -------------------------------------------------------
             # 2 Geocoding
 
             # create namespace for temporary geocoded product
-            out_htc = opj(temp_dir, '{}_pol'.format(burst_id))
+            out_htc = opj(temp, '{}_pol'.format(burst_id))
 
             # create namespace for geocoding log
             haa_tc_log = opj(out_dir, '{}_haa_tc.err_log'.format(burst_id))
@@ -84,7 +84,7 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
     
     Args:
         import_file: 
-        ard: 
+        proc_file:
         temp_dir: 
         out_dir: 
         burst_id: 
@@ -96,11 +96,11 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
 
     # load ards
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
 
     # temp dir for intermediate files
-    with TemporaryDirectory(temp_dir) as temp:
+    with TemporaryDirectory(prefix=temp_dir + '/') as temp:
         # ---------------------------------------------------------------------
         # 1 Calibration
 
@@ -118,7 +118,7 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
 
         # ---------------------------------------------------------------------
         # 2 Speckle filtering
-        if ard['remove speckle']:
+        if ard['remove_speckle']:
 
             # create namespace for temporary speckle filtered product
             speckle_import = opj(temp, '{}_speckle_import'.format(burst_id))
@@ -129,7 +129,7 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
             # run speckle filter on calibrated input
             common.speckle_filter(
                 '{}.dim'.format(out_cal), speckle_import, speckle_log,
-                ard['speckle filter'], ncores
+                ard['speckle_filter'], ncores
             )
 
             # remove input
@@ -140,7 +140,7 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
 
         # ---------------------------------------------------------------------
         # 3 dB scaling
-        if ard['to db']:
+        if ard['to_db']:
 
             # create namespace for temporary db scaled product
             out_db = opj(temp, '{}_cal_db'.format(burst_id))
@@ -185,7 +185,7 @@ def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
 
         # ---------------------------------------------------------------------
         # 9 Layover/Shadow mask
-        if ard['create ls mask']:
+        if ard['create_ls_mask']:
 
             # create namespace for temporary LS map product
             out_ls = opj(temp, '{}_LS'.format(burst_id))
@@ -234,7 +234,7 @@ def create_coherence_layers(master_import,
 
     """
 
-    with TemporaryDirectory(temp_dir) as temp:
+    with TemporaryDirectory(prefix=temp_dir + '/') as temp:
 
         # ---------------------------------------------------------------
         # 1 Co-registration
@@ -270,12 +270,9 @@ def create_coherence_layers(master_import,
         # create namespace for coherence log
         coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
 
-        # get relevant polarisations
-        coh_polars = ard['coherence bands'].replace(' ', '')
-
         # run coherence estimation
         slc.coherence(
-            '{}.dim'.format(out_coreg), out_coh, coh_log, coh_polars, ncores
+            '{}.dim'.format(out_coreg), out_coh, coh_log, ard, ncores
         )
 
         # remove coreg tmp files
@@ -357,8 +354,8 @@ def burst_to_ard(master_file,
 
     # load ards
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
 
     # check if somethings already processed
     if (not os.path.exists(opj(out_dir, '.pol.processed')) and
@@ -387,7 +384,7 @@ def burst_to_ard(master_file,
                 not os.path.exists(opj(out_dir, '.pol.processed'))):
 
             create_polarimetric_layers(
-                '{}'.dim.format(master_import), ard, temp_dir, out_dir,
+                '{}.dim'.format(master_import), ard, temp_dir, out_dir,
                 master_burst_id, ncores
             )
 
@@ -395,7 +392,7 @@ def burst_to_ard(master_file,
                 not os.path.exists(opj(out_dir, '.bs.processed'))):
 
             create_backscatter_layers(
-                '{}'.dim.format(master_import), ard, temp_dir, out_dir,
+                '{}.dim'.format(master_import), proc_file, temp_dir, out_dir,
                 master_burst_id, ncores
             )
 
@@ -415,8 +412,8 @@ def burst_to_ard(master_file,
                 h.remove_folder_content(temp_dir)
                 return return_code
 
-            create_coherence_layers('{}'.dim.format(master_import),
-                                    '{}'.dim.format(slave_import),
+            create_coherence_layers('{}.dim'.format(master_import),
+                                    '{}.dim'.format(slave_import),
                                     ard, temp_dir, out_dir,
                                     master_burst_id, remove_slave_import, ncores)
 

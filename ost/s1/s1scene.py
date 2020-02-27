@@ -722,7 +722,7 @@ class Sentinel1_Scene():
                 ard_type.replace(' ', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing parameters']
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
 
 
     def set_external_dem(self, dem_file):
@@ -739,21 +739,21 @@ class Sentinel1_Scene():
             dem_nodata = file.nodata
 
         # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        img_res = self.ard_parameters['single ARD']['dem']['image_resampling']
+        dem_res = self.ard_parameters['single ARD']['dem']['dem_resampling']
 
         # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM',
-                         'dem file': dem_file,
-                         'dem nodata': dem_nodata,
-                         'dem resampling': dem_res ,
-                         'image resampling': img_res})
-        self.ard_parameters['single ARD']['dem'] = dem_dict
+        dem_dict = dict({'dem_name': 'External DEM',
+                         'dem_file': dem_file,
+                         'dem_nodata': dem_nodata,
+                         'dem_resampling': dem_res ,
+                         'image_resampling': img_res})
+        self.ard_parameters['single_ARD']['dem'] = dem_dict
 
     def update_ard_parameters(self):
 
         with open (self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
+            json.dump(dict({'processing_parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
 
@@ -798,7 +798,7 @@ class Sentinel1_Scene():
 
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
-        if self.ard_parameters['single ARD']['to db']:
+        if self.ard_parameters['single_ARD']['to_db']:
             to_db = False
         else:
             to_db = True
@@ -810,7 +810,7 @@ class Sentinel1_Scene():
 
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
-        if self.ard_parameters['single ARD']['to db']:
+        if self.ard_parameters['single_ARD']['to_db']:
             to_db = False
         else:
             to_db = True

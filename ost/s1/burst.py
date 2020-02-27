@@ -173,8 +173,10 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
 
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
+
+    coherence = ard['coherence']
 
     for burst in burst_inventory.bid.unique():      # ***
 
@@ -190,7 +192,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             master_date = dates[idx]
             # we set this for handling the end of the time-series
             end = False
-            coherence = ard['coherence']
+            ard['coherence'] = coherence
 
             # try to get slave date
             try:
@@ -199,7 +201,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                 end = True
                 print(' INFO: Reached the end of the time-series.'
                       ' Therefore no coherence calculation is done.')
-                if ard['product type'] == 'Coherence_only':
+                if ard['product_type'] == 'Coherence_only':
                     continue
             else:
                 end = False
@@ -231,7 +233,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             else:
                 
                 if end is True:
-                    coherence = False
+                    ard['coherence'] = False
                     slave_file, slave_burst_nr, slave_id = None, None, None
 
                 else:
@@ -280,7 +282,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                                   master_file, subswath, master_burst_nr, master_id,
                                   proc_file, out_dir, parallel_temp_dir,
                                   slave_file, slave_burst_nr, slave_id,
-                                  coherence, False, ncores)
+                                  False, ncores)
 
                     # get path to graph
                     #rootpath = imp.find_module('ost')[1]
@@ -304,18 +306,18 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                          slave_file=slave_file,
                          slave_burst_nr=slave_burst_nr,
                          slave_burst_id=slave_id,
-                         coherence=coherence,
-                         remove_slave_import=False)
-            
-            
+                         remove_slave_import=False,
+                        ncores = ncores)
+
+
 def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
                              proc_file, exec_file=None, ncores=os.cpu_count()):
 
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
-        ard_mt = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
+        ard_mt = ard_params['single_ARD']
         
     # create extents
     for burst in burst_inventory.bid.unique():      # ***
@@ -353,7 +355,7 @@ def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,
             print(' INFO: Creating common extent mask for burst {}'.format(burst))
             common_extent.mt_extent(list_of_bursts, extent, temp_dir, -0.0018)
       
-    if ard['create ls mask'] or ard['apply ls mask']: 
+    if ard['create_ls_mask'] or ard['apply_ls_mask']: 
         
         # create layover
         for burst in burst_inventory.bid.unique():      # ***
@@ -460,15 +462,15 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
 
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series ARD']
-        ard_tscan = ard_params['time-scan ARD']
+        ard_tscan = ard_params['time-scan_ARD']
     
     
     # get the db scaling right
-    to_db = ard['to db']
-    if ard['to db'] or ard_mt['to db']:
+    to_db = ard['to_db']
+    if ard['to_db'] or ard_mt['to_db']:
         to_db = True
     
     # a products list
@@ -477,7 +479,7 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
                     'pol.Entropy', 'pol.Anisotropy', 'pol.Alpha']
     
     # get datatype right
-    dtype_conversion = True if ard_mt['dtype output'] != 'float32' else False
+    dtype_conversion = True if ard_mt['dtype_output'] != 'float32' else False
     
     for burst in burst_inventory.bid.unique():   # ***
 
@@ -533,7 +535,7 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
 
                 args = ('{};{};{};{};{};{};{}').format(
                     timeseries, timescan_prefix, ard_tscan['metrics'],
-                    rescale, to_power, ard_tscan['remove outliers'], datelist)
+                    rescale, to_power, ard_tscan['remove_outliers'], datelist)
 
                 # get path to graph
                 # rootpath = imp.find_module('ost')[1]
@@ -550,7 +552,7 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
                     ard_tscan['metrics'],
                     rescale_to_datatype=rescale,
                     to_power=to_power,
-                    outlier_removal=ard_tscan['remove outliers'], 
+                    outlier_removal=ard_tscan['remove_outliers'], 
                     datelist=datelist
             )
         
@@ -675,8 +677,8 @@ def mosaic_timescan(burst_inventory, processing_dir, temp_dir, proc_file,
     
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        metrics = ard_params['time-scan ARD']['metrics']
+        ard_params = json.load(ard_file)['processing_parameters']
+        metrics = ard_params['time-scan_ARD']['metrics']
 
     if 'harmonics' in metrics:
         metrics.remove('harmonics')
