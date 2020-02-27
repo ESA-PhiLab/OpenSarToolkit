@@ -84,7 +84,7 @@ from ost.errors import GPTRuntimeError
 logger = logging.getLogger(__name__)
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a single Sentinel-1 GRD product
 
@@ -134,7 +134,7 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
                               )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_frame_import_subset(infile, outfile, georegion,
                              logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP import of a subset of single Sentinel-1 GRD product
@@ -190,7 +190,7 @@ def _grd_frame_import_subset(infile, outfile, georegion,
                               )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
     '''A wrapper of SNAP's slice assembly routine
 
@@ -230,7 +230,7 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_subset(infile, outfile, logfile, region):
     '''A wrapper around SNAP's subset routine
 
@@ -270,7 +270,7 @@ def _grd_subset(infile, outfile, logfile, region):
                               )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_subset_georegion(infile, outfile, logfile, georegion):
     '''A wrapper around SNAP's subset routine
 
@@ -416,7 +416,7 @@ def _grd_remove_border(infile):
     h.timer(currtime)
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'):
     '''A wrapper around SNAP's radiometric calibration
 
@@ -497,7 +497,7 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
     '''A wrapper around SNAP's Lee-Sigma Speckle Filter
 
@@ -561,7 +561,7 @@ def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_to_db(infile, outfile, logfile):
     '''A wrapper around SNAP's linear to db routine
 
@@ -599,7 +599,7 @@ def _grd_to_db(infile, outfile, logfile):
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Terrain Correction routine
 
@@ -666,7 +666,7 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
                                 dem='SRTM 1Sec HGT'):
     '''A wrapper around SNAP's Terrain Correction routine
@@ -724,7 +724,7 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
     '''A wrapper around SNAP's Layover/Shadow mask routine
 

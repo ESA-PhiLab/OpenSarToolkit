@@ -11,7 +11,7 @@ from ost.helpers import helpers as h
 logger = logging.getLogger(__name__)
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',
             ncores=os.cpu_count()):
     '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
@@ -64,7 +64,7 @@ def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
               pol_speckle_dict=None, ncores=os.cpu_count()):
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
@@ -136,7 +136,7 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
                               )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _calibration(infile, outfile, logfile, product_type='GTC-gamma0',
                  ncores=os.cpu_count()):
     '''A wrapper around SNAP's radiometric calibration
@@ -257,7 +257,7 @@ def _calibration(infile, outfile, logfile, product_type='GTC-gamma0',
 #    return return_code
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     '''A wrapper around SNAP's back-geocoding co-registration routine
 
@@ -322,7 +322,7 @@ def _coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
                               )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1, retry_on_exception=GPTRuntimeError)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV',
                ncores=os.cpu_count()):
     '''A wrapper around SNAP's coherence routine
