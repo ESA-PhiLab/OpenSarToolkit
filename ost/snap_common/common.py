@@ -3,13 +3,15 @@
 # import stdlib modules
 import os
 import importlib
+from retrying import retry
 
+from ost.errors import GPTRuntimeError
 from os.path import join as opj
 from ost.helpers import helpers as h
 
 
-
-def _calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
 
     # transform calibration parameter to snap readable
     sigma0, beta0, gamma0 = 'false', 'false', 'false'
@@ -49,8 +51,9 @@ def _calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
 
     return return_code
 
-  
-def _multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count()):
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count()):
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
@@ -81,10 +84,11 @@ def _multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_coun
 
     return return_code
 
-            
-def _speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()):
 
-    '''A wrapper around SNAP's Lee-Sigma Speckle Filter
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()):
+
+    """ Wrapper around SNAP's peckle Filter function
 
     This function takes OST imported Sentinel-1 product and applies
     a standardised version of the Lee-Sigma Speckle Filter with
@@ -98,7 +102,7 @@ def _speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count(
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
         ncores (int): number of cpus used - useful for parallel processing
-    '''
+    """
 
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
@@ -138,72 +142,16 @@ def _speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count(
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully applied speckle filtering.')
+        print(' INFO: Successfully applied speckle filtering.')
     else:
-        print(' ERROR: Speckle Filtering exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-
-    return return_code
-
-
-def _terrain_flattening(infile, outfile, logfile, dem_dict, ncores=os.cpu_count()):
-
-    '''A wrapper around SNAP's terrain flattening
-
-    This function takes OST calibrated Sentinel-1 SLC product and applies
-    the terrain flattening to correct for radiometric distortions along slopes
-
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        ncores (int): number of cpus used - useful for parallel processing
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
-
-    print(' INFO: Correcting for the illumination along slopes'
-          ' (Terrain Flattening).'
-    )
-    
-    if not dem_dict['dem file']:
-        dem_dict['dem file'] = " "
-        
-        
-    command = ('{} Terrain-Flattening -x -q {}'
-               ' -PadditionalOverlap=0.15'
-               ' -PoversamplingMultiple=1.5'
-               ' -PdemName=\'{}\''
-               ' -PexternalDEMFile=\'{}\''
-               ' -PexternalDEMNoDataValue=\'{}\''
-               ' -PexternalDEMApplyEGM=\'{}\''
-               ' -PdemResamplingMethod=\'{}\''
-               ' -t {} {}'.format(
-                   gpt_file, ncores,
-                   dem_dict['dem name'], dem_dict['dem file'],
-                   dem_dict['dem nodata'], 
-                   str(dem_dict['egm correction']).lower(),
-                   dem_dict['dem resampling'],
-                   outfile, infile)
-    )
-    
-    return_code = h.run_command(command, logfile)
-
-    if return_code == 0:
-        print(' INFO: Succesfully applied the terrain flattening.')
-    else:
-        print(' ERROR: Terrain Flattening exited with an error.'
-              ' See {} for Snap Error output'.format(logfile)
+        raise GPTRuntimeError(
+            'ERROR: Speckle filtering exited with an error {}. See {} for '
+            'Snap Error output'.format(return_code, logfile)
         )
-        
-    return return_code
 
-        
-def _linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
     '''A wrapper around SNAP's linear to db routine
 
     This function takes an OST calibrated Sentinel-1 product
@@ -234,13 +182,14 @@ def _linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
     if return_code == 0:
         print(' INFO: Succesfully converted product to dB-scale.')
     else:
-        print(' ERROR: Linear to dB conversion exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: dB Scaling exited with an error {}. See {} for '
+            'Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-
-def _terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
 
     '''A wrapper around SNAP's Terrain Correction routine
 
@@ -298,12 +247,14 @@ def _terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=o
     if return_code == 0:
         print(' INFO: Succesfully terrain corrected product')
     else:
-        print(' ERROR: Terain Correction exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'ERROR: Terrain Correction exited with an error {}. See {} for '
+            'Snap Error output'.format(return_code, logfile)
+        )
 
-    return return_code
 
-def _ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
 
     '''A wrapper around SNAP's Layover/Shadow mask routine
 
@@ -361,7 +312,7 @@ def _ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count
     if return_code == 0:
         print(' INFO: Succesfully created a Layover/Shadow mask')
     else:
-        print(' ERROR: Layover/Shadow mask creation exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        
-    return return_code
+        raise GPTRuntimeError(
+            'ERROR: Layover/Shadow mask creation exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )

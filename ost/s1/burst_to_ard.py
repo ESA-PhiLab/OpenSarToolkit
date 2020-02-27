@@ -10,71 +10,124 @@ from ost.s1 import slc_wrappers as slc
 
 
 def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
-                               master_burst_id, ncores):
+                               burst_id, ncores):
+    """ Pipeline for Dual-polarimetric decomosition
 
-    with TemporaryDirectory(temp_dir) as temp:
-        # create HAalpha file
-        out_haa = opj(temp, '{}_h'.format(master_burst_id))
-        haa_log = opj(out_dir, '{}_haa.err_log'.format(master_burst_id))
-        return_code = slc._ha_alpha(import_file,
-                                    out_haa, haa_log,
-                                    ard['remove pol speckle'],
-                                    ard['pol speckle filter'],
-                                    ncores
-                                    )
+    Args:
+        import_file:
+        ard:
+        temp_dir:
+        out_dir:
+        burst_id:
+        ncores:
 
-        # delete files in case of error
-        if return_code != 0:
-            return return_code
+    Returns:
 
-        # geo code HAalpha
-        out_htc = opj(temp_dir, '{}_pol'.format(master_burst_id))
-        haa_tc_log = opj(out_dir, '{}_haa_tc.err_log'.format(
-            master_burst_id))
-        return_code = common._terrain_correction(
-            '{}.dim'.format(out_haa), out_htc, haa_tc_log,
-            ard['resolution'], ard['dem'], ncores
-        )
-
-        # remove HAalpha tmp files
-        h.delete_dimap(out_haa)
-
-        # last check on the output files
-        return_code = h.check_out_dimap(out_htc)
-        if return_code != 0:
-            return return_code
-
-        # move to final destination
-        h.move_dimap(out_htc, opj(out_dir, '{}_pol'.format(master_burst_id)))
+    """
 
 
-def create_backscatter_layers(import_file, ard, temp_dir, out_dir,
-                              master_burst_id, ncores):
+    # check if already processed
+    if not os.path.exists(opj(out_dir, '.pol.processed')):
 
+        # temp dir for intermediate files
+        with TemporaryDirectory(temp_dir) as temp:
+
+            # -------------------------------------------------------
+            # 1 Polarimetric Decomposition
+
+            # create namespace for temporary decomposed product
+            out_haa = opj(temp, '{}_h'.format(burst_id))
+
+            # create namespace for decompose log
+            haa_log = opj(out_dir, '{}_haa.err_log'.format(burst_id))
+
+            # run polarimetric decomposition
+            slc.ha_alpha(
+                import_file, out_haa, haa_log, ard['remove pol speckle'],
+                ard['pol speckle filter'], ncores
+            )
+
+            # -------------------------------------------------------
+            # 2 Geocoding
+
+            # create namespace for temporary geocoded product
+            out_htc = opj(temp_dir, '{}_pol'.format(burst_id))
+
+            # create namespace for geocoding log
+            haa_tc_log = opj(out_dir, '{}_haa_tc.err_log'.format(burst_id))
+
+            # run geocoding
+            common.terrain_correction(
+                '{}.dim'.format(out_haa), out_htc, haa_tc_log,
+                ard['resolution'], ard['dem'], ncores
+            )
+
+            # last check on the output files
+            try:
+                h.check_out_dimap(out_htc)
+            except ValueError:
+                pass
+
+            # move to final destination
+            h.move_dimap(
+                out_htc, opj(out_dir, '{}_pol'.format(burst_id))
+            )
+
+            # write out check file for tracking that it is processed
+            with open(opj(out_dir, '.pol.processed'), 'w') as file:
+                file.write('passed all tests \n')
+
+
+def create_backscatter_layers(import_file, proc_file, temp_dir, out_dir,
+                              burst_id, ncores):
+    """
+    
+    Args:
+        import_file: 
+        ard: 
+        temp_dir: 
+        out_dir: 
+        burst_id: 
+        ncores: 
+
+    Returns:
+
+    """
+
+    # load ards
+    with open(proc_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing parameters']
+        ard = ard_params['single ARD']
+
+    # temp dir for intermediate files
     with TemporaryDirectory(temp_dir) as temp:
         # ---------------------------------------------------------------------
         # 1 Calibration
-        out_cal = opj(temp_dir, '{}_cal'.format(master_burst_id))
-        cal_log = opj(out_dir, '{}_cal.err_log'.format(master_burst_id))
-        return_code = slc._calibration(
-            import_file, out_cal, cal_log, ard['product type'], ncores)
 
-        # delete output if command failed for some reason and return
-        if return_code != 0:
-            # raise RuntimeError
-            return return_code
+        # create namespace for temporary calibrated product
+        out_cal = opj(temp, '{}_cal'.format(burst_id))
+
+        # create namespace for calibrate log
+        cal_log = opj(out_dir, '{}_cal.err_log'.format(burst_id))
+
+        # run calibration on imported scene
+        slc.calibration(
+            import_file, out_cal, cal_log, proc_file,
+            region = '', ncores=ncores
+        )
 
         # ---------------------------------------------------------------------
-        # 4 Speckle filtering
+        # 2 Speckle filtering
         if ard['remove speckle']:
-            speckle_import = opj(
-                temp_dir, '{}_speckle_import'.format(master_burst_id)
-            )
-            speckle_log = opj(
-                out_dir, '{}_speckle.err_log'.format(master_burst_id)
-            )
 
-            return_code = common._speckle_filter(
+            # create namespace for temporary speckle filtered product
+            speckle_import = opj(temp, '{}_speckle_import'.format(burst_id))
+
+            # create namespace for speckle filter log
+            speckle_log = opj(out_dir, '{}_speckle.err_log'.format(burst_id))
+
+            # run speckle filter on calibrated input
+            common.speckle_filter(
                 '{}.dim'.format(out_cal), speckle_import, speckle_log,
                 ard['speckle filter'], ncores
             )
@@ -82,116 +135,125 @@ def create_backscatter_layers(import_file, ard, temp_dir, out_dir,
             # remove input
             h.delete_dimap(out_cal)
 
-            # delete output if command failed for some reason and return
-            if return_code != 0:
-                return return_code
-
-            # reset master_import for follwoing routine
+            # reset master_import for following routine
             out_cal = speckle_import
 
         # ---------------------------------------------------------------------
-        # 5 Terrain Flattening
-        if ard['product type'] == 'RTC-gamma0':
-            # define outfile
-            out_rtc = opj(temp_dir, '{}_rtc'.format(master_burst_id))
-            rtc_log = opj(out_dir, '{}_rtc.err_log'.format(
-                master_burst_id))
-            # do the TF
-            return_code = common._terrain_flattening(
-                '{}.dim'.format(out_cal), out_rtc, rtc_log, ard['dem'], ncores
+        # 3 dB scaling
+        if ard['to db']:
+
+            # create namespace for temporary db scaled product
+            out_db = opj(temp, '{}_cal_db'.format(burst_id))
+
+            # create namespace for db scaling log
+            db_log = opj(out_dir, '{}_cal_db.err_log'.format(burst_id))
+
+            # run db scaling on calibrated/speckle filtered input
+            common.linear_to_db(
+                '{}.dim'.format(out_cal), out_db, db_log, ncores
             )
 
             # remove tmp files
             h.delete_dimap(out_cal)
 
-            # delete output if command failed for some reason and return
-            if return_code != 0:
-                return return_code
-
-            # set out_rtc to out_cal for further processing
-            out_cal = out_rtc
-
-        # ---------------------------------------------------------------------
-        # 7 to dB scale
-        if ard['to db']:
-            out_db = opj(temp_dir, '{}_cal_db'.format(master_burst_id))
-            db_log = opj(out_dir, '{}_cal_db.err_log'.format(master_burst_id))
-            return_code = common._linear_to_db('{}.dim'.format(out_cal), out_db,
-                                               db_log, ncores)
-
-            # remove tmp files
-            h.delete_dimap(out_cal)
-
-            # delete output if command failed for some reason and return
-            if return_code != 0:
-                return return_code
-
-            # set out_cal to out_db for further processing
+           # set out_cal to out_db for further processing
             out_cal = out_db
 
         # ---------------------------------------------------------------------
-        # 8 Geocode backscatter
-        if ard['product type'] != "Coherence_only":
-            out_tc = opj(temp_dir, '{}_bs'.format(master_burst_id))
-            tc_log = opj(out_dir, '{}_bs_tc.err_log'.format(master_burst_id))
-            return_code = common._terrain_correction(
-                '{}.dim'.format(out_cal), out_tc, tc_log,
-                ard['resolution'], ard['dem'], ncores)
+        # 4 Geocoding
 
-            # last check on backscatter data
-            return_code = h.check_out_dimap(out_tc)
-            if return_code != 0:
-                h.delete_dimap(out_tc)
-                return return_code
+        # create namespace for temporary geocoded product
+        out_tc = opj(temp, '{}_bs'.format(burst_id))
 
-            # we move backscatter to final destination
-            h.move_dimap(out_tc, opj(out_dir, '{}_bs'.format(master_burst_id)))
+        # create namespace for geocoding log
+        tc_log = opj(out_dir, '{}_bs_tc.err_log'.format(burst_id))
+
+        # run terrain correction on calibrated/speckle filtered/db  input
+        common.terrain_correction(
+            '{}.dim'.format(out_cal), out_tc, tc_log,
+            ard['resolution'], ard['dem'], ncores
+        )
+
+        # check for validity of final backscatter product
+        try:
+            h.check_out_dimap(out_tc)
+        except ValueError:
+            pass
+
+        # move final backscatter product to actual output directory
+        h.move_dimap(out_tc, opj(out_dir, '{}_bs'.format(burst_id)))
 
         # ---------------------------------------------------------------------
         # 9 Layover/Shadow mask
         if ard['create ls mask']:
 
-            out_ls = opj(temp_dir, '{}_LS'.format(master_burst_id))
-            ls_log = opj(out_dir, '{}_LS.err_log'.format(master_burst_id))
-            return_code = common._ls_mask('{}.dim'.format(out_cal), out_ls, ls_log,
-                                          ard['resolution'], ard['dem'], ncores)
+            # create namespace for temporary LS map product
+            out_ls = opj(temp, '{}_LS'.format(burst_id))
 
-            if return_code != 0:
-                h.delete_dimap(out_ls)
-                return return_code
+            # create namespace for LS map log
+            ls_log = opj(out_dir, '{}_LS.err_log'.format(burst_id))
 
-            # last check on ls data
-            return_code = h.check_out_dimap(out_ls, test_stats=False)
-            if return_code != 0:
-                h.delete_dimap(out_ls)
-                return return_code
+            # run ls mask generation on calibration
+            common.ls_mask(
+                '{}.dim'.format(out_cal), out_ls, ls_log,
+                ard['resolution'], ard['dem'], ncores
+            )
+
+            # check for validity of final backscatter product
+            try:
+                h.check_out_dimap(out_ls)
+            except ValueError:
+                pass
 
             # move ls data to final destination
-            h.move_dimap(out_ls, opj(out_dir, '{}_LS'.format(master_burst_id)))
+            h.move_dimap(out_ls, opj(out_dir, '{}_LS'.format(burst_id)))
 
-        # remove calibrated files
-        if ard['product type'] != "Coherence_only":
-            h.delete_dimap(out_cal)
+
+        # write out check file for tracking that it is processed
+        with open(opj(out_dir, '.bs.processed'), 'w') as file:
+            file.write('passed all tests \n')
 
 
 def create_coherence_layers(master_import,
                             slave_import,
                             ard, temp_dir, out_dir,
                             master_burst_id, remove_slave_import, ncores):
+    """
+
+    Args:
+        master_import:
+        slave_import:
+        ard:
+        temp_dir:
+        out_dir:
+        master_burst_id:
+        remove_slave_import:
+        ncores:
+
+    Returns:
+
+    """
 
     with TemporaryDirectory(temp_dir) as temp:
 
-        # co-registration
+        # ---------------------------------------------------------------
+        # 1 Co-registration
         # filelist = ['{}.dim'.format(master_import),
         #            '{}.dim'.format(slave_import)]
         # filelist = '\'{}\''.format(','.join(filelist))
-        out_coreg = opj(temp_dir, '{}_coreg'.format(master_burst_id))
+
+        # create namespace for temporary co-registered stack
+        out_coreg = opj(temp, '{}_coreg'.format(master_burst_id))
+
+        # create namespace for co-registration log
         coreg_log = opj(out_dir, '{}_coreg.err_log'.format(master_burst_id))
+
+        # run co-registration
         # return_code = _coreg(filelist, out_coreg, coreg_log, dem)
-        return_code = slc._coreg2(master_import,
-                                  slave_import,
-                                  out_coreg,
-                                  coreg_log, ard['dem'], ncores)
+        slc.coreg2(
+            master_import, slave_import, out_coreg, coreg_log,
+            ard['dem'], ncores
+        )
 
         # remove imports
         h.delete_dimap(master_import)
@@ -199,61 +261,59 @@ def create_coherence_layers(master_import,
         if remove_slave_import is True:
             h.delete_dimap(slave_import)
 
-        # delete output if command failed for some reason and return
-        if return_code != 0:
-            h.delete_dimap(out_coreg)
-            h.delete_dimap(slave_import)
-            return return_code
+        # ---------------------------------------------------------------
+        # 2 Coherence calculation
 
-        # calculate coherence and deburst
-        out_coh = opj(temp_dir, '{}_c'.format(master_burst_id))
+        # create namespace for temporary coherence product
+        out_coh = opj(temp, '{}_coh'.format(master_burst_id))
+
+        # create namespace for coherence log
         coh_log = opj(out_dir, '{}_coh.err_log'.format(master_burst_id))
+
+        # get relevant polarisations
         coh_polars = ard['coherence bands'].replace(' ', '')
-        return_code = slc._coherence('{}.dim'.format(out_coreg),
-                                     out_coh, coh_log, coh_polars, ncores)
+
+        # run coherence estimation
+        slc.coherence(
+            '{}.dim'.format(out_coreg), out_coh, coh_log, coh_polars, ncores
+        )
 
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
 
-        # delete output if command failed for some reason and return
-        if return_code != 0:
-            h.delete_dimap(out_coh)
-            h.delete_dimap(slave_import)
-            return return_code
+        # ---------------------------------------------------------------
+        # 3 Geocoding
 
-        # geocode
-        out_tc = opj(temp_dir, '{}_coh'.format(master_burst_id))
+        # create namespace for temporary geocoded roduct
+        out_tc = opj(temp, '{}_coh_tc'.format(master_burst_id))
+
+        # create namespace for geocoded log
         tc_log = opj(out_dir, '{}_coh_tc.err_log'.format(master_burst_id))
-        return_code = common._terrain_correction(
+
+        # run geocoding
+        common.terrain_correction(
             '{}.dim'.format(out_coh), out_tc, tc_log,
-            ard['resolution'], ard['dem'], ncores)
+            ard['resolution'], ard['dem'], ncores
+        )
+
+        # ---------------------------------------------------------------
+        # 4 Checks and Clean-up
 
         # remove tmp files
         h.delete_dimap(out_coh)
 
-        # delete output if command failed for some reason and return
-        if return_code != 0:
-            h.delete_dimap(out_tc)
-            h.delete_dimap(slave_import)
-            return return_code
-
-        # remove tmp files
-        h.delete_dimap(out_coh)
-
-        # delete output if command failed for some reason and return
-        if return_code != 0:
-            h.delete_dimap(out_tc)
-            h.delete_dimap(slave_import)
-            return return_code
-
-        # last check on coherence data
-        return_code = h.check_out_dimap(out_tc)
-        if return_code != 0:
-            h.delete_dimap(out_tc)
-            return return_code
+        # check on coherence data
+        try:
+            h.check_out_dimap(out_tc)
+        except ValueError:
+            pass
 
         # move to final destination
         h.move_dimap(out_tc, opj(out_dir, '{}_coh'.format(master_burst_id)))
+
+        # write out check file for tracking that it is processed
+        with open(opj(out_dir, '.coh.processed'), 'w') as file:
+            file.write('passed all tests \n')
 
 
 def burst_to_ard(master_file,
@@ -266,7 +326,6 @@ def burst_to_ard(master_file,
                  slave_file=None,
                  slave_burst_nr=None,
                  slave_burst_id=None,
-                 coherence=False,
                  remove_slave_import=False,
                  ncores=os.cpu_count()):
     '''The main routine to turn a burst into an ARD product
@@ -295,76 +354,71 @@ def burst_to_ard(master_file,
             remove_slave_import = True
         elif remove_slave_import == 'False':
             remove_slave_import = False
-    if type(coherence) == str:
-        if coherence == 'True':
-            coherence = True
-        elif coherence == 'False':
-            coherence = False
-
 
     # load ards
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing parameters']
         ard = ard_params['single ARD']
-     
-    # ---------------------------------------------------------------------
-    # 1 Import
-    # import master
-    master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
 
-    if not os.path.exists('{}.dim'.format(master_import)):
-        import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
-        polars = ard['polarisation'].replace(' ', '')
-        return_code = slc._import(master_file, master_import, import_log,
-                              swath, master_burst_nr, polars, ncores
-        )
-        if return_code != 0:
-            h.delete_dimap(master_import)
-            return return_code
+    # check if somethings already processed
+    if (not os.path.exists(opj(out_dir, '.pol.processed')) and
+            not os.path.exists(opj(out_dir, '.bs.processed')) and
+            not os.path.exists(opj(out_dir, '.coh.processed'))):
 
-    # ---------------------------------------------------------------------
-    # 2 H-A-Alpha
-    if ard['H-A-Alpha']:
+        # ---------------------------------------------------------------------
+        # 1 Import
+        # import master
+        master_import = opj(temp_dir, '{}_import'.format(master_burst_id))
 
-        create_polarimetric_layers(
-            '{}'.dim.format(master_import), ard, temp_dir, out_dir,
-            master_burst_id, ncores
-        )
+        if not os.path.exists('{}.dim'.format(master_import)):
+            import_log = opj(out_dir, '{}_import.err_log'.format(master_burst_id))
+            polars = ard['polarisation'].replace(' ', '')
+            return_code = slc.burst_import(
+                master_file, master_import, import_log, swath,
+                master_burst_nr, polars, ncores
+            )
+            if return_code != 0:
+                h.delete_dimap(master_import)
+                return return_code
 
-    if ard['backscatter']:
+        # ---------------------------------------------------------------------
+        # 2 Product Generation
+        if (ard['H-A-Alpha'] and
+                not os.path.exists(opj(out_dir, '.pol.processed'))):
 
-        create_backscatter_layers(
-            '{}'.dim.format(master_import), ard, temp_dir, out_dir,
-            master_burst_id, ncores
-        )
+            create_polarimetric_layers(
+                '{}'.dim.format(master_import), ard, temp_dir, out_dir,
+                master_burst_id, ncores
+            )
 
-    if ard['coherence']:
+        if (ard['backscatter'] and
+                not os.path.exists(opj(out_dir, '.bs.processed'))):
 
-        # import slave
-        slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
-        import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
-        polars = ard['polarisation'].replace(' ', '')
-        return_code = slc._import(
-            slave_file, slave_import, import_log, swath, slave_burst_nr,
-            polars, ncores
-        )
+            create_backscatter_layers(
+                '{}'.dim.format(master_import), ard, temp_dir, out_dir,
+                master_burst_id, ncores
+            )
 
-        if return_code != 0:
-            h.remove_folder_content(temp_dir)
-            return return_code
+        if (ard['coherence'] and
+                not os.path.exists(opj(out_dir, '.coh.processed'))):
 
-        create_coherence_layers('{}'.dim.format(master_import),
-                                '{}'.dim.format(slave_import),
-                                ard, temp_dir, out_dir,
-                                master_burst_id, remove_slave_import, ncores)
+            # import slave
+            slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
+            import_log = opj(out_dir, '{}_import.err_log'.format(slave_burst_id))
+            polars = ard['polarisation'].replace(' ', '')
+            return_code = slc.burst_import(
+                slave_file, slave_import, import_log, swath, slave_burst_nr,
+                polars, ncores
+            )
 
-    # remove import
+            if return_code != 0:
+                h.remove_folder_content(temp_dir)
+                return return_code
 
-    # write out check file for tracking that it is processed
-    with open(opj(out_dir, '.processed'), 'w') as file:
-        file.write('passed all tests \n')
-    
-    return return_code
+            create_coherence_layers('{}'.dim.format(master_import),
+                                    '{}'.dim.format(slave_import),
+                                    ard, temp_dir, out_dir,
+                                    master_burst_id, remove_slave_import, ncores)
 
 
 if __name__ == "__main__":
