@@ -1,4 +1,5 @@
 import os
+import pytest
 import logging
 
 from ost.s1.slc_wrappers import burst_import, calibration, \
@@ -49,6 +50,7 @@ def test_burst_calibration(s1_slc_ost_master,
         assert return_code == 0
 
 
+@pytest.mark.skip(reason="Takes too long skip for now!")
 def test_burst_ha_alpha(
         s1_slc_master,
         s1_slc_ost_master,
