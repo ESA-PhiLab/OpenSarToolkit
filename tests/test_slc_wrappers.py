@@ -1,8 +1,8 @@
 import os
 import logging
 
-from ost.s1.slc_wrappers import _import, _calibration, \
-    _coreg2, _coherence, _ha_alpha
+from ost.s1.slc_wrappers import burst_import, calibration, \
+    coreg2, coherence, _ha_alpha
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def test_burst_import(s1_slc_master,
     for idx, burst in master_project_class.burst_inventory.iterrows():
         if idx > 2:
             continue
-        return_code = _import(
+        return_code = burst_import(
             infile=s1_slc_master,
             out_prefix=os.path.join(
                 master_project_class.processing_dir, scene_id+'_import'
@@ -36,7 +36,7 @@ def test_burst_calibration(s1_slc_ost_master,
     for idx, burst in master_project_class.burst_inventory.iterrows():
         if idx > 2:
             continue
-        return_code = _calibration(
+        return_code = calibration(
             infile=os.path.join(
                 master_project_class.processing_dir, scene_id+'_import.dim'
             ),

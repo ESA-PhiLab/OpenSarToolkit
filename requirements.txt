@@ -17,3 +17,4 @@ joblib
 retrying
 pytest
 pytest-cov
+pytest-runner
