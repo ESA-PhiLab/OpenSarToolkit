@@ -92,7 +92,19 @@ class Sentinel1_Scene():
         self.get_ard_parameters(ard_type)
 
     def info(self):
-
+        inf_dict = {}
+        inf_dict.update(
+            Scene_Identifier=str(self.scene_id),
+            Satellite=str(self.satellite),
+            Acquisition_Mode=str(self.acq_mode),
+            Processing_Level=str(self.proc_level),
+            Product_Type=str(self.p_type),
+            Acquisition_Date=str(self.start_date),
+            Start_Time=str(self.start_time),
+            Stop_Time=str(self.stop_time),
+            Absolute_Orbit=str(self.abs_orbit),
+            Relative_Orbit=str(self.rel_orbit),
+        )
         print(" -------------------------------------------------")
         print(" Scene Information:")
         print(" Scene Identifier:        " + str(self.scene_id))
@@ -106,6 +118,7 @@ class Sentinel1_Scene():
         print(" Absolute Orbit:          " + str(self.abs_orbit))
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
+        return inf_dict
 
     def download(self, download_dir, mirror=None):
 
