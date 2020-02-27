@@ -8,18 +8,20 @@ from ost.s1.slc_wrappers import burst_import, calibration, \
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skip(reason="Takes too long skip for now!")
 def test_burst_import(s1_slc_master,
                       s1_slc_ost_master,
                       master_project_class
                       ):
     scene_id, master = s1_slc_ost_master
     for idx, burst in master_project_class.burst_inventory.iterrows():
-        if idx > 2:
+        if idx > 2 or burst.SwathID != 'IW1':
             continue
         return_code = burst_import(
             infile=s1_slc_master,
             outfile=os.path.join(
-                master_project_class.processing_dir, scene_id+'_import'
+                master_project_class.processing_dir,
+                scene_id+'_'+burst.bid+'_import'
             ),
             logfile=logger,
             swath=burst.SwathID,
@@ -35,16 +37,19 @@ def test_burst_calibration(s1_slc_ost_master,
                            ):
     scene_id, master = s1_slc_ost_master
     for idx, burst in master_project_class.burst_inventory.iterrows():
-        if idx > 2:
+        if idx > 2 or burst.SwathID != 'IW1':
             continue
         return_code = calibration(
             infile=os.path.join(
-                master_project_class.processing_dir, scene_id+'_import.dim'
+                master_project_class.processing_dir,
+                scene_id+'_'+burst.bid+'_import.dim'
             ),
-            outfile=scene_id+'_BS',
+            outfile=os.path.join(
+                master_project_class.processing_dir, scene_id+'_BS'
+            ),
             logfile=logger,
             proc_file=master_project_class.proc_file,
-            region=burst.geometry,
+            region=master_project_class.aoi,
             ncores=os.cpu_count())
 
         assert return_code == 0

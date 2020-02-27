@@ -71,12 +71,13 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
     start = '2019-01-01'
     end = '2019-01-02'
     scene_id, product = s1_slc_ost_master
-    with TemporaryDirectory(dir=os.getcwd()) as temp:
-        aoi = box(some_bounds_slc[0], some_bounds_slc[1],
-                  some_bounds_slc[2], some_bounds_slc[3]
-                  ).wkt
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    aoi = box(some_bounds_slc[0], some_bounds_slc[1],
+              some_bounds_slc[2], some_bounds_slc[3]
+              ).wkt
+    try:
         s1_batch = Sentinel1_SLCBatch(
-            project_dir=temp,
+            project_dir=TEMP_DIR,
             aoi=aoi,
             start=start,
             end=end,
@@ -90,7 +91,6 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
                                      product.month,
                                      product.day
                                      )
-        from ost.settings import OST_ROOT
         os.makedirs(download_path, exist_ok=True)
         shutil.copy(s1_slc_master, download_path)
         shutil.move(
@@ -98,16 +98,6 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
             os.path.join(download_path, scene_id+'.zip.downloaded')
         )
         shutil.copy(s1_slc_master, download_path)
-        # shutil.copy(
-        #     os.path.join(
-        #         OST_ROOT, 'graphs', 'ard_json', '.'.join(
-        #             [s1_batch.product_type.lower(), 'ost_plus', 'json']
-        #         )
-        #     ), s1_batch.project_dir
-        # )
-        # shutil.move(os.path.join(s1_batch.project_dir, '.'.join(
-        #     [s1_batch.product_type.lower(), 'ost_plus', 'json']
-        # )), s1_batch.project_dir)
         product.get_path(download_dir=s1_batch.download_dir)
         s1_batch.search(uname=HERBERT_USER['uname'],
                         pword=HERBERT_USER['pword']
@@ -118,4 +108,7 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
                                         pword=HERBERT_USER['pword']
                                         )
 
-        return s1_batch
+        yield s1_batch
+    finally:
+        print('me')
+        #shutil.rmtree(TEMP_DIR)

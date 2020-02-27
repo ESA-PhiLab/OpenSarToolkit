@@ -159,29 +159,30 @@ def calibration(infile, outfile, logfile, proc_file,
         dem_dict = ard['dem']
 
     # calculate Multi-Look factors
-    azimuth_looks = np.floor(ard['resolution'])
-    range_looks = azimuth_looks * 5
+    azimuth_looks = int(np.floor(ard['resolution']/10))
+    if azimuth_looks == 0:
+        azimuth_looks = 1
+    range_looks = int(azimuth_looks * 5)
 
     # construct command dependent on selected product type
-    if ard['product_type'] == 'RTC-gamma0':
+    if ard['product type'] == 'RTC-gamma0':
         logger.debug('INFO: Calibrating the product to a RTC product.')
 
         # get graph for RTC generation
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml')
-
         # construct command
         command = '{} {} -x -q {} ' \
                   '-Prange_looks={} -Pazimuth_looks={} ' \
                   '-Pdem=\'{}\' -Pdem_file="{}" -Pdem_nodata={} ' \
                   '-Pdem_resampling={} -Pregion="{}" ' \
-                  '-Pinput={} -Poutput={}'.format(
+                  '-Pinput="{}" -Poutput="{}"'.format(
             GPT_FILE, graph, ncores,
             range_looks, azimuth_looks,
             dem_dict['dem name'], dem_dict['dem file'],
             dem_dict['dem nodata'], dem_dict['dem resampling'],
-            region, infile, outfile)
-
+            region, infile, outfile
+        )
     elif ard['product_type'] == 'GTC-gamma0':
         logger.debug(
             'INFO: Calibrating the product to a GTC product (Gamma0).'
@@ -194,7 +195,7 @@ def calibration(infile, outfile, logfile, proc_file,
         # construct command
         command = '{} {} -x -q {} ' \
                   '-Prange_looks={} -Pazimuth_looks={} ' \
-                  '-Pregion="{}" -Pinput={} -Poutput={}' \
+                  '-Pregion="{}" -Pinput="{}" -Poutput="{}"' \
             .format(GPT_FILE, graph, ncores,
                     range_looks, azimuth_looks,
                     region, infile, outfile)
@@ -211,7 +212,7 @@ def calibration(infile, outfile, logfile, proc_file,
         # construct command
         command = '{} {} -x -q {} ' \
                   '-Prange_looks={} -Pazimuth_looks={} ' \
-                  '-Pregion="{}" -Pinput={} -Poutput={}' \
+                  '-Pregion="{}" -Pinput="{}" -Poutput="{}"' \
             .format(GPT_FILE, graph, ncores,
                     range_looks, azimuth_looks,
                     region, infile, outfile)

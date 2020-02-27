@@ -377,7 +377,7 @@ def test_ard_parameters(ard_parameter_dict):
     
     # ost things
     grd_types = ['CEOS', 'Earth Engine', 'OST Standard']
-    slc_types = ['OST Standard','OST Plus', 'OST Minimal']
+    slc_types = ['OST Standard', 'OST Plus', 'OST Minimal']
     product_types = ['RTC', 'GTCsigma', 'GTCgamma']
     metrics = ['median', 'percentiles', 'harmonics', 
                'avg', 'max', 'min', 'std', 'cov']

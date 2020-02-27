@@ -2,24 +2,28 @@
 
 # import standard libs
 import os
+import sys
 import importlib
 import json
 import glob
+import shutil
 import logging
+import rasterio
 import geopandas as gpd
 import multiprocessing
-# create the opj alias to handle independent os paths
 from os.path import join as opj
 from datetime import datetime
-from shapely.wkt import loads
 from joblib import Parallel, delayed
+
+from shapely.wkt import loads
+
 from ost.helpers import vector as vec, raster as ras
 from ost.s1 import search, refine, download, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 from ost.multitemporal import ard_to_ts, common_extent, common_ls_mask, \
     timescan as tscan
 from ost.mosaic import mosaic as mos
-import sys
+from ost.settings import OST_ROOT
 
 # set logging
 logging.basicConfig(stream=sys.stdout,
@@ -372,6 +376,25 @@ class Sentinel1_SLCBatch(Sentinel1):
 
         self.ard_type = ard_type
         self.proc_file = opj(self.project_dir, 'processing.json')
+        if self.ard_type in ['OST Standard', 'OST Plus', 'OST Minimal']:
+            shutil.copy(
+                os.path.join(
+                    OST_ROOT, 'graphs', 'ard_json', '.'.join(
+                        [self.product_type.lower(),
+                         self.ard_type.lower().replace(' ', '_'),
+                         'json'
+                         ]
+                    )
+                ), self.project_dir
+            )
+            shutil.move(
+                os.path.join(self.project_dir, '.'.join(
+                    [self.product_type.lower(),
+                     self.ard_type.lower().replace(' ', '_'),
+                     'json'
+                     ]
+                )), self.proc_file
+            )
         self.get_ard_parameters(self.ard_type)
         self.burst_inventory = None
         self.burst_inventory_file = None
@@ -473,9 +496,6 @@ class Sentinel1_SLCBatch(Sentinel1):
                       indent=4)
 
     def set_external_dem(self, dem_file):
-
-        import rasterio
-
         # check if file exists
         if not os.path.isfile(dem_file):
             print(' ERROR: No dem file found at location {}.'.format(dem_file))
@@ -1019,7 +1039,28 @@ class Sentinel1_GRDBatch(Sentinel1):
                          product_type, beam_mode, polarisation)
 
         self.ard_type = ard_type
+
         self.proc_file = opj(self.project_dir, 'processing.json')
+        if self.ard_type in ['CEOS', 'Earth Engine', 'OST Standard']:
+            shutil.copy(
+                os.path.join(
+                    OST_ROOT, 'graphs', 'ard_json', '.'.join(
+                        [self.product_type.lower(),
+                         self.ard_type.lower().replace(' ', '_'),
+                         'json'
+                         ]
+                    )
+                ), self.project_dir
+            )
+            shutil.move(
+                os.path.join(self.project_dir, '.'.join(
+                    [self.product_type.lower(),
+                     self.ard_type.lower(),
+                     'json'
+                     ]
+                )), self.proc_file
+            )
+
         self.get_ard_parameters(self.ard_type)
 
     # processing related functions
@@ -1039,16 +1080,12 @@ class Sentinel1_GRDBatch(Sentinel1):
             self.ard_parameters = json.load(ard_file)['processing parameters']
 
     def update_ard_parameters(self):
-
         with open(self.proc_file, 'w') as outfile:
             json.dump(dict({'processing parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
 
     def set_external_dem(self, dem_file):
-
-        import rasterio
-
         # check if file exists
         if not os.path.isfile(dem_file):
             print(' ERROR: No dem file found at location {}.'.format(dem_file))
