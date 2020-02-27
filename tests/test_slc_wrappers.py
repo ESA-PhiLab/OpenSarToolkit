@@ -42,10 +42,10 @@ def test_burst_calibration(s1_slc_ost_master,
             ),
             outfile=scene_id+'_BS',
             logfile=logger,
-            product_type=master_project_class.ard_parameters['single ARD']
-            ['product type'],
-            ncores=os.cpu_count()
-        )
+            proc_file=master_project_class.proc_file,
+            region=burst.geometry,
+            ncores=os.cpu_count())
+
         assert return_code == 0
 
 
