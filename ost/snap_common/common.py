@@ -123,17 +123,17 @@ def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()
                   ' -PwindowSize=\"{}\"'
                   ' -t \'{}\' \'{}\''.format(
                       gpt_file, ncores,
-                      speckle_dict['estimate ENL'],
-                      speckle_dict['pan size'],
+                      speckle_dict['estimate_ENL'],
+                      speckle_dict['pan_size'],
                       speckle_dict['damping'],
                       speckle_dict['ENL'],
                       speckle_dict['filter'],
-                      speckle_dict['filter x size'],
-                      speckle_dict['filter y size'],
-                      speckle_dict['num of looks'],
+                      speckle_dict['filter_x_size'],
+                      speckle_dict['filter_y_size'],
+                      speckle_dict['num_of_looks'],
                       speckle_dict['sigma'],
-                      speckle_dict['target window size'],
-                      speckle_dict['window size'],
+                      speckle_dict['target_window_size'],
+                      speckle_dict['window_size'],
                       outfile, infile)
               )
 
@@ -217,10 +217,6 @@ def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
     
-    # make dem file snap readable in case of no external dem
-    if not dem_dict['dem file']:
-        dem_dict['dem file'] = " "
-        
     command = ('{} Terrain-Correction -x -q {}'
             ' -PdemName=\'{}\''
             ' -PdemResamplingMethod=\'{}\''
@@ -232,10 +228,10 @@ def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os
             ' -PpixelSpacingInMeter={}'
             ' -t \'{}\' \'{}\''.format(
                     gpt_file, ncores,
-                    dem_dict['dem name'], dem_dict['dem resampling'],
-                    dem_dict['dem file'], dem_dict['dem nodata'], 
-                    str(dem_dict['egm correction']).lower(), 
-                    dem_dict['image resampling'], 
+                    dem_dict['dem_name'], dem_dict['dem_resampling'],
+                    dem_dict['dem_file'], dem_dict['dem_nodata'],
+                    str(dem_dict['egm_correction']).lower(),
+                    dem_dict['image_resampling'],
                     resolution, outfile, infile
                     )
     )
@@ -301,9 +297,9 @@ def ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count(
                                  ' -Pegm_correction=\'{}\''
                                  ' -Poutput=\'{}\''.format(
             gpt_file, graph, ncores, infile, resolution,
-            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'],
-            dem_dict['dem resampling'], dem_dict['image resampling'], 
-            str(dem_dict['egm correction']).lower(), outfile)
+            dem_dict['dem_name'], dem_dict['dem_file'], dem_dict['dem nodata'],
+            dem_dict['dem_resampling'], dem_dict['image_resampling'],
+            str(dem_dict['egm_correction']).lower(), outfile)
     )
     # run command and get return code
     return_code = h.run_command(command, logfile)

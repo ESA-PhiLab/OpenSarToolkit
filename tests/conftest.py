@@ -110,5 +110,4 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
 
         yield s1_batch
     finally:
-        print('me')
-        #shutil.rmtree(TEMP_DIR)
+        shutil.rmtree(TEMP_DIR)

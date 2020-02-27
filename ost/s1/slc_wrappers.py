@@ -65,7 +65,7 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
+def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
               pol_speckle_dict=None, ncores=os.cpu_count()):
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
 
@@ -103,11 +103,11 @@ def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
             GPT_FILE, graph, ncores,
             infile, outfile,
             pol_speckle_dict['filter'],
-            pol_speckle_dict['filter size'],
-            pol_speckle_dict['num of looks'],
-            pol_speckle_dict['window size'],
-            pol_speckle_dict['target window size'],
-            pol_speckle_dict['pan size'],
+            pol_speckle_dict['filter_size'],
+            pol_speckle_dict['num_of_looks'],
+            pol_speckle_dict['window_size'],
+            pol_speckle_dict['target_window_size'],
+            pol_speckle_dict['pan_size'],
             pol_speckle_dict['sigma']
         )
         )
@@ -154,8 +154,8 @@ def calibration(infile, outfile, logfile, proc_file,
 
     # load ards
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
         dem_dict = ard['dem']
 
     # calculate Multi-Look factors
@@ -163,9 +163,8 @@ def calibration(infile, outfile, logfile, proc_file,
     if azimuth_looks == 0:
         azimuth_looks = 1
     range_looks = int(azimuth_looks * 5)
-
     # construct command dependent on selected product type
-    if ard['product type'] == 'RTC-gamma0':
+    if ard['product_type'] == 'RTC-gamma0':
         logger.debug('INFO: Calibrating the product to a RTC product.')
 
         # get graph for RTC generation
@@ -179,10 +178,10 @@ def calibration(infile, outfile, logfile, proc_file,
                   '-Pinput="{}" -Poutput="{}"'.format(
             GPT_FILE, graph, ncores,
             range_looks, azimuth_looks,
-            dem_dict['dem name'], dem_dict['dem file'],
-            dem_dict['dem nodata'], dem_dict['dem resampling'],
-            region, infile, outfile
-        )
+            dem_dict['dem_name'], dem_dict['dem_file'],
+            dem_dict['dem_nodata'], dem_dict['dem_resampling'],
+            region, infile, outfile)
+
     elif ard['product_type'] == 'GTC-gamma0':
         logger.debug(
             'INFO: Calibrating the product to a GTC product (Gamma0).'
@@ -385,8 +384,8 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
 
     # make dem file snap readable in case of no external dem
-    if not dem_dict['dem file']:
-        dem_dict['dem file'] = " "
+    #if not dem_dict['dem file']:
+    #    dem_dict['dem file'] = " "
 
     print(' INFO: Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
@@ -399,8 +398,8 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
                ' -Poutput={} '.format(
         GPT_FILE, graph, ncores,
         master, slave,
-        dem_dict['dem name'], dem_dict['dem file'],
-        dem_dict['dem nodata'], dem_dict['dem resampling'],
+        dem_dict['dem_name'], dem_dict['dem_file'],
+        dem_dict['dem_nodata'], dem_dict['dem_resampling'],
         outfile)
     )
 
@@ -416,8 +415,8 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def coherence(infile, outfile, logfile, polar='VV,VH,HH,HV',
-               ncores=os.cpu_count()):
+def coherence(infile, outfile, logfile, ard,
+              ncores=os.cpu_count()):
     '''A wrapper around SNAP's coherence routine
 
     This function takes a co-registered stack of 2 Sentinel-1 SLC products
@@ -436,10 +435,14 @@ def coherence(infile, outfile, logfile, polar='VV,VH,HH,HV',
 
     # get path to graph
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
-
+    polar = ard['coherence_bands'].replace(' ', '')
     print(' INFO: Coherence estimation')
-    command = '{} {} -x -q {} -Pinput={} -Ppolar=\'{}\' -Poutput={}' \
-        .format(GPT_FILE, graph, ncores, infile, polar, outfile)
+    command = '{} {} -x -q {} ' \
+              '-Pazimuth_window={} -Prange_window={} ' \
+              '-Ppolar=\'{}\' -Pinput={} -Poutput={}' \
+        .format(GPT_FILE, graph, ncores,
+                ard['coherence_azimuth'], ard['coherence_range'],
+                polar, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
