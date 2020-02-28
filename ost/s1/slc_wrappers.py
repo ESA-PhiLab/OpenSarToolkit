@@ -164,7 +164,7 @@ def calibration(infile, outfile, logfile, proc_file,
 
     # construct command dependent on selected product type
     if ard['product_type'] == 'RTC-gamma0':
-        logger.debug('Calibrating the product to a RTC product.')
+        logger.info('Calibrating the product to a RTC product.')
 
         # get graph for RTC generation
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
@@ -198,7 +198,7 @@ def calibration(infile, outfile, logfile, proc_file,
                     region, infile, outfile)
 
     elif ard['product_type'] == 'GTC-sigma0':
-        logger.debug(
+        logger.info(
             'Calibrating the product to a GTC product (Sigma0).'
         )
 
@@ -214,14 +214,13 @@ def calibration(infile, outfile, logfile, proc_file,
                     range_looks, azimuth_looks,
                     region, infile, outfile)
     else:
-        logger.debug('ERROR: Wrong product type selected.')
-        sys.exit(121)
+        raise TypeError('Wrong product type selected.')
 
-    logger.debug("Removing thermal noise, calibrating and debursting")
+    logger.info("Removing thermal noise, calibrating and debursting")
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.debug('Succesfully calibrated product')
+        logger.info('Succesfully calibrated product')
         return return_code
     else:
         raise GPTRuntimeError('ERROR: Calibration exited with an error {}. \
@@ -281,7 +280,7 @@ def calibration(infile, outfile, logfile, proc_file,
 #         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
 #                     'S1_SLC_TNR_CalSigma_Deb.xml')
 #     elif product_type == 'Coherence_only':
-#         logger.debug.infoNo need to calibrate just for coherence')
+#         logger.info.infoNo need to calibrate just for coherence')
 #         return_code = 0
 #         return return_code
 #     else:

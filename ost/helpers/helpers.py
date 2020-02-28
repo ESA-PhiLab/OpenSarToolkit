@@ -224,7 +224,7 @@ def delete_shapefile(shapefile):
 
 
 def move_dimap(infile_prefix, outfile_prefix):
-    '''This function moves a dima file to another locations
+    '''This function moves a dimap file to another locations
 
 
     '''
@@ -232,10 +232,11 @@ def move_dimap(infile_prefix, outfile_prefix):
     if os.path.isdir('{}.data'.format(outfile_prefix)):
         delete_dimap(outfile_prefix)
 
-    out_dir = os.path.split('{}.data'.format(outfile_prefix))[:-1][0]
+    #out_dir = os.path.split('{}.data'.format(outfile_prefix))[:-1][0]
 
     # move them to the outfolder
-    shutil.move('{}.data'.format(infile_prefix), out_dir)
+    shutil.move('{}.data'.format(infile_prefix),
+                '{}.data'.format(outfile_prefix))
     shutil.move('{}.dim'.format(infile_prefix),
                 '{}.dim'.format(outfile_prefix))
 
