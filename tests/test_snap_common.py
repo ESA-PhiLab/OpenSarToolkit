@@ -45,7 +45,6 @@ def test_grd_remove_border(s1_grd_notnr_ost_product,
             _grd_remove_border(infile[0])
 
 
-@pytest.mark.skip(reason="Takes too long skip for now!")
 def test_grd_calibration(s1_grd_notnr_ost_product,
                          grd_project_class
                          ):
