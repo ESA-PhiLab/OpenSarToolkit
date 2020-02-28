@@ -391,24 +391,21 @@ def burst_to_ard(master_file,
 
         # ---------------------------------------------------------------------
         # 2 Product Generation
-        if (ard['H-A-Alpha'] and
-                not os.path.exists(opj(out_dir, '.pol.processed'))):
+        if ard['H-A-Alpha'] and not pol_file:
 
             create_polarimetric_layers(
                 '{}.dim'.format(master_import), ard, temp_dir, out_dir,
                 master_burst_id, ncores
             )
 
-        if (ard['backscatter'] and
-                not os.path.exists(opj(out_dir, '.bs.processed'))):
+        if ard['backscatter'] and not bs_file:
 
             create_backscatter_layers(
                 '{}.dim'.format(master_import), proc_file, temp_dir, out_dir,
                 master_burst_id, ncores
             )
 
-        if (coherence and
-                not os.path.exists(opj(out_dir, '.coh.processed'))):
+        if coherence and not coh_file:
 
             # import slave
             slave_import = opj(temp_dir, '{}_import'.format(slave_burst_id))
