@@ -36,7 +36,7 @@
             "create_ls_mask": false,
             "dem": {
                 "dem_name": "SRTM 1Sec HGT",
-                "dem_file": " ",
+                "dem_file": "",
                 "dem_nodata": 0,
                 "dem_resampling": "BILINEAR_INTERPOLATION",
                 "image_resampling": "BICUBIC_INTERPOLATION",

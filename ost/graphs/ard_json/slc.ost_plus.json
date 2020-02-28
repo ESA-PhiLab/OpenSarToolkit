@@ -47,7 +47,7 @@
             "coherence_bands": "VV, VH, HH, HV",
             "H-A-Alpha": true
         },
-        "time-series ARD": {
+        "time-series_ARD": {
             "to_db": true,
             "remove_mt_speckle": true,
             "mt_speckle filter": {

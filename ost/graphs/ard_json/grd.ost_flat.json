@@ -1,60 +1,60 @@
 {
-    "processing parameters": {
-        "single ARD": {
+    "processing_parameters": {
+        "single_ARD": {
             "type": "OST Flat",
             "resolution": 20,
-            "remove border noise": "true",
-            "product type": "RTC-gamma0",
+            "remove_border_noise": "true",
+            "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
-            "to db": false,
-            "remove speckle": false,
-            "speckle filter": {
+            "to_db": false,
+            "remove_speckle": false,
+            "speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
                 "estimate ENL": true,
                 "sigma": 0.9,
-                "filter x size": 3,
-                "filter y size": 3,   
-               "window size": "7x7",
-                "target window size": "3x3",
-                "num of looks": 1,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+               "window_size": "7x7",
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
                 "damping": 2,
-                "pan size": 50
+                "pan_size": 50
             },
-            "create ls mask": true,
-            "apply ls mask": false,
+            "create_ls_mask": true,
+            "apply_ls_mask": false,
             "dem": {
-                "dem name": "SRTM 1Sec HGT",
-                "dem file": null,
-                "dem nodata": 0,
-                "dem resampling": "BILINEAR_INTERPOLATION",
-                "image resampling": "BICUBIC_INTERPOLATION",
-                "egm correction": false,
-                "out projection": "WGS84(DD)"
+                "dem_name": "SRTM 1Sec HGT",
+                "dem_file": "",
+                "dem_nodata": 0,
+                "dem_resampling": "BILINEAR_INTERPOLATION",
+                "image_resampling": "BICUBIC_INTERPOLATION",
+                "egm_correction": false,
+                "out_projection": "WGS84(DD)"
             }    
         },
-        "time-series ARD": {
-            "to db": true,
-            "remove mt speckle": true,
-            "mt speckle filter": {
+        "time-series_ARD": {
+            "to_db": true,
+            "remove_mt_speckle": true,
+            "mt_speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
-                "estimate ENL": true,
+                "estimate_ENL": true,
                 "sigma": 0.9,
-                "filter x size": 3,
-                "filter y size": 3,   
-                "window size": "7x7",
-                "target window size": "3x3",
-                "num of looks": 1,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+                "window_size": "7x7",
+                "target_window size": "3x3",
+                "num_of_looks": 1,
                 "damping": 2,
-                "pan size": 50
+                "pan_size": 50
             },
             "deseasonalize": false,
-            "dtype output": "float32"
+            "dtype_output": "float32"
         },
-        "time-scan ARD": {
+        "time-scan_ARD": {
             "metrics": ["avg", "max", "min", "std", "cov"],
-            "remove outliers": true
+            "remove_outliers": true
         }
     }
 }
