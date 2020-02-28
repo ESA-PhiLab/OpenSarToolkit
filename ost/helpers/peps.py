@@ -197,8 +197,8 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
         # if all scenes to download are on Tape, we wait for a minute
         if len(inventory_df[inventory_df['pepsStatus'] == 'online']) == 0:
-            logger.debug.infoImagery still on tape, we will wait for 1 minute ' \
-                  'and try again.')
+            logger.info('Imagery still on tape, we will wait for 1 minute '
+                        'and try again.')
             time.sleep(60)
 
         # else we start downloading
