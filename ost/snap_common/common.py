@@ -143,6 +143,7 @@ def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()
     # hadle errors and logs
     if return_code == 0:
         print(' INFO: Successfully applied speckle filtering.')
+        return return_code
     else:
         raise GPTRuntimeError(
             'ERROR: Speckle filtering exited with an error {}. See {} for '
@@ -242,6 +243,7 @@ def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os
     # handle errors and logs
     if return_code == 0:
         print(' INFO: Succesfully terrain corrected product')
+        return return_code
     else:
         raise GPTRuntimeError(
             'ERROR: Terrain Correction exited with an error {}. See {} for '

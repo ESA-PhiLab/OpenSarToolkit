@@ -2,7 +2,6 @@ import os
 import pytest
 import shutil
 from shapely.geometry import box
-from tempfile import TemporaryDirectory
 
 from ost.Project import Sentinel1_SLCBatch
 from ost.s1.s1scene import Sentinel1_Scene
@@ -10,8 +9,14 @@ from ost.settings import HERBERT_USER
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
-TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
+TEMP_SLC_DIR = os.path.join(TESTDATA_DIR, "tmp_slc")
+TEMP_GRD_DIR = os.path.join(TESTDATA_DIR, "tmp_grd")
 CACHE_DIR = os.path.join(TESTDATA_DIR, "cache")
+
+
+@pytest.fixture(scope='session')
+def some_bounds_grd():
+    return [9.404296875, 54.84375, 9.4921875, 54.931640625]
 
 
 @pytest.fixture(scope='session')
@@ -24,17 +29,17 @@ def s1_id():
     return 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def s1_grd_notnr():
     return os.path.join(
         CACHE_DIR,
-        'S1B_IW_GRDH_1SDV_20180813T054020_20180813T054045_012240_0168D6_B775'
+        'S1B_IW_GRDH_1SDV_20180813T054020_20180813T054045_012240_0168D6_B775.zip'
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def s1_grd_notnr_ost_product(s1_grd_notnr):
-    scene_id = s1_grd_notnr.split('/')[-1]
+    scene_id = os.path.basename(s1_grd_notnr).replace('.zip', '')
     return (scene_id, Sentinel1_Scene(scene_id))
 
 
@@ -67,17 +72,17 @@ def s1_slc_ost_slave(s1_slc_slave):
 
 
 @pytest.fixture(scope='session')
-def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
+def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
     start = '2019-01-01'
     end = '2019-01-02'
     scene_id, product = s1_slc_ost_master
-    os.makedirs(TEMP_DIR, exist_ok=True)
+    os.makedirs(TEMP_SLC_DIR, exist_ok=True)
     aoi = box(some_bounds_slc[0], some_bounds_slc[1],
               some_bounds_slc[2], some_bounds_slc[3]
               ).wkt
     try:
         s1_batch = Sentinel1_SLCBatch(
-            project_dir=TEMP_DIR,
+            project_dir=TEMP_SLC_DIR,
             aoi=aoi,
             start=start,
             end=end,
@@ -110,4 +115,47 @@ def master_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
 
         yield s1_batch
     finally:
-        shutil.rmtree(TEMP_DIR)
+        shutil.rmtree(TEMP_SLC_DIR)
+
+
+@pytest.fixture(scope='session')
+def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
+    start = '2018-08-13'
+    end = '2018-08-14'
+    scene_id, product = s1_grd_notnr_ost_product
+    os.makedirs(TEMP_GRD_DIR, exist_ok=True)
+    aoi = box(some_bounds_grd[0], some_bounds_grd[1],
+              some_bounds_grd[2], some_bounds_grd[3]
+              ).wkt
+    try:
+        s1_batch = Sentinel1_SLCBatch(
+            project_dir=TEMP_GRD_DIR,
+            aoi=aoi,
+            start=start,
+            end=end,
+            product_type='GRD',
+            ard_type='OST Flat'
+        )
+        download_path = os.path.join(s1_batch.download_dir,
+                                     'SAR',
+                                     product.product_type,
+                                     product.year,
+                                     product.month,
+                                     product.day
+                                     )
+        os.makedirs(download_path, exist_ok=True)
+        shutil.copy(s1_grd_notnr, download_path)
+        shutil.move(
+            os.path.join(download_path, scene_id+'.zip'),
+            os.path.join(download_path, scene_id+'.zip.downloaded')
+        )
+        shutil.copy(s1_grd_notnr, download_path)
+        product.get_path(download_dir=s1_batch.download_dir)
+        s1_batch.search(uname=HERBERT_USER['uname'],
+                        pword=HERBERT_USER['pword']
+                        )
+        s1_batch.refine()
+        yield s1_batch
+    finally:
+        print('dummy')
+        # shutil.rmtree(TEMP_GRD_DIR)

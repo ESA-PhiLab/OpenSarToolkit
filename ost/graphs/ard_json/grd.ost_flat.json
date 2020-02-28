@@ -11,7 +11,7 @@
             "speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
-                "estimate ENL": true,
+                "estimate_ENL": true,
                 "sigma": 0.9,
                 "filter_x_size": 3,
                 "filter_y_size": 3,

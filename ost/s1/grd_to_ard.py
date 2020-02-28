@@ -898,7 +898,7 @@ def grd_to_ard(filelist,
     
     # ---------------------------------------------------------------------
     # 2 GRD Border Noise
-    if ard['remove border noise'] and not subset:
+    if ard['remove_border_noise'] and not subset:
         for polarisation in ['VV', 'VH', 'HH', 'HV']:
 
             infile = glob.glob(opj(
@@ -916,11 +916,11 @@ def grd_to_ard(filelist,
     
     # ---------------------------------------------------------------------
     # 3 Calibration
-    if ard['product type'] == 'GTC-sigma0':
+    if ard['product_type'] == 'GTC-sigma0':
         calibrate_to = 'sigma0'
-    elif ard['product type'] == 'GTC-gamma0':
+    elif ard['product_type'] == 'GTC-gamma0':
         calibrate_to = 'gamma0'
-    elif ard['product type'] == 'RTC-gamma0':
+    elif ard['product_type'] == 'RTC-gamma0':
         calibrate_to = 'beta0'
        
     calibrated = opj(temp_dir, '{}_cal'.format(file_id))
@@ -1015,7 +1015,7 @@ def grd_to_ard(filelist,
         
     # ---------------------------------------------------------------------
     # 7 Terrain flattening
-    if ard['product type'] == 'RTC-gamma0':
+    if ard['product_type'] == 'RTC-gamma0':
         flattened = opj(temp_dir, '{}_flat'.format(file_id))
         logfile = opj(output_dir, '{}.tf.errLog'.format(file_id))
         return_code = common._terrain_flattening(infile, flattened, logfile,

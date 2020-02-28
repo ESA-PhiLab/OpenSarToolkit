@@ -10,16 +10,16 @@ logger = logging.getLogger(__name__)
 
 def test_burst_import(s1_slc_master,
                       s1_slc_ost_master,
-                      master_project_class
+                      slc_project_class
                       ):
     scene_id, master = s1_slc_ost_master
-    for idx, burst in master_project_class.burst_inventory.iterrows():
+    for idx, burst in slc_project_class.burst_inventory.iterrows():
         if idx > 2 or burst.SwathID != 'IW1':
             continue
         return_code = burst_import(
             infile=s1_slc_master,
             outfile=os.path.join(
-                master_project_class.processing_dir,
+                slc_project_class.processing_dir,
                 scene_id+'_'+burst.bid+'_import'
             ),
             logfile=logger,
@@ -32,23 +32,23 @@ def test_burst_import(s1_slc_master,
 
 
 def test_burst_calibration(s1_slc_ost_master,
-                           master_project_class,
+                           slc_project_class,
                            ):
     scene_id, master = s1_slc_ost_master
-    for idx, burst in master_project_class.burst_inventory.iterrows():
+    for idx, burst in slc_project_class.burst_inventory.iterrows():
         if idx > 2 or burst.SwathID != 'IW1':
             continue
         return_code = calibration(
             infile=os.path.join(
-                master_project_class.processing_dir,
+                slc_project_class.processing_dir,
                 scene_id+'_'+burst.bid+'_import.dim'
             ),
             outfile=os.path.join(
-                master_project_class.processing_dir, scene_id+'_BS'
+                slc_project_class.processing_dir, scene_id+'_BS'
             ),
             logfile=logger,
-            proc_file=master_project_class.proc_file,
-            region=master_project_class.aoi,
+            proc_file=slc_project_class.proc_file,
+            region=slc_project_class.aoi,
             ncores=os.cpu_count())
 
         assert return_code == 0
@@ -58,22 +58,22 @@ def test_burst_calibration(s1_slc_ost_master,
 def test_burst_ha_alpha(
         s1_slc_master,
         s1_slc_ost_master,
-        master_project_class,
+        slc_project_class,
 ):
     scene_id, master = s1_slc_ost_master
-    for idx, burst in master_project_class.burst_inventory.iterrows():
+    for idx, burst in slc_project_class.burst_inventory.iterrows():
         if idx > 2:
             continue
         return_code = ha_alpha(
             infile=s1_slc_master,
             outfile=os.path.join(
-                master_project_class.processing_dir, scene_id+'_ha_alpha'
+                slc_project_class.processing_dir, scene_id+'_ha_alpha'
             ),
             logfile=logger,
-            # pol_speckle_filter=master_project_class.ard_parameters
+            # pol_speckle_filter=slc_project_class.ard_parameters
             # ['single ARD']['remove pol speckle'],
             pol_speckle_filter=False,
-            pol_speckle_dict=master_project_class.ard_parameters
+            pol_speckle_dict=slc_project_class.ard_parameters
             ['single ARD']['pol speckle filter'],
             ncores=os.cpu_count()
         )
