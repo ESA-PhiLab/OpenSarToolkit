@@ -135,7 +135,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
     to_db = ard['to db']
     if to_db or product != 'bs':
         to_db = False
-        logger.debug.infoNot converting to dB for {}'.format(product))
+        logger.info('Not converting to dB for {}'.format(product))
     else:
         to_db = ard_mt['to db']
         logger.info('Converting to dB for {}'.format(product))
