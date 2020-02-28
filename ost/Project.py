@@ -23,7 +23,7 @@ from ost.helpers import scihub, helpers as h
 from ost.multitemporal import ard_to_ts, common_extent, common_ls_mask, \
     timescan as tscan
 from ost.mosaic import mosaic as mos
-from ost.settings import set_log_level, setup_logfile
+from ost.settings import set_log_level, setup_logfile, OST_ROOT
 
 logger = logging.getLogger(__name__)
 
