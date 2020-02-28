@@ -3,11 +3,13 @@ import os
 from os.path import join as opj
 from tempfile import TemporaryDirectory
 import json
+import logging
 
 from ost.helpers import helpers as h
 from ost.snap_common import common
 from ost.s1 import slc_wrappers as slc
 
+logger = logging.getLogger(__name__)
 
 def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
                                burst_id, ncores):

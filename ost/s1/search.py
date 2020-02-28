@@ -56,6 +56,7 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
 import os
 import sys
 import datetime
+import logging
 from urllib.error import URLError
 import xml.dom.minidom
 import dateutil.parser
@@ -68,6 +69,7 @@ from shapely.wkt import dumps, loads
 from ost.helpers.db import pgHandler
 from ost.helpers import scihub
 
+logger = logging.getLogger(__name__)
 
 def _query_scihub(apihub, opener, query):
     """
@@ -234,7 +236,7 @@ def _to_postgis(gdf, db_connect, outtable):
                               'LOWER(\'{}\'))'.format(outtable))
     result = db_connect.cursor.fetchall()
     if result[0][0] is False:
-        print(' INFO: Table {} does not exist in the database.'
+        logger.info('Table {} does not exist in the database.'
               ' Creating it...'.format(outtable))
         db_connect.pgCreateS1('{}'.format(outtable))
         maxid = 1
@@ -245,7 +247,7 @@ def _to_postgis(gdf, db_connect, outtable):
             if maxid is None:
                 maxid = 0
 
-            print(' INFO: Table {} already exists with {} entries. Will add'
+            logger.info('Table {} already exists with {} entries. Will add'
                   ' all non-existent results to this table.'.format(outtable,
                                                                     maxid))
             maxid = maxid + 1
@@ -283,10 +285,10 @@ def _to_postgis(gdf, db_connect, outtable):
             print('Scene {} already exists within table {}.'.format(identifier,
                                                                     outtable))
 
-    print(' INFO: Inserted {} entries into {}.'.format(len(gdf), outtable))
-    print(' INFO: Table {} now contains {} entries.'.format(outtable,
+    logger.info('Inserted {} entries into {}.'.format(len(gdf), outtable))
+    logger.info('Table {} now contains {} entries.'.format(outtable,
                                                             maxid - 1))
-    print(' INFO: Optimising database table.')
+    logger.info('Optimising database table.')
 
     # drop index if existent
     try:
@@ -337,13 +339,13 @@ def scihub_catalogue(query_string, output, append=False,
 
     # define output
     if output[-7:] == ".sqlite":
-        print(' INFO: writing to an sqlite file')
+        logger.info('writing to an sqlite file')
         # gdfInv2Sqlite(gdf, output)
     elif output[-4:] == ".shp":
-        print(' INFO: writing inventory data to shape file: {}'.format(output))
+        logger.info('writing inventory data to shape file: {}'.format(output))
         _to_shapefile(gdf, output, append)
     else:
-        print(' INFO: writing inventory data toPostGIS'
+        logger.info('writing inventory data toPostGIS'
               ' table: {}'.format(output))
         db_connect = pgHandler()
         _to_postgis(gdf, db_connect, output)

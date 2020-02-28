@@ -10,10 +10,13 @@ import os
 from os.path import join as opj
 import glob
 import getpass
+import logging
 
 # import OST libs
 from ost.s1.s1scene import Sentinel1_Scene as S1Scene
 from ost.helpers import scihub, peps, asf, onda, asf_wget
+
+logger = logging.getLogger(__name__)
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -49,11 +52,11 @@ def restore_download_dir(input_directory, download_dir):
         filepath = scene._download_path(download_dir, True)
 
         # check zipfile
-        print(' INFO: Checking zip file {} for inconsistency.'.format(scene_in))
+        logger.info('Checking zip file {} for inconsistency.'.format(scene_in))
         zip_test = h.check_zipfile(scene_in)
         
         if not zip_test:
-            print(' INFO: Passed')
+            logger.info('Passed')
             # move file
             os.rename(scene_in, filepath)
         
@@ -61,7 +64,7 @@ def restore_download_dir(input_directory, download_dir):
             f=open(filepath+".downloaded","w+")
             f.close()
         else:
-            print(' INFO: File {} is corrupted and will not be moved.')
+            logger.info('File {} is corrupted and will not be moved.')
 
 
 def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
@@ -96,7 +99,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2,
         error_code = asf.check_connection(uname, pword)
 
         if concurrent > 10:
-            print(' INFO: Maximum allowed parallel downloads \
+            logger.info('Maximum allowed parallel downloads \
                   from Earthdata are 10. Setting concurrent accordingly.')
             concurrent = 10
     

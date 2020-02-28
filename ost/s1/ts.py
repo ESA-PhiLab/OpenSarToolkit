@@ -1,23 +1,18 @@
 # import stdlib modules
 import os
 from os.path import join as opj
-import imp
-import sys
 import glob
-import time
+import logging
 from datetime import datetime
-from datetime import timedelta
-from calendar import isleap
 
-import gdal
 import rasterio
 import numpy as np
-from scipy import stats
-
-from ost.helpers import helpers as h, raster as ras, vector as vec
 
 
+from ost.helpers import raster as ras
 
+
+logger = logging.getLogger(__name__)
 
 
 def create_datelist(path_to_timeseries):

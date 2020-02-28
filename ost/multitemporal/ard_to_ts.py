@@ -6,10 +6,13 @@ import importlib
 import glob
 import json
 import datetime
+import logging
 
 import gdal
 
 from ost.helpers import raster as ras, helpers as h
+
+logger = logging.getLogger(__name__)
 
 def create_stack(filelist, out_stack, logfile,
                  polarisation=None, pattern=None, ncores=os.cpu_count()):
@@ -40,7 +43,7 @@ def create_stack(filelist, out_stack, logfile,
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Successfully created multi-temporal stack')
+        logger.info('Successfully created multi-temporal stack')
     else:
         print(' ERROR: Stack creation exited with an error.'
               ' See {} for Snap Error output'.format(logfile))
@@ -64,7 +67,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_c
 #                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
 #                                       in_stack, out_stack)
 
-    print(' INFO: Applying multi-temporal speckle filtering.')
+    logger.info('Applying multi-temporal speckle filtering.')
     # contrcut command string
     command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
                   ' -PestimateENL={}'
@@ -98,7 +101,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_c
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Successfully applied multi-temporal speckle filtering')
+        logger.info('Successfully applied multi-temporal speckle filtering')
     else:
         print(' ERROR: Multi-temporal speckle filtering exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -117,7 +120,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
     # check routine if timeseries has already been processed
     check_file = opj(burst_dir, 'Timeseries', '.{}.{}.processed'.format(product, pol))
     if os.path.isfile(check_file):
-        print(' INFO: Timeseries of {} for {} in {} polarisation already'
+        logger.info('Timeseries of {} for {} in {} polarisation already'
               ' processed'.format(burst, product, pol))
         return
     
@@ -167,12 +170,12 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
     list_of_files = '\'{}\''.format(','.join(list_of_files))
   
     if pol in ['Alpha', 'Anisotropy', 'Entropy']:
-        print(' INFO: Creating multi-temporal stack of images of burst/track {} for'
+        logger.info('Creating multi-temporal stack of images of burst/track {} for'
               ' the {} band of the polarimetric H-A-Alpha'
               ' decomposition.'.format(burst, pol))
         create_stack(list_of_files, temp_stack, stack_log, pattern=pol)
     else:
-        print(' INFO: Creating multi-temporal stack of images of burst/track {} for'
+        logger.info('Creating multi-temporal stack of images of burst/track {} for'
               ' {} product in {} polarization.'.format(burst, product, pol))
         create_stack(list_of_files, temp_stack, stack_log, polarisation=pol)
 
@@ -181,7 +184,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         speckle_log = opj(out_dir, '{}_{}_{}_mt_speckle.err_log'.format(
             burst, product, pol))
 
-        print(' INFO: Applying multi-temporal speckle filter')
+        logger.info('Applying multi-temporal speckle filter')
         mt_speckle_filter('{}.dim'.format(temp_stack), 
                              out_stack, speckle_log, speckle_dict=ard_mt_speck, ncores=ncores)
         # remove tmp files

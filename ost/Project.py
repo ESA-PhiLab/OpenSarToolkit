@@ -2,29 +2,30 @@
 
 # import standard libs
 import os
+import sys
 import importlib
 import json
 import glob
 import logging
 import geopandas as gpd
 import multiprocessing
+
 # create the opj alias to handle independent os paths
 from os.path import join as opj
 from datetime import datetime
 from shapely.wkt import loads
 from joblib import Parallel, delayed
+
 from ost.helpers import vector as vec, raster as ras
 from ost.s1 import search, refine, download, burst, grd_batch
 from ost.helpers import scihub, helpers as h
 from ost.multitemporal import ard_to_ts, common_extent, common_ls_mask, \
     timescan as tscan
 from ost.mosaic import mosaic as mos
-import sys
+from ost.settings import set_log_level, setup_logfile
 
-# set logging
-logging.basicConfig(stream=sys.stdout,
-                    format='%(levelname)s:%(message)s',
-                    level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 
 class DevNull(object):
@@ -41,7 +42,8 @@ class Generic():
                  download_dir=None,
                  inventory_dir=None,
                  processing_dir=None,
-                 temp_dir=None):
+                 temp_dir=None,
+                 log_level=logging.INFO):
 
         self.project_dir = os.path.abspath(project_dir)
         self.start = start
@@ -52,6 +54,8 @@ class Generic():
         self.processing_dir = processing_dir
         self.temp_dir = temp_dir
 
+        set_log_level(log_level)
+        setup_logfile(opj(self.project_dir, '.processing.log'))
         # handle the import of different aoi formats and transform
         # to a WKT string
         if aoi.split('.')[-1] != 'shp' and len(aoi) == 3:
@@ -59,14 +63,15 @@ class Generic():
             # get lowres data
             world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
             country = world.name[world.iso_a3 == aoi].values[0]
-            print(' INFO: Getting the country boundaries from Geopandas low'
+            logger.info('Getting the country boundaries from Geopandas low'
                   ' resolution data for {}'.format(country))
 
             self.aoi = (world['geometry']
                         [world['iso_a3'] == aoi].values[0].to_wkt())
         elif aoi.split('.')[-1] == 'shp':
             self.aoi = str(vec.shp_to_wkt(aoi))
-            print(' INFO: Using {} shapefile as Area of Interest definition.')
+            logger.info('Using {} shapefile as Area of Interest definition.'
+                        .format(aoi))
         else:
             try:
                 loads(str(aoi))
@@ -197,11 +202,13 @@ class Sentinel1(Generic):
                  temp_dir=None,
                  product_type='*',
                  beam_mode='*',
-                 polarisation='*'
+                 polarisation='*',
+                 log_level=logging.INFO
                  ):
 
         super().__init__(project_dir, aoi, start, end, data_mount,
-                         download_dir, inventory_dir, processing_dir, temp_dir)
+                         download_dir, inventory_dir, processing_dir,
+                         temp_dir, log_level)
 
         self.product_type = product_type
         self.beam_mode = beam_mode
@@ -280,7 +287,7 @@ class Sentinel1(Generic):
             download_size = self.inventory[
                 'size'].str.replace(' GB', '').astype('float32').sum()
 
-        print(' INFO: There are about {} GB need to be downloaded.'.format(
+        logger.info('There are about {} GB need to be downloaded.'.format(
             download_size))
 
     def refine(self,
@@ -325,9 +332,9 @@ class Sentinel1(Generic):
 
         # to download or not ot download - that is here the question
         if not download_df.any().any():
-            print(' INFO: All scenes are ready for being processed.')
+            logger.info('All scenes are ready for being processed.')
         else:
-            print(' INFO: One or more of your scenes need to be downloaded.')
+            logger.info('One or more of your scenes need to be downloaded.')
             download.download_sentinel1(download_df,
                                         self.download_dir,
                                         mirror=mirror,
@@ -363,18 +370,21 @@ class Sentinel1_SLCBatch(Sentinel1):
                  beam_mode='IW',
                  polarisation='*',
                  ard_type='OST Standard',
-                 multiprocess=None
+                 multiprocess=None,
+                 log_level=logging.INFO
                  ):
 
         super().__init__(project_dir, aoi, start, end, data_mount,
                          download_dir, inventory_dir, processing_dir, temp_dir,
-                         product_type, beam_mode, polarisation)
+                         product_type, beam_mode, polarisation, log_level)
 
         self.ard_type = ard_type
         self.proc_file = opj(self.project_dir, 'processing.json')
         self.get_ard_parameters(self.ard_type)
         self.burst_inventory = None
         self.burst_inventory_file = None
+
+        logger.debug('This is a debug message')
 
     def create_burst_inventory(self, key=None, refine=True,
                                uname=None, pword=None):
@@ -509,13 +519,13 @@ class Sentinel1_SLCBatch(Sentinel1):
         self.update_ard_parameters()
 
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
+            logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
         # set resolution in degree
         self.center_lat = loads(self.aoi).centroid.y
         if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
                   ' DEM instead.')
             self.ard_parameters['single_ARD']['dem'] = 'ASTER 1sec GDEM'
 
@@ -997,12 +1007,13 @@ class Sentinel1_GRDBatch(Sentinel1):
                  product_type='GRD',
                  beam_mode='IW',
                  polarisation='*',
-                 ard_type='OST Standard'
+                 ard_type='OST Standard',
+                 log_level=logging.INFO
                  ):
 
         super().__init__(project_dir, aoi, start, end, data_mount,
                          download_dir, inventory_dir, processing_dir, temp_dir,
-                         product_type, beam_mode, polarisation)
+                         product_type, beam_mode, polarisation, log_level)
 
         self.ard_type = ard_type
         self.proc_file = opj(self.project_dir, 'processing.json')
@@ -1063,13 +1074,13 @@ class Sentinel1_GRDBatch(Sentinel1):
         self.update_ard_parameters()
 
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
+            logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
         # set resolution in degree
         #        self.center_lat = loads(self.aoi).centroid.y
         #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-        #            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+        #            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
         #                  ' DEM instead.')
         #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 

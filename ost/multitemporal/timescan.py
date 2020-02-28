@@ -2,6 +2,7 @@
 # import stdlib modules
 import os
 from os.path import join as opj
+import logging
 
 from datetime import datetime
 from datetime import timedelta
@@ -14,6 +15,8 @@ from scipy import stats
 from ost.helpers import raster as ras
 from ost.helpers import helpers as h
 
+
+logger = logging.getLogger(__name__)
 
 def remove_outliers(arrayin, stddev=3, z_threshold=None):
 
@@ -157,7 +160,7 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
 
         harmonics = False
         if 'harmonics' in metrics:
-            print(' INFO: Calculating harmonics')
+            logger.info('Calculating harmonics')
             if not datelist:
                 print(' WARNING: Harmonics need the datelist. Harmonics will not be calculated')
             else:

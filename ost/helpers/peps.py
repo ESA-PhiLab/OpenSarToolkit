@@ -6,6 +6,7 @@ import getpass
 import urllib
 import time
 import multiprocessing
+import logging
 
 # import non-standar libes
 import requests
@@ -14,6 +15,7 @@ import tqdm
 # import ost classes/functions
 from ost.helpers import helpers as h
 
+logger = logging.getLogger(__name__)
 
 def ask_credentials():
     '''A helper function that asks for user credentials on CNES' PEPS
@@ -113,13 +115,13 @@ def s1_download(argument_list):
 
         first_byte = os.path.getsize(filename)
         if first_byte == total_length:
-            print(' INFO: {} already downloaded.'.format(filename))
+            logger.info('{} already downloaded.'.format(filename))
         else:
-            print(' INFO: Continue downloading scene to: {}'.format(
+            logger.info('Continue downloading scene to: {}'.format(
                 filename))
 
     else:
-        print(' INFO: Downloading scene to: {}'.format(filename))
+        logger.info('Downloading scene to: {}'.format(filename))
         first_byte = 0
 
     if first_byte >= total_length:
@@ -153,19 +155,19 @@ def s1_download(argument_list):
             first_byte = os.path.getsize(filename)
             
         # zipFile check
-        print(' INFO: Checking the zip archive of {} for inconsistency'.format(
+        logger.info('Checking the zip archive of {} for inconsistency'.format(
             filename))
         zip_test = h.check_zipfile(filename)
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            print(' INFO: {} did not pass the zip test. \
+            logger.info('{} did not pass the zip test. \
                   Re-downloading the full scene.'.format(filename))
             os.remove(filename)
             first_byte = 0
         # otherwise we change the status to True
         else:
-            print(' INFO: {} passed the zip test.'.format(filename))
+            logger.info('{} passed the zip test.'.format(filename))
             with open(str('{}.downloaded'.format(filename)), 'w') as file:
                 file.write('successfully downloaded \n')
 
@@ -173,8 +175,8 @@ def s1_download(argument_list):
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
     from ost import Sentinel1_Scene as S1Scene
-    print(' INFO: Getting the storage status (online/onTape) of each scene.')
-    print(' INFO: This may take a while.')
+    logger.info('Getting the storage status (online/onTape) of each scene.')
+    logger.info('This may take a while.')
 
     # this function does not just check,
     # but it already triggers the production of the S1 scene

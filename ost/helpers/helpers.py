@@ -17,8 +17,10 @@ import datetime
 from datetime import timedelta
 from pathlib import Path
 import zipfile
-
+import logging
 import gdal
+
+logger = logging.getLogger(__name__)
 
 # script infos
 __author__ = 'Andreas Vollrath'
@@ -99,7 +101,7 @@ def gpt_path():
             os.makedirs(opj(homedir, '.ost'), exist_ok=True)
             os.symlink(gptfile, opj(homedir, '.ost', 'gpt'))
             gptfile = opj(homedir, '.ost', 'gpt')
-    # print(' INFO: using SNAP CL executable at {}'.format(gptfile))
+    # logger.info('using SNAP CL executable at {}'.format(gptfile))
     return gptfile
 
 
@@ -148,7 +150,7 @@ def timer(start):
     '''
 
     elapsed = time.time() - start
-    print(' INFO: Time elapsed: {}'.format(timedelta(seconds=elapsed)))
+    logger.info('Time elapsed: {}'.format(timedelta(seconds=elapsed)))
 
 
 def remove_folder_content(folder):

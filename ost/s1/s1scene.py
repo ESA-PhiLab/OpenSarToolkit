@@ -7,6 +7,7 @@ import sys
 import importlib
 import json
 import glob
+import logging
 import urllib
 from urllib.error import URLError
 import zipfile
@@ -27,6 +28,7 @@ __author__ = "Andreas Vollrath"
 __version__ = 1.0
 __license__ = 'MIT'
 
+logger = logging.getLogger(__name__)
 
 class Sentinel1_Scene():
 
@@ -128,7 +130,7 @@ class Sentinel1_Scene():
     def download(self, download_dir, mirror=None):
 
         if not mirror:
-            print(' INFO: One or more of your scenes need to be downloaded.')
+            logger.info('One or more of your scenes need to be downloaded.')
             print(' Select the server from where you want to download:')
             print(' (1) Copernicus Apihub (ESA, rolling archive)')
             print(' (2) Alaska Satellite Facility (NASA, full archive)')
@@ -376,7 +378,7 @@ class Sentinel1_Scene():
 
         uuid = self.scihub_uuid(opener)
 
-        print(' INFO: Getting URLS of annotation files'
+        logger.info('Getting URLS of annotation files'
               ' for S1 product: {}.'.format(self.scene_id))
         scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
         anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
@@ -768,7 +770,7 @@ class Sentinel1_Scene():
 
 #        self.center_lat = self._get_center_lat(infile)
 #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-#            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
+#            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
 #                  ' DEM instead.')
 #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 

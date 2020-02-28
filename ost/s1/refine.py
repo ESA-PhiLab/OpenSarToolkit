@@ -9,6 +9,7 @@ import itertools
 # some more libs for plotting and DB connection
 import fiona
 import geopandas as gpd
+import logging
 
 from shapely.ops import unary_union
 
@@ -25,6 +26,8 @@ __version__ = '1.0'
 __maintainer__ = 'Andreas Vollrath'
 __email__ = ''
 __status__ = 'Production'
+
+logger = logging.getLogger(__name__)
 
 
 def read_s1_inventory(inputfile):
@@ -43,7 +46,7 @@ def read_s1_inventory(inputfile):
     '''
 
     if inputfile[-4:] == '.shp':
-        print(' INFO: Importing Sentinel-1 inventory data from ESRI '
+        logger.info('Importing Sentinel-1 inventory data from ESRI '
               ' shapefile:\n {}'.format(inputfile))
         column_names = ['id', 'identifier', 'polarisationmode',
                         'orbitdirection', 'acquisitiondate', 'relativeorbit',
@@ -58,11 +61,11 @@ def read_s1_inventory(inputfile):
         out_frame.columns = column_names
 
     elif inputfile[-7:] == '.sqlite':
-        print(' INFO: Importing Sentinel-1 inventory data from spatialite '
+        logger.info('Importing Sentinel-1 inventory data from spatialite '
               ' DB file:\n {}'.format(inputfile))
         # needs to be added
     else:
-        print(' INFO: Importing Sentinel-1 inventory data from PostGreSQL DB '
+        logger.info('Importing Sentinel-1 inventory data from PostGreSQL DB '
               ' table:\n {}'.format(inputfile))
         db_connect = pgHandler()
         sql = 'select * from {}'.format(inputfile)
@@ -70,7 +73,7 @@ def read_s1_inventory(inputfile):
                                                   geom_col='geometry')
 
     if len(out_frame) >= 0:
-        print(' INFO: Succesfully converted inventory data into a'
+        logger.info('Succesfully converted inventory data into a'
               ' GeoPandas Geo-Dataframe.')
 
     return out_frame
@@ -102,7 +105,7 @@ def _remove_double_entries(inventory_df):
     # re-initialize GDF geometry due to groupby function
     crs = fiona.crs.from_epsg(4326)
     gdf = gpd.GeoDataFrame(inventory_df[idx], geometry='geometry', crs=crs)
-    print(' INFO: {} frames remain after double entry removal'.format(
+    logger.info('{} frames remain after double entry removal'.format(
         len(inventory_df[idx])))
     return gdf
 
@@ -226,19 +229,19 @@ def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
         intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
 
         if intersect_track >= aoi_area - area_reduce:
-            print(' INFO: excluding track {}'.format(track))
+            logger.info('excluding track {}'.format(track))
             inventory_refined = inventory_df[
                 inventory_df['relativeorbit'] != track]
 
     # see if there is actually any marginal track
     try:
         inventory_df = inventory_refined
-        print(' INFO: {} frames remain after non-AOI overlap'.format(
+        logger.info('{} frames remain after non-AOI overlap'.format(
             len(inventory_df)))
     except NameError:
         pass
     else:
-        print(' INFO: All tracks fully overlap the AOI. Not removing anything')
+        logger.info('All tracks fully overlap the AOI. Not removing anything')
     return inventory_df
 
 
@@ -291,7 +294,7 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
             if intersect_track <= intersect_date + 0.15:
                 out_frame = out_frame.append(gdf_date)
 
-    print(' INFO: {} frames remain after removal of non-full AOI crossing'
+    logger.info('{} frames remain after removal of non-full AOI crossing'
           .format(len(out_frame)))
     return out_frame
 
@@ -536,7 +539,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
     # loop through all possible combinations
     for pol, orb in itertools.product(pols, orbit_directions):
 
-        print(' INFO: Coverage analysis for {} tracks in {} polarisation.'
+        logger.info('Coverage analysis for {} tracks in {} polarisation.'
               .format(orb, pol))
 
         # subset the footprint for orbit direction and polarisations
@@ -544,7 +547,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
             (inventory_df['polarisationmode'] == pol) &
             (inventory_df['orbitdirection'] == orb)]
 
-        print(' INFO: {} frames for {} tracks in {} polarisation.'.format(
+        logger.info('{} frames for {} tracks in {} polarisation.'.format(
             len(inv_df_sorted), orb, pol))
 
         # calculate intersected area
@@ -596,7 +599,7 @@ def search_refinement(aoi, inventory_df, inventory_dir,
                 coverage_dict['{}_{}'.format(
                     orb, ''.join(pol.split()))] = len(datelist)
 
-            print(' INFO: Found {} full coverage mosaics.'
+            logger.info('Found {} full coverage mosaics.'
                   .format(len(datelist)))
 
     return inventory_dict, coverage_dict
