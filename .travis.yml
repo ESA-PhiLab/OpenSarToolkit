@@ -7,3 +7,6 @@ before_install:
 
 script:
   - docker run buddyvolly/opensartoolkit:latest /bin/sh -c "export TRAVIS=$TRAVIS; pip3 uninstall -y ost; cd /home/ost; git clone https://github.com/ESA-PhiLab/OpenSarToolkit.git; cd OpenSarToolkit; git fetch; git checkout $TRAVIS_BRANCH --; git pull; python3 -m pip install ./; pytest --cov=ost tests/;"
+
+notifications:
+  slack: opensartoolkit:yfJTtHP9vHW0Hp54LjEDrjH0
