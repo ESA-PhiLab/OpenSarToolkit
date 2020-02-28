@@ -138,7 +138,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         logger.debug.infoNot converting to dB for {}'.format(product))
     else:
         to_db = ard_mt['to db']
-        logger.debug.infoConverting to dB for {}'.format(product))
+        logger.info('Converting to dB for {}'.format(product))
 
     
     if ard['apply ls mask']:
