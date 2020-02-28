@@ -44,7 +44,7 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
     # get path to graph
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
 
-    print(' INFO: Importing Burst {} from Swath {}'
+    logger.info('Importing Burst {} from Swath {}'
           ' from scene {}'.format(burst, swath, os.path.basename(infile)))
 
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
@@ -55,7 +55,7 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.info('Succesfully imported product')
         return return_code
     else:
         raise GPTRuntimeError(
@@ -90,7 +90,7 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
     if pol_speckle_filter:
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Spk_Halpha.xml')
-        print(' INFO: Applying the polarimetric speckle filter and'
+        logger.info('Applying the polarimetric speckle filter and'
               ' calculating the H-alpha dual-pol decomposition')
         command = ('{} {} -x -q {} -Pinput={} -Poutput={}'
                    ' -Pfilter=\'{}\''
@@ -115,14 +115,14 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Halpha.xml')
 
-        print(" INFO: Calculating the H-alpha dual polarisation")
+        logger.info('Calculating the H-alpha dual polarisation')
         command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
             .format(GPT_FILE, graph, ncores, infile, outfile)
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created H/A/Alpha product')
+        logger.info('Succesfully created H/A/Alpha product')
     else:
         raise GPTRuntimeError('ERROR: H/Alpha exited with an error {}. \
                 See {} for Snap Error output'.format(return_code, logfile)
@@ -159,13 +159,12 @@ def calibration(infile, outfile, logfile, proc_file,
         dem_dict = ard['dem']
 
     # calculate Multi-Look factors
-    azimuth_looks = int(np.floor(ard['resolution']/10))
-    if azimuth_looks == 0:
-        azimuth_looks = 1
-    range_looks = int(azimuth_looks * 5)
+    azimuth_looks = 1   # int(np.floor(ard['resolution'] / 10 ))
+    range_looks = 5   # int(azimuth_looks * 5)
+
     # construct command dependent on selected product type
     if ard['product_type'] == 'RTC-gamma0':
-        logger.debug('INFO: Calibrating the product to a RTC product.')
+        logger.debug('Calibrating the product to a RTC product.')
 
         # get graph for RTC generation
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
@@ -183,9 +182,8 @@ def calibration(infile, outfile, logfile, proc_file,
             region, infile, outfile)
 
     elif ard['product_type'] == 'GTC-gamma0':
-        logger.debug(
-            'INFO: Calibrating the product to a GTC product (Gamma0).'
-        )
+
+        logger.info('Calibrating the product to a GTC product (Gamma0).')
 
         # get graph for GTC gammao0 generation
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
@@ -201,7 +199,7 @@ def calibration(infile, outfile, logfile, proc_file,
 
     elif ard['product_type'] == 'GTC-sigma0':
         logger.debug(
-            'INFO: Calibrating the product to a GTC product (Sigma0).'
+            'Calibrating the product to a GTC product (Sigma0).'
         )
 
         # get graph for GTC-gamma0 generation
@@ -219,11 +217,11 @@ def calibration(infile, outfile, logfile, proc_file,
         logger.debug('ERROR: Wrong product type selected.')
         sys.exit(121)
 
-    logger.debug("INFO: Removing thermal noise, calibrating and debursting")
+    logger.debug("Removing thermal noise, calibrating and debursting")
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.debug('INFO: Succesfully calibrated product')
+        logger.debug('Succesfully calibrated product')
         return return_code
     else:
         raise GPTRuntimeError('ERROR: Calibration exited with an error {}. \
@@ -271,33 +269,33 @@ def calibration(infile, outfile, logfile, proc_file,
 #     OST_ROOT = importlib.util.find_spec('ost').submodule_search_locations[0]
 #
 #     if product_type == 'RTC-gamma0':
-#         print(' INFO: Calibrating the product to beta0.')
+#         logger.info('Calibrating the product to beta0.')
 #         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
 #                     'S1_SLC_TNR_Calbeta_Deb.xml')
 #     elif product_type == 'GTC-gamma0':
-#         print(' INFO: Calibrating the product to gamma0.')
+#         logger.info('Calibrating the product to gamma0.')
 #         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
 #                     'S1_SLC_TNR_CalGamma_Deb.xml')
 #     elif product_type == 'GTC-sigma0':
-#         print(' INFO: Calibrating the product to sigma0.')
+#         logger.info('Calibrating the product to sigma0.')
 #         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
 #                     'S1_SLC_TNR_CalSigma_Deb.xml')
 #     elif product_type == 'Coherence_only':
-#         print('INFO: No need to calibrate just for coherence')
+#         logger.debug.infoNo need to calibrate just for coherence')
 #         return_code = 0
 #         return return_code
 #     else:
 #         print(' ERROR: Wrong product type selected.')
 #         sys.exit(121)
 #
-#     print(" INFO: Removing thermal noise, calibrating and debursting")
+#     logger.info('Removing thermal noise, calibrating and debursting")
 #     command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
 #         .format(GPT_FILE, graph, ncores, infile, outfile)
 #
 #     return_code = h.run_command(command, logfile)
 #
 #     if return_code == 0:
-#         print(' INFO: Succesfully calibrated product')
+#         logger.info('Succesfully calibrated product')
 #         return return_code
 #     else:
 #         raise GPTRuntimeError('ERROR: Frame import exited with an error {}. \
@@ -338,14 +336,14 @@ def calibration(infile, outfile, logfile, proc_file,
 #    OST_ROOT = importlib.util.find_spec('ost').submodule_search_locations[0]
 #    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
 #
-#    print(' INFO: Co-registering {}'.format(filelist[0]))
+#    logger.info('Co-registering {}'.format(filelist[0]))
 #    command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
 #        .format(GPT_FILE, graph, ncores, filelist, outfile, dem)
 #
 #    return_code = h.run_command(command, logfile)
 #
 #    if return_code == 0:
-#        print(' INFO: Succesfully coregistered product.')
+#        logger.info('Succesfully coregistered product.')
 #    else:
 #        print(' ERROR: Co-registration exited with an error. \
 #                See {} for Snap Error output'.format(logfile))
@@ -387,7 +385,7 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     #if not dem_dict['dem file']:
     #    dem_dict['dem file'] = " "
 
-    print(' INFO: Co-registering {} and {}'.format(master, slave))
+    logger.info('Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
                ' -Pmaster={}'
                ' -Pslave={}'
@@ -406,7 +404,7 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product.')
+        logger.info('Succesfully coregistered product.')
     else:
         raise GPTRuntimeError('ERROR: Co-registration exited with '
                               'an error {}. See {} for Snap '
@@ -436,7 +434,7 @@ def coherence(infile, outfile, logfile, ard,
     # get path to graph
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
     polar = ard['coherence_bands'].replace(' ', '')
-    print(' INFO: Coherence estimation')
+    logger.info('Coherence estimation')
     command = '{} {} -x -q {} ' \
               '-Pazimuth_window={} -Prange_window={} ' \
               '-Ppolar=\'{}\' -Pinput={} -Poutput={}' \
@@ -447,7 +445,7 @@ def coherence(infile, outfile, logfile, ard,
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created coherence product.')
+        logger.info('Succesfully created coherence product.')
         return return_code
     else:
         raise GPTRuntimeError('ERROR: Coherence exited with an error {}. \

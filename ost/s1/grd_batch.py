@@ -52,7 +52,7 @@ from os.path import join as opj
 import json
 import glob
 import itertools
-
+import logging
 import gdal
 
 # import ost libs
@@ -65,6 +65,7 @@ from ost.multitemporal import ard_to_ts
 from ost.multitemporal import timescan
 from ost.mosaic import mosaic
 
+logger = logging.getLogger(__name__)
 
 def _create_processing_dict(inventory_df):
     ''' This function might be obsolete?
@@ -123,7 +124,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
 
                 # check if already processed
                 if os.path.isfile(opj(out_dir, '.processed')):
-                    print(' INFO: Acquisition from {} of track {}'
+                    logger.info('Acquisition from {} of track {}'
                           ' already processed'.format(acquisition_date, track))
                 else:
                     # get the paths to the file
@@ -167,7 +168,7 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
             print('create command')
             continue
 
-        print(' INFO: Creating common extent mask for track {}'.format(track))
+        logger.info('Creating common extent mask for track {}'.format(track))
         common_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
 
     if ard['create ls mask'] or ard['apply ls mask']:
@@ -184,7 +185,7 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
             # layover/shadow mask
             out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
 
-            print(' INFO: Creating common Layover/Shadow mask for track {}'.format(track))
+            logger.info('Creating common Layover/Shadow mask for track {}'.format(track))
             common_ls_mask.mt_layover(list_of_layover, out_ls, temp_dir,
                                       extent, ard['apply ls mask'])
 
@@ -239,7 +240,7 @@ def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
 
     for track in inventory_df.relativeorbit.unique():
 
-        print(' INFO: Entering track {}.'.format(track))
+        logger.info('Entering track {}.'.format(track))
         # get track directory
         track_dir = opj(processing_dir, track)
         # define and create Timescan directory
@@ -250,7 +251,7 @@ def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
         for polar in ['VV', 'VH', 'HH', 'HV']:
 
             if os.path.isfile(opj(timescan_dir, '.{}.processed'.format(polar))):
-                print(' INFO: Timescans for track {} already'
+                logger.info('Timescans for track {} already'
                       ' processed.'.format(track))
                 continue
 
@@ -263,7 +264,7 @@ def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
             if not os.path.isfile(timeseries):
                 continue
 
-            print(' INFO: Processing Timescans of {} for track {}.'.format(polar, track))
+            logger.info('Processing Timescans of {} for track {}.'.format(polar, track))
             # create a datelist for harmonics
             scenelist = glob.glob(
                 opj(track_dir, '*bs.{}.tif'.format(polar))
@@ -302,7 +303,7 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
                       exec_file=None):
 
     print(' -----------------------------------')
-    print(' INFO: Mosaicking Time-series layers')
+    logger.info('Mosaicking Time-series layers')
     print(' -----------------------------------')
 
     # create output folder
@@ -349,11 +350,11 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
             outfiles.append(outfile)
 
             if os.path.isfile(check_file):
-                print(' INFO: Mosaic layer {} already'
+                logger.info('Mosaic layer {} already'
                       ' processed.'.format(os.path.basename(outfile)))
                 continue
 
-            print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+            logger.info('Mosaicking layer {}.'.format(os.path.basename(outfile)))
             mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
 
         if exec_file:
@@ -411,11 +412,11 @@ def mosaic_timescan(inventory_df, processing_dir, temp_dir, proc_file,
         )
 
         if os.path.isfile(check_file):
-            print(' INFO: Mosaic layer {} already '
+            logger.info('Mosaic layer {} already '
                   ' processed.'.format(os.path.basename(outfile)))
             continue
 
-        print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
+        logger.info('Mosaicking layer {}.'.format(os.path.basename(outfile)))
         mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
         outfiles.append(outfile)
 

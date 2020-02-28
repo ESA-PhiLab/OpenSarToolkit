@@ -7,6 +7,7 @@ import osr
 import ogr
 import pyproj
 import geopandas as gpd
+import logging
 
 from shapely.ops import transform
 from shapely.wkt import loads
@@ -14,6 +15,7 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from fiona import collection
 from fiona.crs import from_epsg
 
+logger = logging.getLogger(__name__)
 
 def get_epsg(prjfile):
     '''Get the epsg code from a projection file of a shapefile
@@ -207,7 +209,7 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
         wkt = geom.ExportToWkt()
 
     if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: Reprojecting AOI file to Lat/Long (WGS84)')
+        logger.info('Reprojecting AOI file to Lat/Long (WGS84)')
         wkt = reproject_geometry(wkt, proj4, 4326).ExportToWkt()
 
     # do manipulations if needed
@@ -254,7 +256,7 @@ def shp_to_gdf(shapefile):
     proj4 = get_proj4(prjfile)
 
     if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        print(' INFO: reprojecting AOI layer to WGS84.')
+        logger.info('reprojecting AOI layer to WGS84.')
         # reproject
         gdf.crs = (proj4)
         gdf = gdf.to_crs({'init': 'epsg:4326'})
@@ -275,7 +277,7 @@ def wkt_to_gdf(wkt):
     elif geometry.geom_type == 'Polygon':
         data = {'id': ['1'],
                 'geometry': loads(wkt)}
-        gdf = gpd.GeoDataFrame(data)
+        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
 
     # geometry collection of single multiploygon
     elif geometry.geom_type == 'GeometryCollection' and len(geometry) == 1 and 'MULTIPOLYGON' in str(geometry):
@@ -293,7 +295,7 @@ def wkt_to_gdf(wkt):
                                 'geometry': feats}, 
                                  geometry='geometry', 
                                  crs = gdf.crs
-                                  )
+        )
     
     # geometry collection of single polygon
     elif geometry.geom_type == 'GeometryCollection' and len(geometry) == 1:

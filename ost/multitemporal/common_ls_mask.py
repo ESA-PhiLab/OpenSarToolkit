@@ -3,6 +3,7 @@
 import os
 from os.path import join as opj
 import time
+import logging
 
 import gdal
 import rasterio
@@ -10,6 +11,7 @@ import numpy as np
 
 from ost.helpers import helpers as h, raster as ras, vector as vec
 
+logger = logging.getLogger(__name__)
 
 def mt_layover(filelist, outfile, temp_dir, extent, update_extent=False):
     '''
@@ -36,7 +38,7 @@ def mt_layover(filelist, outfile, temp_dir, extent, update_extent=False):
     ls_layer = opj(temp_dir, os.path.basename(outfile))
 
     # create a vrt-stack out of
-    print(' INFO: Creating common Layover/Shadow Mask')
+    logger.info('Creating common Layover/Shadow Mask')
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
     gdal.BuildVRT(opj(temp_dir, 'ls.vrt'), filelist, options=vrt_options)
 
@@ -68,7 +70,7 @@ def mt_layover(filelist, outfile, temp_dir, extent, update_extent=False):
     h.timer(start)
 
     if update_extent:
-        print(' INFO: Calculating symetrical difference of extent and ls_mask')
+        logger.info('Calculating symetrical difference of extent and ls_mask')
         # polygonize the multi-temporal ls mask
         ras.polygonize_raster(outfile, '{}.shp'.format(outfile[:-4]))
         

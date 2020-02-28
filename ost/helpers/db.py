@@ -10,20 +10,13 @@ sqlite, or PostGreSQL database.
 # import modules
 import getpass
 import os
+import logging
 import ogr
 import psycopg2 as pg
 
 from ost.helpers.vector import get_proj4, reproject_geometry
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
+logger = logging.getLogger(__name__)
 
 # see if the pg-file is there
 def pgHandler(dbConnectFile = '{}/.phiSAR/pgdb'.format(os.getenv("HOME"))):
@@ -44,7 +37,7 @@ def pgHandler(dbConnectFile = '{}/.phiSAR/pgdb'.format(os.getenv("HOME"))):
     try:
         f = open(dbConnectFile)
     except (FileNotFoundError, IOError):
-        print(" ERROR: No PostGreSQL connection established. Make sure to configure a connection to phiSAR.")
+        logger.info('ERROR: No PostGreSQL connection established. Make sure to configure a connection to phiSAR.')
 
     # read out dbname, username
     lines = f.read().splitlines()
@@ -54,7 +47,7 @@ def pgHandler(dbConnectFile = '{}/.phiSAR/pgdb'.format(os.getenv("HOME"))):
     host = lines[3]
     port = lines[4]
 
-    print(" INFO: Connecting to PostGreSQL database: {}".format(dbname))
+    logger.info('Connecting to PostGreSQL database: {}'.format(dbname))
     dbConnect = pgConnect(uname, pwDb, dbname, host, port)
 
     return dbConnect
@@ -80,7 +73,7 @@ class pgConnect:
             self.connection.autocommit = True
             self.cursor = self.connection.cursor()
         except:
-            print(" Cannot connect to database")
+            logger.info('Cannot connect to database')
 
     def pgCreateS1(self, tablename):
 

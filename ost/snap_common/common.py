@@ -4,10 +4,12 @@
 import os
 import importlib
 from retrying import retry
-
+import logging
 from ost.errors import GPTRuntimeError
 from os.path import join as opj
 from ost.helpers import helpers as h
+
+logger = logging.getLogger(__name__)
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -26,7 +28,7 @@ def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Calibrating the product to {}.'.format(calibrate_to))
+    logger.info('Calibrating the product to {}.'.format(calibrate_to))
     # contrcut command string
     
     command = ('{} Calibration -x -q {}'
@@ -44,7 +46,7 @@ def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Calibration to {} successful.'.format(calibrate_to))
+        logger.info('Calibration to {} successful.'.format(calibrate_to))
     else:
         print(' ERROR: Calibration exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -58,7 +60,7 @@ def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Multi-looking the image with {} looks in'
+    logger.info('Multi-looking the image with {} looks in'
           ' azimuth and {} looks in range.'.format(az_looks, rg_looks))
     
     # construct command string
@@ -77,7 +79,7 @@ def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully multi-looked product.')
+        logger.info('Succesfully multi-looked product.')
     else:
         print(' ERROR: Multi-look exited with an error. \
                 See {} for Snap Error output'.format(logfile))
@@ -107,7 +109,7 @@ def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Applying speckle filtering.')
+    logger.info('Applying speckle filtering.')
     # contrcut command string
     command = ('{} Speckle-Filter -x -q {}'
                   ' -PestimateENL=\'{}\''
@@ -142,7 +144,7 @@ def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()
 
     # hadle errors and logs
     if return_code == 0:
-        print(' INFO: Successfully applied speckle filtering.')
+        logger.info('Successfully applied speckle filtering.')
         return return_code
     else:
         raise GPTRuntimeError(
@@ -171,7 +173,7 @@ def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
     # get path to SNAP's command line executable gpt
     gpt_file = h.gpt_path()
 
-    print(' INFO: Converting the image to dB-scale.')
+    logger.info('Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
         gpt_file, ncores, outfile, infile)
@@ -181,7 +183,7 @@ def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully converted product to dB-scale.')
+        logger.info('Succesfully converted product to dB-scale.')
     else:
         raise GPTRuntimeError(
             'ERROR: dB Scaling exited with an error {}. See {} for '
@@ -242,7 +244,7 @@ def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully terrain corrected product')
+        logger.info('Succesfully terrain corrected product')
         return return_code
     else:
         raise GPTRuntimeError(
@@ -282,7 +284,7 @@ def ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count(
     # get path to ost package
     rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
 
-    print(' INFO: Creating the Layover/Shadow mask')
+    logger.info('Creating the Layover/Shadow mask')
     # get path to workflow xml
     graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
 
@@ -308,7 +310,7 @@ def ls_mask(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count(
 
     # handle errors and logs
     if return_code == 0:
-        print(' INFO: Succesfully created a Layover/Shadow mask')
+        logger.info('Succesfully created a Layover/Shadow mask')
     else:
         raise GPTRuntimeError(
             'ERROR: Layover/Shadow mask creation exited with an error {}. '
