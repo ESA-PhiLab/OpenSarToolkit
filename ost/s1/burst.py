@@ -177,8 +177,6 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
         ard_params = json.load(ard_file)['processing_parameters']
         ard = ard_params['single_ARD']
 
-    coherence = ard['coherence']
-
     for burst in burst_inventory.bid.unique():      # ***
 
         # create a list of dates over which we loop
@@ -193,8 +191,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             master_date = dates[idx]
             # we set this for handling the end of the time-series
             end = False
-            ard['coherence'] = coherence
-
+            coherence = ard['coherence']
             # try to get slave date
             try:
                 slave_date = dates[idx + 1]    # last burst in timeseries?
@@ -228,7 +225,7 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
             os.makedirs(out_dir, exist_ok=True)
 
             if end is True:
-                ard['coherence'] = False
+                coherence = False
                 slave_file, slave_burst_nr, slave_id = None, None, None
 
             else:
@@ -301,8 +298,9 @@ def burst_to_ard_batch(burst_inventory, download_dir, processing_dir,
                      slave_file=slave_file,
                      slave_burst_nr=slave_burst_nr,
                      slave_burst_id=slave_id,
+                     coherence=coherence,
                      remove_slave_import=False,
-                    ncores = ncores)
+                     ncores = ncores)
 
 
 def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,

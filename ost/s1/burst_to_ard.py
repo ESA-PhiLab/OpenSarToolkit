@@ -328,6 +328,7 @@ def burst_to_ard(master_file,
                  slave_file=None,
                  slave_burst_nr=None,
                  slave_burst_id=None,
+                 coherence=False,
                  remove_slave_import=False,
                  ncores=os.cpu_count()):
     '''The main routine to turn a burst into an ARD product
@@ -362,10 +363,15 @@ def burst_to_ard(master_file,
         ard_params = json.load(ard_file)['processing_parameters']
         ard = ard_params['single_ARD']
 
+    # existence of processed files
+    pol_file = os.path.exists(opj(out_dir, '.pol.processed'))
+    bs_file = os.path.exists(opj(out_dir, '.bs.processed'))
+    coh_file = os.path.exists(opj(out_dir, '.coh.processed'))
+
     # check if somethings already processed
-    if (not os.path.exists(opj(out_dir, '.pol.processed')) or
-            not os.path.exists(opj(out_dir, '.bs.processed')) or
-            not os.path.exists(opj(out_dir, '.coh.processed'))):
+    if (ard['H-A-Alpha'] and not pol_file) or \
+       (ard['backscatter'] and not bs_file) or \
+       (coherence and not coh_file):
 
         # ---------------------------------------------------------------------
         # 1 Import
@@ -401,7 +407,7 @@ def burst_to_ard(master_file,
                 master_burst_id, ncores
             )
 
-        if (ard['coherence'] and
+        if (coherence and
                 not os.path.exists(opj(out_dir, '.coh.processed'))):
 
             # import slave
