@@ -19,7 +19,8 @@ class SingleLevelFilter(logging.Filter):
             return (record.levelno == self.passlevel)
 
 
-formatter = logging.Formatter(' %(levelname)s (%(asctime)s): %(message)s')
+formatter = logging.Formatter(' %(levelname)s (%(asctime)s): %(message)s',
+                              '%H:%M:%S')
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.INFO)
