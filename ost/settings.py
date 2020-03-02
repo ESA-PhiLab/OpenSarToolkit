@@ -1,3 +1,4 @@
+import sys
 import importlib
 from ost.helpers import helpers as h
 import logging
@@ -19,7 +20,7 @@ class SingleLevelFilter(logging.Filter):
 
 
 formatter = logging.Formatter(' %(levelname)s (%(asctime)s): %(message)s')
-stream_handler = logging.StreamHandler()
+stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.INFO)
 
@@ -31,6 +32,8 @@ def set_log_level(loglevel=logging.INFO):
         stream_handler.addFilter(info_filter)
         logging.getLogger().addHandler(stream_handler)
 
+    logging.getLogger("ost").setLevel(loglevel)
+    stream_handler.setLevel(loglevel)
 
 def setup_logfile(logfile):
     file_handler = logging.FileHandler(logfile)
