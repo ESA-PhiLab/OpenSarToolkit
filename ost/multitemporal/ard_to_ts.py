@@ -139,7 +139,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
         if ard_mt['remove_mt_speckle'] is True:
-            ard_mt_speck = ard_params['time-series ARD']['mt_speckle_filter']
+            ard_mt_speck = ard_params['time-series_ARD']['mt_speckle_filter']
     # get the db scaling right
     to_db = ard['to_db']
     if to_db or product != 'bs':
