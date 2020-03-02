@@ -20,8 +20,6 @@ ENV \
   HOME=/home/ost \
   PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
 
-   
-
 # install all dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
@@ -52,8 +50,12 @@ RUN alias python=python3 && \
     ./${OTB} && \
     rm -f OTB-${OTB_VERSION}-Linux64.run 
 
-#RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --list --refresh
-#RUN /home/ost/snap/bin/snap --nosplash --nogui --modules --update-all
+# update snap to latest version
+RUN /home/ost/programs/snap/bin/snap --nosplash --nogui --modules --update-all 2>&1 | while read -r line; do \
+        echo "$line" && \
+        [ "$line" = "updates=0" ] && sleep 2 && pkill -TERM -f "snap/jre/bin/java"; \
+    done; exit 0
+
 # set usable memory to 12G
 RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 

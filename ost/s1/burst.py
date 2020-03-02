@@ -457,7 +457,7 @@ def timeseries_to_timescan(burst_inventory, processing_dir, temp_dir,
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing_parameters']
         ard = ard_params['single_ARD']
-        ard_mt = ard_params['time-series ARD']
+        ard_mt = ard_params['time-series_ARD']
         ard_tscan = ard_params['time-scan_ARD']
     
     

@@ -251,8 +251,8 @@ def create_tscan_vrt(timescan_dir, proc_file):
 
         # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard_tscan = ard_params['time-scan ARD']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard_tscan = ard_params['time-scan_ARD']
 
     # loop through all pontial proucts
     # a products list

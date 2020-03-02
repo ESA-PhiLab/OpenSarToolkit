@@ -54,8 +54,11 @@ class Generic():
         self.processing_dir = processing_dir
         self.temp_dir = temp_dir
 
+        # set log level to logging.INFO as standard
         set_log_level(log_level)
+        # create a standard logfile
         setup_logfile(opj(self.project_dir, '.processing.log'))
+
         # handle the import of different aoi formats and transform
         # to a WKT string
         if aoi.split('.')[-1] != 'shp' and len(aoi) == 3:
@@ -64,7 +67,7 @@ class Generic():
             world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
             country = world.name[world.iso_a3 == aoi].values[0]
             logger.info('Getting the country boundaries from Geopandas low'
-                  ' resolution data for {}'.format(country))
+                        ' resolution data for {}'.format(country))
 
             self.aoi = (world['geometry']
                         [world['iso_a3'] == aoi].values[0].to_wkt())
@@ -74,10 +77,10 @@ class Generic():
                         .format(aoi))
         else:
             try:
+                # let's check if it is a shapely readable WKT
                 loads(str(aoi))
             except:
-                print(' ERROR: No valid OST AOI defintion.')
-                sys.exit()
+                raise ValueError('No valid OST AOI defintion.')
             else:
                 self.aoi = aoi
 
@@ -115,13 +118,14 @@ class Generic():
                          .format(self.project_dir))
 
     def _create_download_dir(self, download_dir=None):
-        '''Creates the high-level download directory
+        """
 
-        :param instance attribute download_dir or
-               default value (i.e. /path/to/project_dir/download)
+        Args:
+            download_dir:
 
-        :return None
-        '''
+        Returns:
+
+        """
 
         if download_dir is None:
             self.download_dir = opj(self.project_dir, 'download')
