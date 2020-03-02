@@ -9,11 +9,16 @@ import datetime
 import logging
 
 import gdal
+from retrying import retry
 
+from ost.errors import GPTRuntimeError
 from ost.helpers import raster as ras, helpers as h
+
 
 logger = logging.getLogger(__name__)
 
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def create_stack(filelist, out_stack, logfile,
                  polarisation=None, pattern=None, ncores=os.cpu_count()):
     '''
@@ -45,12 +50,14 @@ def create_stack(filelist, out_stack, logfile,
     if return_code == 0:
         logger.info('Successfully created multi-temporal stack')
     else:
-        print(' ERROR: Stack creation exited with an error.'
-              ' See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'Multi-temporal Spackle Filter exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
     return return_code
 
-
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_count()):
 
     '''
@@ -83,17 +90,17 @@ def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_c
                   ' -PwindowSize={}'
                   ' -t \'{}\' \'{}\''.format(
                       gpt_file, ncores,
-                      speckle_dict['estimate ENL'],
-                      speckle_dict['pan size'],
+                      speckle_dict['estimate_ENL'],
+                      speckle_dict['pan_size'],
                       speckle_dict['damping'],
                       speckle_dict['ENL'],
                       speckle_dict['filter'],
-                      speckle_dict['filter x size'],
-                      speckle_dict['filter y size'],
-                      speckle_dict['num of looks'],
+                      speckle_dict['filter_x_size'],
+                      speckle_dict['filter_y_size'],
+                      speckle_dict['num_of_looks'],
                       speckle_dict['sigma'],
-                      speckle_dict['target window size'],
-                      speckle_dict['window size'],
+                      speckle_dict['target_window_size'],
+                      speckle_dict['window_size'],
                       out_stack, in_stack
                       )
     )
@@ -103,8 +110,10 @@ def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_c
     if return_code == 0:
         logger.info('Successfully applied multi-temporal speckle filtering')
     else:
-        print(' ERROR: Multi-temporal speckle filtering exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            'Multi-temporal Spackle Filter exited with an error {}. '
+            'See {} for Snap Error output'.format(return_code, logfile)
+        )
 
     return return_code
 
@@ -126,22 +135,22 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
     
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
-        ard_mt = ard_params['time-series ARD']
-        if ard_mt['remove mt speckle'] is True:
-            ard_mt_speck = ard_params['time-series ARD']['mt speckle filter']
+        ard_params = json.load(ard_file)['processing_parameters']
+        ard = ard_params['single_ARD']
+        ard_mt = ard_params['time-series_ARD']
+        if ard_mt['remove_mt_speckle'] is True:
+            ard_mt_speck = ard_params['time-series ARD']['mt_speckle_filter']
     # get the db scaling right
-    to_db = ard['to db']
+    to_db = ard['to_db']
     if to_db or product != 'bs':
         to_db = False
         logger.info('Not converting to dB for {}'.format(product))
     else:
-        to_db = ard_mt['to db']
+        to_db = ard_mt['to_db']
         logger.info('Converting to dB for {}'.format(product))
 
     
-    if ard['apply ls mask']:
+    if ard['apply_ls_mask']:
         extent = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
     else:
         extent = opj(burst_dir, '{}.extent.shp'.format(burst))
@@ -180,7 +189,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         create_stack(list_of_files, temp_stack, stack_log, polarisation=pol)
 
     # run mt speckle filter
-    if ard_mt['remove mt speckle'] is True:
+    if ard_mt['remove_mt_speckle'] is True:
         speckle_log = opj(out_dir, '{}_{}_{}_mt_speckle.err_log'.format(
             burst, product, pol))
 
@@ -230,7 +239,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
             
             ras.mask_by_shape(infile, outfile, extent, 
                               to_db=to_db, 
-                              datatype=ard_mt['dtype output'],
+                              datatype=ard_mt['dtype_output'],
                               min_value=mm_dict[stretch]['min'], 
                               max_value=mm_dict[stretch]['max'],
                               ndv=0.0,
@@ -266,7 +275,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
     
             ras.mask_by_shape(infile, outfile, extent,
                               to_db=to_db, 
-                              datatype=ard_mt['dtype output'],
+                              datatype=ard_mt['dtype_output'],
                               min_value=mm_dict[stretch]['min'], 
                               max_value=mm_dict[stretch]['max'],
                               ndv=0.0)

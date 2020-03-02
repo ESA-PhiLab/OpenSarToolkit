@@ -135,6 +135,7 @@ def nan_percentile(arr, q):
 
 def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
                to_power=False, outlier_removal=False, datelist=None):
+
     if type(rescale_to_datatype) == str:
         if rescale_to_datatype == 'True':
             rescale_to_datatype = True
