@@ -91,7 +91,7 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
         graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
                     'S1_SLC_Deb_Spk_Halpha.xml')
         logger.info('Applying the polarimetric speckle filter and'
-              ' calculating the H-alpha dual-pol decomposition')
+                    ' calculating the H-alpha dual-pol decomposition')
         command = ('{} {} -x -q {} -Pinput={} -Poutput={}'
                    ' -Pfilter=\'{}\''
                    ' -Pfilter_size=\'{}\''
