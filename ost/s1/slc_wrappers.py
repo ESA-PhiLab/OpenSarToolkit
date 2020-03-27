@@ -1,14 +1,12 @@
 import os
 from os.path import join as opj
-import sys
-import json
 import logging
+from pathlib import Path
 
-import numpy as np
 from retrying import retry
 
-from ost.settings import GPT_FILE, OST_ROOT
-from ost.errors import GPTRuntimeError
+from ost.helpers.settings import GPT_FILE, OST_ROOT
+from ost.helpers.errors import GPTRuntimeError
 from ost.helpers import helpers as h
 
 logger = logging.getLogger(__name__)
@@ -40,16 +38,17 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
                 default: os.cpu_count()
     '''
 
-
     # get path to graph
-    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
+    graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_BurstSplit_AO.xml')
 
-    logger.info('Importing Burst {} from Swath {}'
-          ' from scene {}'.format(burst, swath, os.path.basename(infile)))
+    logger.info(
+        f'Importing Burst {burst} from Swath {swath} '
+        f'from scene {os.path.basename(infile)}'
+    )
 
     command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
                       -Pburst={} -Poutput={}' \
-        .format(GPT_FILE, graph, ncores, infile, polar, swath,
+        .format(GPT_FILE, graph, 2*ncores, infile, polar, swath,
                 burst, outfile)
 
     return_code = h.run_command(command, logfile)
@@ -88,36 +87,32 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
     '''
 
     if pol_speckle_filter:
-        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Spk_Halpha.xml')
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_Deb_Spk_Halpha.xml'
+        )
         logger.info('Applying the polarimetric speckle filter and'
                     ' calculating the H-alpha dual-pol decomposition')
-        command = ('{} {} -x -q {} -Pinput={} -Poutput={}'
-                   ' -Pfilter=\'{}\''
-                   ' -Pfilter_size=\'{}\''
-                   ' -Pnr_looks={}'
-                   ' -Pwindow_size={}'
-                   ' -Ptarget_window_size={}'
-                   ' -Ppan_size={}'
-                   ' -Psigma={}'.format(
-            GPT_FILE, graph, ncores,
-            infile, outfile,
-            pol_speckle_dict['filter'],
-            pol_speckle_dict['filter_size'],
-            pol_speckle_dict['num_of_looks'],
-            pol_speckle_dict['window_size'],
-            pol_speckle_dict['target_window_size'],
-            pol_speckle_dict['pan_size'],
-            pol_speckle_dict['sigma']
-        )
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2*ncores} '
+            f'-Pinput={infile} -Poutput={outfile} '
+            f'-Pfilter=\'{pol_speckle_dict["polarimetric_filter"]}\' '
+            f'-Pfilter_size=\'{pol_speckle_dict["filter_size"]}\' '
+            f'-Pnr_looks={pol_speckle_dict["num_of_looks"]} '
+            f'-Pwindow_size={pol_speckle_dict["window_size"]} '
+            f'-Ptarget_window_size={pol_speckle_dict["target_window_size"]} '
+            f'-Ppan_size={pol_speckle_dict["pan_size"]} '
+            f'-Psigma={pol_speckle_dict["sigma"]}'
         )
     else:
-        graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Halpha.xml')
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_Deb_Halpha.xml'
+        )
 
         logger.info('Calculating the H-alpha dual polarisation')
-        command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(GPT_FILE, graph, ncores, infile, outfile)
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2*ncores} ' 
+            f'-Pinput={infile} -Poutput={outfile}'
+        )
 
     return_code = h.run_command(command, logfile)
 
@@ -129,7 +124,7 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
                               )
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def calibration(infile, outfile, logfile, proc_file,
+def calibration(infile, outfile, logfile, ard,
                 region='', ncores=os.cpu_count()):
     '''A wrapper around SNAP's radiometric calibration
     This function takes OST imported Sentinel-1 product and generates
@@ -153,10 +148,7 @@ def calibration(infile, outfile, logfile, proc_file,
     '''
 
     # load ards
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing_parameters']
-        ard = ard_params['single_ARD']
-        dem_dict = ard['dem']
+    dem_dict = ard['dem']
 
     # calculate Multi-Look factors
     azimuth_looks = 1   # int(np.floor(ard['resolution'] / 10 ))
@@ -175,7 +167,7 @@ def calibration(infile, outfile, logfile, proc_file,
                   '-Pdem=\'{}\' -Pdem_file="{}" -Pdem_nodata={} ' \
                   '-Pdem_resampling={} -Pregion="{}" ' \
                   '-Pinput="{}" -Poutput="{}"'.format(
-            GPT_FILE, graph, ncores,
+            GPT_FILE, graph, 2*ncores,
             range_looks, azimuth_looks,
             dem_dict['dem_name'], dem_dict['dem_file'],
             dem_dict['dem_nodata'], dem_dict['dem_resampling'],
@@ -193,7 +185,7 @@ def calibration(infile, outfile, logfile, proc_file,
         command = '{} {} -x -q {} ' \
                   '-Prange_looks={} -Pazimuth_looks={} ' \
                   '-Pregion="{}" -Pinput="{}" -Poutput="{}"' \
-            .format(GPT_FILE, graph, ncores,
+            .format(GPT_FILE, graph, 2*ncores,
                     range_looks, azimuth_looks,
                     region, infile, outfile)
 
@@ -210,7 +202,7 @@ def calibration(infile, outfile, logfile, proc_file,
         command = '{} {} -x -q {} ' \
                   '-Prange_looks={} -Pazimuth_looks={} ' \
                   '-Pregion="{}" -Pinput="{}" -Poutput="{}"' \
-            .format(GPT_FILE, graph, ncores,
+            .format(GPT_FILE, graph, 2*ncores,
                     range_looks, azimuth_looks,
                     region, infile, outfile)
     else:
@@ -302,53 +294,53 @@ def calibration(infile, outfile, logfile, proc_file,
 #                               )
 
 
-# def _coreg(filelist, outfile, logfile, dem_dict, ncores=os.cpu_count()):
-#    '''A wrapper around SNAP's back-geocoding co-registration routine
-#
-#    This function takes a list of 2 OST imported Sentinel-1 SLC products
-#    and co-registers them properly. This routine is sufficient for coherence
-#    estimation, but not for InSAR, since the ESD refinement is not applied.
-#
-#    Args:
-#        infile: string or os.path object for
-#                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-#        outfile: string or os.path object for the output
-#                 file written in BEAM-Dimap format
-#        logfile: string or os.path object for the file
-#                 where SNAP'S STDOUT/STDERR is written to
-#        dem (str): A Snap compliant string for the dem to use.
-#                   Possible choices are:
-#                       'SRTM 1sec HGT' (default)
-#                       'SRTM 3sec'
-#                       'ASTER 1sec GDEM'
-#                       'ACE30'
-#        ncores(int): the number of cpu cores to allocate to the gpt job,
-#               default: os.cpu_count()
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def coreg(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
+    '''A wrapper around SNAP's back-geocoding co-registration routine
 
-#
-#    '''
-#
-#    # get gpt file
-#    GPT_FILE = h.gpt_path()
-#
-#    # get path to graph
-#    OST_ROOT = importlib.util.find_spec('ost').submodule_search_locations[0]
-#    graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
-#
-#    logger.info('Co-registering {}'.format(filelist[0]))
-#    command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
-#        .format(GPT_FILE, graph, ncores, filelist, outfile, dem)
-#
-#    return_code = h.run_command(command, logfile)
-#
-#    if return_code == 0:
-#        logger.info('Succesfully coregistered product.')
-#    else:
-#        print(' ERROR: Co-registration exited with an error. \
-#                See {} for Snap Error output'.format(logfile))
-#        # sys.exit(112)
-#
-#    return return_code
+    This function takes a list of 2 OST imported Sentinel-1 SLC products
+    and co-registers them properly. This routine is sufficient for coherence
+    estimation, but not for InSAR, since the ESD refinement is not applied.
+
+    Args:
+        infile: string or os.path object for
+                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
+        outfile: string or os.path object for the output
+                 file written in BEAM-Dimap format
+        logfile: string or os.path object for the file
+                 where SNAP'S STDOUT/STDERR is written to
+        dem (str): A Snap compliant string for the dem to use.
+                   Possible choices are:
+                       'SRTM 1sec HGT' (default)
+                       'SRTM 3sec'
+                       'ASTER 1sec GDEM'
+                       'ACE30'
+        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+
+
+    '''
+
+    logger.info('Co-registering {} and {}'.format(master, slave))
+    command = (
+        f'{GPT_FILE} Back-Geocoding -x -q {2*ncores} '
+        f'-PdemName=\'{dem_dict["dem_name"]}\' '
+        f'-PdemResamplingMethod=\'{dem_dict["dem_resampling"]}\' '
+        f'-PexternalDEMFile=\'{dem_dict["dem_file"]}\' '
+        f'-PexternalDEMNoDataValue=\'{dem_dict["dem_nodata"]}\' '
+        f'-PmaskOutAreaWithoutElevation=false '
+        f'-t \'{outfile}\''
+        f' {master} {slave}'
+    )
+
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        logger.info('Succesfully coregistered product.')
+    else:
+        raise GPTRuntimeError('ERROR: Co-registration exited with '
+                              'an error {}. See {} for Snap '
+                              'Error output'.format(return_code, logfile)
+                              )
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -380,10 +372,6 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
     # get path to graph
     graph = opj(OST_ROOT, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
 
-    # make dem file snap readable in case of no external dem
-    #if not dem_dict['dem file']:
-    #    dem_dict['dem file'] = " "
-
     logger.info('Co-registering {} and {}'.format(master, slave))
     command = ('{} {} -x -q {} '
                ' -Pmaster={}'
@@ -393,7 +381,7 @@ def coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
                ' -Pdem_nodata=\'{}\''
                ' -Pdem_resampling=\'{}\''
                ' -Poutput={} '.format(
-        GPT_FILE, graph, ncores,
+        GPT_FILE, graph, 2*ncores,
         master, slave,
         dem_dict['dem_name'], dem_dict['dem_file'],
         dem_dict['dem_nodata'], dem_dict['dem_resampling'],
@@ -437,7 +425,7 @@ def coherence(infile, outfile, logfile, ard,
     command = '{} {} -x -q {} ' \
               '-Pazimuth_window={} -Prange_window={} ' \
               '-Ppolar=\'{}\' -Pinput={} -Poutput={}' \
-        .format(GPT_FILE, graph, ncores,
+        .format(GPT_FILE, graph, 2*ncores,
                 ard['coherence_azimuth'], ard['coherence_range'],
                 polar, infile, outfile)
 

@@ -77,9 +77,10 @@ from retrying import retry
 
 from os.path import join as opj
 
-from ost.snap_common import common
+from ost.generic import common_wrappers as common
 from ost.helpers import helpers as h, raster as ras
-from ost.errors import GPTRuntimeError
+from ost.helpers.errors import GPTRuntimeError
+from ost.helpers.settings import GPT_FILE, OST_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -109,16 +110,15 @@ def _grd_frame_import(infile, outfile, logfile, polarisation='VV,VH,HH,HV'):
           ' removing thermal noise'.format(os.path.basename(infile)))
 
     # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
+    GPT_FILE = h.gpt_path()
 
-    # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
+    # get path to ost graph
+    graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '1_AO_TNR.xml')
 
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Ppolarisation={} \
                -Poutput=\'{}\''.format(
-                   gpt_file, graph, os.cpu_count(), infile, polarisation, outfile)
+                   GPT_FILE, graph, os.cpu_count(), infile, polarisation, outfile)
 
     # run command
     return_code = h.run_command(command, logfile)
@@ -164,17 +164,13 @@ def _grd_frame_import_subset(infile, outfile, georegion,
           ' removing thermal noise, as well as subsetting.'.format(
               os.path.basename(infile)))
 
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
-    # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
+    # get path to graph
+    graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '1_AO_TNR_SUB.xml')
 
     # construct command
     command = '{} {} -x -q {} -Pinput=\'{}\' -Pregion=\'{}\' -Ppolarisation={} \
                       -Poutput=\'{}\''.format(
-                          gpt_file, graph, 2 * os.cpu_count(),
+                          GPT_FILE, graph, 2 * os.cpu_count(),
                           infile, georegion, polarisation, outfile)
 
     # run command and get return code
@@ -208,13 +204,10 @@ def _slice_assembly(filelist, outfile, logfile, polarisation='VV,VH,HH,HV'):
 
     logger.info('Assembling consecutive frames:')
 
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
     # construct command
     command = '{} SliceAssembly -x -q {} -PselectedPolarisations={} \
                -t \'{}\' {}'.format(
-                   gpt_file, 2 * os.cpu_count(), polarisation, outfile, filelist)
+                   GPT_FILE, 2 * os.cpu_count(), polarisation, outfile, filelist)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -247,15 +240,12 @@ def _grd_subset(infile, outfile, logfile, region):
         region (str): a list of image coordinates that bound the subset region
     '''
 
-    # get Snap's gpt file
-    gpt_file = h.gpt_path()
-
     # format region string
     region = ','.join([str(int(x)) for x in region])
 
     # construct command
     command = '{} Subset -x -q {} -Pregion={} -t \'{}\' \'{}\''.format(
-        gpt_file, os.cpu_count(), region, outfile, infile)
+        GPT_FILE, os.cpu_count(), region, outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -289,13 +279,11 @@ def _grd_subset_georegion(infile, outfile, logfile, georegion):
     '''
     
     logger.info('Subsetting imported imagery.')
-    # get Snap's gpt file
-    gpt_file = h.gpt_path()
 
     # extract window from scene
     command = '{} Subset -x -q {} -Ssource=\'{}\' -t \'{}\' \
                  -PcopyMetadata=true -PgeoRegion=\'{}\''.format(
-                     gpt_file, 2 * os.cpu_count(), infile, outfile, georegion)
+                     GPT_FILE, 2 * os.cpu_count(), infile, outfile, georegion)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -447,22 +435,16 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
 
     '''
 
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
-    # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-
     # select xml according to product type
     if product_type == 'RTC':
         logger.info('Calibrating the product to a RTC product.')
-        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
+        graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '2_CalBeta_TF.xml')
     elif product_type == 'GTCgamma':
         logger.info('Calibrating the product to a GTC product (Gamma0).')
-        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
+        graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '2_CalGamma.xml')
     elif product_type == 'GTCsigma':
         logger.info('Calibrating the product to a GTC product (Sigma0).')
-        graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
+        graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '2_CalSigma.xml')
     else:
         print(' ERROR: Wrong product type selected.')
         sys.exit(103)
@@ -475,13 +457,13 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
                                  ' -Pdem_nodata=\'{}\'' 
                                  ' -Pdem_resampling=\'{}\''
                                  ' -Poutput=\'{}\''.format(
-            gpt_file, graph, 2 * os.cpu_count(), infile, 
+            GPT_FILE, graph, 2 * os.cpu_count(), infile, 
             dem_dict['dem name'], dem_dict['dem file'], 
             dem_dict['dem nodata'], dem_dict['dem resampling'], 
             outfile))
     else:
         command = '{} {} -x -q {} -Pinput=\'{}\' -Poutput=\'{}\''.format(
-            gpt_file, graph, 2 * os.cpu_count(), infile, outfile)
+            GPT_FILE, graph, 2 * os.cpu_count(), infile, outfile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -497,68 +479,6 @@ def _grd_backscatter(infile, outfile, logfile, dem_dict, product_type='GTCgamma'
         )
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def _grd_speckle_filter(infile, outfile, logfile, speckle_dict):
-    '''A wrapper around SNAP's Lee-Sigma Speckle Filter
-
-    This function takes OST imported Sentinel-1 product and applies
-    a standardised version of the Lee-Sigma Speckle Filter with
-    SNAP's defaut values.
-
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-    '''
-
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
-    logger.info('Applying speckle filtering.')
-    # contrcut command string
-    command = ('{} Speckle-Filter -x -q {}'
-                  ' -PestimateENL={}'
-                  ' -PanSize={}'
-                  ' -PdampingFactor={}'
-                  ' -Penl={}'
-                  ' -Pfilter={}'
-                  ' -PfilterSizeX={}'
-                  ' -PfilterSizeY={}'
-                  ' -PnumLooksStr={}'
-                  ' -PsigmaStr={}'
-                  ' -PtargetWindowSizeStr={}'
-                  ' -PwindowSize={}'
-                  '-t \'{}\' \'{}\''.format(
-                      gpt_file, 2 * os.cpu_count(),
-                      speckle_dict['estimate ENL'],
-                      speckle_dict['pan size'],
-                      speckle_dict['damping'],
-                      speckle_dict['ENL'],
-                      speckle_dict['filter'],
-                      speckle_dict['filter x size'],
-                      speckle_dict['filter y size'],
-                      speckle_dict['num of looks'],
-                      speckle_dict['sigma'],
-                      speckle_dict['target window size'],
-                      speckle_dict['window size'],
-                      outfile, infile)
-              )
-
-    # run command and get return code
-    return_code = h.run_command(command, logfile)
-
-    # hadle errors and logs
-    if return_code == 0:
-        logger.info('Succesfully applied speckle filtering.')
-        return return_code
-    else:
-        raise GPTRuntimeError(
-            'ERROR: Speckle Filtering exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
-        )
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -578,12 +498,12 @@ def _grd_to_db(infile, outfile, logfile):
     '''
 
     # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
+    GPT_FILE = h.gpt_path()
 
     logger.info('Converting the image to dB-scale.')
     # construct command string
     command = '{} LinearToFromdB -x -q {} -t \'{}\' {}'.format(
-        gpt_file, 2 * os.cpu_count(), outfile, infile)
+        GPT_FILE, 2 * os.cpu_count(), outfile, infile)
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -623,21 +543,16 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
 
     '''
 
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
-    # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
     logger.info('Geocoding the calibrated product')
 
     # calculate the multi-look factor
     multilook_factor = int(int(resolution) / 10)
 
-    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '3_ML_TC.xml')
 
     # construct command string
 #    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
-#                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
+#                 -Poutput=\'{}\''.format(GPT_FILE, graph, 2 * os.cpu_count(),
 #                                         infile, resolution, multilook_factor,
 #                                         dem, outfile)
     command = ('{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={}' 
@@ -647,9 +562,9 @@ def _grd_terrain_correction(infile, outfile, logfile, resolution, dem_dict):
                                  ' -Pdem_resampling=\'{}\''
                                  ' -Pimage_resampling=\'{}\''
                                  ' -Poutput=\'{}\''.format(
-            gpt_file, graph, 2 * os.cpu_count(), 
-            infile, resolution, multilook_factor, 
-            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'], 
+            GPT_FILE, graph, 2 * os.cpu_count(),
+            infile, resolution, multilook_factor,
+            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'],
             dem_dict['dem resampling'], dem_dict['image resampling'],
             outfile))
     # run command and get return code
@@ -692,21 +607,21 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     '''
 
     # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
+    GPT_FILE = h.gpt_path()
 
     # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+    OST_ROOT = importlib.util.find_spec('ost').submodule_search_locations[0]
     logger.info('Geocoding the calibrated product')
 
     # calculate the multi-look factor
     # multilook_factor = int(int(resolution) / 10)
     multilook_factor = 1
 
-    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
+    graph = opj(OST_ROOT, 'graphs', 'S1_GRD2ARD', '3_ML_TC_deg.xml')
 
     # construct command string
     command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pml={} -Pdem=\'{}\' \
-                 -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
+                 -Poutput=\'{}\''.format(GPT_FILE, graph, 2 * os.cpu_count(),
                                          infile, resolution, multilook_factor,
                                          dem, outfile)
 
@@ -720,69 +635,6 @@ def _grd_terrain_correction_deg(infile, outfile, logfile, resolution,
     else:
         raise GPTRuntimeError(
             'ERROR: Terain Correction exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
-        )
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def _grd_ls_mask(infile, outfile, logfile, resolution, dem_dict):
-    '''A wrapper around SNAP's Layover/Shadow mask routine
-
-    This function takes OST imported Sentinel-1 product and calculates
-    the Layover/Shadow mask.
-
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        resolution (int): the resolution of the output product in meters
-        dem (str): A Snap compliant string for the dem to use.
-                   Possible choices are:
-                       'SRTM 1sec HGT' (default)
-                       'SRTM 3sec'
-                       'ASTER 1sec GDEM'
-                       'ACE30'
-
-    '''
-
-    # get path to SNAP's command line executable gpt
-    gpt_file = h.gpt_path()
-
-    # get path to ost package
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-
-    logger.info('Creating the Layover/Shadow mask')
-    # get path to workflow xml
-    graph = opj(rootpath, 'graphs', 'S1_GRD2ARD', '3_LSmap.xml')
-
-    # construct command string
-#    command = '{} {} -x -q {} -Pinput=\'{}\' -Presol={} -Pdem=\'{}\' \
-#             -Poutput=\'{}\''.format(gpt_file, graph, 2 * os.cpu_count(),
-#                                     infile, resolution, dem, outfile)
-    command = ('{} {} -x -q {} -Pinput=\'{}\' -Presol={} ' 
-                                 ' -Pdem=\'{}\'' 
-                                 ' -Pdem_file=\'{}\''
-                                 ' -Pdem_nodata=\'{}\'' 
-                                 ' -Pdem_resampling=\'{}\''
-                                 ' -Pimage_resampling=\'{}\''
-                                 ' -Poutput=\'{}\''.format(
-            gpt_file, graph, 2 * os.cpu_count(), infile, resolution, 
-            dem_dict['dem name'], dem_dict['dem file'], dem_dict['dem nodata'], 
-            dem_dict['dem resampling'], dem_dict['image resampling'],
-            outfile))
-    # run command and get return code
-    return_code = h.run_command(command, logfile)
-
-    # handle errors and logs
-    if return_code == 0:
-        logger.info('Succesfully created a Layover/Shadow mask')
-        return return_code
-    else:
-        raise GPTRuntimeError(
-            'ERROR: Layover/Shadow mask creation exited with an error {}. '
             'See {} for Snap Error output'.format(return_code, logfile)
         )
 

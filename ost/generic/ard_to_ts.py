@@ -2,137 +2,51 @@
 import os
 from os.path import join as opj
 
-import importlib
+from pathlib import Path
 import glob
 import json
 import datetime
 import logging
-
 import gdal
-from retrying import retry
 
-from ost.errors import GPTRuntimeError
+from ost.generic.common_wrappers import create_stack, mt_speckle_filter
 from ost.helpers import raster as ras, helpers as h
-
 
 logger = logging.getLogger(__name__)
 
 
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def create_stack(filelist, out_stack, logfile,
-                 polarisation=None, pattern=None, ncores=os.cpu_count()):
-    '''
-
-    :param filelist: list of single Files (space separated)
-    :param outfile: the stack that is generated
-    :return:
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
-
-    # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-
-    if pattern:
-        graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
-        command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
-               -Poutput={}'.format(gpt_file, graph, ncores,
-                                   filelist, pattern, out_stack)
-    else:
-        graph = opj(rootpath, 'graphs', 'S1_TS', '1_BS_Stacking.xml')
-        command = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
-               -Poutput={}'.format(gpt_file, graph, ncores,
-                                   filelist, polarisation, out_stack)
-
-    return_code = h.run_command(command, logfile)
-
-    if return_code == 0:
-        logger.info('Successfully created multi-temporal stack')
-    else:
-        raise GPTRuntimeError(
-            'Multi-temporal Spackle Filter exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
-        )
-
-    return return_code
-
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,ncores=os.cpu_count()):
-
-    '''
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
-
-#    # get path to graph
-#    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-#    graph = opj(rootpath, 'graphs', 'S1_TS', '2_MT_Speckle.xml')
-#
-#    command = '{} {} -x -q {} -Pinput={} \
-#                   -Poutput={}'.format(gpt_file, graph, 2 * os.cpu_count(),
-#                                       in_stack, out_stack)
-
-    logger.info('Applying multi-temporal speckle filtering.')
-    # contrcut command string
-    command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
-                  ' -PestimateENL={}'
-                  ' -PanSize={}'
-                  ' -PdampingFactor={}'
-                  ' -Penl={}'
-                  ' -Pfilter=\'{}\''
-                  ' -PfilterSizeX={}'
-                  ' -PfilterSizeY={}'
-                  ' -PnumLooksStr={}'
-                  ' -PsigmaStr={}'
-                  ' -PtargetWindowSizeStr={}'
-                  ' -PwindowSize={}'
-                  ' -t \'{}\' \'{}\''.format(
-                      gpt_file, ncores,
-                      speckle_dict['estimate_ENL'],
-                      speckle_dict['pan_size'],
-                      speckle_dict['damping'],
-                      speckle_dict['ENL'],
-                      speckle_dict['filter'],
-                      speckle_dict['filter_x_size'],
-                      speckle_dict['filter_y_size'],
-                      speckle_dict['num_of_looks'],
-                      speckle_dict['sigma'],
-                      speckle_dict['target_window_size'],
-                      speckle_dict['window_size'],
-                      out_stack, in_stack
-                      )
-    )
-                  
-    return_code = h.run_command(command, logfile)
-
-    if return_code == 0:
-        logger.info('Successfully applied multi-temporal speckle filtering')
-    else:
-        raise GPTRuntimeError(
-            'Multi-temporal Spackle Filter exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
-        )
-
-    return return_code
-
-  
-def ard_to_ts(list_of_files, processing_dir, temp_dir, 
+def ard_to_ts(list_of_files, processing_dir, temp_dir,
               burst, proc_file, product, pol, ncores=os.cpu_count()):
+    """
+
+    :param list_of_files:
+    :param processing_dir:
+    :param temp_dir:
+    :param burst:
+    :param proc_file:
+    :param product:
+    :param pol:
+    :param ncores:
+    :return:
+    """
+
     if type(list_of_files) == str:
         list_of_files = list_of_files.replace("'", '').strip('][').split(', ')
 
     # get the burst directory
-    burst_dir = opj(processing_dir, burst)
-    
-    # check routine if timeseries has already been processed
-    check_file = opj(burst_dir, 'Timeseries', '.{}.{}.processed'.format(product, pol))
-    if os.path.isfile(check_file):
+    burst_dir = processing_dir.joinpath(burst)
+
+    # get timeseries directory and create if non existent
+    ts_dir = burst_dir.joinpath('Timeseries')
+    Path.mkdir(ts_dir, parents=True, exist_ok=True)
+
+    # in case some processing has been done before, check if already processed
+    check_file = ts_dir.joinpath('.{}.{}.processed'.format(product, pol))
+    if Path.exists(check_file):
         logger.info('Timeseries of {} for {} in {} polarisation already'
-              ' processed'.format(burst, product, pol))
+                    ' processed'.format(burst, product, pol))
         return
-    
+
     # load ard parameters
     with open(proc_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing_parameters']
@@ -140,6 +54,7 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         ard_mt = ard_params['time-series_ARD']
         if ard_mt['remove_mt_speckle'] is True:
             ard_mt_speck = ard_params['time-series_ARD']['mt_speckle_filter']
+
     # get the db scaling right
     to_db = ard['to_db']
     if to_db or product != 'bs':
@@ -149,43 +64,43 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         to_db = ard_mt['to_db']
         logger.info('Converting to dB for {}'.format(product))
 
-    
     if ard['apply_ls_mask']:
-        extent = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
+        extent = burst_dir.joinpath('{}.extent.masked.shp'.format(burst))
     else:
-        extent = opj(burst_dir, '{}.extent.shp'.format(burst))
-        
+        extent = burst_dir.joinpath('{}.extent.shp'.format(burst))
+
     # min max dict for stretching in case of 16 or 8 bit datatype
     mm_dict = {'bs': {'min': -30, 'max': 5},
                'coh': {'min': 0.000001, 'max': 1},
                'Alpha': {'min': 0.000001, 'max': 90},
                'Anisotropy': {'min': 0.000001, 'max': 1},
                'Entropy': {'min': 0.000001, 'max': 1}
-              }
-    
+               }
+
     stretch = pol if pol in ['Alpha', 'Anisotropy', 'Entropy'] else product
-    
+
     # define out_dir for stacking routine
-    out_dir = opj(processing_dir, '{}'.format(burst), 'Timeseries')
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = ts_dir
 
     # create namespaces
-    temp_stack = opj(temp_dir, '{}_{}_{}'.format(burst, product, pol))
-    out_stack = opj(temp_dir, '{}_{}_{}_mt'.format(burst, product, pol))
-    stack_log = opj(out_dir, '{}_{}_{}_stack.err_log'.format(burst, product, pol))
+    temp_stack = temp_dir.joinpath(f'{burst}_{product}_{pol}_mt')
+    out_stack = temp_dir.joinpath(f'{burst}_{product}_{pol}_mt')
+    stack_log = out_dir.joinpath(f'{burst}_{product}_{pol}_stack.err_log')
 
     # run stacking routines
     # convert list of files readable for snap
     list_of_files = '\'{}\''.format(','.join(list_of_files))
-  
+
     if pol in ['Alpha', 'Anisotropy', 'Entropy']:
-        logger.info('Creating multi-temporal stack of images of burst/track {} for'
-              ' the {} band of the polarimetric H-A-Alpha'
-              ' decomposition.'.format(burst, pol))
+        logger.info(
+            'Creating multi-temporal stack of images of burst/track {} for'
+            ' the {} band of the polarimetric H-A-Alpha'
+            ' decomposition.'.format(burst, pol))
         create_stack(list_of_files, temp_stack, stack_log, pattern=pol)
     else:
-        logger.info('Creating multi-temporal stack of images of burst/track {} for'
-              ' {} product in {} polarization.'.format(burst, product, pol))
+        logger.info(
+            'Creating multi-temporal stack of images of burst/track {} for'
+            ' {} product in {} polarization.'.format(burst, product, pol))
         create_stack(list_of_files, temp_stack, stack_log, polarisation=pol)
 
     # run mt speckle filter
@@ -194,26 +109,26 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
             burst, product, pol))
 
         logger.info('Applying multi-temporal speckle filter')
-        mt_speckle_filter('{}.dim'.format(temp_stack), 
-                             out_stack, speckle_log, speckle_dict=ard_mt_speck, ncores=ncores)
+        mt_speckle_filter('{}.dim'.format(temp_stack),
+                          out_stack, speckle_log, speckle_dict=ard_mt_speck,
+                          ncores=ncores)
         # remove tmp files
         h.delete_dimap(temp_stack)
     else:
         out_stack = temp_stack
 
-    
     if product == 'coh':
 
         # get slave and master Date
         mstDates = [datetime.datetime.strptime(
             os.path.basename(x).split('_')[3].split('.')[0],
             '%d%b%Y') for x in glob.glob(
-                opj('{}.data'.format(out_stack), '*img'))]
+            opj('{}.data'.format(out_stack), '*img'))]
 
         slvDates = [datetime.datetime.strptime(
             os.path.basename(x).split('_')[4].split('.')[0],
             '%d%b%Y') for x in glob.glob(
-                opj('{}.data'.format(out_stack), '*img'))]
+            opj('{}.data'.format(out_stack), '*img'))]
         # sort them
         mstDates.sort()
         slvDates.sort()
@@ -225,7 +140,6 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
 
         i, outfiles = 1, []
         for mst, slv in zip(sortedMstDates, sortedSlvDates):
-
             inMst = datetime.datetime.strptime(mst, '%d%b%Y')
             inSlv = datetime.datetime.strptime(slv, '%d%b%Y')
 
@@ -233,22 +147,22 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
             outSlv = datetime.datetime.strftime(inSlv, '%y%m%d')
             infile = glob.glob(opj('{}.data'.format(out_stack),
                                    '*{}*{}_{}*img'.format(pol, mst, slv)))[0]
-            
+
             outfile = opj(out_dir, '{:02d}.{}.{}.{}.{}.tif'.format(
                 i, outMst, outSlv, product, pol))
-            
-            ras.mask_by_shape(infile, outfile, extent, 
-                              to_db=to_db, 
+
+            ras.mask_by_shape(infile, outfile, extent,
+                              to_db=to_db,
                               datatype=ard_mt['dtype_output'],
-                              min_value=mm_dict[stretch]['min'], 
+                              min_value=mm_dict[stretch]['min'],
                               max_value=mm_dict[stretch]['max'],
                               ndv=0.0,
                               description=True)
             # add ot a list for subsequent vrt creation
             outfiles.append(outfile)
             i += 1
-            
-            
+
+
     else:
         # get the dates of the files
         dates = [datetime.datetime.strptime(x.split('_')[-1][:-4], '%d%b%Y')
@@ -256,46 +170,45 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
         # sort them
         dates.sort()
         # write them back to string for following loop
-        sortedDates = [datetime.datetime.strftime(ts, "%d%b%Y") 
+        sortedDates = [datetime.datetime.strftime(ts, "%d%b%Y")
                        for ts in dates]
-    
+
         i, outfiles = 1, []
         for date in sortedDates:
-        
             # restructure date to YYMMDD
             inDate = datetime.datetime.strptime(date, '%d%b%Y')
             outDate = datetime.datetime.strftime(inDate, '%y%m%d')
-        
+
             infile = glob.glob(opj('{}.data'.format(out_stack),
                                    '*{}*{}*img'.format(pol, date)))[0]
-        
+
             # create outfile
             outfile = opj(out_dir, '{:02d}.{}.{}.{}.tif'.format(
                 i, outDate, product, pol))
-    
+
             ras.mask_by_shape(infile, outfile, extent,
-                              to_db=to_db, 
+                              to_db=to_db,
                               datatype=ard_mt['dtype_output'],
-                              min_value=mm_dict[stretch]['min'], 
+                              min_value=mm_dict[stretch]['min'],
                               max_value=mm_dict[stretch]['max'],
                               ndv=0.0)
-            
+
             # add ot a list for subsequent vrt creation
             outfiles.append(outfile)
             i += 1
-            
+
     for file in outfiles:
         return_code = h.check_out_tiff(file)
         if return_code != 0:
             h.remove_folder_content(temp_dir)
             os.remove(file)
             return return_code
-    
+
     # write file, so we know this ts has been succesfully processed
     if return_code == 0:
         with open(str(check_file), 'w') as file:
             file.write('passed all tests \n')
-            
+
     # build vrt of timeseries
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
     gdal.BuildVRT(opj(out_dir, 'Timeseries.{}.{}.vrt'.format(product, pol)),
@@ -304,4 +217,3 @@ def ard_to_ts(list_of_files, processing_dir, temp_dir,
 
     # remove tmp files
     h.delete_dimap(out_stack)
-    

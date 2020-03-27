@@ -14,7 +14,7 @@ from subprocess import Popen
 from subprocess import PIPE
 
 from ost.helpers import helpers as h
-from ost import Sentinel1_Scene as S1Scene
+from ost import Sentinel1Scene as S1Scene
 
 logger = logging.getLogger(__name__)
 

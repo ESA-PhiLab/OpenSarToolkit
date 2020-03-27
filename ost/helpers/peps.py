@@ -174,7 +174,7 @@ def s1_download(argument_list):
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
-    from ost import Sentinel1_Scene as S1Scene
+    from ost import Sentinel1Scene as S1Scene
     logger.info('Getting the storage status (online/onTape) of each scene.')
     logger.info('This may take a while.')
 

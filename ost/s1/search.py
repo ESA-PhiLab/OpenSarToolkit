@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-'''
+"""
 Based on a set of search parameters the script will create a query
 on www.scihub.copernicus.eu and return the results either
 as shapefile, sqlite, or write to a PostGreSQL database.
@@ -50,7 +50,7 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
 
     * optional, i.e will look for all available products as well as ask for
       username and password during script execution
-'''
+"""
 
 # import stdlib modules
 import os
@@ -60,16 +60,19 @@ import logging
 from urllib.error import URLError
 import xml.dom.minidom
 import dateutil.parser
+from pathlib import Path
 
 # import external modules
 import geopandas as gpd
 from shapely.wkt import dumps, loads
 
-# internal libs
+# internal OST libs
 from ost.helpers.db import pgHandler
 from ost.helpers import scihub
 
+# set up logger
 logger = logging.getLogger(__name__)
+
 
 def _query_scihub(apihub, opener, query):
     """
@@ -122,17 +125,30 @@ def _query_scihub(apihub, opener, query):
             dom = xml.dom.minidom.parseString(response)
 
         acq_list = []
-        # loop thorugh each entry (with all metadata)
+        # loop through each entry (with all metadata)
         for node in dom.getElementsByTagName('entry'):
 
             # we get all the date entries
-            dict_date = {s.getAttribute('name'): dateutil.parser.parse(s.firstChild.data).astimezone(dateutil.tz.tzutc()) for s in node.getElementsByTagName('date')}
+            dict_date = {
+                s.getAttribute('name'):
+                    dateutil.parser.parse(s.firstChild.data).astimezone(
+                        dateutil.tz.tzutc()
+                    )
+                for s in node.getElementsByTagName('date')
+            }
 
             # we get all the int entries
-            dict_int = {s.getAttribute('name'): s.firstChild.data for s in node.getElementsByTagName('int')}
+            dict_int = {
+                s.getAttribute('name'): s.firstChild.data
+                for s in node.getElementsByTagName('int')
+            }
 
-            # we create a filter for the str entries (we do not want all) and get them
-            dict_str = {s.getAttribute('name'): s.firstChild.data for s in node.getElementsByTagName('str')}
+            # we create a filter for the str entries (we do not want all)
+            # and get them
+            dict_str = {
+                s.getAttribute('name'): s.firstChild.data
+                for s in node.getElementsByTagName('str')
+            }
 
             # merge the dicts and append to the catalogue list
             acq = dict(dict_date, **dict_int, **dict_str)
@@ -165,9 +181,10 @@ def _query_scihub(apihub, opener, query):
                              acq['swathidentifier'],
                              acq['ingestiondate'].isoformat(),
                              acq['sensoroperationalmode'],
-                             loads(acq['footprint'])])
+                             loads(acq['footprint'])]
+                            )
 
-        # transofmr all results from that page to a gdf
+        # transfoem all results from that page to a gdf
         gdf = gpd.GeoDataFrame(acq_list, columns=columns,
                                crs=crs, geometry='footprint')
 
@@ -226,6 +243,50 @@ def _to_shapefile(gdf, outfile, append=False):
         gdf.to_file(outfile)
     else:
         print('No scenes found in this AOI during this time')
+
+
+def _to_geopackage(gdf, outfile, append=False):
+
+    # check if file is there
+    if Path(outfile).exists():
+
+        # in case we want to append, we load the old one and add the new one
+        if append:
+            columns = [
+                'id', 'identifier', 'polarisationmode',
+                'orbitdirection', 'acquisitiondate', 'relativeorbit',
+                'orbitnumber', 'product_type', 'slicenumber', 'size',
+                'beginposition', 'endposition',
+                'lastrelativeorbitnumber', 'lastorbitnumber',
+                'uuid', 'platformidentifier', 'missiondatatakeid',
+                'swathidentifier', 'ingestiondate',
+                'sensoroperationalmode', 'geometry'
+            ]
+
+            # get existing geodataframe from file
+            old_df = gpd.read_file(outfile)
+            old_df.columns = columns
+            # drop id
+            old_df.drop('id', axis=1, inplace=True)
+            # append new results
+            gdf.columns = columns[1:]
+            gdf = old_df.append(gdf)
+
+            # remove duplicate entries
+            gdf.drop_duplicates(subset='identifier', inplace=True)
+
+        # remove old file
+        Path(outfile).unlink()
+
+    # calculate new index
+    gdf.insert(loc=0, column='id', value=range(1, 1 + len(gdf)))
+
+    # write to new file
+    if len(gdf.index) > 0:
+        gdf.to_file(outfile, driver='GPKG')
+    else:
+        print('No scenes found in this AOI during this time')
+
 
 def _to_postgis(gdf, db_connect, outtable):
 
@@ -310,11 +371,11 @@ def check_availability(inventory_gdf, download_dir, data_mount):
     
     '''
     
-    from ost import Sentinel1_Scene
+    from ost import Sentinel1Scene
     
     # add download path, or set to None if not found
     inventory_gdf['download_path'] = inventory_gdf.identifier.apply(
-        lambda row: Sentinel1_Scene(row).get_path(download_dir, data_mount))    
+        lambda row: Sentinel1Scene(row).get_path(download_dir, data_mount))
     
     return inventory_gdf
 
@@ -337,16 +398,15 @@ def scihub_catalogue(query_string, output, append=False,
     # get the catalogue in a dict
     gdf = _query_scihub(apihub, opener, query_string)
 
-    # define output
-    if output[-7:] == ".sqlite":
-        logger.info('writing to an sqlite file')
-        # gdfInv2Sqlite(gdf, output)
-    elif output[-4:] == ".shp":
+    if output[-4:] == ".shp":
         logger.info('writing inventory data to shape file: {}'.format(output))
         _to_shapefile(gdf, output, append)
+    elif output[-5:] == ".gpkg":
+        logger.info(f'writing inventory data to geopackage file: {output}')
+        _to_geopackage(gdf, output, append)
     else:
         logger.info('writing inventory data toPostGIS'
-              ' table: {}'.format(output))
+                    ' table: {}'.format(output))
         db_connect = pgHandler()
         _to_postgis(gdf, db_connect, output)
 

@@ -1,6 +1,6 @@
-'''This module contains the S1Scene class for handling of a Sentinel-1 product
+"""This module contains the S1Scene class for handling of a Sentinel-1 product
 
-'''
+"""
 import os
 from os.path import join as opj
 import sys
@@ -13,7 +13,8 @@ from urllib.error import URLError
 import zipfile
 import fnmatch
 import xml.dom.minidom
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as eTree
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -23,6 +24,7 @@ from shapely.wkt import loads
 
 from ost.helpers import scihub, peps, onda, raster as ras
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
+from ost.helpers.settings import APIHUB_BASEURL
 
 __author__ = "Andreas Vollrath"
 __version__ = 1.0
@@ -30,9 +32,10 @@ __license__ = 'MIT'
 
 logger = logging.getLogger(__name__)
 
-class Sentinel1_Scene():
 
-    def __init__(self, scene_id, ard_type='OST Standard'):
+class Sentinel1Scene:
+
+    def __init__(self, scene_id, ard_type='OST_GTC'):
         self.scene_id = scene_id
         self.mission_id = scene_id[0:3]
         self.mode_beam = scene_id[4:6]
@@ -51,6 +54,7 @@ class Sentinel1_Scene():
         self.month = scene_id[21:23]
         self.day = scene_id[23:25]
         self.onda_class = scene_id[4:14]
+
         # Calculate the relative orbit out of absolute orbit
         # (from Peter Meadows (ESA) @
         # http://forum.step.esa.int/t/sentinel-1-relative-orbit-from-filename/7042)
@@ -135,10 +139,11 @@ class Sentinel1_Scene():
             print(' (1) Copernicus Apihub (ESA, rolling archive)')
             print(' (2) Alaska Satellite Facility (NASA, full archive)')
             print(' (3) PEPS (CNES, 1 year rolling archive)')
-            print(' (4) ONDA DIAS (ONDA DIAS full archive for SLC - or GRD from 30 June 2019)')
-            print(' (5) Alaska Satellite Facility (using WGET - unstable - use only if 2 fails)')
+            print(' (4) ONDA DIAS (ONDA DIAS full archive for'
+                  ' SLC - or GRD from 30 June 2019)')
+            print(' (5) Alaska Satellite Facility (using WGET'
+                  ' - unstable - use only if 2 fails)')
             mirror = input(' Type 1, 2, 3, 4 or 5: ')
-
 
         from ost.s1 import download
 
@@ -148,14 +153,14 @@ class Sentinel1_Scene():
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
                  'uuid': [self.scihub_uuid(opener)]
-                }
+                 }
             )
         elif mirror == '3':
             uname, pword = peps.ask_credentials()
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
                  'uuid': [self.peps_uuid(uname=uname, pword=pword)]
-                }
+                 }
             )
         elif mirror == '4':
             uname, pword = onda.ask_credentials()
@@ -163,9 +168,9 @@ class Sentinel1_Scene():
             df = pd.DataFrame(
                 {'identifier': [self.scene_id],
                  'uuid': [self.ondadias_uuid(opener)]
-                }
+                 }
             )
-        else:   # ASF
+        else:  # ASF
             df = pd.DataFrame({'identifier': [self.scene_id]})
             download.download_sentinel1(df, download_dir, mirror)
             return
@@ -173,84 +178,64 @@ class Sentinel1_Scene():
         download.download_sentinel1(df, download_dir, mirror,
                                     uname=uname, pword=pword)
 
-
+        # delete credentials
         del uname, pword
 
     # location of file (including diases)
-    def _download_path(self, download_dir, mkdir=False):
+    def download_path(self, download_dir, mkdir=False):
 
-        download_path = opj(download_dir, 'SAR',
-                            self.product_type,
-                            self.year,
-                            self.month,
-                            self.day)
+        download_path = download_dir.joinpath(
+            f'SAR/{self.product_type}/{self.year}/{self.month}/{self.day}'
+        )
 
         # make dir if not existent
         if mkdir:
-            os.makedirs(download_path, exist_ok=True)
+            download_path.mkdir(parents=True, exist_ok=True)
 
         # get filepath
-        filepath = opj(download_path, '{}.zip'.format(self.scene_id))
+        filepath = download_path.joinpath(f'{self.scene_id}.zip')
 
         return filepath
 
     def _creodias_path(self, data_mount='/eodata'):
 
-
-        path = opj(data_mount, 'Sentinel-1', 'SAR',
-                   self.product_type,
-                   self.year,
-                   self.month,
-                   self.day,
-                   '{}.SAFE'.format(self.scene_id))
+        path = data_mount.joinpath(
+            f'Sentinel-1/SAR/{self.product_type}/{self.year}/'
+            f'{self.month}/{self.day}/{self.scene_id}.SAFE'
+        )
 
         return path
 
-    def _aws_path(self, data_mount):
-
-        # print('Dummy function for aws path to be added')
-        return '/foo/foo/foo'
-
-    def _mundi_path(self, mont_point):
-
         # print(' Dummy function for mundi paths to be added')
-        return '/foo/foo/foo'
+        return Path('/foo/foo/foo')
 
     def _onda_path(self, data_mount):
 
-
-        path = opj(data_mount, 'S1', 'LEVEL-1',
-                   '{}'.format(self.onda_class),
-                   self.year,
-                   self.month,
-                   self.day,
-                   '{}.zip'.format(self.scene_id),
-                   '{}.SAFE'.format(self.scene_id))
+        path = data_mount.joinpath(
+            f'S1/LEVEL-1/{self.onda_class}/{self.year}/{self.month}/'
+            f'{self.day}/{self.scene_id}.zip/{self.scene_id}.SAFE'
+        )
 
         return path
 
-    def get_path(self, download_dir=None, data_mount='/eodata'):
+    def get_path(self, download_dir=None, data_mount=None):
 
         if download_dir:
-            if os.path.isfile(self._download_path(download_dir) + '.downloaded'):
-                path = self._download_path(download_dir)
+            if self.download_path(download_dir).with_suffix(
+                    '.downloaded').exists():
+                path = self.download_path(download_dir)
             else:
                 path = None
         else:
-            path=None
+            path = None
 
         if data_mount and not path:
-            if os.path.isfile(opj(self._creodias_path(data_mount),
-                                    'manifest.safe')):
+            if self._creodias_path(data_mount).joinpath(
+                    'manifest.safe').exists():
                 path = self._creodias_path(data_mount)
-            elif os.path.isdir(self._onda_path(data_mount)):
+            elif self._onda_path(data_mount).exists():
                 path = self._onda_path(data_mount)
-            elif os.path.isfile(self._mundi_path(data_mount)):
-                path = self._mundi_path(data_mount)
-            elif os.path.isfile(self._aws_path(data_mount)):
-                path = self._aws_path(data_mount)
             else:
-                #print(' Scene {} is not found.'.format(self.scene_id))
                 path = None
 
         return path
@@ -259,9 +244,13 @@ class Sentinel1_Scene():
     def scihub_uuid(self, opener):
 
         # construct the basic the url
-        base_url = ('https://scihub.copernicus.eu/apihub/odata/v1/'
-                    'Products?$filter=')
-        action = urllib.request.quote('Name eq \'{}\''.format(self.scene_id))
+        base_url = (
+            'https://scihub.copernicus.eu/apihub/odata/v1/Products?$filter='
+        )
+
+        # request
+        action = urllib.request.quote(f'Name eq \'{self.scene_id}\'')
+
         # construct the download url
         url = base_url + action
 
@@ -281,55 +270,40 @@ class Sentinel1_Scene():
             # write the request to to the response variable
             # (i.e. the xml coming back from scihub)
             response = req.read().decode('utf-8')
-            uuid = response.split("Products('")[1].split("')")[0]
 
-            # parse the xml page from the response
-            # dom = xml.dom.minidom.parseString(response)
-
-            # loop thorugh each entry (with all metadata)
-#            for node in dom.getElementsByTagName('entry'):
-#                download_url = node.getElementsByTagName(
-#                    'id')[0].firstChild.nodeValue
-#                uuid = download_url.split('(\'')[1].split('\')')[0]
-
-        return uuid
+            # return uuid from response
+            return response.split("Products('")[1].split("')")[0]
 
     def scihub_url(self, opener):
 
-        uuid = self.scihub_uuid(opener)
-        # scihub url
-        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        # construct the download url
-        download_url = '{}(\'{}\')/$value'.format(scihub_url, uuid)
-
-        return download_url
+        # return the full url
+        return f'{APIHUB_BASEURL}(\'{self.scihub_uuid(opener)}\')/$value'
 
     def scihub_md5(self, opener):
 
-        uuid = self.scihub_uuid(opener)
-        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        download_url = '{}(\'{}\')/Checksum/Value/$value'.format(scihub_url,
-                                                                 uuid)
-        return download_url
+        # return the md5 checksum
+        return (
+            f'{APIHUB_BASEURL}(\'{self.scihub_uuid(opener)}\')'
+            f'/Checksum/Value/$value'
+        )
 
     def scihub_online_status(self, opener):
 
-        uuid = self.scihub_uuid(opener)
-        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        # get url for product
+        url = f'{APIHUB_BASEURL}(\'{self.scihub_uuid(opener)}\')/Online/$value'
 
-        url = '{}(\'{}\')/Online/$value'.format(scihub_url, uuid)
-
+        # check if something is coming back from our request
         try:
             # get the request
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
                 print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                print(f' Reason: {error.reason}')
                 sys.exit()
             elif hasattr(error, 'code'):
                 print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                print(f' Error code: {error.code}')
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -345,10 +319,9 @@ class Sentinel1_Scene():
 
     def scihub_trigger_production(self, opener):
 
+        # get uuid and construct url for scihub's apihub
         uuid = self.scihub_uuid(opener)
-        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-
-        url = '{}(\'{}\')/$value'.format(scihub_url, uuid)
+        url = f'{APIHUB_BASEURL}(\'{uuid}\')/$value'
 
         try:
             # get the request
@@ -379,7 +352,7 @@ class Sentinel1_Scene():
         uuid = self.scihub_uuid(opener)
 
         logger.info('Getting URLS of annotation files'
-              ' for S1 product: {}.'.format(self.scene_id))
+                    ' for S1 product: {}.'.format(self.scene_id))
         scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
         anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
                      'Nodes'.format(uuid, self.scene_id))
@@ -449,27 +422,27 @@ class Sentinel1_Scene():
                 first[geo_point.find('line').text] = np.float32(
                     [geo_point.find('latitude').text,
                      geo_point.find('longitude').text])
-            elif geo_point.find('pixel').text == str(pixels_per_burst-1):
+            elif geo_point.find('pixel').text == str(pixels_per_burst - 1):
                 last[geo_point.find('line').text] = np.float32(
                     [geo_point.find('latitude').text,
                      geo_point.find('longitude').text])
 
         for i, b in enumerate(burstlist):
-            firstline = str(i*lines_per_burst)
-            lastline = str((i+1)*lines_per_burst)
+            firstline = str(i * lines_per_burst)
+            lastline = str((i + 1) * lines_per_burst)
             azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
-            orbit_time = 12*24*60*60/175
+            orbit_time = 12 * 24 * 60 * 60 / 175
 
             if azi_anx_time > orbit_time:
                 azi_anx_time = np.mod(azi_anx_time, orbit_time)
 
-            azi_anx_time = np.int32(np.round(azi_anx_time*10))
-#           burstid = 'T{}_{}_{}'.format(track, swath, burstid)
-#           first and lastline sometimes shifts by 1 for some reason?
+            azi_anx_time = np.int32(np.round(azi_anx_time * 10))
+            #           burstid = 'T{}_{}_{}'.format(track, swath, burstid)
+            #           first and lastline sometimes shifts by 1 for some reason?
             try:
                 firstthis = first[firstline]
             except:
-                firstline = str(int(firstline)-1)
+                firstline = str(int(firstline) - 1)
                 try:
                     firstthis = first[firstline]
                 except:
@@ -478,7 +451,7 @@ class Sentinel1_Scene():
             try:
                 lastthis = last[lastline]
             except:
-                lastline = str(int(lastline)-1)
+                lastline = str(int(lastline) - 1)
                 try:
                     lastthis = last[lastline]
                 except:
@@ -507,14 +480,14 @@ class Sentinel1_Scene():
 
             geo_dict = {'SceneID': self.scene_id, 'Track': track,
                         'Date': acq_date, 'SwathID': swath,
-                        'AnxTime': azi_anx_time, 'BurstNr': i+1,
+                        'AnxTime': azi_anx_time, 'BurstNr': i + 1,
                         'geometry': loads(wkt)}
 
             gdf = gdf.append(geo_dict, ignore_index=True)
 
         return gdf
 
-    def _scihub_annotation_get(self, uname=None, pword=None):
+    def scihub_annotation_get(self, uname=None, pword=None):
 
         # define column names fro BUrst DF
         column_names = ['SceneID', 'Track', 'Date', 'SwathID',
@@ -547,7 +520,7 @@ class Sentinel1_Scene():
                 # (i.e. the xml coming back from scihub)
                 response = req.read().decode('utf-8')
 
-                et_root = ET.fromstring(response)
+                et_root = eTree.fromstring(response)
 
                 # parse the xml page from the response
                 gdf = self._burst_database(et_root)
@@ -556,7 +529,7 @@ class Sentinel1_Scene():
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _zip_annotation_get(self, download_dir, data_mount='/eodata'):
+    def zip_annotation_get(self, download_dir, data_mount='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
@@ -576,12 +549,12 @@ class Sentinel1_Scene():
         for xml_file in xml_files:
             xml_string = archive.open(xml_file)
 
-            gdf = self._burst_database(ET.parse(xml_string))
+            gdf = self._burst_database(eTree.parse(xml_string))
             gdf_final = gdf_final.append(gdf)
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def _safe_annotation_get(self, download_dir, data_mount='/eodata'):
+    def safe_annotation_get(self, download_dir, data_mount='/eodata'):
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
@@ -591,20 +564,19 @@ class Sentinel1_Scene():
                 '{}/annotation/*xml'.format(
                     self.get_path(download_dir=download_dir,
                                   data_mount=data_mount))):
-
             # parse the xml page from the response
-            gdf = self._burst_database(ET.parse(anno_file))
+            gdf = self._burst_database(eTree.parse(anno_file))
             gdf_final = gdf_final.append(gdf)
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
     # onda dias uuid extractor
-    def ondadias_uuid(self,opener):
+    def ondadias_uuid(self, opener):
 
         # construct the basic the url
         base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
                     'Products?$search=')
-        action = '"'+self.scene_id+'.zip"'
+        action = '"' + self.scene_id + '.zip"'
         # construct the download url
         url = base_url + action
 
@@ -626,8 +598,8 @@ class Sentinel1_Scene():
             response = req.read().decode('utf-8')
 
             # parse the uuid from the response (a messy pseudo xml)
-            uuid=response.split('":"')[3].split('","')[0]
-            #except IndexError as error:
+            uuid = response.split('":"')[3].split('","')[0]
+            # except IndexError as error:
             #    print('Image not available on ONDA DIAS now, please select another repository')
             #    sys.exit()
             # parse the xml page from the response - does not work at present
@@ -675,7 +647,7 @@ class Sentinel1_Scene():
         data = json.loads(response.text)
         peps_uuid = data['features'][0]['id']
         download_url = (data['features'][0]['properties']
-                        ['services']['download']['url'])
+        ['services']['download']['url'])
 
         return peps_uuid, download_url
 
@@ -716,16 +688,16 @@ class Sentinel1_Scene():
     def get_ard_parameters(self, ard_type='OST Standard'):
 
         # get path to ost package
-        rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        rootpath = importlib.util.find_spec('ost').submodule_search_locations[
+            0]
         rootpath = opj(rootpath, 'graphs', 'ard_json')
 
         template_file = opj(rootpath, '{}.{}.json'.format(
-                self.product_type.lower(),
-                ard_type.replace(' ', '_').lower()))
+            self.product_type.lower(),
+            ard_type.replace(' ', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing_parameters']
-
 
     def set_external_dem(self, dem_file):
 
@@ -748,33 +720,31 @@ class Sentinel1_Scene():
         dem_dict = dict({'dem_name': 'External DEM',
                          'dem_file': dem_file,
                          'dem_nodata': dem_nodata,
-                         'dem_resampling': dem_res ,
+                         'dem_resampling': dem_res,
                          'image_resampling': img_res})
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
     def update_ard_parameters(self):
 
-        with open (self.proc_file, 'w') as outfile:
+        with open(self.proc_file, 'w') as outfile:
             json.dump(dict({'processing_parameters': self.ard_parameters}),
                       outfile,
                       indent=4)
-
 
     def create_ard(self, infile, out_dir, out_prefix, temp_dir,
                    subset=None, polar='VV,VH,HH,HV'):
 
         self.proc_file = opj(out_dir, 'processing.json')
         self.update_ard_parameters()
-         # check for correctness of ARD paramters
+        # check for correctness of ARD paramters
 
+        #        self.center_lat = self._get_center_lat(infile)
+        #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+        #            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
+        #                  ' DEM instead.')
+        #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
-#        self.center_lat = self._get_center_lat(infile)
-#        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-#            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
-#                  ' DEM instead.')
-#            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-
-        #self.ard_parameters['resolution'] = h.resolution_in_degree(
+        # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         if self.product_type == 'GRD':
@@ -831,27 +801,27 @@ class Sentinel1_Scene():
         if scene_path[-4:] == '.zip':
             zip_archive = zipfile.ZipFile(scene_path)
             manifest = zip_archive.read('{}.SAFE/manifest.safe'
-                                                .format(self.scene_id))
+                                        .format(self.scene_id))
         elif scene_path[-5:] == '.SAFE':
             with open(opj(scene_path, 'manifest.safe'), 'rb') as file:
                 manifest = file.read()
 
-        root = ET.fromstring(manifest)
+        root = eTree.fromstring(manifest)
         for child in root:
             metadata = child.findall('metadataObject')
             for meta in metadata:
                 for wrap in meta.findall('metadataWrap'):
                     for data in wrap.findall('xmlData'):
                         for frameSet in data.findall(
-                        '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
+                                '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
                             for frame in frameSet.findall(
-                            '{http://www.esa.int/safe/sentinel-1.0}frame'):
+                                    '{http://www.esa.int/safe/sentinel-1.0}frame'):
                                 for footprint in frame.findall(
-                                '{http://www.esa.int/'
-                                'safe/sentinel-1.0}footPrint'):
+                                        '{http://www.esa.int/'
+                                        'safe/sentinel-1.0}footPrint'):
                                     for coords in footprint.findall(
-                                    '{http://www.opengis.net/gml}'
-                                    'coordinates'):
+                                            '{http://www.opengis.net/gml}'
+                                            'coordinates'):
                                         coordinates = coords.text.split(' ')
 
         sums = 0

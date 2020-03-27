@@ -10,17 +10,18 @@ import logging
 import requests
 import tqdm
 import multiprocessing
+from pathlib import Path
 
 from ost.helpers import helpers as h
-from ost import Sentinel1_Scene as S1Scene
+from ost import Sentinel1Scene as S1Scene
 
 logger = logging.getLogger(__name__)
 
 # we need this class for earthdata access
 class SessionWithHeaderRedirection(requests.Session):
-    ''' A class that helps connect to NASA's Earthdata
+    """ A class that helps connect to NASA's Earthdata
 
-    '''
+    """
 
     AUTH_HOST = 'urs.earthdata.nasa.gov'
 
@@ -60,12 +61,17 @@ def check_connection(uname, pword):
     Returns
         int: status code of the get request
     '''
-    url = ('https://datapool.asf.alaska.edu/SLC/SB/S1B_IW_SLC__1SDV_20191119T053342_20191119T053410_018992_023D59_F309.zip')
-    #url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
-    #       '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
+
+    # random url to check
+    url = (
+        'https://datapool.asf.alaska.edu/SLC/SB/''S1B_IW_SLC__1SDV_'
+        '20191119T053342_20191119T053410_018992_023D59_F309.zip'
+    )
+
+    # connect and get response
     session = SessionWithHeaderRedirection(uname, pword)
     response = session.get(url, stream=True)
-    # print(response)
+
     return response.status_code
 
 
@@ -82,7 +88,7 @@ def s1_download(argument_list):
     """
 
     url = argument_list[0]
-    filename = argument_list[1]
+    filename = Path(argument_list[1])
     uname = argument_list[2]
     pword = argument_list[3]
 
@@ -102,18 +108,18 @@ def s1_download(argument_list):
     chunk_size = 1024
 
     # check if file is partially downloaded
-    if os.path.exists(filename):
+    if filename.exists():
         first_byte = os.path.getsize(filename)
     else:
         first_byte = 0
 
-    zip_test = 1
-    while zip_test is not None and zip_test <= 10:
+    tries = 1
+    while zip_test is not None and tries <= 10:
 
         while first_byte < total_length:
 
             # get byte offset for already downloaded file
-            header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
+            header = {"Range": f"bytes={first_byte}-{total_length}"}
             response = session.get(url, headers=header, stream=True)
 
             # actual download
@@ -136,65 +142,79 @@ def s1_download(argument_list):
             # updated fileSize
             first_byte = os.path.getsize(filename)
 
-        logger.info('Checking the zip archive of {} for inconsistency'
-                  .format(filename))
+        logger.info(
+            f'Checking the zip archive of {filename.name} for inconsistency'
+        )
+
         zip_test = h.check_zipfile(filename)
+
         # if it did not pass the test, remove the file
-        # in the while loop it will be downlaoded again
+        # in the while loop it will be downloaded again
         if zip_test is not None:
-            logger.info('{} did not pass the zip test. \
-                  Re-downloading the full scene.'.format(filename))
+            logger.info(f'{filename.name} did not pass the zip test. \
+                  Re-downloading the full scene.')
             if os.path.exists(filename):
                 os.remove(filename)
                 first_byte = 0
+
+            tries += 1
+            if tries == 11:
+                logging.info(
+                    f'Download of scene {filename.name} failed more than 10 '
+                    f'times. Not continuing.')
             # otherwise we change the status to True
         else:
-            logger.info('{} passed the zip test.'.format(filename))
-            with open(str('{}.downloaded'.format(filename)), 'w') as file:
+            logger.info(f'{filename.name} passed the zip test.')
+            with open(str(f'{filename}.downloaded'), 'w+') as file:
                 file.write('successfully downloaded \n')
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
-    # create list of scenes
+    # create list with scene ids to download
     scenes = inventory_df['identifier'].tolist()
-    
+
+    # initialize check variables and loop until fulfilled
     check, i = False, 1
     while check is False and i <= 10:
 
         asf_list = []
-
         for scene_id in scenes:
 
+            # initialize scene instance and get destination filepath
             scene = S1Scene(scene_id)
             filepath = scene._download_path(download_dir, True)
 
-            if os.path.exists('{}.downloaded'.format(filepath)):
-                logger.info('{} is already downloaded.'
-                      .format(scene.scene_id))
-            else:
-                asf_list.append([scene.asf_url(), filepath,
-                                 uname, pword])
+            # check if already downloaded
+            if Path(f'{filepath}.downloaded').exists():
+                logger.info(f'{scene.scene_id} has been already downloaded.')
+                continue
 
+            # append to list
+            asf_list.append([scene.asf_url(), filepath, uname, pword])
+
+        # if list is not empty, do parallel download
         if asf_list:
             pool = multiprocessing.Pool(processes=concurrent)
             pool.map(s1_download, asf_list)
-                    
-        downloaded_scenes = glob.glob(
-            opj(download_dir, 'SAR', '*', '20*', '*', '*',
-                '*.zip.downloaded'))
 
-        if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
+        # count downloaded scenes with its checked file
+        downloaded_scenes = len(list(download_dir.glob('**/*.zip.downloaded')))
+
+        # if all have been downloaded then we are through
+        if len(inventory_df['identifier'].tolist()) == downloaded_scenes:
             check = True
             logger.info('All products are downloaded.')
+        # else we
         else:
             check = False
             for scene in scenes:
 
+                # we check if outputfile exists...
                 scene = S1Scene(scene)
                 filepath = scene._download_path(download_dir)
-
-                if os.path.exists('{}.downloaded'.format(filepath)):
+                if Path(f'{str(filepath)}.downloaded').exists():
+                    # ...and remove from list
                     scenes.remove(scene.scene_id)
 
         i += 1

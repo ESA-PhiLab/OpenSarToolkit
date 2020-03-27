@@ -56,14 +56,14 @@ import logging
 import gdal
 
 # import ost libs
-from ost import Sentinel1_Scene
+from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard
 from ost.helpers import raster as ras
-from ost.multitemporal import common_extent
-from ost.multitemporal import common_ls_mask
-from ost.multitemporal import ard_to_ts
-from ost.multitemporal import timescan
-from ost.mosaic import mosaic
+from ost.generic import ts_extent
+from ost.generic import ts_ls_mask
+from ost.generic import ard_to_ts
+from ost.generic import timescan
+from ost.generic import mosaic
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
         for list_of_scenes in processing_dict[track]:
 
                 # get acquisition date
-                acquisition_date = Sentinel1_Scene(list_of_scenes[0]).start_date
+                acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
                 # create a subdirectory baed on acq. date
                 out_dir = opj(processing_dir, track, acquisition_date)
                 os.makedirs(out_dir, exist_ok=True)
@@ -128,7 +128,7 @@ def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
                           ' already processed'.format(acquisition_date, track))
                 else:
                     # get the paths to the file
-                    scene_paths = ([Sentinel1_Scene(i).get_path(download_dir)
+                    scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
                                    for i in list_of_scenes])
 
                     file_id = '{}_{}'.format(acquisition_date, track)

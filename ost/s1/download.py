@@ -13,7 +13,7 @@ import getpass
 import logging
 
 # import OST libs
-from ost.s1.s1scene import Sentinel1_Scene as S1Scene
+from ost.s1.s1scene import Sentinel1Scene as S1Scene
 from ost.helpers import scihub, peps, asf, onda, asf_wget
 
 logger = logging.getLogger(__name__)
