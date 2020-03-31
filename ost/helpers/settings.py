@@ -158,8 +158,10 @@ if not GPT_FILE:
         # if file exists we copy to one of th epossible paths, so next time
         # we will find it right away
         Path.home().joinpath('.ost').mkdir(exist_ok=True)
-        os.symlink(GPT_FILE, Path.home().joinpath('.ost/gpt'))
+        if not (Path.home().joinpath('.ost/gpt')).exists():
+            os.symlink(GPT_FILE, Path.home().joinpath('.ost/gpt'))
         GPT_FILE = Path.home().joinpath('.ost/gpt')
+GPT_FILE = str(GPT_FILE)
 
 # get path to graph
 OST_ROOT = Path(importlib.util.find_spec('ost').submodule_search_locations[0])
