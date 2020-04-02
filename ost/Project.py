@@ -1082,7 +1082,7 @@ class Sentinel1_GRDBatch(Sentinel1):
                  product_type='GRD',
                  beam_mode='IW',
                  polarisation='*',
-                 ard_type='OST Standard',
+                 ard_type='OST-GTC',
                  log_level=logging.INFO
                  ):
 
@@ -1093,7 +1093,7 @@ class Sentinel1_GRDBatch(Sentinel1):
         self.ard_type = ard_type
 
         self.proc_file = opj(self.project_dir, 'processing.json')
-        if self.ard_type in ['CEOS', 'Earth Engine', 'OST Standard']:
+        if self.ard_type in ['CEOS', 'Earth Engine', 'OST-GTC']:
             shutil.copy(
                 os.path.join(
                     OST_ROOT, 'graphs', 'ard_json', '.'.join(
@@ -1116,7 +1116,7 @@ class Sentinel1_GRDBatch(Sentinel1):
         self.get_ard_parameters(self.ard_type)
 
     # processing related functions
-    def get_ard_parameters(self, ard_type='OST Standard'):
+    def get_ard_parameters(self, ard_type='OST-GTC'):
 
         # get path to graph
         # get path to ost package

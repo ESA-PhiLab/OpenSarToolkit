@@ -3,10 +3,12 @@ services:
   - docker
 
 before_install:
-  - docker pull scartography/opensartoolkit:latest
+  - docker pull scartography/opensartoolkit:0.9.5
 
 script:
-  - docker run scartography/opensartoolkit:latest /bin/sh -c "export TRAVIS=$TRAVIS; pip3 uninstall -y ost; cd /home/ost; git clone https://github.com/EOX-A/OpenSarToolkit.git; cd OpenSarToolkit; git fetch; git checkout $TRAVIS_BRANCH --; git pull; python3 -m pip install ./; python3 -m pytest --cov=ost tests/;"
+  - docker run scartography/opensartoolkit:0.9.5 /bin/sh -c "export TRAVIS=$TRAVIS; pip3 uninstall -y ost; cd /home/ost; git clone https://github.com/EOX-A/OpenSarToolkit.git; cd OpenSarToolkit; git fetch; git checkout $TRAVIS_BRANCH --; git pull; python3 -m pip install ./; python3 -m pytest --cov=ost tests/;"
 
 notifications:
-  slack: eox:SyjSUIKTXZg593pAn67N5M2h
+  slack:
+    rooms:
+	  - eox:SyjSUIKTXZg593pAn67N5M2h#s1maps

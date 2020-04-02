@@ -1,7 +1,7 @@
 {
     "processing_parameters": {
         "single_ARD": {
-            "type": "OST Standard",
+            "type": "OST-GTC",
             "resolution": 20,
             "remove_border_noise": "true",
             "product_type": "GTC-gamma0",

@@ -685,7 +685,7 @@ class Sentinel1Scene:
         return status, url
 
     # processing related functions
-    def get_ard_parameters(self, ard_type='OST Standard'):
+    def get_ard_parameters(self, ard_type='OST-GTC'):
 
         # get path to ost package
         rootpath = importlib.util.find_spec('ost').submodule_search_locations[
