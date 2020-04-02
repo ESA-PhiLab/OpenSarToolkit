@@ -9,6 +9,4 @@ script:
   - docker run scartography/opensartoolkit:0.9.5 /bin/sh -c "export TRAVIS=$TRAVIS; pip3 uninstall -y ost; cd /home/ost; git clone https://github.com/EOX-A/OpenSarToolkit.git; cd OpenSarToolkit; git fetch; git checkout $TRAVIS_BRANCH --; git pull; python3 -m pip install ./; python3 -m pytest --cov=ost tests/;"
 
 notifications:
-  slack:
-    rooms:
-	  - eox:SyjSUIKTXZg593pAn67N5M2h#s1maps
+  slack: eox:SyjSUIKTXZg593pAn67N5M2h
