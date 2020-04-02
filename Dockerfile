@@ -10,7 +10,7 @@ WORKDIR /home/ost
 COPY snap7.varfile $HOME
 
 # update variables
-ENV OTB_VERSION="7.0.0" \
+ENV OTB_VERSION="7.1.0" \
     TBX_VERSION="7" \
     TBX_SUBVERSION="0"
 ENV \ 
