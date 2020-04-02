@@ -218,8 +218,14 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 7 Initialize burst inventories
-        self.burst_inventory = None
-        self.burst_inventory_file = self.inventory_dir.joinpath('burst.inventory.gpkg')
+        if product_type == 'SLC':
+            self.burst_inventory = None
+            self.burst_inventory_file = self.inventory_dir.joinpath(
+                'burst.inventory.gpkg'
+            )
+        else:
+            self.burst_inventory = None
+            self.burst_inventory_file = None
 
         # ------------------------------------------
         # 8 create a dictionary for project dict
@@ -310,8 +316,7 @@ class Sentinel1(Generic):
 
         geodataframe = gpd.read_file(self.inventory_file)
         geodataframe.columns = column_names
-
-        # add download_path to inventory, so we can check if data needs to be 
+        # add download_path to inventory, so we can check if data needs to be
         # downloaded
         self.inventory = search.check_availability(
             geodataframe, self.download_dir, self.data_mount)

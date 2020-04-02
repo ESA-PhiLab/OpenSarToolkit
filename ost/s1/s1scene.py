@@ -183,11 +183,9 @@ class Sentinel1Scene:
 
     # location of file (including diases)
     def download_path(self, download_dir, mkdir=False):
-
         download_path = download_dir.joinpath(
             f'SAR/{self.product_type}/{self.year}/{self.month}/{self.day}'
         )
-
         # make dir if not existent
         if mkdir:
             download_path.mkdir(parents=True, exist_ok=True)
@@ -196,7 +194,6 @@ class Sentinel1Scene:
         filepath = download_path.joinpath(f'{self.scene_id}.zip')
 
         self.product_dl_path = filepath
-        return filepath
 
     def _creodias_path(self, data_mount='/eodata'):
 
@@ -243,8 +240,6 @@ class Sentinel1Scene:
             raise FileNotFoundError(
                 'No product path found for: {}'.format(self.scene_id)
             )
-        else:
-            path = path
         return path
 
     # scihub related

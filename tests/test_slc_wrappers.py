@@ -47,7 +47,7 @@ def test_burst_calibration(s1_slc_ost_master,
                 slc_project_class.processing_dir, scene_id+'_BS'
             ),
             logfile=logger,
-            proc_file=slc_project_class.proc_file,
+            ard=slc_project_class.proc_file,
             region=slc_project_class.aoi,
             ncores=os.cpu_count())
 

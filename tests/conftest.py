@@ -120,7 +120,7 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
 @pytest.fixture(scope='session')
 def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
     start = '2018-08-13'
-    end = '2018-08-14'
+    end = '2018-08-13'
     scene_id, product = s1_grd_notnr_ost_product
     os.makedirs(TEMP_GRD_DIR, exist_ok=True)
     aoi = box(some_bounds_grd[0], some_bounds_grd[1],
@@ -142,11 +142,12 @@ def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
                                      product.month,
                                      product.day
                                      )
+        product.download_path(download_dir=Path(download_path))
         os.makedirs(download_path, exist_ok=True)
         shutil.copy(s1_grd_notnr, download_path)
         shutil.move(
             os.path.join(download_path, scene_id+'.zip'),
-            os.path.join(download_path, scene_id+'.zip.downloaded')
+            os.path.join(download_path, scene_id+'.downloaded')
         )
         shutil.copy(s1_grd_notnr, download_path)
         product.get_path(download_dir=s1_batch.download_dir)
