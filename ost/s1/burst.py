@@ -23,8 +23,10 @@ from ost.generic import ard_to_ts, ts_extent, ts_ls_mask, timescan, mosaic
 logger = logging.getLogger(__name__)
 
 
-def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
-                    data_mount=None, uname=None, pword=None):
+def burst_inventory(inventory_df,
+                    outfile,
+                    download_dir=os.getenv('HOME'),
+                    data_mount=None):
     """Creates a Burst GeoDataFrame from an OST inventory file
 
     Args:
@@ -44,7 +46,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     # uname, pword = scihub.askScihubCreds()
 
     for scene_id in inventory_df.identifier:
-
         # read into S1scene class
         scene = S1Scene(scene_id)
 
@@ -54,26 +55,16 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         orbit_direction = inventory_df[
             inventory_df.identifier == scene_id].orbitdirection.values[0]
 
-        filepath = scene.get_path(download_dir, data_mount)
-        if not filepath:
-            logger.info('Retrieving burst info from scihub'
-                        ' (need to download xml files)')
-            if not uname and not pword:
-                uname, pword = scihub.ask_credentials()
-
-            opener = scihub.connect(uname=uname, pword=pword)
-            if scene.scihub_online_status(opener) is False:
-                logger.info('Product needs to be online'
-                            ' to create a burst database.')
-                logger.info('Download the product first and '
-                            ' do the burst list from the local data.')
-            else:
-                single_gdf = scene.scihub_annotation_get(uname, pword)
-        elif filepath[-4:] == '.zip':
+        filepath = str(scene.get_path(download_dir, data_mount))
+        single_gdf = None
+        if filepath[-4:] == '.zip':
             single_gdf = scene.zip_annotation_get(download_dir, data_mount)
         elif filepath[-5:] == '.SAFE':
             single_gdf = scene.safe_annotation_get(download_dir, data_mount)
-
+        if single_gdf is None or single_gdf.empty:
+            raise RuntimeError(
+                'Cant get single_gdf for scene_id: {}'.format(scene_id)
+            )
         # add orbit direction
         single_gdf['Direction'] = orbit_direction
 
@@ -81,9 +72,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         gdf_full = gdf_full.append(single_gdf, sort=True)
 
     gdf_full = gdf_full.reset_index(drop=True)
-
     for i in gdf_full['AnxTime'].unique():
-
         # get similar burst times
         idx = gdf_full.index[
             (gdf_full.AnxTime >= i - 1) &
@@ -105,7 +94,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
     # save file to out
     gdf_full.to_file(outfile, driver="GPKG")
-
     return gdf_full
 
 
@@ -237,12 +225,13 @@ def prepare_burst_inventory(burst_gdf, project_file):
 
     return proc_burst_gdf
 
-def print_burst(input_list):
 
+def print_burst(input_list):
     # extract input list
     proc_burst_series, project_file = input_list[0], input_list[1]
     print('Processing burst:' + proc_burst_series.bid)
     print('Project_file:' + str(project_file)+ proc_burst_series.bid)
+
 
 def burst_to_ard_batch(burst_inv, project_file):
 

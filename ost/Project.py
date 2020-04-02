@@ -42,10 +42,6 @@ class Generic:
             self, project_dir, aoi,
             start='1978-06-28',
             end=datetime.today().strftime("%Y-%m-%d"),
-            download_dir=None,
-            inventory_dir=None,
-            processing_dir=None,
-            temp_dir=None,
             data_mount=None,
             log_level=logging.INFO
     ):
@@ -76,40 +72,28 @@ class Generic:
             pass
 
         # define project sub-directories if not set, and create folders
-        if download_dir:
-            self.download_dir = Path(download_dir).resolve()
-        else:
-            self.download_dir = self.project_dir.joinpath('download')
+        self.download_dir = self.project_dir.joinpath('download')
 
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Downloaded data will be stored in: {self.download_dir}'
         )
 
-        if inventory_dir:
-            self.inventory_dir = Path(inventory_dir).resolve()
-        else:
-            self.inventory_dir = self.project_dir.joinpath('inventory')
+        self.inventory_dir = self.project_dir.joinpath('inventory')
 
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Inventory files will be stored in: {self.inventory_dir}'
         )
 
-        if processing_dir:
-            self.processing_dir = Path(processing_dir).resolve()
-        else:
-            self.processing_dir = self.project_dir.joinpath('processing')
+        self.processing_dir = self.project_dir.joinpath('processing')
 
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Processed data will be stored in: {self.processing_dir}'
         )
 
-        if temp_dir:
-            self.temp_dir = Path(temp_dir).resolve()
-        else:
-            self.temp_dir = self.project_dir.joinpath('temp')
+        self.temp_dir = self.project_dir.joinpath('temp')
 
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
@@ -174,10 +158,6 @@ class Sentinel1(Generic):
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
                  data_mount=None,
                  product_type='*',
                  beam_mode='*',
@@ -188,9 +168,7 @@ class Sentinel1(Generic):
         # ------------------------------------------
         # 1 Get Generic class attributes
         super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
-            log_level
+            project_dir, aoi, start, end, data_mount, log_level
         )
 
         # ------------------------------------------
@@ -241,7 +219,7 @@ class Sentinel1(Generic):
         # ------------------------------------------
         # 7 Initialize burst inventories
         self.burst_inventory = None
-        self.burst_inventory_file = None
+        self.burst_inventory_file = self.inventory_dir.joinpath('burst.inventory.gpkg')
 
         # ------------------------------------------
         # 8 create a dictionary for project dict
@@ -366,7 +344,8 @@ class Sentinel1(Generic):
             full_aoi_crossing=full_aoi_crossing,
             mosaic_refine=mosaic_refine,
             area_reduce=area_reduce,
-            complete_coverage=complete_coverage)
+            complete_coverage=complete_coverage
+        )
 
         # summing up information
         print('--------------------------------------------')
@@ -402,8 +381,11 @@ class Sentinel1(Generic):
                                         uname=uname,
                                         pword=pword)
 
-    def create_burst_inventory(self, inventory_df=None, refine=True,
-                               outfile=None, uname=None, pword=None):
+    def create_burst_inventory(self,
+                               inventory_df=None,
+                               refine=True,
+                               outfile=None,
+                               ):
 
         # assert SLC product type
         if not self.product_type == 'SLC':
@@ -423,22 +405,22 @@ class Sentinel1(Generic):
                 )
 
         if not outfile:
-            outfile = self.inventory_dir.joinpath('burst_inventory.gpkg')
+            outfile = self.burst_inventory_file
 
         # run the burst inventory
         self.burst_inventory = burst.burst_inventory(
-            inventory_df,
-            outfile,
+            inventory_df=inventory_df,
+            outfile=outfile,
             download_dir=self.download_dir,
             data_mount=self.data_mount,
-            uname=uname, pword=pword
         )
 
         # refine the burst inventory
         if refine:
             self.burst_inventory = burst.refine_burst_inventory(
-                self.aoi, self.burst_inventory,
-                f'{str(outfile)[:-5]}.refined.gpkg'
+                self.aoi,
+                self.burst_inventory,
+                outfile=outfile
             )
 
     def read_burst_inventory(self, burst_file=None):
@@ -482,10 +464,6 @@ class Sentinel1Batch(Sentinel1):
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
                  data_mount=None,
                  product_type='SLC',
                  beam_mode='IW',
@@ -497,8 +475,7 @@ class Sentinel1Batch(Sentinel1):
         # ------------------------------------------
         # 1 Initialize super class
         super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
+            project_dir, aoi, start, end, data_mount,
             product_type, beam_mode, polarisation,
             log_level
         )

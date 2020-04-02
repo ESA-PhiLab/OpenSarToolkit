@@ -1,6 +1,7 @@
 import os
 import pytest
 import shutil
+from pathlib import Path
 from shapely.geometry import box
 
 from ost.Project import Sentinel1Batch
@@ -87,7 +88,7 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
             start=start,
             end=end,
             product_type='SLC',
-            ard_type='OST-RTC'
+            ard_type='OST-RTC',
         )
         download_path = os.path.join(s1_batch.download_dir,
                                      'SAR',
@@ -96,11 +97,12 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
                                      product.month,
                                      product.day
                                      )
+        product.download_path(download_dir=Path(download_path))
         os.makedirs(download_path, exist_ok=True)
         shutil.copy(s1_slc_master, download_path)
         shutil.move(
             os.path.join(download_path, scene_id+'.zip'),
-            os.path.join(download_path, scene_id+'.zip.downloaded')
+            os.path.join(download_path, scene_id+'.downloaded')
         )
         shutil.copy(s1_slc_master, download_path)
         product.get_path(download_dir=s1_batch.download_dir)
@@ -108,10 +110,7 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
                         pword=HERBERT_USER['pword']
                         )
         s1_batch.refine_inventory()
-        s1_batch.create_burst_inventory(inventory_df=s1_batch.inventory,
-                                        uname=HERBERT_USER['uname'],
-                                        pword=HERBERT_USER['pword']
-                                        )
+        s1_batch.create_burst_inventory()
 
         yield s1_batch
     finally:

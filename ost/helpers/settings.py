@@ -27,7 +27,7 @@ formatter = logging.Formatter(' %(levelname)s (%(asctime)s): %(message)s',
                               '%H:%M:%S')
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.INFO)
+stream_handler.setLevel(logging.DEBUG)
 
 
 def set_log_level(log_level=logging.INFO):

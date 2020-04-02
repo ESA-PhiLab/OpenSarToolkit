@@ -505,11 +505,15 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                             crs={'init': 'epsg:4326', 'no_defs': True})
 
 
-def search_refinement(aoi, inventory_df, inventory_dir,
+def search_refinement(aoi,
+                      inventory_df,
+                      inventory_dir,
                       exclude_marginal=True,
                       full_aoi_crossing=True,
                       mosaic_refine=True,
-                      area_reduce=0.05, complete_coverage=True):
+                      area_reduce=0.05,
+                      complete_coverage=True
+                      ):
     '''A function to refine the Sentinel-1 search by certain criteria
 
     Args:

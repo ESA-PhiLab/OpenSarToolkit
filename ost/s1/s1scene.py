@@ -195,6 +195,7 @@ class Sentinel1Scene:
         # get filepath
         filepath = download_path.joinpath(f'{self.scene_id}.zip')
 
+        self.product_dl_path = filepath
         return filepath
 
     def _creodias_path(self, data_mount='/eodata'):
@@ -221,9 +222,10 @@ class Sentinel1Scene:
     def get_path(self, download_dir=None, data_mount=None):
 
         if download_dir:
-            if self.download_path(download_dir).with_suffix(
+            self.download_path(download_dir=download_dir, mkdir=False)
+            if self.product_dl_path.with_suffix(
                     '.downloaded').exists():
-                path = self.download_path(download_dir)
+                path = self.product_dl_path
             else:
                 path = None
         else:
@@ -237,7 +239,12 @@ class Sentinel1Scene:
                 path = self._onda_path(data_mount)
             else:
                 path = None
-
+        if path is None:
+            raise FileNotFoundError(
+                'No product path found for: {}'.format(self.scene_id)
+            )
+        else:
+            path = path
         return path
 
     # scihub related
@@ -499,7 +506,6 @@ class Sentinel1Scene:
 
         # get connected to scihub
         opener = scihub.connect(base_url, uname, pword)
-
         anno_list = self._scihub_annotation_url(opener)
 
         for url in anno_list:
