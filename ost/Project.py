@@ -21,8 +21,10 @@ from ost.helpers import vector as vec, raster as ras
 from ost.helpers import scihub, helpers as h
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters, exception_handler
+
 from ost.s1 import search, refine, download, burst, grd_batch
-from ost.generic import ard_to_ts
+
+from ost.generic import ard_to_ts, timescan as tscan, mosaic as mos, ts_ls_mask, ts_extent
 
 # get the logger
 logger = logging.getLogger(__name__)
@@ -499,6 +501,8 @@ class Sentinel1Batch(Sentinel1):
             log_level
         )
 
+        self.ncores = os.cpu_count()
+
         # ---------------------------------------
         # 1 Check and set ARD type
 
@@ -558,6 +562,30 @@ class Sentinel1Batch(Sentinel1):
              'inventory': self.inventory_dict,
              'processing': self.ard_parameters}
         )
+        self.ard_type = ard_type
+
+        self.proc_file = opj(self.project_dir, 'processing.json')
+        if self.ard_type in ['CEOS', 'Earth Engine', 'OST-GTC', 'OST-RTC']:
+            shutil.copy(
+                os.path.join(
+                    OST_ROOT, 'graphs', 'ard_json', '.'.join(
+                        [self.product_type.lower(),
+                         self.ard_type.lower().replace(' ', '_'),
+                         'json'
+                         ]
+                    )
+                ), self.project_dir
+            )
+            shutil.move(
+                os.path.join(self.project_dir, '.'.join(
+                    [self.product_type.lower(),
+                     self.ard_type.lower(),
+                     'json'
+                     ]
+                )), self.proc_file
+            )
+
+        self.get_ard_parameters(self.ard_type)
 
         # define project file
         self.project_json = self.project_dir.joinpath('project.json')
@@ -640,7 +668,7 @@ class Sentinel1Batch(Sentinel1):
                                            self.temp_dir,
                                            self.proc_file,
                                            exec_file,
-                                           ncores)
+                                           ncores=self.ncores)
 
             # do we deleete the single ARDs here?
             if timescan:
@@ -659,7 +687,7 @@ class Sentinel1Batch(Sentinel1):
                                     self.temp_dir,
                                     cut_to_aoi,
                                     exec_file,
-                                    ncores
+                                    ncores=self.ncores
                                     )
 
         if mosaic and timescan:
@@ -669,7 +697,7 @@ class Sentinel1Batch(Sentinel1):
                                   self.proc_file,
                                   cut_to_aoi,
                                   exec_file,
-                                  ncores
+                                  ncores=self.ncores
                                   )
 
     def create_timeseries_animation(self, timeseries_dir, product_list,
@@ -794,7 +822,7 @@ class Sentinel1Batch(Sentinel1):
                 #    common_extent.mt_extent(*params.split(','))
                 Parallel(n_jobs=multiproc, verbose=53,
                          backend=multiprocessing)(
-                    delayed(common_extent.mt_extent)(*params.split(';')) for
+                    delayed(ts_extent.mt_extent)(*params.split(';')) for
                     params in mt_extent_params)
 
                 # pool = multiprocessing.Pool(processes=multiproc)
@@ -836,7 +864,7 @@ class Sentinel1Batch(Sentinel1):
                     verbose=53,
                     backend=multiprocessing
                 )(
-                    delayed(common_ls_mask.mt_layover)(*params.split(';'))
+                    delayed(ts_ls_mask.common_ls_mask.mt_layover)(*params.split(';'))
                     for params in mt_ls_params
                 )
 
@@ -917,7 +945,7 @@ class Sentinel1Batch(Sentinel1):
             self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
                                mosaic=mosaic,
                                overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
+                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
             sys.stdout = _stdout
 
             if os.path.isfile(exec_tscan_vrt):
@@ -947,7 +975,7 @@ class Sentinel1Batch(Sentinel1):
             self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
                                mosaic=mosaic,
                                overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
+                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
             sys.stdout = _stdout
 
             if os.path.isfile(exec_mosaic_timeseries):
@@ -977,7 +1005,7 @@ class Sentinel1Batch(Sentinel1):
             self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
                                mosaic=mosaic,
                                overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
+                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
             sys.stdout = _stdout
 
             if os.path.isfile(exec_mosaic_ts_vrt):
@@ -1012,7 +1040,7 @@ class Sentinel1Batch(Sentinel1):
             self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
                                mosaic=mosaic,
                                overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
+                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
             sys.stdout = _stdout
 
             if os.path.isfile(exec_mosaic_timescan):
@@ -1064,57 +1092,6 @@ class Sentinel1Batch(Sentinel1):
                 # pool = multiprocessing.Pool(processes=multiproc)
                 # pool.map(run_mosaic_tscan_vrt_multiprocess, mosaic_tscan_vrt_params)
 
-
-class Sentinel1_GRDBatch(Sentinel1):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
-
-    This subclass creates a Sentinel-1 specific
-    '''
-
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount=None,
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 product_type='GRD',
-                 beam_mode='IW',
-                 polarisation='*',
-                 ard_type='OST-GTC',
-                 log_level=logging.INFO
-                 ):
-
-        super().__init__(project_dir, aoi, start, end, data_mount,
-                         download_dir, inventory_dir, processing_dir, temp_dir,
-                         product_type, beam_mode, polarisation, log_level)
-
-        self.ard_type = ard_type
-
-        self.proc_file = opj(self.project_dir, 'processing.json')
-        if self.ard_type in ['CEOS', 'Earth Engine', 'OST-GTC']:
-            shutil.copy(
-                os.path.join(
-                    OST_ROOT, 'graphs', 'ard_json', '.'.join(
-                        [self.product_type.lower(),
-                         self.ard_type.lower().replace(' ', '_'),
-                         'json'
-                         ]
-                    )
-                ), self.project_dir
-            )
-            shutil.move(
-                os.path.join(self.project_dir, '.'.join(
-                    [self.product_type.lower(),
-                     self.ard_type.lower(),
-                     'json'
-                     ]
-                )), self.proc_file
-            )
-
-        self.get_ard_parameters(self.ard_type)
-
     # processing related functions
     def get_ard_parameters(self, ard_type='OST-GTC'):
 
@@ -1130,34 +1107,6 @@ class Sentinel1_GRDBatch(Sentinel1):
 
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing_parameters']
-
-    def update_ard_parameters(self):
-        with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing_parameters': self.ard_parameters}),
-                      outfile,
-                      indent=4)
-
-    def set_external_dem(self, dem_file):
-        # check if file exists
-        if not os.path.isfile(dem_file):
-            print(f' ERROR: No dem file found at location {dem_file}.')
-            return
-
-        # get no data value
-        with rasterio.open(dem_file) as file:
-            dem_nodata = file.nodata
-
-        # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
-
-        # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM',
-                         'dem file': dem_file,
-                         'dem nodata': dem_nodata,
-                         'dem resampling': dem_res,
-                         'image resampling': img_res})
-        self.ard_parameters['single ARD']['dem'] = dem_dict
 
     def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False,
                     timescan=False, mosaic=False, overwrite=False,
