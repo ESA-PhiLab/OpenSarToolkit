@@ -29,6 +29,8 @@ from ost.generic import ard_to_ts, timescan as tscan, mosaic as mos, ts_ls_mask,
 # get the logger
 logger = logging.getLogger(__name__)
 sys.excepthook = exception_handler
+
+
 class DevNull(object):
     def write(self, arg):
         pass
@@ -548,7 +550,7 @@ class Sentinel1Batch(Sentinel1):
         # find respective template for selected ARD type
         template_file = OST_ROOT.joinpath(
             f"graphs/ard_json/{self.product_type.lower()}"
-            f".{ard_type.replace(' ', '_').lower()}.json"
+            f".{ard_type.replace('-', '_').lower()}.json"
         )
 
         # open and load parameters
@@ -570,7 +572,7 @@ class Sentinel1Batch(Sentinel1):
                 os.path.join(
                     OST_ROOT, 'graphs', 'ard_json', '.'.join(
                         [self.product_type.lower(),
-                         self.ard_type.lower().replace(' ', '_'),
+                         self.ard_type.lower().replace('-', '_'),
                          'json'
                          ]
                     )
@@ -579,7 +581,7 @@ class Sentinel1Batch(Sentinel1):
             shutil.move(
                 os.path.join(self.project_dir, '.'.join(
                     [self.product_type.lower(),
-                     self.ard_type.lower(),
+                     self.ard_type.lower().replace('-', '_'),
                      'json'
                      ]
                 )), self.proc_file
@@ -1103,7 +1105,7 @@ class Sentinel1Batch(Sentinel1):
 
         template_file = opj(rootpath, '{}.{}.json'.format(
             self.product_type.lower(),
-            ard_type.replace(' ', '_').lower()))
+            ard_type.replace('-', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing_parameters']
@@ -1250,3 +1252,4 @@ class Sentinel1Batch(Sentinel1):
                                       self.proc_file,
                                       cut_to_aoi
                                       )
+

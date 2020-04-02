@@ -107,8 +107,8 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
         s1_batch.search(uname=HERBERT_USER['uname'],
                         pword=HERBERT_USER['pword']
                         )
-        s1_batch.refine()
-        s1_batch.create_burst_inventory(key='ASCENDING_VVVH',
+        s1_batch.refine_inventory()
+        s1_batch.create_burst_inventory(inventory_df=s1_batch.inventory,
                                         uname=HERBERT_USER['uname'],
                                         pword=HERBERT_USER['pword']
                                         )
@@ -154,7 +154,7 @@ def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
         s1_batch.search(uname=HERBERT_USER['uname'],
                         pword=HERBERT_USER['pword']
                         )
-        s1_batch.refine()
+        s1_batch.refine_inventory()
         yield s1_batch
     finally:
         shutil.rmtree(TEMP_GRD_DIR)
