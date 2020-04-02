@@ -34,6 +34,18 @@ def test_burst_import(s1_slc_master,
 def test_burst_calibration(s1_slc_ost_master,
                            slc_project_class,
                            ):
+    ard_params = {
+        'dem': {
+                "dem_name": "SRTM 1Sec HGT",
+                "dem_file": "",
+                "dem_nodata": 0,
+                "dem_resampling": "BILINEAR_INTERPOLATION",
+                "image_resampling": "BICUBIC_INTERPOLATION",
+                "egm_correction": False,
+                "out_projection": "WGS84(DD)"
+            },
+        'product_type': 'RTC-gamma0'
+    }
     scene_id, master = s1_slc_ost_master
     for idx, burst in slc_project_class.burst_inventory.iterrows():
         if idx > 2 or burst.SwathID != 'IW1':
@@ -47,7 +59,7 @@ def test_burst_calibration(s1_slc_ost_master,
                 slc_project_class.processing_dir, scene_id+'_BS'
             ),
             logfile=logger,
-            ard=slc_project_class.proc_file,
+            ard=ard_params,
             region=slc_project_class.aoi,
             ncores=os.cpu_count())
 
