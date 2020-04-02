@@ -87,7 +87,7 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
             start=start,
             end=end,
             product_type='SLC',
-            ard_type='OST Plus'
+            ard_type='OST-RTC'
         )
         download_path = os.path.join(s1_batch.download_dir,
                                      'SAR',
@@ -134,7 +134,7 @@ def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
             start=start,
             end=end,
             product_type='GRD',
-            ard_type='OST Flat'
+            ard_type='OST-RTC'
         )
         download_path = os.path.join(s1_batch.download_dir,
                                      'SAR',
