@@ -235,7 +235,7 @@ def mt_metrics(list_of_args):
                    'max': (np.nanmax(stack, axis=0)
                            if 'max' in metrics else False),
                    'min': (np.nanmin(stack, axis=0)
-                           if 'min' in metrics else Fal
+                           if 'min' in metrics else False),
                    'std': (np.nanstd(stack, axis=0)
                            if 'std' in metrics else False),
                    'cov': (stats.variation(stack, axis=0, nan_policy='omit')
