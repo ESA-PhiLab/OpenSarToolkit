@@ -64,8 +64,13 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
-              pol_speckle_dict=None, ncores=os.cpu_count()):
+def ha_alpha(infile,
+             outfile,
+             logfile,
+             pol_speckle_filter=False,
+             pol_speckle_dict=None,
+             ncores=os.cpu_count()
+             ):
     '''A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst

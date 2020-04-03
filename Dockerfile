@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
-LABEL maintainer="Andreas Vollrath, ESA phi-lab"
-LABEL OpenSARToolkit='0.8'
+LABEL maintainer="Petr Sevcik, EOX"
+LABEL OpenSARToolkit='0.9.5'
 
 # set work directory to home and download snap
 WORKDIR /home/ost
@@ -10,7 +10,7 @@ WORKDIR /home/ost
 COPY snap7.varfile $HOME
 
 # update variables
-ENV OTB_VERSION="7.0.0" \
+ENV OTB_VERSION="7.1.0" \
     TBX_VERSION="7" \
     TBX_SUBVERSION="0"
 ENV \ 

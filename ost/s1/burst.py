@@ -1,18 +1,13 @@
-# -*- coding: utf-8 -*-
-"""This module handles the burst inventory
-
-"""
-
 import os
 import json
 import itertools
 import logging
 import multiprocessing as mp
+
 import geopandas as gpd
 from pathlib import Path
 
 from ost.helpers import scihub, vector as vec
-from ost.s1 import burst_to_ard
 from ost import Sentinel1Scene as S1Scene
 from ost.helpers import raster as ras
 from ost.generic import ard_to_ts, ts_extent, ts_ls_mask, timescan, mosaic
@@ -30,8 +25,10 @@ PRODUCT_LIST = [
 ]
 
 
-def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
-                    data_mount=None, uname=None, pword=None):
+def burst_inventory(inventory_df,
+                    outfile,
+                    download_dir=os.getenv('HOME'),
+                    data_mount=None):
     """Creates a Burst GeoDataFrame from an OST inventory file
 
     Args:
@@ -51,7 +48,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     # uname, pword = scihub.askScihubCreds()
 
     for scene_id in inventory_df.identifier:
-
         # read into S1scene class
         scene = S1Scene(scene_id)
 
@@ -61,29 +57,15 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         orbit_direction = inventory_df[
             inventory_df.identifier == scene_id].orbitdirection.values[0]
 
-        filepath = scene.get_path(download_dir, data_mount)
-        if not filepath:
-            logger.info('Retrieving burst info from scihub'
-                        ' (need to download xml files)')
-            if not uname and not pword:
-                uname, pword = scihub.ask_credentials()
-
-            opener = scihub.connect(uname=uname, pword=pword)
-            if scene.scihub_online_status(opener) is False:
-                logger.info('Product needs to be online'
-                            ' to create a burst database.')
-                logger.info('Download the product first and '
-                            ' do the burst list from the local data.')
-            else:
-                single_gdf = scene.scihub_annotation_get(uname, pword)
-        elif filepath.suffix == '.zip':
+        filepath = str(scene.get_path(download_dir, data_mount))
+        single_gdf = None
+        if filepath[-4:] == '.zip':
             single_gdf = scene.zip_annotation_get(download_dir, data_mount)
         elif filepath.suffix == '.SAFE':
             single_gdf = scene.safe_annotation_get(download_dir, data_mount)
-        else:
+        if single_gdf is None or single_gdf.empty:
             raise RuntimeError(
-                'Burst inventory failed because of unavailability of data. '
-                'Make sure to download all scenes first.'
+                'Cant get single_gdf for scene_id: {}'.format(scene_id)
             )
         # add orbit direction
         single_gdf['Direction'] = orbit_direction
@@ -92,9 +74,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         gdf_full = gdf_full.append(single_gdf, sort=True)
 
     gdf_full = gdf_full.reset_index(drop=True)
-
     for i in gdf_full['AnxTime'].unique():
-
         # get similar burst times
         idx = gdf_full.index[
             (gdf_full.AnxTime >= i - 1) &
@@ -116,7 +96,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
     # save file to out
     gdf_full.to_file(outfile, driver="GPKG")
-
     return gdf_full
 
 
@@ -167,7 +146,7 @@ def refine_burst_inventory(aoi, burst_gdf, outfile, coverages=None):
     return burst_gdf[cols]
 
 
-def prepare_burst_inventory(burst_gdf, project_file):
+def prepare_burst_inventory(burst_gdf, project_dict):
 
     cols = [
         'AnxTime', 'BurstNr', 'Date', 'Direction', 'SceneID', 'SwathID',
@@ -180,12 +159,6 @@ def prepare_burst_inventory(burst_gdf, project_file):
     proc_burst_gdf = gpd.GeoDataFrame(columns=cols, geometry='geometry',
                                       crs={'init': 'epsg:4326',
                                            'no_defs': True})
-
-    # load ard parameters
-    with open(project_file, 'r') as file:
-        project = json.load(file)['project']
-        # set processing_dir
-        processing_dir = Path(project['processing_dir'])
 
     for burst in burst_gdf.bid.unique():  # ***
 
@@ -204,10 +177,10 @@ def prepare_burst_inventory(burst_gdf, project_file):
             # get parameters for master
             master_scene = S1Scene(burst_row.SceneID.values[0])
             burst_row['file_location'] = master_scene.get_path(
-                project['download_dir'], project['data_mount']
+                Path(project_dict['download_dir']), Path(project_dict['data_mount'])
             )
             burst_row['master_prefix'] = f'{date}_{burst_row.bid.values[0]}'
-            burst_row['out_directory'] = processing_dir.joinpath(burst, date)
+            burst_row['out_directory'] = Path(project_dict['processing_dir']).joinpath(burst, date)
 
             # try to get slave date
             try:
@@ -227,7 +200,7 @@ def prepare_burst_inventory(burst_gdf, project_file):
 
                 # get path to slave file
                 burst_row['slave_file'] = slave_scene_id.get_path(
-                    project['download_dir'], project['data_mount']
+                    project_dict['download_dir'], project_dict['data_mount']
                 )
 
                 # burst number in slave file (subswath is same)
@@ -250,32 +223,11 @@ def prepare_burst_inventory(burst_gdf, project_file):
     return proc_burst_gdf
 
 
-def bursts_to_ard(burst_inv, project_file):
-
-    print('--------------------------------------------------------------')
-    logger.info('Processing all single bursts to ARD')
-    print('--------------------------------------------------------------')
-    with open(project_file, 'r') as file:
-        project_params = json.load(file)['project']
-
-    logger.info('Preparing the processing pipeline. This may take a moment.')
-    proc_inventory = prepare_burst_inventory(burst_inv, project_file)
-
-    # create iterable for multi_processing
-    burst_list = []
-    for i, row in proc_inventory.iterrows():
-        burst_list.append([row, project_file])
-
-    # parallelization
-    concurrent = int(mp.cpu_count() / project_params['cpus_per_process'])
-    if concurrent > 1:
-        logger.info(
-            f'Parallelize the workload in {concurrent} processes '
-            f'with {project_params["cpus_per_process"]} CPUs per process.'
-        )
-
-    pool = mp.Pool(processes=concurrent)
-    pool.map(burst_to_ard.burst_to_ard, burst_list)
+def print_burst(input_list):
+    # extract input list
+    proc_burst_series, project_file = input_list[0], input_list[1]
+    print('Processing burst:' + proc_burst_series.bid)
+    print('Project_file:' + str(project_file)+ proc_burst_series.bid)
 
 
 def _create_extents(burst_gdf, project_file):
@@ -414,7 +366,7 @@ def ards_to_timeseries(burst_gdf, project_file):
 
     # load ard parameters
     with open(project_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing']
+        ard_params = json.load(ard_file)['processing_parameters']
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
 
@@ -447,9 +399,9 @@ def timeseries_to_timescan(burst_gdf, project_file):
     with open(project_file, 'r') as ard_file:
         project_params = json.load(ard_file)
         processing_dir = project_params['project']['processing_dir']
-        ard = project_params['processing']['single_ARD']
-        ard_mt = project_params['processing']['time-series_ARD']
-        ard_tscan = project_params['processing']['time-scan_ARD']
+        ard = project_params['processing_parameters']['single_ARD']
+        ard_mt = project_params['processing_parameters']['time-series_ARD']
+        ard_tscan = project_params['processing_parameters']['time-scan_ARD']
 
     # get the db scaling right
     if ard['to_db'] or ard_mt['to_db']:

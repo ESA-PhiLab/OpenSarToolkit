@@ -183,11 +183,9 @@ class Sentinel1Scene:
 
     # location of file (including diases)
     def download_path(self, download_dir, mkdir=False):
-
         download_path = Path(download_dir).joinpath(
             f'SAR/{self.product_type}/{self.year}/{self.month}/{self.day}'
         )
-
         # make dir if not existent
         if mkdir:
             download_path.mkdir(parents=True, exist_ok=True)
@@ -195,7 +193,7 @@ class Sentinel1Scene:
         # get filepath
         filepath = download_path.joinpath(f'{self.scene_id}.zip')
 
-        return filepath
+        self.product_dl_path = filepath
 
     def _creodias_path(self, data_mount='/eodata'):
 
@@ -219,17 +217,21 @@ class Sentinel1Scene:
         return path
 
     def get_path(self, download_dir=None, data_mount=None):
-
         if download_dir:
-            if self.download_path(download_dir).with_suffix(
+            if isinstance(download_dir, str):
+                download_dir = Path(download_dir)
+            self.download_path(download_dir=download_dir, mkdir=False)
+            if self.product_dl_path.with_suffix(
                     '.downloaded').exists():
-                path = self.download_path(download_dir)
+                path = self.product_dl_path
             else:
                 path = None
         else:
             path = None
 
         if data_mount and not path:
+            if isinstance(data_mount, str):
+                data_mount = Path(data_mount)
             if self._creodias_path(data_mount).joinpath(
                     'manifest.safe').exists():
                 path = self._creodias_path(data_mount)
@@ -237,7 +239,10 @@ class Sentinel1Scene:
                 path = self._onda_path(data_mount)
             else:
                 path = None
-
+        if path is None:
+            raise FileNotFoundError(
+                'No product path found for: {}'.format(self.scene_id)
+            )
         return path
 
     # scihub related
@@ -499,7 +504,6 @@ class Sentinel1Scene:
 
         # get connected to scihub
         opener = scihub.connect(base_url, uname, pword)
-
         anno_list = self._scihub_annotation_url(opener)
 
         for url in anno_list:
@@ -694,10 +698,10 @@ class Sentinel1Scene:
 
         template_file = opj(rootpath, '{}.{}.json'.format(
             self.product_type.lower(),
-            ard_type.replace(' ', '_').lower()))
+            ard_type.replace('-', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing']
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
 
     def set_external_dem(self, dem_file):
 

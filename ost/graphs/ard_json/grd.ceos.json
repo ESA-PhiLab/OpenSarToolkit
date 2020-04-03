@@ -3,7 +3,7 @@
         "single_ARD": {
             "type": "CEOS",
             "resolution": 10,
-            "remove_border_noise": "true",
+            "remove_border_noise": true,
             "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,

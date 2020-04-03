@@ -1,9 +1,3 @@
-#! /usr/bin/env python
-"""
-This script allows to sort Sentinel-1 data for homogeneous large-scale mapping.
-"""
-
-# import stdlib modules
 import itertools
 
 # some more libs for plotting and DB connection
@@ -14,18 +8,7 @@ import logging
 from shapely.ops import unary_union
 
 # import internal modules
-from ost.helpers.db import pgHandler
 from ost.helpers import vector as vec
-
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
 
 logger = logging.getLogger(__name__)
 
@@ -456,13 +439,26 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                             crs={'init': 'epsg:4326', 'no_defs': True})
 
 
-def search_refinement(aoi, inventory_df, inventory_dir,
+def search_refinement(aoi,
+                      inventory_df,
+                      inventory_dir,
                       exclude_marginal=True,
                       full_aoi_crossing=True,
                       mosaic_refine=True,
-                      area_reduce=0.05, complete_coverage=True):
-    """A function to refine the Sentinel-1 search by certain criteria
-
+                      area_reduce=0.05,
+                      complete_coverage=True
+                      ):
+    """
+    :param aoi:
+    :param inventory_df:
+    :param inventory_dir:
+    :param exclude_marginal:
+    :param full_aoi_crossing:
+    :param mosaic_refine:
+    :param area_reduce:
+    :param complete_coverage:
+    :return:
+    '''A function to refine the Sentinel-1 search by certain criteria
     Args:
         aoi (WKT str):
         inventory_df (GeoDataFrame):

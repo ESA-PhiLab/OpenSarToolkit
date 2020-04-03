@@ -1,13 +1,13 @@
 {
     "processing_parameters": {
         "single_ARD": {
-            "type": "OST Standard",
-            "resolution": 20,
-            "remove_border_noise": "true",
-            "product_type": "GTC-gamma0",
+            "type": "OST-RTC",
+            "resolution": 10,
+            "backscatter": true,
+            "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
-            "remove_speckle": false,
+            "remove_speckle": true,
             "speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
@@ -16,9 +16,21 @@
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
+                "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,
+                "pan_size": 50
+            },
+            "remove_pol_speckle": true,
+            "pol_speckle_filter": {
+                "polarimetric_filter": "Refined Lee Filter",
+                "sigma": 0.9,
+                "filter_size": 3,
+                "window_size": "7x7",
+                "search_window_size": 15,
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "scale_size": 1,
                 "pan_size": 50
             },
             "create_ls_mask": true,
@@ -28,15 +40,18 @@
                 "dem_file": "",
                 "dem_nodata": 0,
                 "dem_resampling": "BILINEAR_INTERPOLATION",
-                "image_resampleing": "BICUBIC_INTERPOLATION",
+                "image_resampling": "BICUBIC_INTERPOLATION",
                 "egm_correction": false,
                 "out_projection": "WGS84(DD)"
-            } 
+            },            
+            "coherence": true,
+            "coherence_bands": "VV, VH, HH, HV",
+            "H-A-Alpha": true
         },
         "time-series_ARD": {
             "to_db": true,
             "remove_mt_speckle": true,
-            "mt_speckle_filter": {
+            "mt_speckle filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
                 "estimate_ENL": true,
@@ -57,4 +72,4 @@
             "remove_outliers": true
         }
     }
-}
+ }

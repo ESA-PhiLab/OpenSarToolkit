@@ -1,7 +1,6 @@
 import os
 import sys
 import shutil
-import decimal
 import importlib
 import logging
 from pathlib import Path
@@ -28,7 +27,7 @@ formatter = logging.Formatter(' %(levelname)s (%(asctime)s): %(message)s',
                               '%H:%M:%S')
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.INFO)
+stream_handler.setLevel(logging.DEBUG)
 
 
 def set_log_level(log_level=logging.INFO):
@@ -58,8 +57,9 @@ def exception_handler(exception_type, exception, traceback):
 def check_value(key, value, expected_type, choices=None):
     if not isinstance(value, expected_type):
         raise TypeError(
-            f"ARD parameter '{key}' does not have the right type. "
-            f"It should be {str(expected_type)}")
+            "ARD parameter {} does not have the right type {}. "
+            "It should be {}.".format(key, value, str(expected_type))
+        )
 
     if key == 'metrics':
         all(item in value for item in choices)
@@ -67,8 +67,8 @@ def check_value(key, value, expected_type, choices=None):
     elif choices:
         if value not in choices:
             raise ValueError(
-                f"Configuration value for ARD parameter '{key}' is wrong. "
-                f"It should be one of:\n {choices}")
+                "Configuration value for ARD parameter {} is wrong {}. "
+                "It should be one of: {}".format(key, value, choices))
 
     return 'passed'
 
@@ -158,8 +158,10 @@ if not GPT_FILE:
         # if file exists we copy to one of th epossible paths, so next time
         # we will find it right away
         Path.home().joinpath('.ost').mkdir(exist_ok=True)
-        os.symlink(GPT_FILE, Path.home().joinpath('.ost/gpt'))
+        if not (Path.home().joinpath('.ost/gpt')).exists():
+            os.symlink(GPT_FILE, Path.home().joinpath('.ost/gpt'))
         GPT_FILE = Path.home().joinpath('.ost/gpt')
+GPT_FILE = str(GPT_FILE)
 
 # get path to graph
 OST_ROOT = Path(importlib.util.find_spec('ost').submodule_search_locations[0])
@@ -178,6 +180,7 @@ config_check = dict({
     'type': {'type': str, 'choices': ['OST-GTC', 'OST-RTC']},
     'resolution': {'type': int, 'choices': range(10, 5000)},
     'backscatter': {'type': bool},
+    'remove_border_noise':  {'type': bool},
     'product_type': {'type': str, 'choices':
         ['GTC-sigma0', 'GTC-gamma0', 'RTC-gamma0']
                      },

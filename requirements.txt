@@ -1,6 +1,7 @@
 descartes
 fiona
 gdal
+godale
 geopandas
 matplotlib
 numpy
@@ -8,12 +9,12 @@ pandas
 psycopg2-binary
 rasterio
 requests
-rtree
 scipy
 shapely
 tqdm
 imageio
 joblib
+rtree
 retrying
 pytest
 pytest-cov

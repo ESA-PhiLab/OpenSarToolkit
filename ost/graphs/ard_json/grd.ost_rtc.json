@@ -1,12 +1,13 @@
 {
     "processing_parameters": {
         "single_ARD": {
-            "type": "OST Plus",
-            "resolution": 10,
+            "type": "OST-RTC",
+            "resolution": 20,
+            "remove_border_noise": true,
             "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
-            "remove_speckle": true,
+            "remove_speckle": false,
             "speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
@@ -15,21 +16,9 @@
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
-                "num_of_looks": 1,
-                "damping": 2,
-                "pan_size": 50
-            },
-            "remove_pol_speckle": true,
-            "pol_speckle_filter": {
-                "filter": "Refined Lee Filter",
-                "sigma": 0.9,
-                "filter_size": 3,
-                "window_size": "7x7",
-                "search_window_size": 15,
                 "target_window_size": "3x3",
                 "num_of_looks": 1,
-                "scale_size": 1,
+                "damping": 2,
                 "pan_size": 50
             },
             "create_ls_mask": true,
@@ -42,23 +31,20 @@
                 "image_resampling": "BICUBIC_INTERPOLATION",
                 "egm_correction": false,
                 "out_projection": "WGS84(DD)"
-            },            
-            "coherence": true,
-            "coherence_bands": "VV, VH, HH, HV",
-            "H-A-Alpha": true
+            }
         },
         "time-series_ARD": {
             "to_db": true,
             "remove_mt_speckle": true,
-            "mt_speckle filter": {
+            "mt_speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
-                "estimate ENL": true,
+                "estimate_ENL": true,
                 "sigma": 0.9,
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
+                "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,
                 "pan_size": 50
@@ -71,4 +57,4 @@
             "remove_outliers": true
         }
     }
- }
+}

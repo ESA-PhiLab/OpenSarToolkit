@@ -30,7 +30,7 @@ def mosaic(list_of_args):
         project_params = json.load(ard_file)
         temp_dir = project_params['project']['temp_dir']
         aoi = project_params['project']['aoi']
-        cut_to_aoi = project_params['processing']['mosaic']['cut_to_aoi']
+        cut_to_aoi = project_params['processing_parameters']['mosaic']['cut_to_aoi']
 
     logfile = outfile.parent.joinpath(f'{str((outfile))[:-4]}.errLog')
 

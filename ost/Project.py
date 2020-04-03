@@ -1,31 +1,30 @@
-# -*- coding: utf-8 -*-
-
-# import standard libs
 import os
-import sys
 import importlib
 import json
 import glob
-import shutil
+
 import logging
 import rasterio
 import geopandas as gpd
-import multiprocessing
+
 from os.path import join as opj
 from datetime import datetime
-from joblib import Parallel, delayed
 from shapely.wkt import loads
 from pathlib import Path
 
 from ost.helpers import vector as vec, raster as ras
 from ost.helpers import scihub, helpers as h
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
-from ost.helpers.settings import check_ard_parameters, exception_handler
+from ost.helpers.settings import check_ard_parameters, exception_handler, config_check
+
 from ost.s1 import search, refine, download, burst, grd_batch
-from ost.generic import ard_to_ts
+from ost.s1.burst_batch import burst_to_ard_batch
+
+from ost.generic import ard_to_ts, timescan as tscan, mosaic as mos, ts_ls_mask, ts_extent
 
 # get the logger
 logger = logging.getLogger(__name__)
+
 
 class DevNull(object):
     def write(self, arg):
@@ -38,10 +37,6 @@ class Generic:
             self, project_dir, aoi,
             start='1978-06-28',
             end=datetime.today().strftime("%Y-%m-%d"),
-            download_dir=None,
-            inventory_dir=None,
-            processing_dir=None,
-            temp_dir=None,
             data_mount=None,
             log_level=logging.INFO
     ):
@@ -68,40 +63,28 @@ class Generic:
             pass
 
         # define project sub-directories if not set, and create folders
-        if download_dir:
-            self.download_dir = Path(download_dir).resolve()
-        else:
-            self.download_dir = self.project_dir.joinpath('download')
+        self.download_dir = self.project_dir.joinpath('download')
 
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Downloaded data will be stored in: {self.download_dir}'
         )
 
-        if inventory_dir:
-            self.inventory_dir = Path(inventory_dir).resolve()
-        else:
-            self.inventory_dir = self.project_dir.joinpath('inventory')
+        self.inventory_dir = self.project_dir.joinpath('inventory')
 
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Inventory files will be stored in: {self.inventory_dir}'
         )
 
-        if processing_dir:
-            self.processing_dir = Path(processing_dir).resolve()
-        else:
-            self.processing_dir = self.project_dir.joinpath('processing')
+        self.processing_dir = self.project_dir.joinpath('processing')
 
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Processed data will be stored in: {self.processing_dir}'
         )
 
-        if temp_dir:
-            self.temp_dir = Path(temp_dir).resolve()
-        else:
-            self.temp_dir = self.project_dir.joinpath('temp')
+        self.temp_dir = self.project_dir.joinpath('temp')
 
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
@@ -166,10 +149,6 @@ class Sentinel1(Generic):
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
                  data_mount=None,
                  product_type='*',
                  beam_mode='*',
@@ -180,15 +159,14 @@ class Sentinel1(Generic):
         # ------------------------------------------
         # 1 Get Generic class attributes
         super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
-            log_level
+            project_dir, aoi, start, end, data_mount, log_level
         )
 
         # ------------------------------------------
         # 2 Check and set product type
         if product_type in ['*', 'RAW', 'SLC', 'GRD']:
             self.product_type = product_type
+            self.project_dict.update(product_type=product_type)
         else:
             raise ValueError(
                 "Product type must be one out of '*', 'RAW', 'SLC', 'GRD'"
@@ -232,8 +210,14 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 7 Initialize burst inventories
-        self.burst_inventory = None
-        self.burst_inventory_file = None
+        if product_type == 'SLC':
+            self.burst_inventory = None
+            self.burst_inventory_file = self.inventory_dir.joinpath(
+                'burst.inventory.gpkg'
+            )
+        else:
+            self.burst_inventory = None
+            self.burst_inventory_file = None
 
         # ------------------------------------------
         # 8 create a dictionary for project dict
@@ -241,13 +225,13 @@ class Sentinel1(Generic):
             {'product_type': self.product_type,
              'beam_mode': self.beam_mode,
              'polarisation': self.polarisation,
-             #'full_inventory': self.inventory,
+             # 'full_inventory': self.inventory,
              'full_inventory_file': str(self.inventory_file),
              'refine': False,
-             #'refined_dict': self.refined_inventory_dict,
+             # 'refined_dict': self.refined_inventory_dict,
              'selected_refine_key': None,
-             #'coverages': self.coverages,
-             #'burst_inventory': self.burst_inventory,
+             # 'coverages': self.coverages,
+             # 'burst_inventory': self.burst_inventory,
              'burst_inventory_file': str(self.burst_inventory_file),
              'refine_burst': False
              }
@@ -324,8 +308,7 @@ class Sentinel1(Generic):
 
         geodataframe = gpd.read_file(self.inventory_file)
         geodataframe.columns = column_names
-
-        # add download_path to inventory, so we can check if data needs to be 
+        # add download_path to inventory, so we can check if data needs to be
         # downloaded
         self.inventory = search.check_availability(
             geodataframe, self.download_dir, self.data_mount)
@@ -358,7 +341,8 @@ class Sentinel1(Generic):
             full_aoi_crossing=full_aoi_crossing,
             mosaic_refine=mosaic_refine,
             area_reduce=area_reduce,
-            complete_coverage=complete_coverage)
+            complete_coverage=complete_coverage
+        )
 
         # summing up information
         print('--------------------------------------------')
@@ -396,8 +380,11 @@ class Sentinel1(Generic):
                 pword=pword
             )
 
-    def create_burst_inventory(self, inventory_df=None, refine=True,
-                               outfile=None, uname=None, pword=None):
+    def create_burst_inventory(self,
+                               inventory_df=None,
+                               refine=True,
+                               outfile=None,
+                               ):
 
         # assert SLC product type
         if not self.product_type == 'SLC':
@@ -417,22 +404,22 @@ class Sentinel1(Generic):
                 )
 
         if not outfile:
-            outfile = self.inventory_dir.joinpath('burst_inventory.gpkg')
+            outfile = self.burst_inventory_file
 
         # run the burst inventory
         self.burst_inventory = burst.burst_inventory(
-            inventory_df,
-            outfile,
+            inventory_df=inventory_df,
+            outfile=outfile,
             download_dir=self.download_dir,
             data_mount=self.data_mount,
-            uname=uname, pword=pword
         )
 
         # refine the burst inventory
         if refine:
             self.burst_inventory = burst.refine_burst_inventory(
-                self.aoi, self.burst_inventory,
-                f'{str(outfile)[:-5]}.refined.gpkg'
+                self.aoi,
+                self.burst_inventory,
+                outfile=outfile
             )
 
     def read_burst_inventory(self, burst_file=None):
@@ -476,10 +463,6 @@ class Sentinel1Batch(Sentinel1):
     def __init__(self, project_dir, aoi,
                  start='2014-10-01',
                  end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
                  data_mount=None,
                  product_type='SLC',
                  beam_mode='IW',
@@ -491,10 +474,18 @@ class Sentinel1Batch(Sentinel1):
         # ------------------------------------------
         # 1 Initialize super class
         super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
+            project_dir, aoi, start, end, data_mount,
             product_type, beam_mode, polarisation,
             log_level
+        )
+
+        self.ard_type = ard_type
+        self.get_ard_parameters()
+        # add information to the generic class self.project dict
+        self.project_dict.update(
+            cpus_per_process=cpus_per_process,
+            inventory=self.inventory_dict,
+            processing_parameters=self.ard_parameters
         )
 
         # ---------------------------------------
@@ -533,55 +524,56 @@ class Sentinel1Batch(Sentinel1):
             raise ValueError("Only 'IW' beam mode supported for processing.")
 
         # ---------------------------------------
-        # 3 Add cpus_per_process
-        self.project_dict['cpus_per_process'] = cpus_per_process
-
-        # ---------------------------------------
-        # 4 Set up project JSON
+        # 3 Set up project JSON
 
         # find respective template for selected ARD type
         template_file = OST_ROOT.joinpath(
             f"graphs/ard_json/{self.product_type.lower()}"
             f".{ard_type.replace('-', '_').lower()}.json"
         )
-        print(template_file)
         # open and load parameters
         with open(template_file, 'r') as ard_file:
-            print('here')
-            self.ard_parameters = json.load(ard_file)['processing']
-
-        # create a project dict with all relevant information
-        project_dict = dict(
-            {'project': self.project_dict,
-             'inventory': self.inventory_dict,
-             'processing': self.ard_parameters}
-        )
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
 
         # define project file
         self.project_json = self.project_dir.joinpath('project.json')
         with open(self.project_json, 'w+') as out:
-            json.dump(project_dict, out, indent=4)
+            json.dump(self.project_dict, out, indent=4)
 
     # ---------------------------------------
     # methods
-    def update_ard_parameters(self):
 
+    # processing related functions
+    def get_ard_parameters(self):
+        # get path to graph
+        # get path to ost package
+        rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        rootpath = opj(rootpath, 'graphs', 'ard_json')
+
+        template_file = opj(rootpath, '{}.{}.json'.format(
+            self.product_type.lower(),
+            self.ard_type.replace('-', '_').lower()))
+
+        with open(template_file, 'r') as ard_file:
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
+
+    def update_ard_parameters(self):
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
+        if self.ard_type != self.ard_parameters['single_ARD']['type']:
+            self.ard_type = self.ard_parameters['single_ARD']['type']
+            self.get_ard_parameters()
 
         # re-create project dict with update ard parameters
-        project_dict = dict(
-            {'project': self.project_dict,
-             'inventory': self.inventory_dict,
-             'processing': self.ard_parameters}
+        self.project_dict.update(
+            inventory=self.inventory_dict,
+            processing_parameters=self.ard_parameters
         )
-
         # dump to json file
         with open(self.project_json, 'w') as outfile:
-            json.dump(project_dict, outfile, indent=4)
+            json.dump(self.project_dict, outfile, indent=4)
 
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
-
         # check if file exists
         if not Path(dem_file).eixtst():
             raise FileNotFoundError(f'No file found at {dem_file}.')
@@ -601,20 +593,21 @@ class Sentinel1Batch(Sentinel1):
                          'dem_resampling': dem_res,
                          'image_resampling': img_res,
                          'egm_correction': ellipsoid_correction,
-                         'out_projection': 'WGS84(DD)'})
+                         'out_projection': 'WGS84(DD)'
+                         })
 
         # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-    def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
-                      overwrite=False):
-
-        # --------------------------------------------
-        # 1 delete data from previous runnings
-        # delete data in temporary directory in case there is
-        # something left from previous runs
-        h.remove_folder_content(self.temp_dir)
-
+    def bursts_to_ard(
+            self,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False,
+            cut_to_aoi=False,
+            ncores=os.cpu_count()
+    ):
         # in case we strat from scratch, delete all data
         # within processing folder
         if overwrite:
@@ -643,8 +636,11 @@ class Sentinel1Batch(Sentinel1):
 
         # --------------------------------------------
         # 5 run the burst to ard batch routine
-        burst.bursts_to_ard(self.burst_inventory, self.project_json)
-
+        # check and retry function
+        burst_to_ard_batch(burst_inv=self.burst_inventory,
+                           project_dict=self.project_dict,
+                           ncores=ncores
+                           )
         # --------------------------------------------
         # 6 run the timeseries creation
         if timeseries or timescan:
@@ -667,22 +663,30 @@ class Sentinel1Batch(Sentinel1):
         if mosaic and timescan:
             burst.mosaic_timescan(self.burst_inventory, self.project_json)
 
-    def create_timeseries_animation(self, timeseries_dir, product_list,
-                                    outfile,
-                                    shrink_factor=1, resampling_factor=5,
-                                    duration=1,
-                                    add_dates=False, prefix=False):
-
+    def create_timeseries_animation(
+            self,
+            timeseries_dir, product_list,
+            outfile,
+            shrink_factor=1,
+            resampling_factor=5,
+            duration=1,
+            add_dates=False,
+            prefix=False
+    ):
         ras.create_timeseries_animation(timeseries_dir, product_list, outfile,
                                         shrink_factor=shrink_factor,
                                         duration=duration,
                                         resampling_factor=resampling_factor,
                                         add_dates=add_dates, prefix=prefix)
 
-    def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False,
-                    timescan=False, mosaic=False, overwrite=False,
-                    exec_file=None, cut_to_aoi=False):
-
+    def grds_to_ard(
+            self,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False,
+            cut_to_aoi=False
+    ):
         self.update_ard_parameters()
 
         if overwrite:
@@ -696,49 +700,15 @@ class Sentinel1Batch(Sentinel1):
         #                  ' DEM instead.')
         #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
-        if subset:
-            if subset.split('.')[-1] == '.shp':
-                subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
-            elif subset.startswith('POLYGON (('):
-                subset = loads(subset).buffer(0.1).to_wkt()
-            else:
-                print(' ERROR: No valid subset given.'
-                      ' Should be either path to a shapefile or a WKT Polygon.')
-                sys.exit()
-
-        # check number of already prcessed acquisitions
-        nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '20*', '.processed'))
-        )
-
-        # number of acquisitions to process
-        nr_of_acq = len(
-            inventory_df.groupby(['relativeorbit', 'acquisitiondate'])
-        )
-
-        # check and retry function
-        i = 0
-        while nr_of_acq > nr_of_processed:
-
-            # the grd to ard batch routine
-            grd_batch.grd_to_ard_batch(
-                inventory_df,
-                self.download_dir,
-                self.processing_dir,
-                self.temp_dir,
-                self.proc_file,
-                subset,
-                self.data_mount,
-                exec_file)
-
-            # reset number of already processed acquisitions
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
-            i += 1
-
-            # not more than 5 trys
-            if i == 5:
-                break
+        # the grd to ard batch routine
+        grd_batch.grd_to_ard_batch(
+            inventory_df=self.inventory,
+            download_dir=self.download_dir,
+            processing_dir=self.processing_dir,
+            temp_dir=self.temp_dir,
+            project_dict=self.project_dict,
+            subset=self.aoi,
+            )
 
         # time-series part
         if timeseries or timescan:
@@ -748,19 +718,19 @@ class Sentinel1Batch(Sentinel1):
                               'Timeseries', '.*processed')))
 
             nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+                self.inventory.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(self.inventory.relativeorbit.unique())
             nr_of_ts = nr_of_polar * nr_of_tracks
 
             # check and retry function
             i = 0
             while nr_of_ts > nr_of_processed:
 
-                grd_batch.ards_to_timeseries(inventory_df,
+                grd_batch.ards_to_timeseries(self.inventory,
                                              self.processing_dir,
                                              self.temp_dir,
                                              self.proc_file,
-                                             exec_file)
+                                             )
 
                 nr_of_processed = len(
                     glob.glob(opj(self.processing_dir, '*',
@@ -779,15 +749,15 @@ class Sentinel1Batch(Sentinel1):
 
             # number of expected timescans
             nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+                self.inventory.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(self.inventory.relativeorbit.unique())
             nr_of_ts = nr_of_polar * nr_of_tracks
 
             i = 0
             while nr_of_ts > nr_of_processed:
 
                 grd_batch.timeseries_to_timescan(
-                    inventory_df,
+                    self.inventory,
                     self.processing_dir,
                     self.proc_file)
 
@@ -800,24 +770,13 @@ class Sentinel1Batch(Sentinel1):
                 if i == 5:
                     break
 
-            if i < 5 and exec_file:
-                print(' create vrt command')
-
         if cut_to_aoi:
             cut_to_aoi = self.aoi
 
-        if mosaic and timeseries and not subset:
+        if mosaic and timeseries:
             grd_batch.mosaic_timeseries(
-                inventory_df,
+                self.inventory,
                 self.processing_dir,
                 self.temp_dir,
                 cut_to_aoi
             )
-
-        if mosaic and timescan and not subset:
-            grd_batch.mosaic_timescan(inventory_df,
-                                      self.processing_dir,
-                                      self.temp_dir,
-                                      self.proc_file,
-                                      cut_to_aoi
-                                      )

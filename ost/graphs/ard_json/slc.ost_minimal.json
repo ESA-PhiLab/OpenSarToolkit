@@ -23,7 +23,7 @@
             },
             "remove_pol_speckle": false,
             "pol_speckle_filter": {
-                "filter": "Refined Lee Filter",
+                "polarimetric_filter": "Refined Lee Filter",
                 "sigma": 0.9,
                 "filter_size": 3,
                 "window_size": "7x7",
@@ -54,7 +54,7 @@
             "remove_mt_speckle": false,
             "apply_ls_mask": false,
             "mt_speckle_filter": {
-                "filter": "Refined Lee",
+                "filter": "Refined Lee ",
                 "ENL": 1,
                 "estimate_ENL": true,
                 "sigma": 0.9,

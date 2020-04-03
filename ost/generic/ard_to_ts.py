@@ -28,7 +28,7 @@ def ard_to_ts(list_of_args):
         processing_dir = project_params['project']['processing_dir']
         temp_dir = project_params['project']['temp_dir']
         cpus_per_process = project_params['project']['cpus_per_process']
-        ard_params = project_params['processing']
+        ard_params = project_params['processing_parameters']
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
 

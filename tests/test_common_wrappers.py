@@ -3,7 +3,7 @@ import glob
 import pytest
 import logging
 
-from ost.snap_common.common import terrain_correction, \
+from ost.generic.common_wrappers import terrain_correction, \
     speckle_filter, multi_look, linear_to_db, ls_mask, calibration
 from ost.s1.grd_to_ard import _grd_frame_import_subset, _grd_remove_border
 
