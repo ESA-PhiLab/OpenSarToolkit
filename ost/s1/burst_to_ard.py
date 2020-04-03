@@ -12,8 +12,8 @@ from ost.s1 import slc_wrappers as slc
 logger = logging.getLogger(__name__)
 
 
-def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
-                               burst_prefix, cpus):
+def create_polarimetric_layers(import_file, out_dir, burst_prefix,
+                               config_dict):
     """ Pipeline for Dual-polarimetric decomposition
 
     Args:
@@ -28,8 +28,12 @@ def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
 
     """
 
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    cpus = config_dict['cpus_per_process']
+
     # temp dir for intermediate files
-    with TemporaryDirectory(prefix=f'{str(temp_dir)}/') as temp:
+    with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
         temp = Path(temp)
         # -------------------------------------------------------
         # 1 Polarimetric Decomposition
@@ -75,21 +79,23 @@ def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
             file.write('passed all tests \n')
 
 
-def create_backscatter_layers(import_file, ard, temp_dir, out_dir,
-                              burst_prefix, cpus):
+def create_backscatter_layers(import_file, out_dir, burst_prefix,
+                              config_dict):
     """
 
     :param import_file:
-    :param ard:
-    :param temp_dir:
     :param out_dir:
     :param burst_prefix:
-    :param cpus:
+    :param config_dict:
     :return:
     """
 
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    cpus = config_dict['cpus_per_process']
+
     # temp dir for intermediate files
-    with TemporaryDirectory(prefix=f'{str(temp_dir)}/') as temp:
+    with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
         temp = Path(temp)
         # ---------------------------------------------------------------------
@@ -199,23 +205,24 @@ def create_backscatter_layers(import_file, ard, temp_dir, out_dir,
 
 
 def create_coherence_layers(
-        master_import, slave_import, ard, temp_dir, out_dir,
-        master_prefix, cpus
+        master_import, slave_import, out_dir,
+        master_prefix, config_dict
 ):
     """
 
     :param master_import:
     :param slave_import:
-    :param ard:
-    :param temp_dir:
     :param out_dir:
     :param master_prefix:
-    :param remove_slave_import:
-    :param cpus:
+    :param config_dict:
     :return:
     """
 
-    with TemporaryDirectory(prefix=f'{str(temp_dir)}/') as temp:
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    cpus = config_dict['cpus_per_process']
+
+    with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
         temp = Path(temp)
         # ---------------------------------------------------------------
@@ -288,11 +295,19 @@ def create_coherence_layers(
             file.write('passed all tests \n')
 
 
-def burst_to_ard(burst, ard_params, project_dict):
+def burst_to_ard(burst, config_file):
+
+    # this is a godale thing
     if isinstance(burst, tuple):
         i, burst = burst
 
-    ard = ard_params['single_ARD']
+    # load relevant config parameters
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        ard = config_dict['processing']['single_ARD']
+        temp_dir = Path(config_dict['temp_dir'])
+        cpus = config_dict['cpus_per_process']
+
     # creation of out_directory
     out_dir = Path(burst.out_directory)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -316,9 +331,6 @@ def burst_to_ard(burst, ard_params, project_dict):
             (ard['backscatter'] and not bs_file) or
             (coherence and not coh_file)
     ):
-        # get temp_dir
-        temp_dir = Path(project_dict['temp_dir'])
-        cpus = project_dict['cpus_per_process']
 
         # ---------------------------------------------------------------------
         # 1 Import
@@ -333,8 +345,13 @@ def burst_to_ard(burst, ard_params, project_dict):
         master_import = temp_dir.joinpath(f'{master_prefix}_import')
 
         if not Path(f'{str(master_import)}.dim').exists():
+            # create namesapce for log file
             import_log = out_dir.joinpath(f'{master_prefix}_import.err_log')
+
+            # get polarisations to import
             polars = ard['polarisation'].replace(' ', '')
+
+            # run import
             return_code = slc.burst_import(
                 master_file, master_import, import_log, swath,
                 master_burst_nr, polars, cpus
@@ -347,18 +364,12 @@ def burst_to_ard(burst, ard_params, project_dict):
         # 2 Product Generation
         if ard['H-A-Alpha'] and not pol_file:
             create_polarimetric_layers(
-                f'{master_import}.dim',
-                ard,
-                temp_dir,
-                out_dir,
-                master_prefix,
-                cpus
+                f'{master_import}.dim', out_dir, master_prefix, config_dict
             )
 
         if ard['backscatter'] and not bs_file:
             create_backscatter_layers(
-                f'{master_import}.dim', ard, temp_dir,
-                out_dir, master_prefix, cpus
+                f'{master_import}.dim', out_dir, master_prefix, config_dict
             )
 
         if coherence and not coh_file:
@@ -381,12 +392,12 @@ def burst_to_ard(burst, ard_params, project_dict):
                 return return_code
 
             create_coherence_layers(
-                f'{master_import}.dim', f'{slave_import}.dim', ard,
-                temp_dir, out_dir, master_prefix, cpus
+                f'{master_import}.dim', f'{slave_import}.dim', out_dir,
+                master_prefix, config_dict
             )
-
-        # remove master import
-        h.delete_dimap(master_import)
+        else:
+            # remove master import
+            h.delete_dimap(master_import)
 
 
 if __name__ == "__main__":

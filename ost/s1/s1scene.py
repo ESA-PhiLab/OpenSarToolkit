@@ -701,7 +701,7 @@ class Sentinel1Scene:
             ard_type.replace('-', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing_parameters']
+            self.ard_parameters = json.load(ard_file)['processing']
 
     def set_external_dem(self, dem_file):
 

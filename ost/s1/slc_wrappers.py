@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
                  ncores=os.cpu_count()):
-    '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
+    """A wrapper of SNAP import of a single Sentinel-1 SLC burst
 
     This function takes an original Sentinel-1 scene (either zip or
     SAFE format), updates the orbit information (does not fail if not
@@ -25,7 +25,7 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
     Args:
         infile: string or os.path object for
                 an original Sentinel-1 GRD product in zip or SAFE format
-        out_prefix: string or os.path object for the output
+        outfile string or os.path object for the output
                     file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
@@ -36,7 +36,7 @@ def burst_import(infile, outfile, logfile, swath, burst, polar='VV,VH,HH,HV',
                      default: 'VV,VH,HH,HV'
         ncores(int): the number of cpu cores to allocate to the gpt job,
                 default: os.cpu_count()
-    '''
+    """
 
     # get path to graph
     graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_BurstSplit_AO.xml')
@@ -71,7 +71,7 @@ def ha_alpha(infile,
              pol_speckle_dict=None,
              ncores=os.cpu_count()
              ):
-    '''A wrapper of SNAP H-A-alpha polarimetric decomposition
+    """A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst
     and calulates the polarimetric decomposition parameters for
@@ -89,7 +89,7 @@ def ha_alpha(infile,
         ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
 
 
-    '''
+    """
 
     if pol_speckle_filter:
         graph = OST_ROOT.joinpath(
