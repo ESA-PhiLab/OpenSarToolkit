@@ -16,13 +16,14 @@ def burst_to_ard_batch(burst_inv,
                        ):
     proc_inventory = prepare_burst_inventory(burst_inv, project_dict)
     if ncores == 1:
+        project_dict['cpus_per_process'] = os.cpu_count()
         for burst in proc_inventory.iterrows():
             burst_to_ard(burst=burst,
                          ard_params=project_dict['processing'],
                          project_dict=project_dict
                          )
     else:
-
+        project_dict['cpus_per_process'] = 2
         executor = Executor(executor=executor_type, max_workers=ncores)
         for task in executor.as_completed(
                 func=burst_to_ard,

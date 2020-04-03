@@ -11,7 +11,7 @@ def test_burst_batch(slc_project_class):
             timescan=False,
             mosaic=False,
             overwrite=False,
-            cut_to_aoi=False
+            cut_to_aoi=False,
         )
 
 

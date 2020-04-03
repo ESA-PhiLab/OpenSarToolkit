@@ -3,6 +3,7 @@
         "single_ARD": {
             "type": "OST-RTC",
             "resolution": 10,
+            "backscatter": true,
             "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
@@ -22,7 +23,7 @@
             },
             "remove_pol_speckle": true,
             "pol_speckle_filter": {
-                "filter": "Refined Lee",
+                "polarimetric_filter": "Refined Lee Filter",
                 "sigma": 0.9,
                 "filter_size": 3,
                 "window_size": "7x7",

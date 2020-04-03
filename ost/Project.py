@@ -486,10 +486,6 @@ class Sentinel1Batch(Sentinel1):
             log_level
         )
 
-        self.ncores = os.cpu_count()
-        if self.ncores > os.cpu_count() / 2:
-            self.ncores = int(os.cpu_count() / 2)
-
         # ---------------------------------------
         # 1 Check and set ARD type
 
@@ -596,6 +592,8 @@ class Sentinel1Batch(Sentinel1):
     def set_ard_type(self, ard_type):
         if ard_type in config_check['type']['choices']:
             self.ard_type = ard_type
+            self.project_dict['processing']['type'] = ard_type
+            self.ard_parameters = self.project_dict['processing']
         else:
             raise TypeError(
                 'ARD type must be one of {}'.format(config_check['type']['choices'])
@@ -603,7 +601,7 @@ class Sentinel1Batch(Sentinel1):
 
     def update_ard_parameters(self):
         # check for correctness of ard parameters
-        check_ard_parameters(self.ard_parameters)
+        check_ard_parameters(self.project_dict['processing'])
 
         # re-create project dict with update ard parameters
         self.project_dict.update(
@@ -647,6 +645,7 @@ class Sentinel1Batch(Sentinel1):
             mosaic=False,
             overwrite=False,
             cut_to_aoi=False,
+            ncores=os.cpu_count()
     ):
 
         if overwrite:
@@ -670,7 +669,8 @@ class Sentinel1Batch(Sentinel1):
 
         # check and retry function
         burst_to_ard_batch(burst_inv=self.burst_inventory,
-                           project_dict=self.project_dict
+                           project_dict=self.project_dict,
+                           ncores=ncores
                            )
 
         # do we delete the downloads here?
@@ -679,7 +679,7 @@ class Sentinel1Batch(Sentinel1):
                                            self.processing_dir,
                                            self.temp_dir,
                                            self.proc_file,
-                                           ncores=self.ncores)
+                                           ncores=ncores)
 
             # do we deleete the single ARDs here?
             if timescan:

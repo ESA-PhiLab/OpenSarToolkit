@@ -32,7 +32,6 @@ def create_polarimetric_layers(import_file, ard, temp_dir, out_dir,
 
     # temp dir for intermediate files
     with TemporaryDirectory(prefix=f'{str(temp_dir)}/') as temp:
-
         temp = Path(temp)
         # -------------------------------------------------------
         # 1 Polarimetric Decomposition
@@ -326,7 +325,6 @@ def burst_to_ard(burst, ard_params, project_dict):
         # ---------------------------------------------------------------------
         # 1 Import
         # import master
-
         # get info on master from GeoSeries
         master_prefix = burst['master_prefix']
         master_file = burst['file_location']
@@ -350,14 +348,16 @@ def burst_to_ard(burst, ard_params, project_dict):
         # ---------------------------------------------------------------------
         # 2 Product Generation
         if ard['H-A-Alpha'] and not pol_file:
-
             create_polarimetric_layers(
-                f'{master_import}.dim', ard, temp_dir,
-                out_dir, master_prefix, cpus
+                f'{master_import}.dim',
+                ard,
+                temp_dir,
+                out_dir,
+                master_prefix,
+                cpus
             )
 
         if ard['backscatter'] and not bs_file:
-
             create_backscatter_layers(
                 f'{master_import}.dim', ard, temp_dir,
                 out_dir, master_prefix, cpus
@@ -409,7 +409,6 @@ if __name__ == "__main__":
 
 
              """
-
 
     # create a parser
     parser = argparse.ArgumentParser(description=descript, epilog=epilog)

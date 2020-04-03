@@ -15,7 +15,7 @@
                 "sigma": 0.9,
                 "filter_x_size": 3,
                 "filter_y_size": 3,
-               "window_size": "7x7",
+                "window_size": "7x7",
                 "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,

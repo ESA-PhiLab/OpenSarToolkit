@@ -287,7 +287,6 @@ def terrain_correction(infile,
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def ls_mask(infile, outfile, logfile, ard, ncores=os.cpu_count()):
-
     """
 
     :param infile:
