@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import os
-from os.path import join as opj
-from tempfile import TemporaryDirectory
 import json
 import logging
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from ost.helpers import helpers as h
 from ost.generic import common_wrappers as common
@@ -245,7 +243,7 @@ def create_coherence_layers(
         # 2 Coherence calculation
 
         # create namespace for temporary coherence product
-        out_coh = temp.joinpath(f'{master_prefix}_coh')
+        out_coh = temp.joinpath(f'{master_prefix}_coherence')
 
         # create namespace for coherence log
         coh_log = out_dir.joinpath(f'{master_prefix}_coh.err_log')
@@ -260,7 +258,7 @@ def create_coherence_layers(
         # 3 Geocoding
 
         # create namespace for temporary geocoded roduct
-        out_tc = temp.joinpath(f'{master_prefix}_coh_tc')
+        out_tc = temp.joinpath(f'{master_prefix}_coh')
 
         # create namespace for geocoded log
         tc_log = out_dir.joinpath(f'{master_prefix}_coh_tc.err_log')

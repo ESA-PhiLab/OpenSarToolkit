@@ -375,7 +375,7 @@ def check_availability(inventory_gdf, download_dir, data_mount):
     
     # add download path, or set to None if not found
     inventory_gdf['download_path'] = inventory_gdf.identifier.apply(
-        lambda row: Sentinel1Scene(row).get_path(download_dir, data_mount))
+        lambda row: str(Sentinel1Scene(row).get_path(download_dir, data_mount)))
     
     return inventory_gdf
 

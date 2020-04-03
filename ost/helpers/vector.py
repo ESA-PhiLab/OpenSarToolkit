@@ -265,8 +265,10 @@ def shp_to_gdf(shapefile):
 
 
 def wkt_to_gdf(wkt):
-    
+
+    # load wkt
     geometry = loads(wkt)
+
     # point wkt
     if geometry.geom_type == 'Point':
         data = {'id': ['1'],
@@ -277,10 +279,15 @@ def wkt_to_gdf(wkt):
     elif geometry.geom_type == 'Polygon':
         data = {'id': ['1'],
                 'geometry': loads(wkt)}
-        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
+        gdf = gpd.GeoDataFrame(
+            data, crs = {'init': 'epsg:4326',  'no_defs': True}
+        )
 
     # geometry collection of single multiploygon
-    elif geometry.geom_type == 'GeometryCollection' and len(geometry) == 1 and 'MULTIPOLYGON' in str(geometry):
+    elif (
+            geometry.geom_type == 'GeometryCollection' and
+            len(geometry) == 1 and 'MULTIPOLYGON' in str(geometry)
+    ):
 
         data = {'id': ['1'],
                 'geometry': geometry}
@@ -302,7 +309,9 @@ def wkt_to_gdf(wkt):
         
         data = {'id': ['1'],
                 'geometry': geometry}
-        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
+        gdf = gpd.GeoDataFrame(
+            data, crs = {'init': 'epsg:4326',  'no_defs': True}
+        )
 
     # everything else (hopefully)
     else:
@@ -319,12 +328,6 @@ def wkt_to_gdf(wkt):
               )
     
     return gdf
-
-
-def wkt_to_shp(wkt, outfile):
-
-    gdf = wkt_to_gdf(wkt)
-    gdf.to_file(outfile)
 
 
 def gdf_to_json_geometry(gdf):
@@ -350,29 +353,16 @@ def gdf_to_json_geometry(gdf):
             if feature['geometry']]
 
 
-def inventory_to_shp(inventory_df, outfile):
-
-    # change datetime datatypes
-    inventory_df['acquisitiondate'] = inventory_df[
-        'acquisitiondate'].astype(str)
-    inventory_df['ingestiondate'] = inventory_df['ingestiondate'].astype(str)
-    inventory_df['beginposition'] = inventory_df['beginposition'].astype(str)
-    inventory_df['endposition'] = inventory_df['endposition'].astype(str)
-
-    # write to shapefile
-    inventory_df.to_file(outfile)
-
-
 def exterior(infile, outfile, buffer=None):
 
     gdf = gpd.read_file(infile, crs={'init': 'EPSG:4326'})
     gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
     gdf_clean = gdf[gdf.geometry.area >= 1.0e-6]
-    gdf_clean.geometry = gdf_clean.geometry.buffer(-0.0018)
-    #if buffer:
-    #    gdf.geometry = gdf.geometry.apply(
-     #           lambda row: Polygon(row.buffer(-0.0018)))
-    gdf_clean.to_file(outfile)
+
+    if buffer:
+        gdf_clean.geometry = gdf_clean.geometry.buffer(buffer)
+
+    gdf_clean.to_file(outfile, driver='GPKG')
 
 
 def difference(infile1, infile2, outfile):
@@ -382,7 +372,7 @@ def difference(infile1, infile2, outfile):
 
     gdf3 = gpd.overlay(gdf1, gdf2, how='symmetric_difference')
 
-    gdf3.to_file(outfile)
+    gdf3.to_file(outfile, driver='GPKG')
 
 
 def buffer_shape(infile, outfile, buffer=None):

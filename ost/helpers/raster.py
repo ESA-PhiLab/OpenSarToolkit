@@ -9,8 +9,8 @@ from os.path import join as opj
 import numpy as np
 import json
 import glob
-import shutil
 import itertools
+from pathlib import Path
 
 # geo libs
 import gdal
@@ -70,7 +70,7 @@ def replace_value(rasterfn, value_to_replace, new_value):
             raster.GetRasterBand(1).WriteArray(raster_array, x, y)
 
 
-def polygonize_raster(infile, outfile, mask_value=1, driver='ESRI Shapefile'):
+def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
 
     with rasterio.open(infile) as src:
 
@@ -92,8 +92,8 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='ESRI Shapefile'):
             driver=driver,
             crs=src.crs,
             schema={'properties': [('raster_val', 'int')],
-                    'geometry': 'Polygon'}) as dst:
-
+                    'geometry': 'Polygon'}
+        ) as dst:
             dst.writerecords(results)
 
 
@@ -120,8 +120,7 @@ def outline(infile, outfile, ndv=0, less_then=False):
         meta.update(blockxsize=src.shape[1], blockysize=1)
 
         # create outfiles
-        with rasterio.open(
-                '{}.tif'.format(outfile[:-4]), 'w', **meta) as out_min:
+        with rasterio.open(f'{outfile.stem}.tif', 'w', **meta) as out_min:
 
             # loop through blocks
             for _, window in out_min.block_windows(1):
@@ -143,24 +142,21 @@ def outline(infile, outfile, ndv=0, less_then=False):
                 out_min.write(np.uint8(min_array), window=window, indexes=1)
 
     # now let's polygonize
-    polygonize_raster('{}.tif'.format(outfile[:-4]), outfile)
-    os.remove('{}.tif'.format(outfile[:-4]))
-
-
-# convert dB to power
-def convert_to_power(db_array):
-
-    pow_array = 10 ** (db_array / 10)
-    return pow_array
+    polygonize_raster(f'{outfile.stem}.tif', outfile)
+    Path(f'{outfile.stem}.tif').unlink()
 
 
 # convert power to dB
 def convert_to_db(pow_array):
-    #print('Converting to dB')
-    pow_array[pow_array == 0] = np.nan
+
+    # assure all values are positive (strangely that's not always the case)
     pow_array[pow_array < 0] = 0.0000001
-    db_array = 10 * np.log10(pow_array.clip(min=0.0000000000001))
-    return np.nan_to_num(db_array)
+
+    # convert to dB
+    db_array = np.multiply(10, np.log10(pow_array.clip(min=0.0000000000001)))
+
+    # return
+    return db_array
 
 
 # rescale sar dB dat ot integer format
@@ -173,14 +169,14 @@ def scale_to_int(float_array, min_value, max_value, datatype):
     elif datatype == 'uint16':
         display_max = 65535.
 
-    a = min_value - ((max_value - min_value)/(display_max - display_min))
-    x = (max_value - min_value)/(display_max - 1)
+    a = min_value - ((max_value - min_value) / (display_max - display_min))
+    x = (max_value - min_value) / (display_max - 1)
 
-    float_array[float_array == 0.0] = np.nan
+    # float_array[float_array == 0.0] = np.nan
     float_array[float_array > max_value] = max_value
     float_array[float_array < min_value] = min_value
-        
-    stretched = (float_array - a) / x
+
+    stretched = np.divide(np.subtract(float_array, a), x)
     int_array = np.round(np.nan_to_num(stretched)).astype(datatype)
 
     return int_array
@@ -188,17 +184,19 @@ def scale_to_int(float_array, min_value, max_value, datatype):
 
 # rescale integer scaled sar data back to dB
 def rescale_to_float(int_array, data_type_name):
+    int_array = int_array.astype('float32')
+    int_array[int_array == 0] = np.nan
 
     if data_type_name == 'uint8':
-        float_array = (int_array.astype(float)
-                       * (35. / 254.) + (-30. - (35. / 254.)))
+        a = np.divide(35., 254.)
+        b = np.subtract(-30., a)
     elif data_type_name == 'uint16':
-        float_array = (int_array.astype(float)
-                       * (35. / 65535.) + (-30. - (35. / 65535.)))
+        a = np.divide(35., 65535.)
+        b = np.subtract(-30., a)
     else:
-        print(' ERROR: Unknown datatype')
+        raise TypeError('Unknown datatype')
 
-    return float_array
+    return np.add(np.multiply(int_array, a), b)
 
 
 def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
@@ -216,22 +214,19 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
         out_meta = src.meta.copy()
         out_image = np.ma.masked_where(out_image == ndv, out_image)
 
-    
     # unmask array
     out_image = out_image.data
-    
+    out_image[out_image == 0] = np.nan
     # if to decibel should be applied
     if to_db is True:
         out_image = convert_to_db(out_image)
 
     if rescale:
-        # if we scale to another d
-        if datatype != 'float32':
 
-            if datatype == 'uint8':
-                out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
-            elif datatype == 'uint16':
-                out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
+        if datatype == 'uint8':
+            out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
+        elif datatype == 'uint16':
+            out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
 
     out_meta.update({'driver': 'GTiff', 'height': out_image.shape[1],
                      'width': out_image.shape[2], 'transform': out_transform,
@@ -239,22 +234,25 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
                      'blockxsize': 128, 'blockysize': 128})
 
     with rasterio.open(outfile, 'w', **out_meta) as dest:
-        dest.write(out_image)
+        dest.write(np.nan_to_num(out_image))
+
         if description:
-            dest.update_tags(1, 
+            dest.update_tags(1,
                     BAND_NAME='{}'.format(os.path.basename(infile)[:-4]))
-            dest.set_band_description(1, 
+            dest.set_band_description(1,
                     '{}'.format(os.path.basename(infile)[:-4]))
 
 
-def create_tscan_vrt(timescan_dir, proc_file):
+def create_tscan_vrt(list_of_args):
 
-        # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing_parameters']
+    timescan_dir, project_file = list_of_args
+
+    # load ard parameters
+    with open(project_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing']
         ard_tscan = ard_params['time-scan_ARD']
 
-    # loop through all pontial proucts
+    # loop through all potential products
     # a products list
     product_list = ['bs.HH', 'bs.VV', 'bs.HV', 'bs.VH',
                     'coh.VV', 'coh.VH', 'coh.HH', 'coh.HV', 
@@ -265,30 +263,30 @@ def create_tscan_vrt(timescan_dir, proc_file):
     for product, metric in iteration:
 
         # get file and add number for outfile
-        infile = opj(timescan_dir, '{}.{}.tif'.format(product, metric))
+        infile = timescan_dir.joinpath(f'{product}.{metric}.tif')
 
         # if there is no file sto the iteration
-        if not os.path.isfile(infile):
+        if not infile.exists():
             continue
 
-        # else
         i += 1
-        outfile = opj(timescan_dir,
-                      '{:02d}.{}.{}.tif'.format(i, product, metric))
-        outfiles.append(outfile)
-        # otherwise rename the file
-        shutil.move(infile, outfile)
+        # create namespace for output file and add to list for vrt creation
+        outfile = timescan_dir.joinpath(f'{i:02d}.{product}.{metric}.tif')
+        outfiles.append(str(outfile))
 
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-    gdal.BuildVRT(opj(timescan_dir, 'Timescan.vrt'.format()),
-                  outfiles,
-                  options=vrt_options
+        # otherwise rename the file
+        infile.replace(outfile)
+
+    # build vrt
+    gdal.BuildVRT(
+        str(timescan_dir.joinpath('Timescan.vrt')),
+        outfiles,
+        options=gdal.BuildVRTOptions(srcNodata=0, separate=True)
      )
         
 
 def norm(band, percentile=False):
-    
-    
+
     if percentile:
         band_min, band_max = np.percentile(band, 2), np.percentile(band, 98)
     else:
@@ -362,6 +360,7 @@ def calc_max(band, stretch='minmax'):
     else:
         print("Please select one of percentile or minmax for the stretch parameter")
     return band_max
+
 
 def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5, plot=False,
                    minimum_list=None, maximum_list=None, date=None, filetype=None, stretch=False):

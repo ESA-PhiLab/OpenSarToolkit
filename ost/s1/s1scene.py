@@ -184,7 +184,7 @@ class Sentinel1Scene:
     # location of file (including diases)
     def download_path(self, download_dir, mkdir=False):
 
-        download_path = download_dir.joinpath(
+        download_path = Path(download_dir).joinpath(
             f'SAR/{self.product_type}/{self.year}/{self.month}/{self.day}'
         )
 
@@ -199,7 +199,7 @@ class Sentinel1Scene:
 
     def _creodias_path(self, data_mount='/eodata'):
 
-        path = data_mount.joinpath(
+        path = Path(data_mount).joinpath(
             f'Sentinel-1/SAR/{self.product_type}/{self.year}/'
             f'{self.month}/{self.day}/{self.scene_id}.SAFE'
         )
@@ -211,7 +211,7 @@ class Sentinel1Scene:
 
     def _onda_path(self, data_mount):
 
-        path = data_mount.joinpath(
+        path = Path(data_mount).joinpath(
             f'S1/LEVEL-1/{self.onda_class}/{self.year}/{self.month}/'
             f'{self.day}/{self.scene_id}.zip/{self.scene_id}.SAFE'
         )
@@ -685,7 +685,7 @@ class Sentinel1Scene:
         return status, url
 
     # processing related functions
-    def get_ard_parameters(self, ard_type='OST Standard'):
+    def get_ard_parameters(self, ard_type='OST-GTC'):
 
         # get path to ost package
         rootpath = importlib.util.find_spec('ost').submodule_search_locations[
@@ -697,7 +697,7 @@ class Sentinel1Scene:
             ard_type.replace(' ', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing_parameters']
+            self.ard_parameters = json.load(ard_file)['processing']
 
     def set_external_dem(self, dem_file):
 

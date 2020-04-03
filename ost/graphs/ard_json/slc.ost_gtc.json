@@ -1,5 +1,5 @@
 {
-    "processing_parameters": {
+    "processing": {
         "single_ARD": {
             "type": "OST-GTC",
             "resolution": 20,
@@ -78,7 +78,8 @@
             "remove_outliers": true
         },
         "mosaic": {
-            "production": false
+            "production": false,
+            "cut_to_aoi": true
         }
     }
  }

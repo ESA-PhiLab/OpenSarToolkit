@@ -1,31 +1,43 @@
 # -*- coding: utf-8 -*-
 
 # import stdlib modules
-import os
-from os.path import join as opj
+
 import time
 import gdal
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from ost.helpers import helpers as h, raster as ras, vector as vec
 
 
-def mt_extent(list_of_scenes, out_file, temp_dir, buffer=None):
-    if type(list_of_scenes) == str:
-        list_of_scenes = list_of_scenes.replace("'", '').strip('][').split(', ')
-    out_dir = os.path.dirname(out_file)
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+def mt_extent(list_of_args):
+
+    # extract list
+    list_of_scenes, out_file, temp_dir, buffer = list_of_args
+
+    # get out directory
+    out_dir = out_file.parent
 
     # build vrt stack from all scenes
-    gdal.BuildVRT(opj(out_dir, 'extent.vrt'),
-                  list_of_scenes,
-                  options=vrt_options)
+    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    gdal.BuildVRT(
+        str(out_dir.joinpath('extent.vrt')), list_of_scenes,
+        options=vrt_options
+    )
+
+    # start time
     start = time.time()
 
-    outline_file = opj(temp_dir, os.path.basename(out_file))
-    ras.outline(opj(out_dir, 'extent.vrt'), outline_file, 0, False)
+    with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
 
-    vec.exterior(outline_file, out_file, buffer)
-    h.delete_shapefile(outline_file)
+        # create namespace for temp file
+        outline_file = Path(temp).joinpath(out_file.name)
 
-    os.remove(opj(out_dir, 'extent.vrt'))
+        # create outline
+        ras.outline(out_dir.joinpath('extent.vrt'), outline_file, 0, False)
+
+        # create exterior ring and write out
+        vec.exterior(outline_file, out_file, buffer)
+
+    out_dir.joinpath('extent.vrt').unlink
     h.timer(start)

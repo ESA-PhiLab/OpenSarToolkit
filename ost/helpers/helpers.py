@@ -225,7 +225,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
 def check_out_tiff(file, test_stats=True):
     return_code = 0
-
+    file = str(file)
     # check if both dim and data exist, else return
     if not os.path.isfile(file):
         return 666

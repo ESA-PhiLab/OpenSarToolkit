@@ -3,9 +3,9 @@ import pytest
 import shutil
 from shapely.geometry import box
 
-from ost.Project import Sentinel1_SLCBatch
-from ost.s1.s1scene import Sentinel1_Scene
-from ost.settings import HERBERT_USER
+from ost.Project import Sentinel1Batch
+from ost.s1.s1scene import Sentinel1Scene
+from ost.helpers.settings import HERBERT_USER
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")

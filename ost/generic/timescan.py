@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
-import os
-from os.path import join as opj
-import logging
 
+import logging
+import warnings
+from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
 from calendar import isleap
@@ -17,6 +17,12 @@ from ost.helpers import helpers as h
 
 
 logger = logging.getLogger(__name__)
+
+# suppress irrelevant numpy warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
+    warnings.filterwarnings('ignore', r'Mean of empty slice')
+
 
 def remove_outliers(arrayin, stddev=3, z_threshold=None):
 
@@ -44,7 +50,7 @@ def remove_outliers(arrayin, stddev=3, z_threshold=None):
         masked_std = np.std(masked_array, axis=0)
         masked_mean = np.mean(masked_array, axis=0)
 
-        # we mask based on mean +- 3 * stddev
+        # we mask based on mean +- x * stddev
         array_out = np.ma.MaskedArray(
             arrayin,
             mask=np.logical_or(
@@ -57,12 +63,18 @@ def remove_outliers(arrayin, stddev=3, z_threshold=None):
 
 
 def date_as_float(date):
+
     size_of_day = 1. / 366.
     size_of_second = size_of_day / (24. * 60. * 60.)
     days_from_jan1 = date - datetime(date.year, 1, 1)
+
     if not isleap(date.year) and days_from_jan1.days >= 31+28:
         days_from_jan1 += timedelta(1)
-    return date.year + days_from_jan1.days * size_of_day + days_from_jan1.seconds * size_of_second
+
+    return (
+            date.year + days_from_jan1.days * size_of_day +
+            days_from_jan1.seconds * size_of_second
+    )
 
 
 def difference_in_years(start, end):
@@ -71,8 +83,10 @@ def difference_in_years(start, end):
 
 def deseasonalize(stack):
     
-    percentiles = np.percentile(stack, 95, axis=[1,2])
-    deseasoned = np.subtract(percentiles[:,np.newaxis], stack.reshape(stack.shape[0], -1))
+    percentiles = np.percentile(stack, 95, axis=[1, 2])
+    deseasoned = np.subtract(
+        percentiles[:,np.newaxis], stack.reshape(stack.shape[0], -1)
+    )
     return deseasoned.reshape(stack.shape)
 
 
@@ -133,46 +147,29 @@ def nan_percentile(arr, q):
     return result
 
 
-def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
-               to_power=False, outlier_removal=False, datelist=None):
+def mt_metrics(list_of_args):
+    # -------------------------------------
+    # 1 extract args
+    stack, out_prefix, metrics, rescale_to_datatype = list_of_args[:4]
+    to_power, outlier_removal, datelist = list_of_args[4:]
 
-    if type(rescale_to_datatype) == str:
-        if rescale_to_datatype == 'True':
-            rescale_to_datatype = True
-        elif rescale_to_datatype == 'False':
-            rescale_to_datatype = False
-    if type(to_power) == str:
-        if to_power == 'True':
-            to_power = True
-        elif to_power == 'False':
-            to_power = False
-    if type(outlier_removal) == str:
-        if outlier_removal == 'True':
-            outlier_removal = True
-        elif outlier_removal == 'False':
-            outlier_removal = False
-    if type(metrics) == str:
-        metrics = metrics.replace("'", '').strip('][').split(', ')
-    if type(datelist) == str:
-        datelist = datelist.replace("'", '').strip('][').split(', ')
-
-    # from datetime import datetime
     with rasterio.open(stack) as src:
 
         harmonics = False
         if 'harmonics' in metrics:
             logger.info('Calculating harmonics')
             if not datelist:
-                print(' WARNING: Harmonics need the datelist. Harmonics will not be calculated')
+                print(
+                    ' WARNING: Harmonics need the datelist. Harmonics will not be calculated')
             else:
                 harmonics = True
                 metrics.remove('harmonics')
                 metrics.extend(['amplitude', 'phase', 'residuals'])
-        
+
         if 'percentiles' in metrics:
             metrics.remove('percentiles')
             metrics.extend(['p95', 'p5'])
-            
+
         # get metadata
         meta = src.profile
 
@@ -183,120 +180,128 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
         # write all different output files into a dictionary
         metric_dict = {}
         for metric in metrics:
-            filename = '{}.{}.tif'.format(out_prefix, metric)
-            metric_dict[metric] = rasterio.open(
-                filename, 'w', **meta)
+            filename = f'{out_prefix}.{metric}.tif'
+            metric_dict[metric] = rasterio.open(filename, 'w', **meta)
 
         # scaling factors in case we have to rescale to integer
-        minimums = {'avg': -30, 'max': -30, 'min': -30,
-                    'std': 0.00001, 'cov': 0.00001}
-        maximums = {'avg': 5, 'max': 5, 'min': 5, 'std': 15, 'cov': 1}
+        minimums = {'avg': int(-30), 'max': int(-30), 'min': int(-30),
+                    'std': 0.00001, 'cov': 0.00001, 'phase': -np.pi}
+        maximums = {'avg': 5, 'max': 5, 'min': 5, 'std': 1, 'cov': 1,
+                    'phase': np.pi}
 
-        
         if harmonics:
             # construct independent variables
             dates, sines, cosines = [], [], []
             two_pi = np.multiply(2, np.pi)
+
             for date in sorted(datelist):
-                
-                delta = difference_in_years(datetime.strptime('700101',"%y%m%d"), datetime.strptime(date,"%y%m%d"))
+                delta = difference_in_years(
+                    datetime.strptime('700101', "%y%m%d"),
+                    datetime.strptime(date, "%y%m%d")
+                )
                 dates.append(delta)
                 sines.append(np.sin(np.multiply(two_pi, delta - 0.5)))
                 cosines.append(np.cos(np.multiply(two_pi, delta - 0.5)))
-            
+
             X = np.array([dates, cosines, sines])
-    
+
         # loop through blocks
         for _, window in src.block_windows(1):
 
             # read array with all bands
             stack = src.read(range(1, src.count + 1), window=window)
 
+            # rescale to float
             if rescale_to_datatype is True and meta['dtype'] != 'float32':
                 stack = ras.rescale_to_float(stack, meta['dtype'])
 
             # transform to power
             if to_power is True:
-                stack = ras.convert_to_power(stack)
+                stack = np.power(10, np.divide(stack, 10))
 
             # outlier removal (only applies if there are more than 5 bands)
             if outlier_removal is True and src.count >= 5:
                 stack = remove_outliers(stack)
 
             # get stats
-            arr = {}
-            arr['p95'], arr['p5'] = (np.nan_to_num(nan_percentile(stack, [95, 5]))
-                                     if 'p95' in metrics else (False, False))
-            arr['median'] = (np.nan_to_num(np.nanmedian(stack, axis=0))
-                          if 'median' in metrics else False)
-            arr['avg'] = (np.nan_to_num(np.nanmean(stack, axis=0))
-                          if 'avg' in metrics else False)
-            arr['max'] = (np.nan_to_num(np.nanmax(stack, axis=0))
-                          if 'max' in metrics else False)
-            arr['min'] = (np.nan_to_num(np.nanmin(stack, axis=0))
-                          if 'min' in metrics else False)
-            arr['std'] = (np.nan_to_num(np.nanstd(stack, axis=0))
-                          if 'std' in metrics else False)
-            arr['cov'] = (np.nan_to_num(stats.variation(stack, axis=0,
-                                                        nan_policy='omit'))
-                          if 'cov' in metrics else False)
-            
+            arr = {'p95': (nan_percentile(stack, [95, 5])
+                           if 'p95' in metrics else (False, False))[0],
+                   'p5': (nan_percentile(stack, [95, 5])
+                          if 'p95' in metrics else (False, False))[1],
+                   'median': (np.nanmedian(stack, axis=0)
+                              if 'median' in metrics else False),
+                   'avg': (np.nanmean(stack, axis=0)
+                           if 'avg' in metrics else False),
+                   'max': (np.nanmax(stack, axis=0)
+                           if 'max' in metrics else False),
+                   'min': (np.nanmin(stack, axis=0)
+                           if 'min' in metrics else Fal
+                   'std': (np.nanstd(stack, axis=0)
+                           if 'std' in metrics else False),
+                   'cov': (stats.variation(stack, axis=0, nan_policy='omit')
+                           if 'cov' in metrics else False)}
+
             if harmonics:
-                
+
                 stack_size = (stack.shape[1], stack.shape[2])
                 if to_power is True:
                     y = ras.convert_to_db(stack).reshape(stack.shape[0], -1)
                 else:
                     y = stack.reshape(stack.shape[0], -1)
-                    
+
                 x, residuals, _, _ = np.linalg.lstsq(X.T, y)
                 arr['amplitude'] = np.hypot(x[1], x[2]).reshape(stack_size)
                 arr['phase'] = np.arctan2(x[2], x[1]).reshape(stack_size)
-                arr['residuals'] = np.sqrt(np.divide(residuals, stack.shape[0])).reshape(stack_size)
-                
-                
+                arr['residuals'] = np.sqrt(
+                    np.divide(residuals, stack.shape[0])).reshape(stack_size)
+
             # the metrics to be re-turned to dB, in case to_power is True
             metrics_to_convert = ['avg', 'min', 'max', 'p95', 'p5', 'median']
 
             # do the back conversions and write to disk loop
             for metric in metrics:
-                
+
                 if to_power is True and metric in metrics_to_convert:
                     arr[metric] = ras.convert_to_db(arr[metric])
 
-                if rescale_to_datatype is True and meta['dtype'] != 'float32':
-                    arr[metric] = ras.scale_to_int(arr[metric], meta['dtype'],
-                                                   minimums[metric],
-                                                   maximums[metric])
+                if ((rescale_to_datatype is True
+                     and meta['dtype'] != 'float32')
+                        or metric in ['cov', 'phase']):
+                    arr[metric] = ras.scale_to_int(
+                        arr[metric], minimums[metric], maximums[metric],
+                        meta['dtype']
+                    )
 
                 # write to dest
                 metric_dict[metric].write(
-                    np.float32(arr[metric]), window=window, indexes=1)
-                metric_dict[metric].update_tags(1, 
-                    BAND_NAME='{}_{}'.format(os.path.basename(out_prefix), metric))
-                metric_dict[metric].set_band_description(1, 
-                    '{}_{}'.format(os.path.basename(out_prefix), metric))
+                    np.nan_to_num(arr[metric]).astype(meta['dtype']),
+                    window=window, indexes=1
+                )
+                metric_dict[metric].update_tags(
+                    1, BAND_NAME=f'{Path(out_prefix).name}_{metric}'
+                )
+                metric_dict[metric].set_band_description(
+                    1, f'{Path(out_prefix).name}_{metric}'
+                )
 
     # close the output files
     for metric in metrics:
         # close rio opening
         metric_dict[metric].close()
         # construct filename
-        filename = '{}.{}.tif'.format(out_prefix, metric)
+        filename = f'{str(out_prefix)}.{metric}.tif'
         return_code = h.check_out_tiff(filename)
         if return_code != 0:
             # remove all files and return
-            for metric in metrics:
-                filename = '{}.{}.tif'.format(out_prefix, metric)
-                os.remove(filename)
+            #for metric in metrics:
+            filename = f'{str(out_prefix)}.{metric}.tif'
+            Path(filename).unlink()
+            # Path(f'{filename}.xml').unlink()
             
             return return_code
         
     if return_code == 0:
-        dirname = os.path.dirname(out_prefix)
-        check_file = opj(dirname, '.{}.processed'.format(os.path.basename(out_prefix)))
+        dirname = out_prefix.parent
+        check_file = dirname.joinpath(f'.{out_prefix.name}.processed')
         with open(str(check_file), 'w') as file:
             file.write('passed all tests \n')
-    
-        
-        

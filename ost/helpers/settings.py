@@ -255,5 +255,6 @@ config_check = dict({
         ['median', 'percentiles', 'harmonics',
          'avg', 'max', 'min', 'std', 'cov']
                 },
-    'remove_outliers': {'type': bool}
+    'remove_outliers': {'type': bool},
+    'cut_to_aoi': {'type': bool}
 })

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # import stdlib modules
-import os
-from os.path import join as opj
 import time
+import shutil
 import logging
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import gdal
 import rasterio
@@ -13,70 +14,86 @@ from ost.helpers import helpers as h, raster as ras, vector as vec
 
 logger = logging.getLogger(__name__)
 
-def mt_layover(filelist, outfile, temp_dir, extent, update_extent=False):
-    '''
-    This function is usally used in the time-series workflow of OST. A list
-    of the filepaths layover/shadow masks
+def mt_layover(list_of_args):
+    """
 
-    :param filelist - list of files
-    :param out_dir - directory where the output file will be stored
-    :return path to the multi-temporal layover/shadow mask file generated
-    '''
-    if type(filelist) == str:
-        filelist = filelist.replace("'", '').strip('][').split(', ')
-    if type(update_extent) == str:
-        if update_extent == 'False':
-            update_extent = False
-    # get some info
-    burst_dir = os.path.dirname(outfile)
-    burst = os.path.basename(burst_dir)
-    extent = opj(burst_dir, '{}.extent.shp'.format(burst))
-    
+    :param list_of_args:
+    :return:
+    """
+
+    # extract args from list
+    filelist, outfile, temp_dir, extent, update_extent = list_of_args
+
     # get the start time for Info on processing time
     start = time.time()
-    # create path to out file
-    ls_layer = opj(temp_dir, os.path.basename(outfile))
 
-    # create a vrt-stack out of
-    logger.info('Creating common Layover/Shadow Mask')
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-    gdal.BuildVRT(opj(temp_dir, 'ls.vrt'), filelist, options=vrt_options)
+    with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
 
-    with rasterio.open(opj(temp_dir, 'ls.vrt')) as src:
+        # temp to Path object
+        temp = Path(temp)
 
-        # get metadata
-        meta = src.meta
-        # update driver and reduced band count
-        meta.update(driver='GTiff', count=1, dtype='uint8')
+        # create path to temp file
+        ls_layer = temp.joinpath(Path(outfile).name)
 
-        # create outfiles
-        with rasterio.open(ls_layer, 'w', **meta) as out_min:
+        # create a vrt-stack out of
+        logger.info('Creating common Layover/Shadow Mask')
+        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+        gdal.BuildVRT(
+            str(temp.joinpath('ls.vrt')), filelist, options=vrt_options
+        )
 
-            # loop through blocks
-            for _, window in src.block_windows(1):
+        with rasterio.open(temp.joinpath('ls.vrt')) as src:
 
-                # read array with all bands
-                stack = src.read(range(1, src.count + 1), window=window)
+            # get metadata
+            meta = src.meta
+            # update driver and reduced band count
+            meta.update(driver='GTiff', count=1, dtype='uint8')
 
-                # get stats
-                arr_max = np.nanmax(stack, axis=0)
-                arr = arr_max / arr_max
+            # create outfiles
+            with rasterio.open(ls_layer, 'w', **meta) as out_min:
 
-                out_min.write(np.uint8(arr), window=window, indexes=1)
+                # loop through blocks
+                for _, window in src.block_windows(1):
 
-    ras.mask_by_shape(ls_layer, outfile, extent, to_db=False,
-                      datatype='uint8', rescale=False, ndv=0)
-    os.remove(ls_layer)
-    h.timer(start)
+                    # read array with all bands
+                    stack = src.read(range(1, src.count + 1), window=window)
 
-    if update_extent:
-        logger.info('Calculating symetrical difference of extent and ls_mask')
-        # polygonize the multi-temporal ls mask
-        ras.polygonize_raster(outfile, '{}.shp'.format(outfile[:-4]))
-        
-        # create file for masked extent
-        extent_ls_masked = opj(burst_dir, '{}.extent.masked.shp'.format(burst))
-        
-        # calculate difference between burst exntetn and ls mask, fr masked extent
-        vec.difference(extent, '{}.shp'.format(outfile[:-4]), extent_ls_masked)
-                
+                    # get stats
+                    arr_max = np.nanmax(stack, axis=0)
+                    arr = arr_max / arr_max
+
+                    out_min.write(np.uint8(arr), window=window, indexes=1)
+
+        ras.mask_by_shape(ls_layer, outfile, extent, to_db=False,
+                          datatype='uint8', rescale=False, ndv=0)
+
+        ls_layer.unlink()
+        h.timer(start)
+
+        if update_extent:
+
+            # get some info
+            burst_dir = Path(outfile).parent
+            burst = burst_dir.name
+            extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
+
+            logger.info(
+                'Calculating symetrical difference of extent and ls_mask'
+            )
+
+            # polygonize the multi-temporal ls mask
+            ras.polygonize_raster(outfile, f'{str(outfile)[:-4]}.gpkg')
+
+            # create file for masked extent
+            extent_ls_masked = burst_dir.joinpath(
+                f'{burst}.extent.masked.gpkg'
+            )
+
+            # calculate difference between burst extent
+            # and ls mask, for masked extent
+            try:
+                vec.difference(
+                    extent, f'{str(outfile)[:-4]}.gpkg', extent_ls_masked
+                )
+            except:
+                shutil.copy(extent, extent_ls_masked)
