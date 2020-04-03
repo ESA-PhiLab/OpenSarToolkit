@@ -569,6 +569,8 @@ class Sentinel1Batch(Sentinel1):
     def update_ard_parameters(self):
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
+        self.ard_type = self.ard_parameters['single_ARD']['type']
+        self.get_ard_parameters()
 
         # re-create project dict with update ard parameters
         self.project_dict.update(
@@ -577,7 +579,7 @@ class Sentinel1Batch(Sentinel1):
         )
         # dump to json file
         with open(self.project_json, 'w') as outfile:
-            json.dump(self.project_dict, outfile, )
+            json.dump(self.project_dict, outfile, indent=4)
 
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
         # check if file exists
