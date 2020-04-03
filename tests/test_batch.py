@@ -27,7 +27,7 @@ def test_grds_to_ard(grd_project_class):
 def test_burst_batch_ost_gtc(slc_project_class):
     slc_project_class.ard_parameters["single_ARD"]["type"] = 'OST-GTC'
     slc_project_class.update_ard_parameters()
-    slc_project_class.project_dict['processing']['single_ARD']['resolution'] = 50
+    slc_project_class.ard_parameters['single_ARD']['resolution'] = 50
     slc_project_class.bursts_to_ard(
         timeseries=False,
         timescan=False,
@@ -40,7 +40,7 @@ def test_burst_batch_ost_gtc(slc_project_class):
 def test_burst_batch_ost_rtc(slc_project_class):
     slc_project_class.ard_parameters["single_ARD"]["type"] = 'OST-RTC'
     slc_project_class.update_ard_parameters()
-    slc_project_class.project_dict['processing']['single_ARD']['resolution'] = 50
+    slc_project_class.ard_parameters['single_ARD']['resolution'] = 50
     slc_project_class.bursts_to_ard(
         timeseries=False,
         timescan=False,

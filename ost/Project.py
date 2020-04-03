@@ -569,8 +569,9 @@ class Sentinel1Batch(Sentinel1):
     def update_ard_parameters(self):
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
-        self.ard_type = self.ard_parameters['single_ARD']['type']
-        self.get_ard_parameters()
+        if self.ard_type != self.ard_parameters['single_ARD']['type']:
+            self.ard_type = self.ard_parameters['single_ARD']['type']
+            self.get_ard_parameters()
 
         # re-create project dict with update ard parameters
         self.project_dict.update(
