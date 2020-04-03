@@ -3,7 +3,7 @@
         "single_ARD": {
             "type": "OST-RTC",
             "resolution": 20,
-            "remove_border_noise": "true",
+            "remove_border_noise": true,
             "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
@@ -44,7 +44,7 @@
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
+                "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,
                 "pan_size": 50

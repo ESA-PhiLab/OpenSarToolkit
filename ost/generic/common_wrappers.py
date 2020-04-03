@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
-# import stdlib modules
 import os
 import logging
-import importlib
 from retrying import retry
 from os.path import join as opj
 
@@ -17,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
-
     # transform calibration parameter to snap readable
     sigma0, beta0, gamma0 = 'false', 'false', 'false'
     
@@ -56,9 +51,9 @@ def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count()):
-
     logger.info('Multi-looking the image with {} looks in'
-          ' azimuth and {} looks in range.'.format(az_looks, rg_looks))
+                ' azimuth and {} looks in range.'.format(az_looks, rg_looks)
+                )
     
     # construct command string
     command = ('{} Multilook -x -q {}'
@@ -105,32 +100,33 @@ def speckle_filter(infile, outfile, logfile, speckle_dict, ncores=os.cpu_count()
 
     logger.info('Applying speckle filtering.')
     # contrcut command string
-    command = ('{} Speckle-Filter -x -q {}'
-                  ' -PestimateENL=\'{}\''
-                  ' -PanSize=\'{}\''
-                  ' -PdampingFactor=\'{}\''
-                  ' -Penl=\'{}\''
-                  ' -Pfilter=\'{}\''
-                  ' -PfilterSizeX=\'{}\''
-                  ' -PfilterSizeY=\'{}\''
-                  ' -PnumLooksStr=\'{}\''
-                  ' -PsigmaStr=\'{}\''
-                  ' -PtargetWindowSizeStr=\"{}\"'
-                  ' -PwindowSize=\"{}\"'
-                  ' -t \'{}\' \'{}\''.format(
-                      GPT_FILE, 2*ncores,
-                      speckle_dict['estimate_ENL'],
-                      speckle_dict['pan_size'],
-                      speckle_dict['damping'],
-                      speckle_dict['ENL'],
-                      speckle_dict['filter'],
-                      speckle_dict['filter_x_size'],
-                      speckle_dict['filter_y_size'],
-                      speckle_dict['num_of_looks'],
-                      speckle_dict['sigma'],
-                      speckle_dict['target_window_size'],
-                      speckle_dict['window_size'],
-                      outfile, infile)
+    command = (
+        '{} Speckle-Filter -x -q {}'
+        ' -PestimateENL=\'{}\''
+        ' -PanSize=\'{}\''
+        ' -PdampingFactor=\'{}\''
+        ' -Penl=\'{}\''
+        ' -Pfilter=\'{}\''
+        ' -PfilterSizeX=\'{}\''
+        ' -PfilterSizeY=\'{}\''
+        ' -PnumLooksStr=\'{}\''
+        ' -PsigmaStr=\'{}\''
+        ' -PtargetWindowSizeStr=\"{}\"'
+        ' -PwindowSize=\"{}\"'
+        ' -t \'{}\' \'{}\''.format(
+              GPT_FILE, 2*ncores,
+              speckle_dict['estimate_ENL'],
+              speckle_dict['pan_size'],
+              speckle_dict['damping'],
+              speckle_dict['ENL'],
+              speckle_dict['filter'],
+              speckle_dict['filter_x_size'],
+              speckle_dict['filter_y_size'],
+              speckle_dict['num_of_looks'],
+              speckle_dict['sigma'],
+              speckle_dict['target_window_size'],
+              speckle_dict['window_size'],
+              outfile, infile)
               )
 
     # run command and get return code
@@ -182,8 +178,52 @@ def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
         )
 
 
+def terrain_flattening(
+            infile,
+            outfile,
+            logfile,
+            dem_dict,
+            ncores=os.cpu_count()
+):
+    command = (
+        '{} Terrain-Flattening -x -q {}'
+        ' -PdemName=\'{}\''
+        ' -PdemResamplingMethod=\'{}\''
+        ' -PexternalDEMFile=\'{}\''
+        ' -PexternalDEMNoDataValue={}'
+        ' -t \'{}\' \'{}\''.format(
+            GPT_FILE,
+            2 * ncores,
+            dem_dict['dem_name'],
+            dem_dict['dem_resampling'],
+            dem_dict['dem_file'],
+            dem_dict['dem_nodata'],
+            outfile,
+            infile
+        )
+    )
+    # run command and get return code
+    return_code = h.run_command(command, logfile)
+
+    # handle errors and logs
+    if return_code == 0:
+        logger.info('Succesfully terrain flattened product')
+        return return_code
+    else:
+        raise GPTRuntimeError(
+            'ERROR: Terrain Flattening exited with an error {}. See {} for '
+            'Snap Error output'.format(return_code, logfile)
+        )
+
+
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os.cpu_count()):
+def terrain_correction(infile,
+                       outfile,
+                       logfile,
+                       resolution,
+                       dem_dict,
+                       ncores=os.cpu_count()
+                       ):
 
     '''A wrapper around SNAP's Terrain Correction routine
 
@@ -208,25 +248,29 @@ def terrain_correction(infile, outfile, logfile, resolution, dem_dict, ncores=os
 
     '''
 
-    command = ('{} Terrain-Correction -x -q {}'
-            ' -PdemName=\'{}\''
-            ' -PdemResamplingMethod=\'{}\''
-            ' -PexternalDEMFile=\'{}\''
-            ' -PexternalDEMNoDataValue={}'
-            ' -PexternalDEMApplyEGM=\'{}\''
-            ' -PimgResamplingMethod=\'{}\''
-            #' -PmapProjection={}'
-            ' -PpixelSpacingInMeter={}'
-            ' -t \'{}\' \'{}\''.format(
-                    GPT_FILE, 2*ncores,
-                    dem_dict['dem_name'], dem_dict['dem_resampling'],
-                    dem_dict['dem_file'], dem_dict['dem_nodata'],
-                    str(dem_dict['egm_correction']).lower(),
-                    dem_dict['image_resampling'],
-                    resolution, outfile, infile
-                    )
+    command = (
+        '{} Terrain-Correction -x -q {}'
+        ' -PdemName=\'{}\''
+        ' -PdemResamplingMethod=\'{}\''
+        ' -PexternalDEMFile=\'{}\''
+        ' -PexternalDEMNoDataValue={}'
+        ' -PexternalDEMApplyEGM=\'{}\''
+        ' -PimgResamplingMethod=\'{}\''
+        ' -PpixelSpacingInMeter={}'
+        ' -t \'{}\' \'{}\''.format(
+            GPT_FILE,
+            2 * ncores,
+            dem_dict['dem_name'],
+            dem_dict['dem_resampling'],
+            dem_dict['dem_file'],
+            dem_dict['dem_nodata'],
+            str(dem_dict['egm_correction']).lower(),
+            dem_dict['image_resampling'],
+            resolution,
+            outfile,
+            infile
+        )
     )
-    
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
@@ -277,6 +321,7 @@ def ls_mask(infile, outfile, logfile, ard, ncores=os.cpu_count()):
     # handle errors and logs
     if return_code == 0:
         logger.info('Succesfully created a Layover/Shadow mask')
+        return return_code
     else:
         raise RuntimeError(
             f'Layover/Shadow mask creation exited with an error {return_code}.'

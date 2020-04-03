@@ -292,6 +292,9 @@ def create_coherence_layers(
 
 
 def burst_to_ard(burst, ard_params, project_dict):
+    if isinstance(burst, tuple):
+        i, burst = burst
+
     ard = ard_params['single_ARD']
     # creation of out_directory
     out_dir = Path(burst.out_directory)

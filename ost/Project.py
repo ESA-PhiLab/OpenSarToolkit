@@ -19,7 +19,7 @@ from pathlib import Path
 from ost.helpers import vector as vec, raster as ras
 from ost.helpers import scihub, helpers as h
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
-from ost.helpers.settings import check_ard_parameters, exception_handler
+from ost.helpers.settings import check_ard_parameters, exception_handler, config_check
 
 from ost.s1 import search, refine, download, burst, grd_batch
 from ost.s1.burst_batch import burst_to_ard_batch
@@ -175,6 +175,7 @@ class Sentinel1(Generic):
         # 2 Check and set product type
         if product_type in ['*', 'RAW', 'SLC', 'GRD']:
             self.product_type = product_type
+            self.project_dict.update(product_type=product_type)
         else:
             raise ValueError(
                 "Product type must be one out of '*', 'RAW', 'SLC', 'GRD'"
@@ -592,6 +593,14 @@ class Sentinel1Batch(Sentinel1):
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing_parameters']
 
+    def set_ard_type(self, ard_type):
+        if ard_type in config_check['type']['choices']:
+            self.ard_type = ard_type
+        else:
+            raise TypeError(
+                'ARD type must be one of {}'.format(config_check['type']['choices'])
+            )
+
     def update_ard_parameters(self):
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
@@ -718,13 +727,10 @@ class Sentinel1Batch(Sentinel1):
 
     def grds_to_ard(
             self,
-            inventory_df=None,
-            subset=None,
             timeseries=False,
             timescan=False,
             mosaic=False,
             overwrite=False,
-            exec_file=None,
             cut_to_aoi=False
     ):
 
@@ -741,49 +747,15 @@ class Sentinel1Batch(Sentinel1):
         #                  ' DEM instead.')
         #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
 
-        if subset:
-            if subset.split('.')[-1] == '.shp':
-                subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
-            elif subset.startswith('POLYGON (('):
-                subset = loads(subset).buffer(0.1).to_wkt()
-            else:
-                print(' ERROR: No valid subset given.'
-                      ' Should be either path to a shapefile or a WKT Polygon.')
-                sys.exit()
-
-        # check number of already prcessed acquisitions
-        nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '20*', '.processed'))
-        )
-
-        # number of acquisitions to process
-        nr_of_acq = len(
-            inventory_df.groupby(['relativeorbit', 'acquisitiondate'])
-        )
-
-        # check and retry function
-        i = 0
-        while nr_of_acq > nr_of_processed:
-
-            # the grd to ard batch routine
-            grd_batch.grd_to_ard_batch(
-                inventory_df,
-                self.download_dir,
-                self.processing_dir,
-                self.temp_dir,
-                self.proc_file,
-                subset,
-                self.data_mount,
-                exec_file)
-
-            # reset number of already processed acquisitions
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
-            i += 1
-
-            # not more than 5 trys
-            if i == 5:
-                break
+        # the grd to ard batch routine
+        grd_batch.grd_to_ard_batch(
+            inventory_df=self.inventory,
+            download_dir=self.download_dir,
+            processing_dir=self.processing_dir,
+            temp_dir=self.temp_dir,
+            project_dict=self.project_dict,
+            subset=self.aoi,
+            )
 
         # time-series part
         if timeseries or timescan:
@@ -793,19 +765,19 @@ class Sentinel1Batch(Sentinel1):
                               'Timeseries', '.*processed')))
 
             nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+                self.inventory.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(self.inventory.relativeorbit.unique())
             nr_of_ts = nr_of_polar * nr_of_tracks
 
             # check and retry function
             i = 0
             while nr_of_ts > nr_of_processed:
 
-                grd_batch.ards_to_timeseries(inventory_df,
+                grd_batch.ards_to_timeseries(self.inventory,
                                              self.processing_dir,
                                              self.temp_dir,
                                              self.proc_file,
-                                             exec_file)
+                                             )
 
                 nr_of_processed = len(
                     glob.glob(opj(self.processing_dir, '*',
@@ -824,15 +796,15 @@ class Sentinel1Batch(Sentinel1):
 
             # number of expected timescans
             nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
+                self.inventory.polarisationmode.unique()[0].split(' '))
+            nr_of_tracks = len(self.inventory.relativeorbit.unique())
             nr_of_ts = nr_of_polar * nr_of_tracks
 
             i = 0
             while nr_of_ts > nr_of_processed:
 
                 grd_batch.timeseries_to_timescan(
-                    inventory_df,
+                    self.inventory,
                     self.processing_dir,
                     self.proc_file)
 
@@ -845,24 +817,13 @@ class Sentinel1Batch(Sentinel1):
                 if i == 5:
                     break
 
-            if i < 5 and exec_file:
-                print(' create vrt command')
-
         if cut_to_aoi:
             cut_to_aoi = self.aoi
 
-        if mosaic and timeseries and not subset:
+        if mosaic and timeseries:
             grd_batch.mosaic_timeseries(
-                inventory_df,
+                self.inventory,
                 self.processing_dir,
                 self.temp_dir,
                 cut_to_aoi
             )
-
-        if mosaic and timescan and not subset:
-            grd_batch.mosaic_timescan(inventory_df,
-                                      self.processing_dir,
-                                      self.temp_dir,
-                                      self.proc_file,
-                                      cut_to_aoi
-                                      )

@@ -180,6 +180,7 @@ config_check = dict({
     'type': {'type': str, 'choices': ['OST-GTC', 'OST-RTC']},
     'resolution': {'type': int, 'choices': range(10, 5000)},
     'backscatter': {'type': bool},
+    'remove_border_noise':  {'type': bool},
     'product_type': {'type': str, 'choices':
         ['GTC-sigma0', 'GTC-gamma0', 'RTC-gamma0']
                      },

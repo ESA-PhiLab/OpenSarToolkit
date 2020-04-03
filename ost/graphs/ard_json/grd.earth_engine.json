@@ -3,7 +3,7 @@
         "single_ARD": {
             "type": "Earth Engine",
             "resolution": 10,
-            "remove_border_noise": "true",
+            "remove_border_noise": true,
             "product_type": "GTC-sigma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": true,

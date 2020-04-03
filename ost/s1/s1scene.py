@@ -217,8 +217,9 @@ class Sentinel1Scene:
         return path
 
     def get_path(self, download_dir=None, data_mount=None):
-
         if download_dir:
+            if isinstance(download_dir, str):
+                download_dir = Path(download_dir)
             self.download_path(download_dir=download_dir, mkdir=False)
             if self.product_dl_path.with_suffix(
                     '.downloaded').exists():
@@ -229,6 +230,8 @@ class Sentinel1Scene:
             path = None
 
         if data_mount and not path:
+            if isinstance(data_mount, str):
+                data_mount = Path(data_mount)
             if self._creodias_path(data_mount).joinpath(
                     'manifest.safe').exists():
                 path = self._creodias_path(data_mount)

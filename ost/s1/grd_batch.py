@@ -1,52 +1,3 @@
-#! /usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-'''
-This script allows to produce Sentinel-1 backscatter ARD data
-from a set of different GRD products.
-The script allows to process consecutive frames from one acquisition and
-outputs a single file.
-
-
-----------------
-Functions:
-----------------
-    grd_to_ardBatch:
-        processes all acquisitions
-    ard2Ts:
-        processes all time-series
-
-------------------
-Main function
-------------------
-  grd2Ts:
-    handles the whole workflow
-
-------------------
-Contributors
-------------------
-
-Andreas Vollrath, ESA phi-lab
------------------------------------
-November 2018: Original implementation
-
-------------------
-Usage
-------------------
-
-python3 grd_to_ardBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
-                   -t /path/to/tmp -o /path/to/output
-
-    -i    defines the path to one or a list of consecutive slices
-    -r    resolution in meters (should be 10 or more, default=20)
-    -p    defines the product type (GTCsigma, GTCgamma, RTC, default=GTCgamma)
-    -l    defines the layover/shadow mask creation (True/False, default=True)
-    -s    defines the speckle filter (True/False, default=False)
-    -t    defines the folder for temporary products (default=/tmp)
-    -o    defines the /path/to/the/output
-'''
-
-# import standard python libs
 import os
 from os.path import join as opj
 import json
@@ -55,7 +6,6 @@ import itertools
 import logging
 import gdal
 
-# import ost libs
 from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard
 from ost.helpers import raster as ras
@@ -66,6 +16,7 @@ from ost.generic import timescan
 from ost.generic import mosaic
 
 logger = logging.getLogger(__name__)
+
 
 def _create_processing_dict(inventory_df):
     ''' This function might be obsolete?
@@ -106,40 +57,47 @@ def _create_processing_dict(inventory_df):
     return dict_scenes
 
 
-def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
-                     temp_dir, proc_file, subset=None,
-                     data_mount='/eodata', exec_file=None):
-
+def grd_to_ard_batch(
+        inventory_df,
+        download_dir,
+        processing_dir,
+        temp_dir,
+        project_dict,
+        subset=None,
+):
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
 
     for track, allScenes in processing_dict.items():
         for list_of_scenes in processing_dict[track]:
+            # get acquisition date
+            acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
+            # create a subdirectory baed on acq. date
+            out_dir = opj(processing_dir, track, acquisition_date)
+            os.makedirs(out_dir, exist_ok=True)
 
-                # get acquisition date
-                acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
-                # create a subdirectory baed on acq. date
-                out_dir = opj(processing_dir, track, acquisition_date)
-                os.makedirs(out_dir, exist_ok=True)
+            # check if already processed
+            if os.path.isfile(opj(out_dir, '.processed')):
+                logger.info(
+                    'Acquisition from {} of track {}'
+                    ' already processed'.format(acquisition_date, track)
+                )
+            else:
+                # get the paths to the file
+                scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
+                               for i in list_of_scenes])
 
-                # check if already processed
-                if os.path.isfile(opj(out_dir, '.processed')):
-                    logger.info('Acquisition from {} of track {}'
-                          ' already processed'.format(acquisition_date, track))
-                else:
-                    # get the paths to the file
-                    scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
-                                   for i in list_of_scenes])
+                file_id = '{}_{}'.format(acquisition_date, track)
 
-                    file_id = '{}_{}'.format(acquisition_date, track)
-
-                    # apply the grd_to_ard function
-                    grd_to_ard.grd_to_ard(scene_paths,
-                                          out_dir,
-                                          file_id,
-                                          temp_dir,
-                                          proc_file,
-                                          subset=subset)
+                # apply the grd_to_ard function
+                grd_to_ard.grd_to_ard(scene_paths,
+                                      out_dir,
+                                      file_id,
+                                      temp_dir,
+                                      project_dict['processing'],
+                                      subset=subset,
+                                      ncores=project_dict['cpus_per_process']
+                                      )
 
 
 def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
@@ -169,7 +127,7 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
             continue
 
         logger.info('Creating common extent mask for track {}'.format(track))
-        common_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
+        ts_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
 
     if ard['create ls mask'] or ard['apply ls mask']:
 
@@ -186,9 +144,8 @@ def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
             out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
 
             logger.info('Creating common Layover/Shadow mask for track {}'.format(track))
-            common_ls_mask.mt_layover(list_of_layover, out_ls, temp_dir,
+            ts_extent.mt_layover(list_of_layover, out_ls, temp_dir,
                                       extent, ard['apply ls mask'])
-
 
     for track in inventory_df.relativeorbit.unique():
 
