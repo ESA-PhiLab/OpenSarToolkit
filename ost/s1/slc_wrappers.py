@@ -95,7 +95,7 @@ def ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
         command = (
             f'{GPT_FILE} {graph} -x -q {2*ncores} '
             f'-Pinput={infile} -Poutput={outfile} '
-            f'-Pfilter=\'{pol_speckle_dict["polarimetric_filter"]}\' '
+            f'-Pfilter=\'{pol_speckle_dict["filter"]}\' '
             f'-Pfilter_size=\'{pol_speckle_dict["filter_size"]}\' '
             f'-Pnr_looks={pol_speckle_dict["num_of_looks"]} '
             f'-Pwindow_size={pol_speckle_dict["window_size"]} '

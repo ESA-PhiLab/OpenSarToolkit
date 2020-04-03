@@ -238,7 +238,7 @@ def create_coherence_layers(
         # remove imports
         h.delete_dimap(master_import)
 
-        #if remove_slave_import is True:
+        # if remove_slave_import is True:
         #    h.delete_dimap(slave_import)
 
         # ---------------------------------------------------------------
@@ -291,19 +291,10 @@ def create_coherence_layers(
             file.write('passed all tests \n')
 
 
-def burst_to_ard(input_list):
-
-    # extract input list
-    proc_burst_series, project_file = input_list[0], input_list[1]
-
-    # load ards
-    with open(project_file, 'r') as file:
-        project_file = json.load(file)
-        ard = project_file['processing']['single_ARD']
-        project_dict = project_file['project']
-
+def burst_to_ard(burst, ard_params, project_dict):
+    ard = ard_params['single_ARD']
     # creation of out_directory
-    out_dir = Path(proc_burst_series.out_directory)
+    out_dir = Path(burst.out_directory)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # existence of processed files
@@ -315,17 +306,16 @@ def burst_to_ard(input_list):
     if ard['coherence']:
         # we check if there is actually a slave file or
         # if it is the end of the time-series
-        coherence = True if proc_burst_series.slave_file else False
+        coherence = True if burst.slave_file else False
     else:
         coherence = False
 
-     # check if somethings already processed
+    # check if somethings already processed
     if (
             (ard['H-A-Alpha'] and not pol_file) or
             (ard['backscatter'] and not bs_file) or
             (coherence and not coh_file)
     ):
-
         # get temp_dir
         temp_dir = Path(project_dict['temp_dir'])
         cpus = project_dict['cpus_per_process']
@@ -335,10 +325,10 @@ def burst_to_ard(input_list):
         # import master
 
         # get info on master from GeoSeries
-        master_prefix = proc_burst_series['master_prefix']
-        master_file = proc_burst_series['file_location']
-        master_burst_nr = proc_burst_series['BurstNr']
-        swath = proc_burst_series['SwathID']
+        master_prefix = burst['master_prefix']
+        master_file = burst['file_location']
+        master_burst_nr = burst['BurstNr']
+        swath = burst['SwathID']
 
         # create namespace for master import
         master_import = temp_dir.joinpath(f'{master_prefix}_import')
@@ -371,11 +361,10 @@ def burst_to_ard(input_list):
             )
 
         if coherence and not coh_file:
-
             # get info on master from GeoSeries
-            slave_prefix = proc_burst_series['slave_prefix']
-            slave_file = proc_burst_series['slave_file']
-            slave_burst_nr = proc_burst_series['slave_burst_nr']
+            slave_prefix = burst['slave_prefix']
+            slave_file = burst['slave_file']
+            slave_burst_nr = burst['slave_burst_nr']
 
             # import slave
             slave_import = temp_dir.joinpath(f'{slave_prefix}_import')
@@ -476,4 +465,5 @@ if __name__ == "__main__":
     burst_to_ard(args.master, args.master_swath, args.master_burst_nr, 
                  args.master_burst_id, args.proc_file, args.out_directory, args.temp_directory,
                  args.slave, args.slave_burst_nr, args.slave_burst_id,
-                 args.coherence, args.remove_slave_import,args.cpu_cores)
+                 args.coherence, args.remove_slave_import,args.cpu_cores
+                 )

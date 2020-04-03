@@ -57,8 +57,9 @@ def exception_handler(exception_type, exception, traceback):
 def check_value(key, value, expected_type, choices=None):
     if not isinstance(value, expected_type):
         raise TypeError(
-            f"ARD parameter '{key}' does not have the right type. "
-            f"It should be {str(expected_type)}")
+            "ARD parameter {} does not have the right type {}. "
+            "It should be {}.".format(key, value, str(expected_type))
+        )
 
     if key == 'metrics':
         all(item in value for item in choices)
@@ -66,8 +67,8 @@ def check_value(key, value, expected_type, choices=None):
     elif choices:
         if value not in choices:
             raise ValueError(
-                f"Configuration value for ARD parameter '{key}' is wrong. "
-                f"It should be one of:\n {choices}")
+                "Configuration value for ARD parameter {} is wrong {}. "
+                "It should be one of: {}".format(key, value, choices))
 
     return 'passed'
 

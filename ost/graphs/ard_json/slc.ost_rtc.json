@@ -15,14 +15,14 @@
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
+                "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,
                 "pan_size": 50
             },
             "remove_pol_speckle": true,
             "pol_speckle_filter": {
-                "filter": "Refined Lee Filter",
+                "filter": "Refined Lee",
                 "sigma": 0.9,
                 "filter_size": 3,
                 "window_size": "7x7",
@@ -53,12 +53,12 @@
             "mt_speckle filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
-                "estimate ENL": true,
+                "estimate_ENL": true,
                 "sigma": 0.9,
                 "filter_x_size": 3,
                 "filter_y_size": 3,
                 "window_size": "7x7",
-                "target_window size": "3x3",
+                "target_window_size": "3x3",
                 "num_of_looks": 1,
                 "damping": 2,
                 "pan_size": 50

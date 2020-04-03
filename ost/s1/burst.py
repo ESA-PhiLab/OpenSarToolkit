@@ -10,12 +10,10 @@ import json
 import itertools
 import logging
 import gdal
-import multiprocessing
 import geopandas as gpd
 from pathlib import Path
 
 from ost.helpers import scihub, vector as vec
-from ost.s1 import burst_to_ard
 from ost import Sentinel1Scene as S1Scene
 from ost.helpers import raster as ras
 from ost.generic import ard_to_ts, ts_extent, ts_ls_mask, timescan, mosaic
@@ -144,7 +142,7 @@ def refine_burst_inventory(aoi, burst_gdf, outfile, coverages=None):
     return burst_gdf[cols]
 
 
-def prepare_burst_inventory(burst_gdf, project_file):
+def prepare_burst_inventory(burst_gdf, project_dict):
 
     cols = [
         'AnxTime', 'BurstNr', 'Date', 'Direction', 'SceneID', 'SwathID',
@@ -157,12 +155,6 @@ def prepare_burst_inventory(burst_gdf, project_file):
     proc_burst_gdf = gpd.GeoDataFrame(columns=cols, geometry='geometry',
                                       crs={'init': 'epsg:4326',
                                            'no_defs': True})
-
-    # load ard parameters
-    with open(project_file, 'r') as file:
-        project = json.load(file)['project']
-        # set processing_dir
-        processing_dir = Path(project['processing_dir'])
 
     for burst in burst_gdf.bid.unique():  # ***
 
@@ -181,10 +173,10 @@ def prepare_burst_inventory(burst_gdf, project_file):
             # get parameters for master
             master_scene = S1Scene(burst_row.SceneID.values[0])
             burst_row['file_location'] = master_scene.get_path(
-                project['download_dir'], project['data_mount']
+                Path(project_dict['download_dir']), Path(project_dict['data_mount'])
             )
             burst_row['master_prefix'] = f'{date}_{burst_row.bid.values[0]}'
-            burst_row['out_directory'] = processing_dir.joinpath(burst, date)
+            burst_row['out_directory'] = Path(project_dict['processing_dir']).joinpath(burst, date)
 
             # try to get slave date
             try:
@@ -204,7 +196,7 @@ def prepare_burst_inventory(burst_gdf, project_file):
 
                 # get path to slave file
                 burst_row['slave_file'] = slave_scene_id.get_path(
-                    project['download_dir'], project['data_mount']
+                    project_dict['download_dir'], project_dict['data_mount']
                 )
 
                 # burst number in slave file (subswath is same)
@@ -231,31 +223,6 @@ def print_burst(input_list):
     proc_burst_series, project_file = input_list[0], input_list[1]
     print('Processing burst:' + proc_burst_series.bid)
     print('Project_file:' + str(project_file)+ proc_burst_series.bid)
-
-
-def burst_to_ard_batch(burst_inv, project_file):
-
-    with open(project_file, 'r') as file:
-        project_params = json.load(file)['project']
-
-    logger.info('Preparing the processing pipeline. This may take a moment.')
-    proc_inventory = prepare_burst_inventory(burst_inv, project_file)
-
-    # create iterable for multi_processing
-    burst_list = []
-    for i, row in proc_inventory.iterrows():
-        burst_list.append([row, project_file])
-
-    # parallelizing
-    concurrent = int(os.cpu_count() / project_params['cpus_per_process'])
-    if concurrent > 1:
-        logger.info(
-            f'Parallelize the workload in {concurrent} processes '
-            f'with {project_params["cpus_per_process"]} CPUs per process.'
-        )
-
-    pool = multiprocessing.Pool(processes=concurrent)
-    pool.map(burst_to_ard.burst_to_ard, burst_list)
 
 
 def burst_ards_to_timeseries(burst_inventory, processing_dir, temp_dir,

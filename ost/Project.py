@@ -10,10 +10,9 @@ import shutil
 import logging
 import rasterio
 import geopandas as gpd
-import multiprocessing
+
 from os.path import join as opj
 from datetime import datetime
-from joblib import Parallel, delayed
 from shapely.wkt import loads
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters, exception_handler
 
 from ost.s1 import search, refine, download, burst, grd_batch
+from ost.s1.burst_batch import burst_to_ard_batch
 
 from ost.generic import ard_to_ts, timescan as tscan, mosaic as mos, ts_ls_mask, ts_extent
 
@@ -233,13 +233,13 @@ class Sentinel1(Generic):
             {'product_type': self.product_type,
              'beam_mode': self.beam_mode,
              'polarisation': self.polarisation,
-             #'full_inventory': self.inventory,
+             # 'full_inventory': self.inventory,
              'full_inventory_file': str(self.inventory_file),
              'refine': False,
-             #'refined_dict': self.refined_inventory_dict,
+             # 'refined_dict': self.refined_inventory_dict,
              'selected_refine_key': None,
-             #'coverages': self.coverages,
-             #'burst_inventory': self.burst_inventory,
+             # 'coverages': self.coverages,
+             # 'burst_inventory': self.burst_inventory,
              'burst_inventory_file': str(self.burst_inventory_file),
              'refine_burst': False
              }
@@ -486,6 +486,8 @@ class Sentinel1Batch(Sentinel1):
         )
 
         self.ncores = os.cpu_count()
+        if self.ncores > os.cpu_count() / 2:
+            self.ncores = int(os.cpu_count() / 2)
 
         # ---------------------------------------
         # 1 Check and set ARD type
@@ -523,11 +525,7 @@ class Sentinel1Batch(Sentinel1):
             raise ValueError("Only 'IW' beam mode supported for processing.")
 
         # ---------------------------------------
-        # 3 Add cpus_per_process
-        self.project_dict['cpus_per_process'] = cpus_per_process
-
-        # ---------------------------------------
-        # 4 Set up project JSON
+        # 3 Set up project JSON
 
         # find respective template for selected ARD type
         template_file = OST_ROOT.joinpath(
@@ -540,11 +538,11 @@ class Sentinel1Batch(Sentinel1):
             self.ard_parameters = json.load(ard_file)[
                 'processing_parameters']
 
-        # create a porject dict with all relevant information
-        project_dict = dict(
-            {'project': self.project_dict,
-             'inventory': self.inventory_dict,
-             'processing': self.ard_parameters}
+        # add information to the generic class self.project dict
+        self.project_dict.update(
+            cpus_per_process=cpus_per_process,
+            inventory=self.inventory_dict,
+            processing=self.ard_parameters
         )
         self.ard_type = ard_type
 
@@ -574,28 +572,40 @@ class Sentinel1Batch(Sentinel1):
         # define project file
         self.project_json = self.project_dir.joinpath('project.json')
         with open(self.project_json, 'w+') as out:
-            json.dump(project_dict, out, indent=4)
+            json.dump(self.project_dict, out, indent=4)
 
     # ---------------------------------------
     # methods
-    def update_ard_parameters(self):
 
+    # processing related functions
+    def get_ard_parameters(self, ard_type='OST-GTC'):
+
+        # get path to graph
+        # get path to ost package
+        rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        rootpath = opj(rootpath, 'graphs', 'ard_json')
+
+        template_file = opj(rootpath, '{}.{}.json'.format(
+            self.product_type.lower(),
+            ard_type.replace('-', '_').lower()))
+
+        with open(template_file, 'r') as ard_file:
+            self.ard_parameters = json.load(ard_file)['processing_parameters']
+
+    def update_ard_parameters(self):
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
 
         # re-create project dict with update ard parameters
-        project_dict = dict(
-            {'project': self.project_dict,
-             'inventory': self.inventory_dict,
-             'processing': self.ard_parameters}
+        self.project_dict.update(
+            inventory=self.inventory_dict,
+            processing=self.ard_parameters
         )
-
         # dump to json file
         with open(self.project_json, 'w') as outfile:
-            json.dump(project_dict, outfile, indent=4)
+            json.dump(self.project_dict, outfile, indent=4)
 
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
-
         # check if file exists
         if not Path(dem_file).eixtst():
             raise FileNotFoundError(f'No file found at {dem_file}.')
@@ -615,13 +625,20 @@ class Sentinel1Batch(Sentinel1):
                          'dem_resampling': dem_res,
                          'image_resampling': img_res,
                          'egm_correction': ellipsoid_correction,
-                         'out_projection': 'WGS84(DD)'})
+                         'out_projection': 'WGS84(DD)'
+                         })
 
         # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-    def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
-                      overwrite=False, exec_file=None, cut_to_aoi=False):
+    def bursts_to_ard(
+            self,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False,
+            cut_to_aoi=False,
+    ):
 
         if overwrite:
             logger.info('Deleting processing folder to start from scratch')
@@ -643,7 +660,9 @@ class Sentinel1Batch(Sentinel1):
         #    self.center_lat, self.ard_parameters['resolution'])
 
         # check and retry function
-        burst.burst_to_ard_batch(self.burst_inventory, self.project_json)
+        burst_to_ard_batch(burst_inv=self.burst_inventory,
+                           project_dict=self.project_dict
+                           )
 
         # do we delete the downloads here?
         if timeseries or timescan:
@@ -651,7 +670,6 @@ class Sentinel1Batch(Sentinel1):
                                            self.processing_dir,
                                            self.temp_dir,
                                            self.proc_file,
-                                           exec_file,
                                            ncores=self.ncores)
 
             # do we deleete the single ARDs here?
@@ -660,7 +678,7 @@ class Sentinel1Batch(Sentinel1):
                                              self.processing_dir,
                                              self.temp_dir,
                                              self.proc_file,
-                                             exec_file)
+                                             )
 
         if cut_to_aoi:
             cut_to_aoi = self.aoi
@@ -670,7 +688,6 @@ class Sentinel1Batch(Sentinel1):
                                     self.processing_dir,
                                     self.temp_dir,
                                     cut_to_aoi,
-                                    exec_file,
                                     ncores=self.ncores
                                     )
 
@@ -680,421 +697,36 @@ class Sentinel1Batch(Sentinel1):
                                   self.temp_dir,
                                   self.proc_file,
                                   cut_to_aoi,
-                                  exec_file,
                                   ncores=self.ncores
                                   )
 
-    def create_timeseries_animation(self, timeseries_dir, product_list,
-                                    outfile,
-                                    shrink_factor=1, resampling_factor=5,
-                                    duration=1,
-                                    add_dates=False, prefix=False):
-
+    def create_timeseries_animation(
+            self,
+            timeseries_dir, product_list,
+            outfile,
+            shrink_factor=1,
+            resampling_factor=5,
+            duration=1,
+            add_dates=False,
+            prefix=False
+    ):
         ras.create_timeseries_animation(timeseries_dir, product_list, outfile,
                                         shrink_factor=shrink_factor,
                                         duration=duration,
                                         resampling_factor=resampling_factor,
                                         add_dates=add_dates, prefix=prefix)
 
-    def multiprocess(self, timeseries=False, timescan=False, mosaic=False,
-                     overwrite=False, exec_file=None, cut_to_aoi=False,
-                     ncores=os.cpu_count(), multiproc=os.cpu_count()):
-        '''
-        Function to read previously generated exec text files and run them using
-        a specified number of cores in parallel (or the number of available cpus)
-        Some thought should be given to how many cores are available and the optimal number of cpus
-        required to process a single burst
-        Exec files should be recreated at each step to add parameters such as filenames, extents, that have been
-        generated at previous steps
-        '''
-        # list exec files
-        exec_burst_to_ard = exec_file + '_burst_to_ard.txt'
-        exec_timeseries = exec_file + '_timeseries.txt'
-        exec_tscan = exec_file + '_tscan.txt'
-        exec_tscan_vrt = exec_file + '_tscan_vrt.txt'
-        exec_mosaic_timeseries = exec_file + '_mosaic_timeseries.txt'
-        exec_mosaic_ts_vrt = exec_file + '_mosaic_ts_vrt.txt'
-        exec_mosaic_timescan = exec_file + '_mosaic_tscan.txt'
-        exec_mosaic_tscan_vrt = exec_file + '_mosaic_tscan_vrt.txt'
-        exec_mt_extent = exec_file + '_mt_extent.txt'
-        exec_mt_ls = exec_file + '_mt_ls.txt'
-
-        # test existence of burst to ard exec files and run them in parallel
-        if os.path.isfile(exec_burst_to_ard):
-            print("Running Burst to ARD in parallel mode")
-            from ost.s1 import burst_to_ard
-            burst_ard_params = []
-            with open(exec_burst_to_ard, "r") as fp:
-                burst_ard_params = [line.strip() for line in fp]
-            fp.close()
-
-            ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-            # def run_burst_ard_multiprocess(params):
-            #    from ost.s1 import burst_to_ard
-            #    burst_to_ard.burst_to_ard(*params.split(','))
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
-
-            i = 0
-            if self.ard_parameters['single_ARD'][
-                'product type'] == 'Coherence_only':
-                i = 0
-
-                while (len(self.burst_inventory) - len(self.burst_inventory[
-                                                           'bid'].unique())) > nr_of_processed:
-                    Parallel(n_jobs=multiproc, verbose=53,
-                             backend=multiprocessing)(
-                        delayed(burst_to_ard.burst_to_ard)(*params.split(';'))
-                        for params in burst_ard_params)
-
-                    nr_of_processed = len(
-                        glob.glob(
-                            opj(self.processing_dir, '*', '*', '.processed')))
-
-                    i += 1
-
-                    # not more than 5 trys
-                    if i == 5:
-                        break
-            else:
-                i = 0
-
-                while len(self.burst_inventory) > nr_of_processed:
-
-                    Parallel(n_jobs=multiproc, verbose=53,
-                             backend=multiprocessing)(
-                        delayed(burst_to_ard.burst_to_ard)(*params.split(';'))
-                        for params in burst_ard_params)
-
-                    nr_of_processed = len(
-                        glob.glob(
-                            opj(self.processing_dir, '*', '*', '.processed')))
-
-                    i += 1
-
-                    # not more than 5 trys
-                    if i == 5:
-                        break
-
-            # pool = multiprocessing.Pool(processes=multiproc)
-            # pool.map(run_burst_ard_multiprocess, burst_ard_params)
-
-        # test existence of multitemporal extent exec files and run them
-        # in parallel
-        if timeseries:
-            print("Rerunning exec file generation and "
-                  "Calculating ARD extents in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-            if os.path.isfile(exec_mt_extent):
-                mt_extent_params = []
-                with open(exec_mt_extent, "r") as fp:
-                    mt_extent_params = [line.strip() for line in fp]
-                fp.close()
-
-                ## replaced multiprocessing pools with joblib (only prints
-                # when run in ipython or command line though)
-                # def run_mt_extent_multiprocess(params):
-                #    from ost.multitemporal import common_extent
-                #    common_extent.mt_extent(*params.split(','))
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ts_extent.mt_extent)(*params.split(';')) for
-                    params in mt_extent_params)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mt_extent_multiprocess, mt_extent_params)
-
-        # test existence of multitemporal layover shadow generation exec
-        # files and run them in parallel
-        if os.path.isfile(exec_mt_ls):
-            print("Rerunning exec file generation and Calculating ARD "
-                  "layover in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(
-                timeseries=timeseries,
-                timescan=timescan,
-                mosaic=mosaic,
-                overwrite=overwrite,
-                exec_file=exec_file,
-                cut_to_aoi=cut_to_aoi,
-                ncores=ncores
-            )
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mt_ls):
-                mt_ls_params = []
-                with open(exec_mt_ls, "r") as fp:
-                    mt_ls_params = [line.strip() for line in fp]
-                fp.close()
-
-                ## replaced multiprocessing pools with joblib (only
-                # prints when run in ipython or command line though)
-                # def run_mt_ls_multiprocess(params):
-                #    from ost.multitemporal import common_ls_mask
-                #    common_ls_mask.mt_layover(*params.split(','))
-                Parallel(
-                    n_jobs=multiproc,
-                    verbose=53,
-                    backend=multiprocessing
-                )(
-                    delayed(ts_ls_mask.common_ls_mask.mt_layover)(*params.split(';'))
-                    for params in mt_ls_params
-                )
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mt_ls_multiprocess, mt_ls_params)
-
-        # test existence of ard to timeseries exec files and run them in parallel
-        if timeseries:
-            print("Rerunning exec file generation and processing ARD to "
-                  "timeseries in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            timeseries_params = []
-            if os.path.isfile(exec_timeseries):
-                with open(exec_timeseries, "r") as fp:
-                    timeseries_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                # def run_timeseries_multiprocess(params):
-                #   from ost.multitemporal import ard_to_ts
-                #   ard_to_ts.ard_to_ts(*params.split(','))
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ard_to_ts.ard_to_ts)(*params.split(';')) for params
-                    in timeseries_params)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_timeseries_multiprocess, timeseries_params)
-
-        # test existence of timescan exec files and run them in parallel
-        if timeseries and timescan:
-            print(
-                "Rerunning exec file generation and processing timeseries to timescan in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_tscan):
-                tscan_params = []
-                with open(exec_tscan, "r") as fp:
-                    tscan_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(tscan.mt_metrics)(*params.split(';')) for params in
-                    tscan_params)
-
-            # def run_tscan_multiprocess(params):
-            #     from ost.multitemporal import timescan
-            #     timescan.mt_metrics(*params.split(','))
-            # pool = multiprocessing.Pool(processes=multiproc)
-            # pool.map(run_tscan_multiprocess, tscan_params)
-
-        # test existence of timescan vrt exec files and run them in parallel
-        if timeseries and timescan:
-            print(
-                "Rerunning exec file generation and generating timescan vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_tscan_vrt):
-                tscan_vrt_params = []
-                with open(exec_tscan_vrt, "r") as fp:
-                    tscan_vrt_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ras.create_tscan_vrt)(*params.split(';')) for
-                    params in tscan_vrt_params)
-                # def run_tscan_vrt_multiprocess(params):
-                #    from ost.helpers import raster as ras
-                #    ras.create_tscan_vrt(*params.split(','))
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_tscan_vrt_multiprocess, tscan_vrt_params)
-
-        # test existence of mosaic timeseries exec files and run them in parallel
-        if mosaic and timeseries:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaics in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_timeseries):
-                mosaic_timeseries_params = []
-                with open(exec_mosaic_timeseries, "r") as fp:
-                    mosaic_timeseries_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=1, verbose=53, backend=multiprocessing)(
-                    delayed(mos.mosaic)(*params.split(';')) for params in
-                    mosaic_timeseries_params)
-                # def run_mosaic_timeseries_multiprocess(params):
-                #    from ost.mosaic import mosaic
-                #    mos.mosaic(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_timeseries_multiprocess, mosaic_timeseries_params)
-
-        # test existence of mosaic timeseries vrt exec files and run them in parallel
-        if mosaic and timeseries:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaic vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_ts_vrt):
-                mosaic_ts_vrt_params = []
-                with open(exec_mosaic_ts_vrt, "r") as fp:
-                    mosaic_ts_vrt_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(mos.mosaic_to_vrt)(*params.split(';')) for params
-                    in mosaic_ts_vrt_params)
-
-                # def run_mosaic_ts_vrt_multiprocess(params):
-                #    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-                #    ts_dir, product, outfiles = params.split(',')
-                #    gdal.BuildVRT(opj(ts_dir, '{}.Timeseries.vrt'.format(product)),
-                #                  outfiles,
-                #                  options=vrt_options)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_ts_vrt_multiprocess, mosaic_ts_vrt_params)
-
-        # test existence of mosaic timescan exec files and run them in parallel
-        if mosaic and timescan:
-            print(
-                "Rerunning exec file generation and generating timescan mosaics in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=self.ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_timescan):
-                mosaic_timescan_params = []
-                with open(exec_mosaic_timescan, "r") as fp:
-                    mosaic_timescan_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=1, verbose=53, backend=multiprocessing)(
-                    delayed(mos.mosaic)(*params.split(';')) for params in
-                    mosaic_timescan_params)
-                # def run_mosaic_timescan_multiprocess(params):
-                #    from ost.mosaic import mosaic
-                #    mos.mosaic(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_timescan_multiprocess, mosaic_timescan_params)
-
-        # test existence of mosaic timescan vrt exec files and run them in parallel
-        if mosaic and timescan:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaic vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_tscan_vrt):
-                mosaic_tscan_vrt_params = []
-                with open(exec_mosaic_tscan_vrt, "r") as fp:
-                    mosaic_tscan_vrt_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ras.create_tscan_vrt)(*params.split(';')) for
-                    params in mosaic_tscan_vrt_params)
-                # def run_mosaic_tscan_vrt_multiprocess(params):
-                #    from ost.helpers import raster as ras
-                #    ras.create_tscan_vrt(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_tscan_vrt_multiprocess, mosaic_tscan_vrt_params)
-
-    # processing related functions
-    def get_ard_parameters(self, ard_type='OST-GTC'):
-
-        # get path to graph
-        # get path to ost package
-        rootpath = importlib.util.find_spec('ost').submodule_search_locations[
-            0]
-        rootpath = opj(rootpath, 'graphs', 'ard_json')
-
-        template_file = opj(rootpath, '{}.{}.json'.format(
-            self.product_type.lower(),
-            ard_type.replace('-', '_').lower()))
-
-        with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing_parameters']
-
-    def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False,
-                    timescan=False, mosaic=False, overwrite=False,
-                    exec_file=None, cut_to_aoi=False):
+    def grds_to_ard(
+            self,
+            inventory_df=None,
+            subset=None,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False,
+            exec_file=None,
+            cut_to_aoi=False
+    ):
 
         self.update_ard_parameters()
 
@@ -1234,4 +866,3 @@ class Sentinel1Batch(Sentinel1):
                                       self.proc_file,
                                       cut_to_aoi
                                       )
-
