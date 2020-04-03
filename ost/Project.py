@@ -486,6 +486,15 @@ class Sentinel1Batch(Sentinel1):
             log_level
         )
 
+        self.ard_type = ard_type
+        self.get_ard_parameters()
+        # add information to the generic class self.project dict
+        self.project_dict.update(
+            cpus_per_process=cpus_per_process,
+            inventory=self.inventory_dict,
+            processing=self.ard_parameters
+        )
+
         # ---------------------------------------
         # 1 Check and set ARD type
 
@@ -535,37 +544,6 @@ class Sentinel1Batch(Sentinel1):
             self.ard_parameters = json.load(ard_file)[
                 'processing_parameters']
 
-        # add information to the generic class self.project dict
-        self.project_dict.update(
-            cpus_per_process=cpus_per_process,
-            inventory=self.inventory_dict,
-            processing=self.ard_parameters
-        )
-        self.ard_type = ard_type
-
-        self.proc_file = opj(self.project_dir, 'processing.json')
-        if self.ard_type in ['CEOS', 'Earth Engine', 'OST-GTC', 'OST-RTC']:
-            shutil.copy(
-                os.path.join(
-                    OST_ROOT, 'graphs', 'ard_json', '.'.join(
-                        [self.product_type.lower(),
-                         self.ard_type.lower().replace('-', '_'),
-                         'json'
-                         ]
-                    )
-                ), self.project_dir
-            )
-            shutil.move(
-                os.path.join(self.project_dir, '.'.join(
-                    [self.product_type.lower(),
-                     self.ard_type.lower().replace('-', '_'),
-                     'json'
-                     ]
-                )), self.proc_file
-            )
-
-        self.get_ard_parameters(self.ard_type)
-
         # define project file
         self.project_json = self.project_dir.joinpath('project.json')
         with open(self.project_json, 'w+') as out:
@@ -575,8 +553,7 @@ class Sentinel1Batch(Sentinel1):
     # methods
 
     # processing related functions
-    def get_ard_parameters(self, ard_type='OST-GTC'):
-
+    def get_ard_parameters(self):
         # get path to graph
         # get path to ost package
         rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
@@ -584,24 +561,14 @@ class Sentinel1Batch(Sentinel1):
 
         template_file = opj(rootpath, '{}.{}.json'.format(
             self.product_type.lower(),
-            ard_type.replace('-', '_').lower()))
+            self.ard_type.replace('-', '_').lower()))
 
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing_parameters']
 
-    def set_ard_type(self, ard_type):
-        if ard_type in config_check['type']['choices']:
-            self.ard_type = ard_type
-            self.project_dict['processing']['type'] = ard_type
-            self.ard_parameters = self.project_dict['processing']
-        else:
-            raise TypeError(
-                'ARD type must be one of {}'.format(config_check['type']['choices'])
-            )
-
     def update_ard_parameters(self):
         # check for correctness of ard parameters
-        check_ard_parameters(self.project_dict['processing'])
+        check_ard_parameters(self.ard_parameters)
 
         # re-create project dict with update ard parameters
         self.project_dict.update(
@@ -610,7 +577,7 @@ class Sentinel1Batch(Sentinel1):
         )
         # dump to json file
         with open(self.project_json, 'w') as outfile:
-            json.dump(self.project_dict, outfile, indent=4)
+            json.dump(self.project_dict, outfile, )
 
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
         # check if file exists
@@ -679,7 +646,8 @@ class Sentinel1Batch(Sentinel1):
                                            self.processing_dir,
                                            self.temp_dir,
                                            self.proc_file,
-                                           ncores=ncores)
+                                           ncores=ncores
+                                           )
 
             # do we deleete the single ARDs here?
             if timescan:
