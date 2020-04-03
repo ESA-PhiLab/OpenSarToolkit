@@ -468,7 +468,6 @@ class Sentinel1Batch(Sentinel1):
                  beam_mode='IW',
                  polarisation='*',
                  ard_type='OST-GTC',
-                 cpus_per_process=2,
                  log_level=logging.INFO
                  ):
         # ------------------------------------------
@@ -478,6 +477,10 @@ class Sentinel1Batch(Sentinel1):
             product_type, beam_mode, polarisation,
             log_level
         )
+        if product_type == 'GRD':
+            cpus_per_process = os.cpu_count()*2
+        elif product_type == 'SLC':
+            cpus_per_process = 2
 
         self.ard_type = ard_type
         self.get_ard_parameters()
