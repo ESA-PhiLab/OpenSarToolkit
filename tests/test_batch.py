@@ -34,6 +34,7 @@ def test_burst_batch_ost_gtc(slc_project_class):
         mosaic=False,
         overwrite=True,
         cut_to_aoi=False,
+        ncores=2
     )
 
 # TODO: Runs endlessly for whatever reason
@@ -47,4 +48,5 @@ def test_burst_batch_ost_gtc(slc_project_class):
 #         mosaic=False,
 #         overwrite=True,
 #         cut_to_aoi=False,
+#         ncores=2
 #     )

@@ -94,7 +94,7 @@ def grd_to_ard_batch(
                                       out_dir,
                                       file_id,
                                       temp_dir,
-                                      project_dict['processing'],
+                                      project_dict['processing_parameters'],
                                       subset=subset,
                                       ncores=project_dict['cpus_per_process']
                                       )

@@ -19,7 +19,7 @@ def burst_to_ard_batch(burst_inv,
         project_dict['cpus_per_process'] = os.cpu_count()
         for burst in proc_inventory.iterrows():
             burst_to_ard(burst=burst,
-                         ard_params=project_dict['processing'],
+                         ard_params=project_dict['processing_parameters'],
                          project_dict=project_dict
                          )
     else:

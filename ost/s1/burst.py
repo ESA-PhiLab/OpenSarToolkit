@@ -268,7 +268,7 @@ def _create_mt_ls_mask(burst_gdf, project_file):
         project_params = json.load(file)
         processing_dir = project_params['project']['processing_dir']
         temp_dir = project_params['project']['temp_dir']
-        ard = project_params['processing']['time-series_ARD']
+        ard = project_params['processing_parameters']['time-series_ARD']
 
     # create layover
     iter_list = []
