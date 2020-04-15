@@ -1,5 +1,5 @@
 {
-    "processing_parameters": {
+    "processing": {
         "single_ARD": {
             "type": "Earth Engine",
             "resolution": 10,

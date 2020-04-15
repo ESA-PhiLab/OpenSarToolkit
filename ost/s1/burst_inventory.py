@@ -1,13 +1,122 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import os
 import json
 import logging
 from pathlib import Path
+
+import numpy as np
 import geopandas as gpd
+from shapely.wkt import loads
 
 from ost.helpers import scihub, vector as vec
-from ost import Sentinel1Scene as S1Scene
+from ost.s1.s1scene import Sentinel1Scene as S1Scene
+
 
 logger = logging.getLogger(__name__)
+
+
+def burst_extract(scene_id, track, acq_date, et_root):
+    """Creation of a burst inventory GeoDataFrame
+
+    This functions expects an xml string from a Sentinel-1 SLC
+    annotation file, extracts the relevant information of all bursts
+    and returns a GeoDataFrame.
+
+    Much of the code is taken from RapidSAR
+    package (once upon a time on github).
+
+    :param et_root: parsed XML annotation from a Sentinel-1 SLC product
+    :type et_root: ElementTree root
+    :return:
+    """
+
+    column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
+                    'BurstNr', 'geometry']
+    gdf = gpd.GeoDataFrame(columns=column_names)
+
+    # pol = root.find('adsHeader').find('polarisation').text
+    swath = et_root.find('adsHeader').find('swath').text
+    lines_per_burst = np.int(et_root.find('swathTiming').find(
+        'linesPerBurst').text)
+    pixels_per_burst = np.int(et_root.find('swathTiming').find(
+        'samplesPerBurst').text)
+    burstlist = et_root.find('swathTiming').find('burstList')
+    geolocation_grid = et_root.find('geolocationGrid')[0]
+    first = {}
+    last = {}
+
+    # Get burst corner geolocation info
+    for geo_point in geolocation_grid:
+        if geo_point.find('pixel').text == '0':
+            first[geo_point.find('line').text] = np.float32(
+                [geo_point.find('latitude').text,
+                 geo_point.find('longitude').text])
+        elif geo_point.find('pixel').text == str(pixels_per_burst - 1):
+            last[geo_point.find('line').text] = np.float32(
+                [geo_point.find('latitude').text,
+                 geo_point.find('longitude').text])
+
+    for i, b in enumerate(burstlist):
+        firstline = str(i * lines_per_burst)
+        lastline = str((i + 1) * lines_per_burst)
+        azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
+        orbit_time = 12 * 24 * 60 * 60 / 175
+
+        if azi_anx_time > orbit_time:
+            azi_anx_time = np.mod(azi_anx_time, orbit_time)
+
+        azi_anx_time = np.int32(np.round(azi_anx_time * 10))
+
+        # first and lastline sometimes shifts by 1 for some reason?
+        try:
+            firstthis = first[firstline]
+        except:
+            firstline = str(int(firstline) - 1)
+            try:
+                firstthis = first[firstline]
+            except:
+                print('First line not found in annotation file')
+                firstthis = []
+        try:
+            lastthis = last[lastline]
+        except:
+            lastline = str(int(lastline) - 1)
+            try:
+                lastthis = last[lastline]
+            except:
+                print('Last line not found in annotation file')
+                lastthis = []
+        corners = np.zeros([4, 2], dtype=np.float32)
+
+        # Had missing info for 1 burst in a file, hence the check
+        if len(firstthis) > 0 and len(lastthis) > 0:
+            corners[0] = first[firstline]
+            corners[1] = last[firstline]
+            corners[3] = first[lastline]
+            corners[2] = last[lastline]
+
+        wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(
+            np.around(float(corners[0, 1]), 3),
+            np.around(float(corners[0, 0]), 3),
+            np.around(float(corners[3, 1]), 3),
+            np.around(float(corners[3, 0]), 3),
+            np.around(float(corners[2, 1]), 3),
+            np.around(float(corners[2, 0]), 3),
+            np.around(float(corners[1, 1]), 3),
+            np.around(float(corners[1, 0]), 3),
+            np.around(float(corners[0, 1]), 3),
+            np.around(float(corners[0, 0]), 3))
+
+        geo_dict = {'SceneID': scene_id, 'Track': track,
+                    'Date': acq_date, 'SwathID': swath,
+                    'AnxTime': azi_anx_time, 'BurstNr': i + 1,
+                    'geometry': loads(wkt)}
+
+        gdf = gdf.append(geo_dict, ignore_index=True)
+
+    return gdf
 
 
 def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),

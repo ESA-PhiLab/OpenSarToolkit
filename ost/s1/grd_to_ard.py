@@ -795,3 +795,42 @@ def _grd_remove_border(infile):
                                        col_right_start, 0)
     array_right = None
     h.timer(currtime)
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def calibration(infile, outfile, logfile, calibrate_to,
+                ncores=os.cpu_count()):
+        # transform calibration parameter to snap readable
+        sigma0, beta0, gamma0 = 'false', 'false', 'false'
+
+        if calibrate_to is 'gamma0':
+            gamma0 = 'true'
+        elif calibrate_to is 'beta0':
+            beta0 = 'true'
+        elif calibrate_to is 'sigma0':
+            sigma0 = 'true'
+
+        logger.info('Calibrating the product to {}.'.format(calibrate_to))
+        # contrcut command string
+
+        command = ('{} Calibration -x -q {}'
+                   ' -PoutputBetaBand=\'{}\''
+                   ' -PoutputGammaBand=\'{}\''
+                   ' -PoutputSigmaBand=\'{}\''
+                   ' -t \'{}\' \'{}\''.format(
+            GPT_FILE, 2 * ncores,
+            beta0, gamma0, sigma0,
+            outfile, infile
+        )
+        )
+
+        # run command and get return code
+        return_code = h.run_command(command, logfile)
+
+        # hadle errors and logs
+        if return_code == 0:
+            logger.info('Calibration to {} successful.'.format(calibrate_to))
+        else:
+            print(' ERROR: Calibration exited with an error. \
+                    See {} for Snap Error output'.format(logfile))
+
+        return return_code

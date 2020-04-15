@@ -132,25 +132,29 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
 
 
 def latlon_to_wkt(lat, lon, buffer_degree=None, buffer_meter=None, envelope=False):
-    '''A helper function to create a WKT representation of Lat/Lon pair
+    """A helper function to create a WKT representation of Lat/Lon pair
 
-    This function takes lat and lon vale and returns the WKT Point
-    representation by default.
+    This function takes lat and lon values and returns
+    the WKT Point representation by default.
 
-    A buffer can be set in metres, which returns a WKT POLYGON. If envelope
-    is set to True, the buffer will be squared by the extent buffer radius.
+    A buffer can be set in meters, which returns a WKT POLYGON.
+    If envelope is set to True, the circular buffer will be
+    squared by the extent buffer radius.
 
-    Args:
-        lat (str): Latitude (deg) of a point
-        lon (str): Longitude (deg) of a point
-        buffer (float): optional buffer around the point
-        envelope (bool): gives a square instead of a circular buffer
-                         (only applies if bufferis set)
+    :param lat:
+    :type lat: str
+    :param lon:
+    :type lon: str
+    :param buffer_degree:
+    :type buffer_degree: float, optional
+    :param buffer_meter:
+    :type buffer_meter: float, optional
+    :param envelope:
+    :type envelope: bool, optional
 
-    Returns:
-        wkt (str): WKT string
-
-    '''
+    :return: WKT string
+    :rtype: str
+    """
 
     if buffer_degree is None and buffer_meter is None:
         aoi_wkt = 'POINT ({} {})'.format(lon, lat)
@@ -189,10 +193,14 @@ def wkt_manipulations(wkt, buffer=None, convex=False, envelope=False):
 
 
 def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
-    '''A helper function to translate a shapefile into WKT
+    """A helper function to translate a shapefile into WKT
 
-
-    '''
+    :param shapefile:
+    :param buffer:
+    :param convex:
+    :param envelope:
+    :return:
+    """
 
     # get filepaths and proj4 string
     shpfile = os.path.abspath(shapefile)
@@ -219,15 +227,6 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
     return wkt
 
 
-def kml_to_wkt(kmlfile):
-
-    shp = ogr.Open(os.path.abspath(kmlfile))
-    lyr = shp.GetLayerByName()
-    for feat in lyr:
-        geom = feat.GetGeometryRef()
-    wkt = str(geom)
-
-    return wkt
 
 
 def latlon_to_shp(lon, lat, shapefile):
@@ -354,7 +353,13 @@ def gdf_to_json_geometry(gdf):
 
 
 def exterior(infile, outfile, buffer=None):
+    """Creates an exterior vector of an input vector
 
+    :param infile:
+    :param outfile:
+    :param buffer:
+    :return:
+    """
     gdf = gpd.read_file(infile, crs={'init': 'EPSG:4326'})
     gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
     gdf_clean = gdf[gdf.geometry.area >= 1.0e-6]

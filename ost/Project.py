@@ -1,38 +1,37 @@
-import os
+
 import json
 import glob
-
+import urllib
 import logging
+from os.path import join as opj
+from pathlib import Path
+from datetime import datetime
+
 import rasterio
 import geopandas as gpd
-
-from os.path import join as opj
-from datetime import datetime
 from shapely.wkt import loads
-from pathlib import Path
 
 from ost.helpers import vector as vec, raster as ras
 from ost.helpers import scihub, helpers as h
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters
 
+from ost.s1 import search, refine, download
 from ost.s1 import burst_inventory, burst_batch
-from ost.s1 import search, refine, download, burst, grd_batch
-
+from ost.s1 import grd_batch
 
 # get the logger
 logger = logging.getLogger(__name__)
 
+
 class Generic:
 
     def __init__(
-            self, project_dir, aoi,
+            self,
+            project_dir,
+            aoi,
             start='1978-06-28',
             end=datetime.today().strftime("%Y-%m-%d"),
-            download_dir=None,
-            inventory_dir=None,
-            processing_dir=None,
-            temp_dir=None,
             data_mount=None,
             log_level=logging.INFO
     ):
@@ -54,46 +53,30 @@ class Generic:
             logger.info(f'Created project directory at {self.project_dir}')
         except FileExistsError:
             logger.info('Project directory already exists. '
-                         'No data has been deleted at this point but '
-                         'make sure you really want to use this folder.')
+                        'No data has been deleted at this point but '
+                        'make sure you really want to use this folder.')
             pass
 
         # define project sub-directories if not set, and create folders
-        if download_dir:
-            self.download_dir = Path(download_dir).resolve()
-        else:
-            self.download_dir = self.project_dir.joinpath('download')
-
+        self.download_dir = self.project_dir.joinpath('download')
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Downloaded data will be stored in: {self.download_dir}'
         )
 
-        if inventory_dir:
-            self.inventory_dir = Path(inventory_dir).resolve()
-        else:
-            self.inventory_dir = self.project_dir.joinpath('inventory')
-
+        self.inventory_dir = self.project_dir.joinpath('inventory')
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Inventory files will be stored in: {self.inventory_dir}'
         )
 
-        if processing_dir:
-            self.processing_dir = Path(processing_dir).resolve()
-        else:
-            self.processing_dir = self.project_dir.joinpath('processing')
-
+        self.processing_dir = self.project_dir.joinpath('processing')
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f'Processed data will be stored in: {self.processing_dir}'
+            f'Processed data will be stored in: {self.processing_dir}.'
         )
 
-        if temp_dir:
-            self.temp_dir = Path(temp_dir).resolve()
-        else:
-            self.temp_dir = self.project_dir.joinpath('temp')
-
+        self.temp_dir = self.project_dir.joinpath('temp')
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Using {self.temp_dir} as directory for temporary files.'
@@ -153,27 +136,22 @@ class Sentinel1(Generic):
     This subclass creates a Sentinel-1 specific
     """
 
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 data_mount=None,
-                 product_type='*',
-                 beam_mode='*',
-                 polarisation='*',
-                 log_level=logging.INFO
-                 ):
+    def __init__(
+            self,
+            project_dir,
+            aoi,
+            start='2014-10-01',
+            end=datetime.today().strftime("%Y-%m-%d"),
+            data_mount=None,
+            product_type='*',
+            beam_mode='*',
+            polarisation='*',
+            log_level=logging.INFO
+    ):
 
         # ------------------------------------------
         # 1 Get Generic class attributes
-        super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
-            log_level
-        )
+        super().__init__(project_dir, aoi, start, end, data_mount, log_level)
 
         # ------------------------------------------
         # 2 Check and set product type
@@ -225,29 +203,13 @@ class Sentinel1(Generic):
         self.burst_inventory = None
         self.burst_inventory_file = None
 
-        # ------------------------------------------
-        # 8 create a dictionary for project dict
-        self.inventory_dict = dict(
-            {'product_type': self.product_type,
-             'beam_mode': self.beam_mode,
-             'polarisation': self.polarisation,
-             #'full_inventory': self.inventory,
-             'full_inventory_file': str(self.inventory_file),
-             'refine': False,
-             #'refined_dict': self.refined_inventory_dict,
-             'selected_refine_key': None,
-             #'coverages': self.coverages,
-             #'burst_inventory': self.burst_inventory,
-             'burst_inventory_file': str(self.burst_inventory_file),
-             'refine_burst': False
-             }
-        )
-
     # ------------------------------------------
     # methods
-    def search(self, outfile='full.inventory.gpkg', append=False,
-               uname=None, pword=None):
-        """
+    def search(
+            self, outfile='full.inventory.gpkg', append=False,
+            uname=None, pword=None
+    ):
+        """High Level search function
         :param outfile:
         :param append:
         :param uname:
@@ -256,19 +218,19 @@ class Sentinel1(Generic):
         """
 
         # create scihub conform aoi string
-        aoi_str = scihub.create_aoi_str(self.aoi)
+        aoi = scihub.create_aoi_str(self.aoi)
 
         # create scihub conform TOI
-        toi_str = scihub.create_toi_str(self.start, self.end)
+        toi = scihub.create_toi_str(self.start, self.end)
 
         # create scihub conform product specification
-        product_specs_str = scihub.create_s1_product_specs(
+        product_specs = scihub.create_s1_product_specs(
             self.product_type, self.polarisation, self.beam_mode
         )
 
-        # join the query
-        query = scihub.create_query(
-            'Sentinel-1', aoi_str, toi_str, product_specs_str
+        # construct the final query
+        query = urllib.request.quote(
+            f'Sentinel-1 AND {product_specs} AND {aoi} AND {toi}'
         )
 
         if not uname or not pword:
@@ -407,7 +369,7 @@ class Sentinel1(Generic):
             outfile = self.inventory_dir.joinpath('burst_inventory.gpkg')
 
         # run the burst inventory
-        self.burst_inventory = burst.burst_inventory(
+        self.burst_inventory = burst_inventory.burst_inventory(
             inventory_df,
             outfile,
             download_dir=self.download_dir,
@@ -417,7 +379,7 @@ class Sentinel1(Generic):
 
         # refine the burst inventory
         if refine:
-            self.burst_inventory = burst.refine_burst_inventory(
+            self.burst_inventory = burst_inventory.refine_burst_inventory(
                 self.aoi, self.burst_inventory,
                 f'{str(outfile)[:-5]}.refined.gpkg'
             )
@@ -458,28 +420,25 @@ class Sentinel1Batch(Sentinel1):
     This subclass creates a Sentinel-1 specific
     """
 
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 data_mount=None,
-                 product_type='SLC',
-                 beam_mode='IW',
-                 polarisation='*',
-                 ard_type='OST-GTC',
-                 cpus_per_process=2,
-                 log_level=logging.INFO
-                 ):
+    def __init__(
+            self,
+            project_dir,
+            aoi,
+            start='2014-10-01',
+            end=datetime.today().strftime("%Y-%m-%d"),
+            data_mount=None,
+            product_type='SLC',
+            beam_mode='IW',
+            polarisation='*',
+            ard_type='OST-GTC',
+            cpus_per_process=2,
+            log_level=logging.INFO
+    ):
         # ------------------------------------------
         # 1 Initialize super class
         super().__init__(
-            project_dir, aoi, start, end,
-            download_dir, inventory_dir, processing_dir, temp_dir, data_mount,
-            product_type, beam_mode, polarisation,
-            log_level
+            project_dir, aoi, start, end, data_mount,
+            product_type, beam_mode, polarisation, log_level
         )
 
         # ---------------------------------------
@@ -523,6 +482,16 @@ class Sentinel1Batch(Sentinel1):
 
         # ---------------------------------------
         # 4 Set up project JSON
+        self.ard_parameters = self.get_ard_parameters(ard_type)
+
+        # re-create config dict with update ard parameters
+        self.config_dict.update(
+            processing=self.ard_parameters
+        )
+
+    # ---------------------------------------
+    # methods
+    def get_ard_parameters(self, ard_type):
 
         # find respective template for selected ARD type
         template_file = OST_ROOT.joinpath(
@@ -531,23 +500,21 @@ class Sentinel1Batch(Sentinel1):
         )
         # open and load parameters
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing']
+            ard_parameters = json.load(ard_file)['processing']
 
-        # define project file
-        self.config_file = self.project_dir.joinpath('project.json')
-        with open(self.config_file, 'w+') as out:
-            json.dump(self.config_dict, out, indent=4)
+        return ard_parameters
 
-    # ---------------------------------------
-    # methods
-    def update_ard_parameters(self):
+    def update_ard_parameters(self, ard_type=None):
+
+        # if a ard type is selected, load
+        if ard_type:
+            self.get_ard_parameters(ard_type)
 
         # check for correctness of ard parameters
         check_ard_parameters(self.ard_parameters)
 
         # re-create project dict with update ard parameters
         self.config_dict.update(
-            inventory=self.inventory_dict,
             processing=self.ard_parameters
         )
 
@@ -590,6 +557,25 @@ class Sentinel1Batch(Sentinel1):
             overwrite=False,
             max_workers=1
     ):
+        """Batch processing function for full burst pre-processing workflow
+
+        This function allows for the generation of the
+
+        :param timeseries: if True, Time-series will be generated for
+        each burst id
+        :type timeseries: bool, optional
+        :param timescan: if True, Timescans will be generated for each burst id
+        type: timescan: bool, optional
+        :param mosaic: if True, Mosaics will be generated from the Time-Series/Timescans of each burst id
+        :type mosaic: bool, optional
+        :param overwrite: (if True, the processing folder will be
+        emptied
+        :type overwrite: bool, optional
+        :param max_workers: number of parallel burst
+        :type max_workers: int, default=1
+        processing jobs
+        :return:
+        """
 
         # --------------------------------------------
         # 1 delete data from previous runnings
@@ -607,8 +593,8 @@ class Sentinel1Batch(Sentinel1):
         # 2 Check if within SRTM coverage
         # set ellipsoid correction and force GTC production
         # when outside SRTM
-        self.center_lat = loads(self.aoi).centroid.y
-        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+        center_lat = loads(self.aoi).centroid.y
+        if float(center_lat) > 59 or float(center_lat) < -59:
             logger.info('Scene is outside SRTM coverage. Will use '
                         'ellipsoid based terrain correction.')
             self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
@@ -699,7 +685,7 @@ class Sentinel1Batch(Sentinel1):
             temp_dir=self.temp_dir,
             config_file=self.config_file,
             subset=self.aoi,
-            )
+        )
 
         # time-series part
         if timeseries or timescan:

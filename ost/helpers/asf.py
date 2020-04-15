@@ -1,11 +1,10 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''This module provides functions for connecting and downloading
-from Alaska satellite Faciltity's Vertex server
-'''
 
-import os
-from os.path import join as opj
-import glob
+"""Functions for connecting and downloading from Alaska Satellite Facility
+"""
+
+import getpass
 import logging
 import requests
 import tqdm
@@ -13,13 +12,28 @@ import multiprocessing
 from pathlib import Path
 
 from ost.helpers import helpers as h
-from ost import Sentinel1Scene as S1Scene
 
 logger = logging.getLogger(__name__)
 
-# we need this class for earthdata access
+
+def ask_credentials():
+    """Interactive function asking the user for ASF credentials
+
+    :return: tuple of username and password
+    :rtype: tuple
+    """
+
+    # SciHub account details (will be asked by execution)
+    print(' If you do not have a ASF/NASA Earthdata user account'
+          ' go to: https://search.asf.alaska.edu/ and register')
+    uname = input(' Your ASF/NASA Earthdata Username:')
+    pword = getpass.getpass(' Your ASF/NASA Earthdata Password:')
+
+    return uname, pword
+
+
 class SessionWithHeaderRedirection(requests.Session):
-    """ A class that helps connect to NASA's Earthdata
+    """A class that helps connect to NASA's Earthdata
 
     """
 
@@ -31,7 +45,6 @@ class SessionWithHeaderRedirection(requests.Session):
 
     # Overrides from the library to keep headers when redirected to or from
     # the NASA auth host.
-
     def rebuild_auth(self, prepared_request, response):
 
         headers = prepared_request.headers
@@ -52,15 +65,12 @@ class SessionWithHeaderRedirection(requests.Session):
 
 
 def check_connection(uname, pword):
-    '''A helper function to check if a connection can be established
+    """Check if a connection with scihub can be established
 
-    Args:
-        uname: username of ASF Vertex server
-        pword: password of ASF Vertex server
-
-    Returns
-        int: status code of the get request
-    '''
+    :param uname:
+    :param pword:
+    :return:
+    """
 
     # random url to check
     url = (
@@ -75,26 +85,21 @@ def check_connection(uname, pword):
     return response.status_code
 
 
-def s1_download(argument_list):
+def asf_download(argument_list):
     """
-    This function will download S1 products from ASF mirror.
 
-    :param url: the url to the file you want to download
-    :param filename: the absolute path to where the downloaded file should
-                    be written to
-    :param uname: ESA's scihub username
-    :param pword: ESA's scihub password
+    :param argument_list:
     :return:
     """
 
-    url = argument_list[0]
-    filename = Path(argument_list[1])
-    uname = argument_list[2]
-    pword = argument_list[3]
+    # extract list of args
+    url, filename, uname, pword = argument_list
+    filename = Path(filename)
 
+    # start ASF download session
     session = SessionWithHeaderRedirection(uname, pword)
 
-    logger.info('Downloading scene to: {}'.format(filename))
+    logger.info(f'Downloading scene to: {filename}')
     # submit the request using the session
     response = session.get(url, stream=True)
 
@@ -109,11 +114,11 @@ def s1_download(argument_list):
 
     # check if file is partially downloaded
     if filename.exists():
-        first_byte = os.path.getsize(filename)
+        first_byte = filename.stat().st_size
     else:
         first_byte = 0
 
-    tries = 1
+    zip_test, tries = 1, 1
     while zip_test is not None and tries <= 10:
 
         while first_byte < total_length:
@@ -140,7 +145,7 @@ def s1_download(argument_list):
             pbar.close()
 
             # updated fileSize
-            first_byte = os.path.getsize(filename)
+            first_byte = filename.stat().st_size
 
         logger.info(
             f'Checking the zip archive of {filename.name} for inconsistency'
@@ -153,9 +158,8 @@ def s1_download(argument_list):
         if zip_test is not None:
             logger.info(f'{filename.name} did not pass the zip test. \
                   Re-downloading the full scene.')
-            if os.path.exists(filename):
-                os.remove(filename)
-                first_byte = 0
+            filename.unlink()
+            first_byte = 0
 
             tries += 1
             if tries == 11:
@@ -165,11 +169,13 @@ def s1_download(argument_list):
             # otherwise we change the status to True
         else:
             logger.info(f'{filename.name} passed the zip test.')
-            with open(str(f'{filename}.downloaded'), 'w+') as file:
+            with open(filename.with_suffix('.downloaded'), 'w+') as file:
                 file.write('successfully downloaded \n')
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
+
+    from ost import Sentinel1Scene as S1Scene
 
     # create list with scene ids to download
     scenes = inventory_df['identifier'].tolist()
@@ -183,23 +189,23 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
             # initialize scene instance and get destination filepath
             scene = S1Scene(scene_id)
-            filepath = scene._download_path(download_dir, True)
+            file_path = scene.download_path(download_dir, True)
 
             # check if already downloaded
-            if Path(f'{filepath}.downloaded').exists():
+            if file_path.with_suffix('.downloaded').exists():
                 logger.info(f'{scene.scene_id} has been already downloaded.')
                 continue
 
             # append to list
-            asf_list.append([scene.asf_url(), filepath, uname, pword])
+            asf_list.append([scene.asf_url(), file_path, uname, pword])
 
         # if list is not empty, do parallel download
         if asf_list:
             pool = multiprocessing.Pool(processes=concurrent)
-            pool.map(s1_download, asf_list)
+            pool.map(asf_download, asf_list)
 
         # count downloaded scenes with its checked file
-        downloaded_scenes = len(list(download_dir.glob('**/*.zip.downloaded')))
+        downloaded_scenes = len(list(download_dir.glob('**/*.downloaded')))
 
         # if all have been downloaded then we are through
         if len(inventory_df['identifier'].tolist()) == downloaded_scenes:
@@ -212,9 +218,9 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
                 # we check if outputfile exists...
                 scene = S1Scene(scene)
-                filepath = scene._download_path(download_dir)
-                if Path(f'{str(filepath)}.downloaded').exists():
-                    # ...and remove from list
+                file_path = scene.download_path(download_dir)
+                if file_path.with_suffix('.downloaded').exists():
+                    # ...and remove from list of scenes to download
                     scenes.remove(scene.scene_id)
 
         i += 1

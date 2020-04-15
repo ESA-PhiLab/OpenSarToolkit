@@ -13,7 +13,6 @@ scipy
 shapely
 tqdm
 imageio
-joblib
 rtree
 retrying
 pytest

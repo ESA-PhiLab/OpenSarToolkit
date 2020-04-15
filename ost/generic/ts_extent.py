@@ -1,6 +1,5 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# import stdlib modules
 
 import time
 import gdal
@@ -25,7 +24,7 @@ def mt_extent(list_of_args):
         options=vrt_options
     )
 
-    # start time
+    # start timer
     start = time.time()
 
     with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
@@ -39,5 +38,5 @@ def mt_extent(list_of_args):
         # create exterior ring and write out
         vec.exterior(outline_file, out_file, buffer)
 
-    out_dir.joinpath('extent.vrt').unlink
+    out_dir.joinpath('extent.vrt').unlink()
     h.timer(start)

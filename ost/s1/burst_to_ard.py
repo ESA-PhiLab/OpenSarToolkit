@@ -1,4 +1,6 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import json
 import logging
 from pathlib import Path
@@ -12,25 +14,17 @@ from ost.s1 import slc_wrappers as slc
 logger = logging.getLogger(__name__)
 
 
-def create_polarimetric_layers(import_file, out_dir, burst_prefix,
-                               config_dict):
-    """ Pipeline for Dual-polarimetric decomposition
+def create_polarimetric_layers(
+        import_file, out_dir, burst_prefix, config_dict
+):
+    """Pipeline for Dual-polarimetric decomposition
 
-    Args:
-        import_file:
-        ard:
-        temp_dir:
-        out_dir:
-        burst_id:
-        ncores:
-
-    Returns:
-
+    :param import_file:
+    :param out_dir:
+    :param burst_prefix:
+    :param config_dict:
+    :return:
     """
-
-    # get relevant config parameters
-    ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['cpus_per_process']
 
     # temp dir for intermediate files
     with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
@@ -45,10 +39,7 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix,
         haa_log = out_dir.joinpath(f'{burst_prefix}_haa.err_log')
 
         # run polarimetric decomposition
-        slc.ha_alpha(
-            import_file, out_haa, haa_log, ard['remove_pol_speckle'],
-            ard['pol_speckle_filter'], cpus
-        )
+        slc.ha_alpha(import_file, out_haa, haa_log, config_dict)
 
         # -------------------------------------------------------
         # 2 Geocoding
@@ -61,8 +52,7 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix,
 
         # run geocoding
         common.terrain_correction(
-            '{}.dim'.format(out_haa), out_htc, haa_tc_log,
-            ard['resolution'], ard['dem'], cpus
+            out_haa.with_suffix('.dim'), out_htc, haa_tc_log, config_dict
         )
 
         # last check on the output files
@@ -79,9 +69,10 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix,
             file.write('passed all tests \n')
 
 
-def create_backscatter_layers(import_file, out_dir, burst_prefix,
-                              config_dict):
-    """
+def create_backscatter_layers(
+        import_file, out_dir, burst_prefix, config_dict
+):
+    """Pipeline for backscatter processing
 
     :param import_file:
     :param out_dir:
@@ -92,7 +83,6 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
 
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['cpus_per_process']
 
     # temp dir for intermediate files
     with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
@@ -109,7 +99,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
 
         # run calibration on imported scene
         slc.calibration(
-            import_file, out_cal, cal_log, ard, region='', ncores=cpus
+            import_file, out_cal, cal_log, config_dict, region=''
         )
 
         # ---------------------------------------------------------------------
@@ -124,8 +114,8 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
 
             # run speckle filter on calibrated input
             common.speckle_filter(
-                f'{out_cal}.dim', speckle_import, speckle_log,
-                ard['speckle_filter'], cpus
+                out_cal.with_suffix('.dim'), speckle_import, speckle_log,
+                config_dict
             )
 
             # remove input
@@ -145,7 +135,9 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
             db_log = out_dir.joinpath(f'{burst_prefix}_cal_db.err_log')
 
             # run db scaling on calibrated/speckle filtered input
-            common.linear_to_db(f'{out_cal}.dim', out_db, db_log, cpus)
+            common.linear_to_db(
+                out_cal.with_suffix('.dim'), out_db, db_log, config_dict
+            )
 
             # remove tmp files
             h.delete_dimap(out_cal)
@@ -164,8 +156,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
 
         # run terrain correction on calibrated/speckle filtered/db  input
         common.terrain_correction(
-            f'{out_cal}.dim', out_tc, tc_log,
-            ard['resolution'], ard['dem'], cpus
+            out_cal.with_suffix('.dim'), out_tc, tc_log, config_dict
         )
 
         # check for validity of final backscatter product
@@ -188,7 +179,9 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix,
             ls_log = out_dir.joinpath(f'{burst_prefix}_LS.err_log')
 
             # run ls mask generation on calibration
-            common.ls_mask(f'{out_cal}.dim', out_ls, ls_log, ard, cpus)
+            common.ls_mask(
+                out_cal.with_suffix('.dim'), out_ls, ls_log, config_dict
+            )
 
             # check for validity of final backscatter product
             try:
@@ -208,7 +201,7 @@ def create_coherence_layers(
         master_import, slave_import, out_dir,
         master_prefix, config_dict
 ):
-    """
+    """Pipeline for Dual-polarimetric decomposition
 
     :param master_import:
     :param slave_import:
@@ -235,8 +228,7 @@ def create_coherence_layers(
 
         # run co-registration
         slc.coreg(
-            master_import, slave_import, out_coreg, coreg_log,
-            ard['dem'], cpus
+            master_import, slave_import, out_coreg, coreg_log, config_dict
         )
 
         # remove imports
@@ -255,7 +247,9 @@ def create_coherence_layers(
         coh_log = out_dir.joinpath(f'{master_prefix}_coh.err_log')
 
         # run coherence estimation
-        slc.coherence(f'{out_coreg}.dim', out_coh, coh_log, ard, cpus)
+        slc.coherence(
+            out_coreg.with_suffix('.dim'), out_coh, coh_log, config_dict
+        )
 
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
@@ -271,8 +265,7 @@ def create_coherence_layers(
 
         # run geocoding
         common.terrain_correction(
-            f'{out_coh}.dim', out_tc, tc_log,
-            ard['resolution'], ard['dem'], cpus
+            out_coh.with_suffix('.dim'), out_tc, tc_log, config_dict
         )
 
         # ---------------------------------------------------------------
@@ -344,17 +337,21 @@ def burst_to_ard(burst, config_file):
         # create namespace for master import
         master_import = temp_dir.joinpath(f'{master_prefix}_import')
 
-        if not Path(f'{str(master_import)}.dim').exists():
+        if not master_import.with_suffix('.dim').exists():
+
             # create namesapce for log file
             import_log = out_dir.joinpath(f'{master_prefix}_import.err_log')
 
-            # get polarisations to import
-            polars = ard['polarisation'].replace(' ', '')
+
 
             # run import
             return_code = slc.burst_import(
-                master_file, master_import, import_log, swath,
-                master_burst_nr, polars, cpus
+                master_file,
+                master_import,
+                import_log,
+                swath,
+                master_burst_nr,
+                config_dict
             )
             if return_code != 0:
                 h.delete_dimap(master_import)
@@ -364,16 +361,23 @@ def burst_to_ard(burst, config_file):
         # 2 Product Generation
         if ard['H-A-Alpha'] and not pol_file:
             create_polarimetric_layers(
-                f'{master_import}.dim', out_dir, master_prefix, config_dict
+                master_import.with_suffix('.dim'),
+                out_dir,
+                master_prefix,
+                config_dict
             )
 
         if ard['backscatter'] and not bs_file:
             create_backscatter_layers(
-                f'{master_import}.dim', out_dir, master_prefix, config_dict
+                master_import.with_suffix('.dim'),
+                out_dir,
+                master_prefix,
+                config_dict
             )
 
         if coherence and not coh_file:
-            # get info on master from GeoSeries
+
+            # get info on slave from GeoSeries
             slave_prefix = burst['slave_prefix']
             slave_file = burst['slave_file']
             slave_burst_nr = burst['slave_burst_nr']
@@ -392,8 +396,11 @@ def burst_to_ard(burst, config_file):
                 return return_code
 
             create_coherence_layers(
-                f'{master_import}.dim', f'{slave_import}.dim', out_dir,
-                master_prefix, config_dict
+                master_import.with_suffix('.dim'),
+                slave_import.with_suffix('.dim'),
+                out_dir,
+                master_prefix,
+                config_dict
             )
         else:
             # remove master import
@@ -405,11 +412,8 @@ if __name__ == "__main__":
     import argparse
 
     # write a description
-    descript = """
-               This is a command line client for the creation of
-               Sentinel-1 ARD data from Level 1 SLC bursts
-
-               to do
+    descript = """This is a command line client for the creation of
+               Sentinel-1 ARD data from Level 1 SLC bursts.
                """
 
     epilog = """
@@ -422,59 +426,16 @@ if __name__ == "__main__":
     # create a parser
     parser = argparse.ArgumentParser(description=descript, epilog=epilog)
 
-    # search paramenters
-    parser.add_argument('-m', '--master',
-                        help=' (str) path to the master SLC',
+    # search parameters
+    parser.add_argument('-b', '--burst',
+                        help=' (str) path to OST burst inventory file for'
+                             ' one burst',
                         required=True)
-    parser.add_argument('-ms', '--master_swath',
-                        help=' (str) The subswath of the master SLC',
+    parser.add_argument('-c', '--config_file',
+                        help=' (str) path to OST project configuration file',
                         required=True)
-    parser.add_argument('-mn', '--master_burst_nr',
-                        help=' (int) The index number of the master burst',
-                        required=True)
-    parser.add_argument('-mi', '--master_burst_id',
-                        help=' (str) The OST burst id of the master burst')
-    parser.add_argument('-o', '--out_directory',
-                        help='The directory where the outputfiles will'
-                             ' be written to.',
-                        required=True)
-    parser.add_argument('-t', '--temp_directory',
-                        help='The directory where temporary files will'
-                             ' be written to.',
-                        required=True)
-    parser.add_argument('-s', '--slave',
-                        help=' (str) path to the slave SLC',
-                        default=False)
-    parser.add_argument('-sn', '--slave_burst_nr',
-                        help=' (int) The index number of the slave burst',
-                        default=False)
-    parser.add_argument('-si', '--slave_burst_id',
-                        help=' (str) The OST burst id of the slave burst',
-                        default=False)
-    parser.add_argument('-c', '--coherence',
-                        help=' (bool) Set to True if the interferometric '
-                        'coherence should be calculated.',
-                        default=False)
-    parser.add_argument('-p', '--proc_file',
-                        help=' (str/path) Path to ARDprocessing parameters file',
-                        required=True)
-    parser.add_argument('-rsi', '--remove_slave_import',
-                        help=' (bool) Select if during the coherence'
-                             ' calculation the imported slave file should be'
-                             ' deleted (for time-series it is advisable to'
-                             ' keep it)',
-                        default=False)
-    parser.add_argument('-nc', '--cpu_cores',
-                        help=' (int) Select the number of cpu cores'
-                             ' for running each gpt process'
-                             'if you wish to specify for parallelisation',
-                        default=False)
 
     args = parser.parse_args()
 
     # execute processing
-    burst_to_ard(args.master, args.master_swath, args.master_burst_nr, 
-                 args.master_burst_id, args.proc_file, args.out_directory, args.temp_directory,
-                 args.slave, args.slave_burst_nr, args.slave_burst_id,
-                 args.coherence, args.remove_slave_import,args.cpu_cores
-                 )
+    burst_to_ard(args.burst_inventory, args.config_file)

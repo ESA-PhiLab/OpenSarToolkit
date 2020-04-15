@@ -1,71 +1,79 @@
 #! /usr/bin/env python
-"""
-This script provides core functionalities for the OST package.
+# -*- coding: utf-8 -*-
+
+"""This script provides core helper functions for the OST package.
 """
 
-# import stdlib modules
 import os
 from os.path import join as opj
 import math
-import sys
 import glob
 import shlex
 import shutil
 import subprocess
 import time
-import datetime
 from datetime import timedelta
 from pathlib import Path
 import zipfile
 import logging
+
 import gdal
+import fiona
 import geopandas as gpd
 from shapely.wkt import loads
+from shapely.geometry import shape, LineString
 
 from ost.helpers import vector as vec
 
 logger = logging.getLogger(__name__)
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
 
 def aoi_to_wkt(aoi):
     """Helper function to transform various AOI formats into WKT
 
-    :param aoi:
+    This function is used to import an AOI definition into an OST project.
+    The AOIs definition can be from difffrent sources, i.e. an ISO3 country
+    code (that calls GeoPandas low-resolution country boundaries),
+    a WKT string,
+
+    :param aoi: AOI , which can be an ISO3 country code, a WKT String or
+                a path to a shapefile, a GeoPackage or a GeoJSON file
+    :type aoi: str/Path
     :return: AOI as WKT string
+    :rtype: WKT string
     """
 
-    if aoi.split('.')[-1] != 'shp' and len(aoi) == 3:
+    # load geopandas low res data and check if AOI is ISO3 country code
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    if aoi in world.iso_a3.tolist():
 
-        # get lowres data
-        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+        # get lowres data from geopandas
         country = world.name[world.iso_a3 == aoi].values[0]
-        logger.info('Getting the country boundaries from Geopandas low'
-                    'resolution data for {}'.format(country)
-                    )
+        logger.info(
+            f'Getting the country boundaries from Geopandas low '
+            f'resolution data for {country}'
+        )
 
+        # convert to WKT string
         aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
 
-    elif aoi.split('.')[-1] == 'shp':
-        aoi_wkt = str(vec.shp_to_wkt(aoi))
-        logger.info('Using {} shapefile as Area of Interest definition.'
-                    .format(aoi)
-                    )
+    # if it is a file
+    elif Path(aoi).exists():
+
+        with fiona.open(aoi) as src:
+            collection = [shape(item['geometry']).to_wkt() for item in src]
+            rings = [LineString(pol.exterior.coords).wkt for pol in collection]
+            aoi_wkt = rings[0]
+            #aoi_wkt = str(vec.shp_to_wkt(aoi))
+
+
+        logger.info(f'Using {aoi} as Area of Interest definition.')
     else:
         try:
             # let's check if it is a shapely readable WKT
             loads(str(aoi))
         except:
-            raise ValueError('No valid OST AOI defintion.')
+            raise ValueError('No valid OST AOI definition.')
         else:
             aoi_wkt = aoi
 
@@ -73,15 +81,16 @@ def aoi_to_wkt(aoi):
 
 
 def timer(start):
-    """ A helper function to print a time elapsed statement
+    """A helper function to print a time elapsed statement
 
-    Args:
-        start (time): a time class object for the start time
-
+    :param start:
+    :type start:
+    :return:
+    :rtype: str
     """
 
     elapsed = time.time() - start
-    logger.info('Time elapsed: {}'.format(timedelta(seconds=elapsed)))
+    logger.info(f'Time elapsed: {timedelta(seconds=elapsed)}')
 
 
 def remove_folder_content(folder):
@@ -257,6 +266,7 @@ def check_out_tiff(file, test_stats=True):
 
 
 def check_zipfile(filename):
+
     try:
         zip_archive = zipfile.ZipFile(filename)
     except zipfile.BadZipFile as er:

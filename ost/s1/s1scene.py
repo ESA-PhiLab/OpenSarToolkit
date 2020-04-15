@@ -1,34 +1,37 @@
-"""This module contains the S1Scene class for handling of a Sentinel-1 product
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+"""Class for handling a single Sentinel-1 product
+
+This class, initialized by a valid Sentinel-1 scene identifier,
+extracts basic metadata information from the scene ID itself,
+as well as more detailed  and allows for retrieving OST relevant
+paths.
+
+For GRD products it is possible to pre-process the respective scene
+based on a ARD product type.
 """
-import os
-from os.path import join as opj
+
 import sys
-import importlib
 import json
-import glob
 import logging
-import urllib
-from urllib.error import URLError
 import zipfile
 import fnmatch
 import xml.dom.minidom
 import xml.etree.ElementTree as eTree
+import urllib.request
+from urllib.error import URLError
 from pathlib import Path
 
-import numpy as np
+import requests
 import pandas as pd
 import geopandas as gpd
-import requests
-from shapely.wkt import loads
 
-from ost.helpers import scihub, peps, onda, raster as ras
+from ost.helpers import scihub, peps, onda, asf, raster as ras
+from ost.helpers.settings import APIHUB_BASEURL, OST_ROOT
+from ost.helpers.settings import check_ard_parameters
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
-from ost.helpers.settings import APIHUB_BASEURL
 
-__author__ = "Andreas Vollrath"
-__version__ = 1.0
-__license__ = 'MIT'
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,8 @@ logger = logging.getLogger(__name__)
 class Sentinel1Scene:
 
     def __init__(self, scene_id, ard_type='OST_GTC'):
+
+        # get metadata from scene identifier
         self.scene_id = scene_id
         self.mission_id = scene_id[0:3]
         self.mode_beam = scene_id[4:6]
@@ -78,7 +83,7 @@ class Sentinel1Scene:
         elif self.mode_beam == 'WV':
             self.acq_mode = "Wave"
 
-        # get acquisition mode
+        # get product type
         if self.product_type == 'GRD':
             self.p_type = "Ground Range Detected (GRD)"
         elif self.product_type == 'SLC':
@@ -89,30 +94,17 @@ class Sentinel1Scene:
             self.p_type = "Raw Data (RAW)"
 
         # set initial product paths to None
+        self.product_dl_path = None
         self.ard_dimap = None
         self.ard_rgb = None
         self.rgb_thumbnail = None
 
         # set initial ARD parameters to ard_type
-        self.ard_parameters = {}
-        self.get_ard_parameters(ard_type)
+        self.ard_parameters = self.get_ard_parameters(ard_type)
+        self.config_dict = dict(processing=self.ard_parameters)
+        self.config_file = None
 
     def info(self):
-
-        # create info dictionary necessary for tests
-        inf_dict = {}
-        inf_dict.update(
-            Scene_Identifier=str(self.scene_id),
-            Satellite=str(self.satellite),
-            Acquisition_Mode=str(self.acq_mode),
-            Processing_Level=str(self.proc_level),
-            Product_Type=str(self.p_type),
-            Acquisition_Date=str(self.start_date),
-            Start_Time=str(self.start_time),
-            Stop_Time=str(self.stop_time),
-            Absolute_Orbit=str(self.abs_orbit),
-            Relative_Orbit=str(self.rel_orbit),
-        )
 
         # actual print function
         print(" -------------------------------------------------")
@@ -129,6 +121,23 @@ class Sentinel1Scene:
         print(" Relative Orbit:          " + str(self.rel_orbit))
         print(" -------------------------------------------------")
 
+    def info_dict(self):
+
+        # create info dictionary necessary for tests
+        inf_dict = {}
+        inf_dict.update(
+            Scene_Identifier=str(self.scene_id),
+            Satellite=str(self.satellite),
+            Acquisition_Mode=str(self.acq_mode),
+            Processing_Level=str(self.proc_level),
+            Product_Type=str(self.p_type),
+            Acquisition_Date=str(self.start_date),
+            Start_Time=str(self.start_time),
+            Stop_Time=str(self.stop_time),
+            Absolute_Orbit=str(self.abs_orbit),
+            Relative_Orbit=str(self.rel_orbit),
+        )
+
         return inf_dict
 
     def download(self, download_dir, mirror=None):
@@ -141,11 +150,14 @@ class Sentinel1Scene:
             print(' (3) PEPS (CNES, 1 year rolling archive)')
             print(' (4) ONDA DIAS (ONDA DIAS full archive for'
                   ' SLC - or GRD from 30 June 2019)')
-            print(' (5) Alaska Satellite Facility (using WGET'
-                  ' - unstable - use only if 2 fails)')
-            mirror = input(' Type 1, 2, 3, 4 or 5: ')
+            # print(' (5) Alaska Satellite Facility (using WGET'
+            #      ' - unstable - use only if 2 fails)')
+            mirror = input(' Type 1, 2, 3, or 4: ')
 
         from ost.s1 import download
+
+        if isinstance(download_dir, str):
+            download_dir = Path(download_dir)
 
         if mirror == '1':
             uname, pword = scihub.ask_credentials()
@@ -155,6 +167,11 @@ class Sentinel1Scene:
                  'uuid': [self.scihub_uuid(opener)]
                  }
             )
+
+        elif mirror == '2':
+            uname, pword = asf.ask_credentials()
+            df = pd.DataFrame({'identifier': [self.scene_id]})
+
         elif mirror == '3':
             uname, pword = peps.ask_credentials()
             df = pd.DataFrame(
@@ -170,19 +187,26 @@ class Sentinel1Scene:
                  'uuid': [self.ondadias_uuid(opener)]
                  }
             )
-        else:  # ASF
-            df = pd.DataFrame({'identifier': [self.scene_id]})
-            download.download_sentinel1(df, download_dir, mirror)
-            return
+        else:
+            raise ValueError('You entered the wrong mirror.')
+        # else:  # ASF
+        #    df = pd.DataFrame({'identifier': [self.scene_id]})
+        #    download.download_sentinel1(df, download_dir, mirror)
+        #    return
 
-        download.download_sentinel1(df, download_dir, mirror,
-                                    uname=uname, pword=pword)
+        download.download_sentinel1(
+            df, download_dir, mirror, uname=uname, pword=pword
+        )
 
         # delete credentials
         del uname, pword
 
     # location of file (including diases)
     def download_path(self, download_dir, mkdir=False):
+
+        if isinstance(download_dir, str):
+            download_dir = Path(download_dir)
+
         download_path = Path(download_dir).joinpath(
             f'SAR/{self.product_type}/{self.year}/{self.month}/{self.day}'
         )
@@ -190,12 +214,17 @@ class Sentinel1Scene:
         if mkdir:
             download_path.mkdir(parents=True, exist_ok=True)
 
-        # get filepath
-        filepath = download_path.joinpath(f'{self.scene_id}.zip')
+        # get file_path
+        file_path = download_path.joinpath(f'{self.scene_id}.zip')
 
-        self.product_dl_path = filepath
+        self.product_dl_path = file_path
 
-    def _creodias_path(self, data_mount='/eodata'):
+        return file_path
+
+    def _creodias_path(self, data_mount):
+
+        if isinstance(data_mount, str):
+            data_mount = Path(data_mount)
 
         path = Path(data_mount).joinpath(
             f'Sentinel-1/SAR/{self.product_type}/{self.year}/'
@@ -203,9 +232,6 @@ class Sentinel1Scene:
         )
 
         return path
-
-        # print(' Dummy function for mundi paths to be added')
-        return Path('/foo/foo/foo')
 
     def _onda_path(self, data_mount):
 
@@ -217,12 +243,19 @@ class Sentinel1Scene:
         return path
 
     def get_path(self, download_dir=None, data_mount=None):
+
         if download_dir:
+
+            # convert download_dir to Path object
             if isinstance(download_dir, str):
                 download_dir = Path(download_dir)
+
+            # construct download path
             self.download_path(download_dir=download_dir, mkdir=False)
-            if self.product_dl_path.with_suffix(
-                    '.downloaded').exists():
+
+            # check if scene is succesfully downloaded
+            print(self.product_dl_path.with_suffix('.downloaded'))
+            if self.product_dl_path.with_suffix('.downloaded').exists():
                 path = self.product_dl_path
             else:
                 path = None
@@ -230,19 +263,27 @@ class Sentinel1Scene:
             path = None
 
         if data_mount and not path:
+
+            # covert data_mount to Path object
             if isinstance(data_mount, str):
                 data_mount = Path(data_mount)
+
+            # check creodias folder structure
             if self._creodias_path(data_mount).joinpath(
                     'manifest.safe').exists():
                 path = self._creodias_path(data_mount)
+            # check for ondadias folder structure
             elif self._onda_path(data_mount).exists():
                 path = self._onda_path(data_mount)
             else:
                 path = None
+
+        # if path to scene not found
         if path is None:
             raise FileNotFoundError(
-                'No product path found for: {}'.format(self.scene_id)
+                f'No product path found for: {self.scene_id}'
             )
+
         return path
 
     # scihub related
@@ -319,8 +360,10 @@ class Sentinel1Scene:
                 response = True
             elif response == 'false':
                 response = False
+            else:
+                raise TypeError('Wrong response type.')
 
-        return response
+            return response
 
     def scihub_trigger_production(self, opener):
 
@@ -331,38 +374,52 @@ class Sentinel1Scene:
         try:
             # get the request
             req = opener.open(url)
-
         except URLError as error:
             if hasattr(error, 'reason'):
                 print(' We failed to connect to the server.')
                 print(' Reason: ', error.reason)
-                sys.exit()
+                return
             elif hasattr(error, 'code'):
                 print(' The server couldn\'t fulfill the request.')
                 print(' Error code: ', error.code)
-                sys.exit()
+                return
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            code = req.getcode()
+            if code == 202:
+                logging.info(
+                    f'Production of {self.scene_id} successfully requested.'
+                )
 
-        # write the request to to the response variable
-        # (i.e. the xml coming back from scihub)
-        code = req.getcode()
-        if code == 202:
-            print(' Production of {} successfully requested.'
-                  .format(self.scene_id))
+            return code
 
-        return code
-
-    # burst part
     def _scihub_annotation_url(self, opener):
+        """ Retrieve the urls for the product annotation files
 
+        :param opener:
+        :type opener:
+        :return: the urls for the product annotation files
+        :rtype: list
+        """
+
+        # get uuid for product
         uuid = self.scihub_uuid(opener)
 
-        logger.info('Getting URLS of annotation files'
-                    ' for S1 product: {}.'.format(self.scene_id))
+        logger.info(
+            f'Retrieving URLs of annotation files for S1 product: '
+            f'{self.scene_id}.'
+        )
         scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
-        anno_path = ('(\'{}\')/Nodes(\'{}.SAFE\')/Nodes(\'annotation\')/'
-                     'Nodes'.format(uuid, self.scene_id))
+        anno_path = (
+            f'(\'{uuid}\')/Nodes(\'{self.scene_id}.SAFE\')'
+            f'/Nodes(\'annotation\')/Nodes'
+        )
+
+        # construct anno url path
         url = scihub_url + anno_path
-        # print(url)
+
+        # try to retrieve
         try:
             # get the request
             req = opener.open(url)
@@ -376,134 +433,44 @@ class Sentinel1Scene:
                 print(' Error code: ', error.code)
                 sys.exit()
         else:
-            # write the request to to the response variable
-            # (i.e. the xml coming back from scihub)
+            # read out the response
             response = req.read().decode('utf-8')
 
-            # parse the xml page from the response
+            # parse the response
             dom = xml.dom.minidom.parseString(response)
+
+            # loop through each entry (with all metadata)
             url_list = []
-            # loop thorugh each entry (with all metadata)
             for node in dom.getElementsByTagName('entry'):
                 download_url = node.getElementsByTagName(
-                    'id')[0].firstChild.nodeValue
+                    'id'
+                )[0].firstChild.nodeValue
 
+                # if we find an xml we append to the list of relevant files
                 if download_url[-6:-2] == '.xml':
-                    url_list.append('{}/$value'.format(download_url))
+                    url_list.append(f'{download_url}/$value')
 
-        return url_list
-
-    def _burst_database(self, et_root):
-        '''
-        This functions expects an xml string from a Sentinel-1 SLC
-        annotation file and extracts relevant information for burst
-        identification as a GeoPandas GeoDataFrame.
-
-        Much of the code is taken from RapidSAR
-        package (once upon a time on github).
-        '''
-
-        column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
-                        'BurstNr', 'geometry']
-        gdf = gpd.GeoDataFrame(columns=column_names)
-
-        track = self.rel_orbit
-        acq_date = self.start_date
-
-        # pol = root.find('adsHeader').find('polarisation').text
-        swath = et_root.find('adsHeader').find('swath').text
-        lines_per_burst = np.int(et_root.find('swathTiming').find(
-            'linesPerBurst').text)
-        pixels_per_burst = np.int(et_root.find('swathTiming').find(
-            'samplesPerBurst').text)
-        burstlist = et_root.find('swathTiming').find('burstList')
-        geolocation_grid = et_root.find('geolocationGrid')[0]
-        first = {}
-        last = {}
-
-        # Get burst corner geolocation info
-        for geo_point in geolocation_grid:
-            if geo_point.find('pixel').text == '0':
-                first[geo_point.find('line').text] = np.float32(
-                    [geo_point.find('latitude').text,
-                     geo_point.find('longitude').text])
-            elif geo_point.find('pixel').text == str(pixels_per_burst - 1):
-                last[geo_point.find('line').text] = np.float32(
-                    [geo_point.find('latitude').text,
-                     geo_point.find('longitude').text])
-
-        for i, b in enumerate(burstlist):
-            firstline = str(i * lines_per_burst)
-            lastline = str((i + 1) * lines_per_burst)
-            azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
-            orbit_time = 12 * 24 * 60 * 60 / 175
-
-            if azi_anx_time > orbit_time:
-                azi_anx_time = np.mod(azi_anx_time, orbit_time)
-
-            azi_anx_time = np.int32(np.round(azi_anx_time * 10))
-            #           burstid = 'T{}_{}_{}'.format(track, swath, burstid)
-            #           first and lastline sometimes shifts by 1 for some reason?
-            try:
-                firstthis = first[firstline]
-            except:
-                firstline = str(int(firstline) - 1)
-                try:
-                    firstthis = first[firstline]
-                except:
-                    print('First line not found in annotation file')
-                    firstthis = []
-            try:
-                lastthis = last[lastline]
-            except:
-                lastline = str(int(lastline) - 1)
-                try:
-                    lastthis = last[lastline]
-                except:
-                    print('Last line not found in annotation file')
-                    lastthis = []
-            corners = np.zeros([4, 2], dtype=np.float32)
-
-            # Had missing info for 1 burst in a file, hence the check
-            if len(firstthis) > 0 and len(lastthis) > 0:
-                corners[0] = first[firstline]
-                corners[1] = last[firstline]
-                corners[3] = first[lastline]
-                corners[2] = last[lastline]
-
-            wkt = 'POLYGON (({} {},{} {},{} {},{} {},{} {}))'.format(
-                np.around(float(corners[0, 1]), 3),
-                np.around(float(corners[0, 0]), 3),
-                np.around(float(corners[3, 1]), 3),
-                np.around(float(corners[3, 0]), 3),
-                np.around(float(corners[2, 1]), 3),
-                np.around(float(corners[2, 0]), 3),
-                np.around(float(corners[1, 1]), 3),
-                np.around(float(corners[1, 0]), 3),
-                np.around(float(corners[0, 1]), 3),
-                np.around(float(corners[0, 0]), 3))
-
-            geo_dict = {'SceneID': self.scene_id, 'Track': track,
-                        'Date': acq_date, 'SwathID': swath,
-                        'AnxTime': azi_anx_time, 'BurstNr': i + 1,
-                        'geometry': loads(wkt)}
-
-            gdf = gdf.append(geo_dict, ignore_index=True)
-
-        return gdf
+            return url_list
 
     def scihub_annotation_get(self, uname=None, pword=None):
+        """
 
-        # define column names fro BUrst DF
-        column_names = ['SceneID', 'Track', 'Date', 'SwathID',
-                        'AnxTime', 'BurstNr', 'geometry']
+        :param uname:
+        :param pword:
+        :return:
+        """
 
+        from ost.s1.burst_inventory import burst_extract
+
+        # create emtpy geodataframe to be filled with burst infos
+        column_names = [
+            'SceneID', 'Track', 'Date', 'SwathID', 'AnxTime', 'BurstNr',
+            'geometry'
+        ]
         gdf_final = gpd.GeoDataFrame(columns=column_names)
 
-        base_url = 'https://scihub.copernicus.eu/apihub/'
-
         # get connected to scihub
-        opener = scihub.connect(base_url, uname, pword)
+        opener = scihub.connect(uname, pword)
         anno_list = self._scihub_annotation_url(opener)
 
         for url in anno_list:
@@ -527,13 +494,24 @@ class Sentinel1Scene:
                 et_root = eTree.fromstring(response)
 
                 # parse the xml page from the response
-                gdf = self._burst_database(et_root)
+                gdf = burst_extract(
+                    self.scene_id, self.rel_orbit, self.start_date,
+                    eTree.parse(et_root)
+                )
 
                 gdf_final = gdf_final.append(gdf)
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def zip_annotation_get(self, download_dir, data_mount='/eodata'):
+    def zip_annotation_get(self, download_dir, data_mount=None):
+        """
+
+        :param download_dir:
+        :param data_mount:
+        :return:
+        """
+
+        from ost.s1.burst_inventory import burst_extract
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
                         'BurstNr', 'geometry']
@@ -547,29 +525,39 @@ class Sentinel1Scene:
         # extract info from archive
         archive = zipfile.ZipFile(file, 'r')
         namelist = archive.namelist()
-        xml_files = fnmatch.filter(namelist, "*/annotation/s*.xml")
+        anno_files = fnmatch.filter(namelist, "*/annotation/s*.xml")
 
         # loop through xml annotation files
-        for xml_file in xml_files:
-            xml_string = archive.open(xml_file)
+        for anno_file in anno_files:
+            anno_string = archive.open(anno_file)
 
-            gdf = self._burst_database(eTree.parse(xml_string))
+            gdf = burst_extract(
+                self.scene_id, self.rel_orbit, self.start_date,
+                eTree.parse(anno_string)
+            )
+
             gdf_final = gdf_final.append(gdf)
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
 
-    def safe_annotation_get(self, download_dir, data_mount='/eodata'):
+    def safe_annotation_get(self, download_dir, data_mount=None):
+
+        from ost.s1.burst_inventory import burst_extract
 
         column_names = ['SceneID', 'Track', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
         gdf_final = gpd.GeoDataFrame(columns=column_names)
 
-        for anno_file in glob.glob(
-                '{}/annotation/*xml'.format(
-                    self.get_path(download_dir=download_dir,
-                                  data_mount=data_mount))):
+        file_path = self.get_path(
+            download_dir=download_dir, data_mount=data_mount
+        )
+
+        for anno_file in download_dir.glob(f'{file_path}/annotation/*xml'):
             # parse the xml page from the response
-            gdf = self._burst_database(eTree.parse(anno_file))
+            gdf = burst_extract(
+                self.scene_id, self.rel_orbit, self.start_date,
+                eTree.parse(anno_file)
+            )
             gdf_final = gdf_final.append(gdf)
 
         return gdf_final.drop_duplicates(['AnxTime'], keep='first')
@@ -578,10 +566,12 @@ class Sentinel1Scene:
     def ondadias_uuid(self, opener):
 
         # construct the basic the url
-        base_url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
-                    'Products?$search=')
-        action = '"' + self.scene_id + '.zip"'
+        base_url = (
+            'https://catalogue.onda-dias.eu/dias-catalogue/Products?$search='
+        )
+
         # construct the download url
+        action = '"' + self.scene_id + '.zip"'
         url = base_url + action
 
         try:
@@ -603,43 +593,50 @@ class Sentinel1Scene:
 
             # parse the uuid from the response (a messy pseudo xml)
             uuid = response.split('":"')[3].split('","')[0]
-            # except IndexError as error:
-            #    print('Image not available on ONDA DIAS now, please select another repository')
-            #    sys.exit()
-            # parse the xml page from the response - does not work at present
-            """dom = xml.dom.minidom.parseString(response)
-
-            # loop thorugh each entry (with all metadata)
-            for node in dom.getElementsByTagName('a:entry'):
-                download_url = node.getElementsByTagName(
-                    'a:id')[0].firstChild.nodeValue
-                uuid = download_url.split('(\'')[1].split('\')')[0]"""
-
-        return uuid
+            return uuid
 
     # other data providers
     def asf_url(self):
+        """Constructor for ASF download URL
 
+        :return: string of the ASF download url
+        :rtype: str
+        """
+        # base url of ASF
         asf_url = 'https://datapool.asf.alaska.edu'
 
+        # get ASF style mission id
         if self.mission_id == 'S1A':
             mission = 'SA'
         elif self.mission_id == 'S1B':
             mission = 'SB'
+        else:
+            raise ValueError('Wrong mission id.')
 
+        # get relevant product type in ASF style
         if self.product_type == 'SLC':
-            pType = self.product_type
+            product_type = self.product_type
         elif self.product_type == 'GRD':
-            pType = 'GRD_{}{}'.format(self.resolution_class, self.pol_mode[0])
+            product_type = f'GRD_{self.resolution_class}{self.pol_mode[0]}'
+        else:
+            raise ValueError('Wrong product type.')
 
-        productURL = '{}/{}/{}/{}.zip'.format(asf_url, pType,
-                                              mission, self.scene_id)
-        return productURL
+        return f'{asf_url}/{product_type}/{mission}/{self.scene_id}.zip'
 
     def peps_uuid(self, uname, pword):
+        """Retrieval of the PEPS UUID from the Peps server
 
-        url = ('https://peps.cnes.fr/resto/api/collections/S1/search.json?q={}'
-               .format(self.scene_id))
+        :param uname: username for CNES' PEPS server
+        :param pword: password for CNES' PEPS server
+        :return:
+        """
+        # construct product url
+        url = (
+            f'https://peps.cnes.fr/resto/api/collections/S1/search.json?q='
+            f'{self.scene_id}'
+        )
+
+        # get response
         response = requests.get(url, stream=True, auth=(uname, pword))
 
         # check response
@@ -650,21 +647,17 @@ class Sentinel1Scene:
 
         data = json.loads(response.text)
         peps_uuid = data['features'][0]['id']
-        download_url = (data['features'][0]['properties']
-        ['services']['download']['url'])
+        download_url = (
+            data['features'][0]['properties']['services']['download']['url']
+        )
 
         return peps_uuid, download_url
 
     def peps_online_status(self, uname, pword):
+        """Check if product is online at CNES' Peps server.
 
-        """
-        This function will download S1 products from CNES Peps mirror.
-
-        :param url: the url to the file you want to download
-        :param fileName: the absolute path to where the downloaded file should
-                         be written to
-        :param uname: ESA's scihub username
-        :param pword: ESA's scihub password
+        :param uname: CNES' Peps username
+        :param pword: CNES' Peps password
         :return:
         """
 
@@ -688,87 +681,133 @@ class Sentinel1Scene:
 
         return status, url
 
-    # processing related functions
-    def get_ard_parameters(self, ard_type='OST-GTC'):
+    def get_ard_parameters(self, ard_type):
 
-        # get path to ost package
-        rootpath = importlib.util.find_spec('ost').submodule_search_locations[
-            0]
-        rootpath = opj(rootpath, 'graphs', 'ard_json')
-
-        template_file = opj(rootpath, '{}.{}.json'.format(
-            self.product_type.lower(),
-            ard_type.replace('-', '_').lower()))
-
+        # find respective template for selected ARD type
+        template_file = OST_ROOT.joinpath(
+            f"graphs/ard_json/"
+            f"{self.product_type.lower()}."
+            f"{ard_type.replace('-', '_').lower()}.json"
+        )
+        # open and load parameters
         with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing']
+            ard_parameters = json.load(ard_file)['processing']
 
-    def set_external_dem(self, dem_file):
+        return ard_parameters
+
+    def update_ard_parameters(self, ard_type=None):
+        """
+
+        :param ard_type:
+        :return:
+        """
+        # if a ard type is selected, load
+        if ard_type:
+            self.get_ard_parameters(ard_type)
+
+        # check for correctness of ard parameters
+        check_ard_parameters(self.ard_parameters)
+
+        # re-create project dict with update ard parameters
+        self.config_dict.update(
+            processing=self.ard_parameters
+        )
+
+        # dump to json file
+        with open(self.config_file, 'w') as outfile:
+            json.dump(self.config_dict, outfile, indent=4)
+
+    def set_external_dem(self, dem_file, ellipsoid_correction=True):
+        """
+
+        :param dem_file:
+        :param ellipsoid_correction:
+        :return:
+        """
 
         import rasterio
 
         # check if file exists
-        if not os.path.isfile(dem_file):
-            print(' ERROR: No dem file found at location {}.'.format(dem_file))
-            return
+        if not Path(dem_file).eixtst():
+            raise FileNotFoundError(f'No file found at {dem_file}.')
 
         # get no data value
         with rasterio.open(dem_file) as file:
             dem_nodata = file.nodata
 
-        # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image_resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem_resampling']
+        # get resampling
+        img_res = self.ard_parameters['single_ARD']['dem']['image_resampling']
+        dem_res = self.ard_parameters['single_ARD']['dem']['dem_resampling']
 
         # update ard parameters
         dem_dict = dict({'dem_name': 'External DEM',
                          'dem_file': dem_file,
                          'dem_nodata': dem_nodata,
                          'dem_resampling': dem_res,
-                         'image_resampling': img_res})
+                         'image_resampling': img_res,
+                         'egm_correction': ellipsoid_correction,
+                         'out_projection': 'WGS84(DD)'
+                         })
+
+        # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-    def update_ard_parameters(self):
+    def create_ard(self, infile, out_dir, out_prefix, temp_dir, subset=None):
+        """
 
-        with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing_parameters': self.ard_parameters}),
-                      outfile,
-                      indent=4)
+        :param infile:
+        :param out_dir:
+        :param out_prefix:
+        :param temp_dir:
+        :param subset:
+        :return:
+        """
 
-    def create_ard(self, infile, out_dir, out_prefix, temp_dir,
-                   subset=None, polar='VV,VH,HH,HV'):
+        if self.product_type != 'GRD':
+            raise ValueError(
+                'The create_ard method for single products is currently '
+                'only available for GRD products'
+            )
 
-        self.proc_file = opj(out_dir, 'processing.json')
+        if isinstance(infile, str):
+            infile = Path(infile)
+
+        if isinstance(out_dir, str):
+            out_dir = Path(out_dir)
+
+        # --------------------------------------------
+        # 2 Check if within SRTM coverage
+        # set ellipsoid correction and force GTC production
+        # when outside SRTM
+        center_lat = self._get_center_lat(infile)
+        if float(center_lat) > 59 or float(center_lat) < -59:
+            logger.info('Scene is outside SRTM coverage. Will use '
+                        'ellipsoid based terrain correction.')
+            self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
+
+        # --------------------------------------------
+        # 3 Check ard parameters in case they have been updated,
+        #   and write them to json file
+
+        # set config file to output directory
+        self.config_file = out_dir.joinpath('processing.json')
+
+        # write ard parameters, and check if they are correct
         self.update_ard_parameters()
-        # check for correctness of ARD paramters
 
-        #        self.center_lat = self._get_center_lat(infile)
-        #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-        #            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
-        #                  ' DEM instead.')
-        #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
-
+        # --------------------------------------------
+        # 4 set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        if self.product_type == 'GRD':
+        # --------------------------------------------
+        # 5 run the burst to ard batch routine
+        grd_to_ard(
+            [infile], out_dir, out_prefix, temp_dir, self.config_file, subset
+        )
 
-            # run the processing
-            grd_to_ard([infile],
-                       out_dir,
-                       out_prefix,
-                       temp_dir,
-                       self.proc_file,
-                       subset=subset)
-
-            # write to class attribute
-            self.ard_dimap = glob.glob(opj(out_dir, '{}*bs.dim'
-                                           .format(out_prefix)))[0]
-
-        elif self.product_type != 'GRD':
-
-            print(' ERROR: create_ard method for single products is currently'
-                  ' only available for GRD products')
+        # write to class attribute
+        self.ard_dimap = out_dir.joinpath(f'{out_prefix}*bs.dim')[0]
 
     def create_rgb(self, outfile, driver='GTiff'):
 
@@ -802,13 +841,16 @@ class Sentinel1Scene:
     # other functions
     def _get_center_lat(self, scene_path=None):
 
-        if scene_path[-4:] == '.zip':
-            zip_archive = zipfile.ZipFile(scene_path)
-            manifest = zip_archive.read('{}.SAFE/manifest.safe'
-                                        .format(self.scene_id))
-        elif scene_path[-5:] == '.SAFE':
-            with open(opj(scene_path, 'manifest.safe'), 'rb') as file:
+        if scene_path.suffix == '.zip':
+            zip_archive = zipfile.ZipFile(str(scene_path))
+            manifest = zip_archive.read(
+                f'{self.scene_id}.SAFE/manifest.safe'
+            )
+        elif scene_path.suffix == '.SAFE':
+            with open(scene_path.joinpath('manifest.safe'), 'rb') as file:
                 manifest = file.read()
+        else:
+            raise ValueError('Invalid file.')
 
         root = eTree.fromstring(manifest)
         for child in root:
@@ -817,16 +859,23 @@ class Sentinel1Scene:
                 for wrap in meta.findall('metadataWrap'):
                     for data in wrap.findall('xmlData'):
                         for frameSet in data.findall(
-                                '{http://www.esa.int/safe/sentinel-1.0}frameSet'):
+                            '{http://www.esa.int/safe/sentinel-1.0}'
+                            'frameSet'
+                        ):
                             for frame in frameSet.findall(
-                                    '{http://www.esa.int/safe/sentinel-1.0}frame'):
+                                '{http://www.esa.int/safe/sentinel-1.0}'
+                                'frame'
+                            ):
                                 for footprint in frame.findall(
-                                        '{http://www.esa.int/'
-                                        'safe/sentinel-1.0}footPrint'):
+                                    '{http://www.esa.int/'
+                                    'safe/sentinel-1.0}footPrint'
+                                ):
                                     for coords in footprint.findall(
-                                            '{http://www.opengis.net/gml}'
-                                            'coordinates'):
-                                        coordinates = coords.text.split(' ')
+                                        '{http://www.opengis.net/gml}'
+                                        'coordinates'
+                                    ):
+                                        coordinates = (
+                                            coords.text.split(' '))
 
         sums = 0
         for i, coords in enumerate(coordinates):

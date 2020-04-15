@@ -37,7 +37,7 @@ def remove_outliers(arrayin, stddev=3, z_threshold=None):
         perc95 = np.percentile(arrayin, 95, axis=0)
         perc5 = np.percentile(arrayin, 5, axis=0)
 
-        # we mask out the percetile outliers for std dev calculation
+        # we mask out the percentile outliers for std dev calculation
         masked_array = np.ma.MaskedArray(
             arrayin,
             mask=np.logical_or(
@@ -85,33 +85,42 @@ def deseasonalize(stack):
     
     percentiles = np.percentile(stack, 95, axis=[1, 2])
     deseasoned = np.subtract(
-        percentiles[:,np.newaxis], stack.reshape(stack.shape[0], -1)
+        percentiles[:, np.newaxis], stack.reshape(stack.shape[0], -1)
     )
     return deseasoned.reshape(stack.shape)
 
 
 def _zvalue_from_index(arr, ind):
-    """private helper function to work around the limitation of np.choose() by employing np.take()
+    """ work around the limitation of np.choose() by employing np.take()
+
     arr has to be a 3D array
     ind has to be a 2D array containing values for z-indicies to take from arr
     See: http://stackoverflow.com/a/32091712/4169585
-    This is faster and more memory efficient than using the ogrid based solution with fancy indexing.
+
+    This is faster and more memory efficient than using
+    the ogrid based solution with fancy indexing.
     """
+
     # get number of columns and rows
-    _, nC, nR = arr.shape
+    _, cols, rows = arr.shape
 
     # get linear indices and extract elements with np.take()
-    idx = nC * nR * ind + np.arange(nC*nR).reshape((nC,nR))
+    idx = cols * rows * ind + np.arange(cols * rows).reshape((cols, rows))
     return np.take(arr, idx)
 
 
 def nan_percentile(arr, q):
-    # taken from: https://krstn.eu/np.nanpercentile()-there-has-to-be-a-faster-way/
+
+    # taken from:
+    # https://krstn.eu/np.nanpercentile()-there-has-to-be-a-faster-way/
+
     # valid (non NaN) observations along the first axis
     valid_obs = np.sum(np.isfinite(arr), axis=0)
+
     # replace NaN with maximum
     max_val = np.nanmax(arr)
     arr[np.isnan(arr)] = max_val
+
     # sort - former NaNs will move to the end
     arr = np.sort(arr, axis=0)
 
@@ -121,26 +130,28 @@ def nan_percentile(arr, q):
         qs.extend(q)
     else:
         qs = [q]
-    if len(qs) < 2:
-        quant_arr = np.zeros(shape=(arr.shape[1], arr.shape[2]))
-    else:
-        quant_arr = np.zeros(shape=(len(qs), arr.shape[1], arr.shape[2]))
 
     result = []
     for i in range(len(qs)):
+
         quant = qs[i]
+
         # desired position as well as floor and ceiling of it
         k_arr = (valid_obs - 1) * (quant / 100.0)
         f_arr = np.floor(k_arr).astype(np.int32)
         c_arr = np.ceil(k_arr).astype(np.int32)
         fc_equal_k_mask = f_arr == c_arr
 
-        # linear interpolation (like numpy percentile) takes the fractional part of desired position
+        # linear interpolation (like numpy percentile)
+        # takes the fractional part of desired position
         floor_val = _zvalue_from_index(arr=arr, ind=f_arr) * (c_arr - k_arr)
         ceil_val = _zvalue_from_index(arr=arr, ind=c_arr) * (k_arr - f_arr)
 
         quant_arr = floor_val + ceil_val
-        quant_arr[fc_equal_k_mask] = _zvalue_from_index(arr=arr, ind=k_arr.astype(np.int32))[fc_equal_k_mask]  # if floor == ceiling take floor value
+        quant_arr[fc_equal_k_mask] = _zvalue_from_index(
+            arr=arr,
+            ind=k_arr.astype(np.int32)
+        )[fc_equal_k_mask]
 
         result.append(quant_arr)
 
@@ -148,6 +159,11 @@ def nan_percentile(arr, q):
 
 
 def mt_metrics(list_of_args):
+    """
+
+    :param list_of_args:
+    :return:
+    """
     # -------------------------------------
     # 1 extract args
     stack, out_prefix, metrics, rescale_to_datatype = list_of_args[:4]
@@ -159,8 +175,10 @@ def mt_metrics(list_of_args):
         if 'harmonics' in metrics:
             logger.info('Calculating harmonics')
             if not datelist:
-                print(
-                    ' WARNING: Harmonics need the datelist. Harmonics will not be calculated')
+                raise RuntimeWarning(
+                    'Harmonics need the datelist. '
+                    'Harmonics will not be calculated'
+                )
             else:
                 harmonics = True
                 metrics.remove('harmonics')
@@ -203,7 +221,7 @@ def mt_metrics(list_of_args):
                 sines.append(np.sin(np.multiply(two_pi, delta - 0.5)))
                 cosines.append(np.cos(np.multiply(two_pi, delta - 0.5)))
 
-            X = np.array([dates, cosines, sines])
+            x_array = np.array([dates, cosines, sines])
 
         # loop through blocks
         for _, window in src.block_windows(1):
@@ -249,7 +267,7 @@ def mt_metrics(list_of_args):
                 else:
                     y = stack.reshape(stack.shape[0], -1)
 
-                x, residuals, _, _ = np.linalg.lstsq(X.T, y)
+                x, residuals, _, _ = np.linalg.lstsq(x_array.T, y)
                 arr['amplitude'] = np.hypot(x[1], x[2]).reshape(stack_size)
                 arr['phase'] = np.arctan2(x[2], x[1]).reshape(stack_size)
                 arr['residuals'] = np.sqrt(
@@ -293,15 +311,14 @@ def mt_metrics(list_of_args):
         return_code = h.check_out_tiff(filename)
         if return_code != 0:
             # remove all files and return
-            #for metric in metrics:
             filename = f'{str(out_prefix)}.{metric}.tif'
             Path(filename).unlink()
             # Path(f'{filename}.xml').unlink()
             
             return return_code
-        
-    if return_code == 0:
-        dirname = out_prefix.parent
-        check_file = dirname.joinpath(f'.{out_prefix.name}.processed')
-        with open(str(check_file), 'w') as file:
-            file.write('passed all tests \n')
+
+    # write out that it's been processed
+    dirname = out_prefix.parent
+    check_file = dirname.joinpath(f'.{out_prefix.name}.processed')
+    with open(str(check_file), 'w') as file:
+        file.write('passed all tests \n')

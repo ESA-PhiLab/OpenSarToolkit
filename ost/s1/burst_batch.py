@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Batch processing routines for Sentinel-1 bursts
+
+This module handles all the batch processing routines involved
+in the full workflow from raw Sentinel-1 SLC imagery to
+large-scale time-series and timescan mosaics.
+"""
+
 import os
 import json
 import itertools
@@ -12,6 +22,7 @@ from ost.s1.burst_inventory import prepare_burst_inventory
 from ost.s1.burst_to_ard import burst_to_ard
 from ost.generic import ard_to_ts, ts_extent, ts_ls_mask, timescan, mosaic
 
+# set up logger
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------
@@ -29,6 +40,21 @@ def bursts_to_ards(
         executor_type='multiprocessing',
         max_workers=1
 ):
+    """Batch processing from single bursts to ARD format
+
+    This function handles the burst processing based on a OST burst inventory
+    file and an OST config file that contains all necessary information
+    about the project (e.g. project directory) and processing steps applied
+    for the ARD generation based on the JSON ARD-type templates.
+
+    :param burst_gdf: an OST burst inventory
+    :type burst_gdf: GeoDataFrame
+    :param config_file: (str/Path) path to the project config file
+    :param executor_type: executer type for parallel processing with godale,
+                          defaults to multiprocessing
+    :param max_workers: number of parallel burst processing jobs to start
+    :return:
+    """
 
     print('--------------------------------------------------------------')
     logger.info('Processing all single bursts to ARD')
@@ -55,6 +81,14 @@ def bursts_to_ards(
 
 
 def _create_extents(burst_gdf, config_file):
+    """Batch processing for multi-temporal Layover7Shadow mask
+
+    This function handles the organization of the
+
+    :param burst_gdf:
+    :param config_file:
+    :return:
+    """
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)['project']
@@ -85,10 +119,18 @@ def _create_extents(burst_gdf, config_file):
     pool.map(ts_extent.mt_extent, iter_list)
 
 
-def _create_mt_ls_mask(burst_gdf, project_file):
+def _create_mt_ls_mask(burst_gdf, config_file):
+    """Batch processing for multi-temporal Layover7Shadow mask
+
+    This function handles the organization of the
+
+    :param burst_gdf:
+    :param config_file:
+    :return:
+    """
 
     # read config file
-    with open(project_file, 'r') as file:
+    with open(config_file, 'r') as file:
         project_params = json.load(file)
         processing_dir = project_params['project']['processing_dir']
         temp_dir = project_params['project']['temp_dir']

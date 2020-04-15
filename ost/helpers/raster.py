@@ -1,9 +1,9 @@
 #! /usr/bin/env python
-"""
-This script provides wrapper functions for processing Sentinel-1 GRD products.
+
+"""Helper functions for raster data
+
 """
 
-# import stdlib modules
 import os
 from os.path import join as opj
 import numpy as np
@@ -12,7 +12,6 @@ import glob
 import itertools
 from pathlib import Path
 
-# geo libs
 import gdal
 import fiona
 import imageio
@@ -22,58 +21,22 @@ from rasterio.features import shapes
 
 from ost.helpers import helpers as h
 
-# script infos
-__author__ = 'Andreas Vollrath'
-__copyright__ = 'phi-lab, European Space Agency'
-
-__license__ = 'GPL'
-__version__ = '1.0'
-__maintainer__ = 'Andreas Vollrath'
-__email__ = ''
-__status__ = 'Production'
-
-
-
-def replace_value(rasterfn, value_to_replace, new_value):
-
-    # open raster file
-    raster = gdal.Open(rasterfn, gdal.GA_Update)
-
-    # Get blocksizes for iterating over tiles (chuuks)
-    my_block_size = raster.GetRasterBand(1).GetBlockSize()
-    x_block_size = my_block_size[0]
-    y_block_size = my_block_size[1]
-
-    # Get image sizes
-    cols = raster.RasterXSize
-    rows = raster.RasterYSize
-
-    # loop through y direction
-    for y in range(0, rows, y_block_size):
-        if y + y_block_size < rows:
-            ysize = y_block_size
-        else:
-            ysize = rows - y
-
-        # loop throug x direction
-        for x in range(0, cols, x_block_size):
-            if x + x_block_size < cols:
-                xsize = x_block_size
-            else:
-                xsize = cols - x
-
-            raster_array = np.array(raster.GetRasterBand(1).ReadAsArray(
-                x, y, xsize, ysize))
-            raster_array[raster_array <= np.float32(value_to_replace)] = np.float32(
-                new_value)
-
-            raster.GetRasterBand(1).WriteArray(raster_array, x, y)
-
 
 def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
+    """Polygonize a raster mask based on a mask value
+
+    :param infile:
+    :type infile:
+    :param outfile:
+    :type outfile:
+    :param mask_value:
+    :type mask_value: int/float, optional
+    :param driver:
+    :type driver: str, optional
+    :return:
+    """
 
     with rasterio.open(infile) as src:
-
         image = src.read(1)
 
         if mask_value is not None:
@@ -97,16 +60,16 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
             dst.writerecords(results)
 
 
-def outline(infile, outfile, ndv=0, less_then=False):
-    '''
-    This function returns the valid areas (i.e. non no-data areas) of a
-    raster file as a shapefile.
+def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
+    """Generates a vector file with the valid areas of a raster file
 
     :param infile: input raster file
     :param outfile: output shapefile
-    :param ndv: no data value of the input raster
+    :param ndv: no-data-value
+    :param less_then:
+    :param driver:
     :return:
-    '''
+    """
 
     with rasterio.open(infile) as src:
 
@@ -115,6 +78,7 @@ def outline(infile, outfile, ndv=0, less_then=False):
 
         # update driver, datatype and reduced band count
         meta.update(driver='GTiff', dtype='uint8', count=1)
+
         # we update the meta for more efficient looping due to
         # hardcoded vrt blocksizes
         meta.update(blockxsize=src.shape[1], blockysize=1)
@@ -142,12 +106,17 @@ def outline(infile, outfile, ndv=0, less_then=False):
                 out_min.write(np.uint8(min_array), window=window, indexes=1)
 
     # now let's polygonize
-    polygonize_raster(f'{outfile.stem}.tif', outfile)
+    polygonize_raster(f'{outfile.stem}.tif', outfile, driver)
     Path(f'{outfile.stem}.tif').unlink()
 
 
 # convert power to dB
 def convert_to_db(pow_array):
+    """Convert array of SAR power to decibel
+
+    :param pow_array:
+    :return:
+    """
 
     # assure all values are positive (strangely that's not always the case)
     pow_array[pow_array < 0] = 0.0000001
@@ -160,51 +129,95 @@ def convert_to_db(pow_array):
 
 
 # rescale sar dB dat ot integer format
-def scale_to_int(float_array, min_value, max_value, datatype):
+def scale_to_int(float_array, min_value, max_value, data_type):
+    """Convert a float array to integer by linear scaling between min and max
+
+    :param float_array:
+    :param min_value:
+    :param max_value:
+    :param data_type:
+    :return:
+    """
 
     # set output min and max
     display_min = 1.
-    if datatype == 'uint8':
+    if data_type == 'uint8':
         display_max = 255.
-    elif datatype == 'uint16':
+    elif data_type == 'uint16':
         display_max = 65535.
+    else:
+        raise ValueError('Datatype should be either uint8 or uint16.')
 
+    # calculate stretch parameters a and x
     a = min_value - ((max_value - min_value) / (display_max - display_min))
     x = (max_value - min_value) / (display_max - 1)
 
-    # float_array[float_array == 0.0] = np.nan
+    # clip float array to min and max for stretching
     float_array[float_array > max_value] = max_value
     float_array[float_array < min_value] = min_value
 
+    # stretch array
     stretched = np.divide(np.subtract(float_array, a), x)
-    int_array = np.round(np.nan_to_num(stretched)).astype(datatype)
 
-    return int_array
+    # round to integer, convert nans to 0 and set datatype
+    return np.round(np.nan_to_num(stretched)).astype(datatype)
 
 
-# rescale integer scaled sar data back to dB
-def rescale_to_float(int_array, data_type_name):
+def rescale_to_float(int_array, data_type):
+    """Re-convert a previously converted integer array back to float
+
+    :param int_array:
+    :param data_type:
+    :return:
+    """
+
+    # convert to float and turn 0s to nan
     int_array = int_array.astype('float32')
     int_array[int_array == 0] = np.nan
 
-    if data_type_name == 'uint8':
+    # calculate conversion parameters
+    if data_type == 'uint8':
         a = np.divide(35., 254.)
         b = np.subtract(-30., a)
-    elif data_type_name == 'uint16':
+    elif data_type == 'uint16':
         a = np.divide(35., 65535.)
         b = np.subtract(-30., a)
     else:
         raise TypeError('Unknown datatype')
 
+    # apply stretch
     return np.add(np.multiply(int_array, a), b)
 
 
-def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
-                  rescale=True, min_value=0.000001, max_value=1, ndv=None,
-                  description=True):
+def mask_by_shape(
+        infile,
+        outfile,
+        vector,
+        to_db=False,
+        datatype='float32',
+        rescale=True,
+        min_value=0.000001,
+        max_value=1,
+        ndv=None,
+        description=True
+):
+    """Mask a raster layer with a vector file (including data conversions)
 
-    # import shapefile geometries
-    with fiona.open(shapefile, 'r') as file:
+    :param infile:
+    :param outfile:
+    :param vector:
+    :param to_db:
+    :param datatype:
+    :param rescale:
+    :param min_value:
+    :param max_value:
+    :param ndv:
+    :param description:
+    :return:
+    """
+
+    # import vector geometries
+    with fiona.open(vector, 'r') as file:
         features = [feature['geometry'] for feature in file
                     if feature['geometry']]
 
@@ -217,33 +230,37 @@ def mask_by_shape(infile, outfile, shapefile, to_db=False, datatype='float32',
     # unmask array
     out_image = out_image.data
     out_image[out_image == 0] = np.nan
+
     # if to decibel should be applied
     if to_db is True:
         out_image = convert_to_db(out_image)
 
-    if rescale:
+    # if rescaling to integer should be applied
+    if rescale and datatype == 'uint8':
+        out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
+    elif rescale and datatype == 'uint16':
+        out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
 
-        if datatype == 'uint8':
-            out_image = scale_to_int(out_image, min_value, max_value, 'uint8')
-        elif datatype == 'uint16':
-            out_image = scale_to_int(out_image, min_value, max_value, 'uint16')
+    # update metadata for outfile
+    out_meta.update(
+        {'driver': 'GTiff', 'height': out_image.shape[1],
+         'width': out_image.shape[2], 'transform': out_transform,
+         'nodata': ndv, 'dtype': datatype, 'tiled': True,
+         'blockxsize': 128, 'blockysize': 128}
+    )
 
-    out_meta.update({'driver': 'GTiff', 'height': out_image.shape[1],
-                     'width': out_image.shape[2], 'transform': out_transform,
-                     'nodata': ndv, 'dtype': datatype, 'tiled': True,
-                     'blockxsize': 128, 'blockysize': 128})
-
+    # write output
     with rasterio.open(outfile, 'w', **out_meta) as dest:
         dest.write(np.nan_to_num(out_image))
 
+        # add some metadata to tif-file
         if description:
-            dest.update_tags(1,
-                    BAND_NAME='{}'.format(os.path.basename(infile)[:-4]))
-            dest.set_band_description(1,
-                    '{}'.format(os.path.basename(infile)[:-4]))
+            dest.update_tags(1, BAND_NAME=str(infile.name)[:-4])
+            dest.set_band_description(1, str(infile.name)[:-4])
 
 
 def create_tscan_vrt(list_of_args):
+
 
     timescan_dir, project_file = list_of_args
 
@@ -285,33 +302,54 @@ def create_tscan_vrt(list_of_args):
      )
         
 
-def norm(band, percentile=False):
+def norm(array, percentile=False):
+    """Normalize array by its min/max or 2- and 98 percentile
 
+    :param array:
+    :param percentile:
+    :return:
+    """
     if percentile:
-        band_min, band_max = np.percentile(band, 2), np.percentile(band, 98)
+        array_min, array_max = np.percentile(array, 2), np.percentile(array, 98)
     else:
-        band_min, band_max = np.nanmin(band), np.nanmax(band)
+        array_min, array_max = np.nanmin(array), np.nanmax(array)
         
-    return (band - band_min)/(band_max - band_min)
+    return (array - array_min)/(array_max - array_min)
 
 
 def visualise_rgb(filepath, shrink_factor=25):
+    """
+
+    :param filepath:
+    :param shrink_factor:
+    :return:
+    """
 
     import matplotlib.pyplot as plt
 
     with rasterio.open(filepath) as src:
-        array = src.read(
-                out_shape=(src.count, int(src.height / shrink_factor),
-                           int(src.width / shrink_factor)),
-                resampling=5    # 5 = average
-                )
 
+        # read array and resample by shrink_factor
+        array = src.read(
+            out_shape=(
+                src.count,
+                int(src.height / shrink_factor),
+                int(src.width / shrink_factor)
+            ),
+            resampling=5    # 5 = average
+        )
+
+    # convert 0 to nans
     array[array == 0] = np.nan
+
+    # normalise RGB bands
     red = norm(scale_to_int(array[0], -18, 0, 'uint8'))
     green = norm(scale_to_int(array[1], -25, -5, 'uint8'))
     blue = norm(scale_to_int(array[2], 1, 15, 'uint8'))
+
+    # stack image
     img = np.dstack((red, green, blue))
-    img[img == 0] = np.nan
+    # img[img == 0] = np.nan
     plt.imshow(img)
 
 

@@ -12,45 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def calibration(infile, outfile, logfile, calibrate_to, ncores=os.cpu_count()):
-    # transform calibration parameter to snap readable
-    sigma0, beta0, gamma0 = 'false', 'false', 'false'
-
-    if calibrate_to is 'gamma0':
-        gamma0 = 'true'
-    elif calibrate_to is 'beta0':
-        beta0 = 'true'
-    elif calibrate_to is 'sigma0':
-        sigma0 = 'true'
-
-    logger.info('Calibrating the product to {}.'.format(calibrate_to))
-    # contrcut command string
-
-    command = ('{} Calibration -x -q {}'
-               ' -PoutputBetaBand=\'{}\''
-               ' -PoutputGammaBand=\'{}\''
-               ' -PoutputSigmaBand=\'{}\''
-               ' -t \'{}\' \'{}\''.format(
-        GPT_FILE, 2 * ncores,
-        beta0, gamma0, sigma0,
-        outfile, infile
-    )
-    )
-
-    # run command and get return code
-    return_code = h.run_command(command, logfile)
-
-    # hadle errors and logs
-    if return_code == 0:
-        logger.info('Calibration to {} successful.'.format(calibrate_to))
-    else:
-        print(' ERROR: Calibration exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-
-    return return_code
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=1)
 def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count()):
     logger.info('Multi-looking the image with {} looks in'
                 ' azimuth and {} looks in range.'.format(az_looks, rg_looks)
@@ -80,8 +41,7 @@ def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def speckle_filter(infile, outfile, logfile, speckle_dict,
-                   ncores=os.cpu_count()):
+def speckle_filter(infile, outfile, logfile, config_dict):
     """ Wrapper around SNAP's peckle Filter function
 
     This function takes OST imported Sentinel-1 product and applies
@@ -144,7 +104,7 @@ def speckle_filter(infile, outfile, logfile, speckle_dict,
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
+def linear_to_db(infile, outfile, logfile, config_dict):
     """A wrapper around SNAP's linear to db routine
 
     This function takes an OST calibrated Sentinel-1 product
@@ -179,13 +139,16 @@ def linear_to_db(infile, outfile, logfile, ncores=os.cpu_count()):
         )
 
 
-def terrain_flattening(
-            infile,
-            outfile,
-            logfile,
-            dem_dict,
-            ncores=os.cpu_count()
-):
+def terrain_flattening(infile, outfile, logfile, config_dict):
+    """
+
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
     command = (
         '{} Terrain-Flattening -x -q {}'
         ' -PdemName=\'{}\''
@@ -218,13 +181,7 @@ def terrain_flattening(
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def terrain_correction(infile,
-                       outfile,
-                       logfile,
-                       resolution,
-                       dem_dict,
-                       ncores=os.cpu_count()
-                       ):
+def terrain_correction(infile, outfile, logfile, config_dict):
     """
     A wrapper around SNAP's Terrain Correction routine
     This function takes an OST calibrated Sentinel-1 product and
@@ -286,16 +243,16 @@ def terrain_correction(infile,
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def ls_mask(infile, outfile, logfile, ard, ncores=os.cpu_count()):
+def ls_mask(infile, outfile, logfile, config_dict):
     """
 
     :param infile:
     :param outfile:
     :param logfile:
-    :param ard:
-    :param ncores:
+    :param config_dict:
     :return:
     """
+
     logger.info('Creating the Layover/Shadow mask')
     # get path to workflow xml
     graph = OST_ROOT.joinpath('graphs/S1_GRD2ARD/3_LSmap.xml')
@@ -329,25 +286,35 @@ def ls_mask(infile, outfile, logfile, ard, ncores=os.cpu_count()):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def create_stack(filelist, out_stack, logfile,
-                 polarisation=None, pattern=None, ncores=os.cpu_count()):
-    '''
+def create_stack(
+        file_list,
+        out_stack,
+        logfile,
+        polarisation=None,
+        pattern=None,
+        ncores=os.cpu_count()
+):
+    """
 
-    :param filelist: list of single Files (space separated)
-    :param outfile: the stack that is generated
+    :param filelist:
+    :param out_stack:
+    :param logfile:
+    :param polarisation:
+    :param pattern:
+    :param ncores:
     :return:
-    '''
+    """
 
     if pattern:
         graph = opj(OST_ROOT, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
         command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
                -Poutput={}'.format(GPT_FILE, graph, 2*ncores,
-                                   filelist, pattern, out_stack)
+                                   file_list, pattern, out_stack)
     else:
         graph = opj(OST_ROOT, 'graphs', 'S1_TS', '1_BS_Stacking.xml')
         command = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
                -Poutput={}'.format(GPT_FILE, graph, 2*ncores,
-                                   filelist, polarisation, out_stack)
+                                   file_list, polarisation, out_stack)
 
     return_code = h.run_command(command, logfile)
 
@@ -363,9 +330,10 @@ def create_stack(filelist, out_stack, logfile,
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_speckle_filter(in_stack, out_stack, logfile, speckle_dict,
-                      ncores=os.cpu_count()):
-    #logger.info('Applying multi-temporal speckle filtering.')
+def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
+
+    logger.debug('Applying multi-temporal speckle filtering.')
+
     # construct command string
     command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
                ' -PestimateENL={}'
