@@ -160,7 +160,7 @@ def scale_to_int(float_array, min_value, max_value, data_type):
     stretched = np.divide(np.subtract(float_array, a), x)
 
     # round to integer, convert nans to 0 and set datatype
-    return np.round(np.nan_to_num(stretched)).astype(datatype)
+    return np.round(np.nan_to_num(stretched)).astype(data_type)
 
 
 def rescale_to_float(int_array, data_type):
@@ -364,6 +364,7 @@ def get_min(file):
     for key, items in mins.items():
         if key in file:
             return items
+
 
 def get_max(file):
 

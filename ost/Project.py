@@ -1,7 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import json
 import glob
-import urllib
+import urllib.request
+import urllib.parse
 import logging
 from os.path import join as opj
 from pathlib import Path
@@ -16,7 +19,7 @@ from ost.helpers import scihub, helpers as h
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters
 
-from ost.s1 import search, refine, download
+from ost.s1 import search, refine_inventory, download
 from ost.s1 import burst_inventory, burst_batch
 from ost.s1 import grd_batch
 
@@ -61,25 +64,29 @@ class Generic:
         self.download_dir = self.project_dir.joinpath('download')
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f'Downloaded data will be stored in: {self.download_dir}'
+            f'Downloaded data will be stored in: {self.download_dir}. '
+            f'You can change this by setting self.download_dir. '
         )
 
         self.inventory_dir = self.project_dir.joinpath('inventory')
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Inventory files will be stored in: {self.inventory_dir}'
+            f'You can change this by setting self.inventory_dir. '
         )
 
         self.processing_dir = self.project_dir.joinpath('processing')
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Processed data will be stored in: {self.processing_dir}.'
+            f'You can change this by setting self.processing_dir. '
         )
 
         self.temp_dir = self.project_dir.joinpath('temp')
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Using {self.temp_dir} as directory for temporary files.'
+            f'You can change this by setting self.temp_dir. '
         )
 
         # ------------------------------------------
@@ -229,7 +236,7 @@ class Sentinel1(Generic):
         )
 
         # construct the final query
-        query = urllib.request.quote(
+        query = urllib.parse.quote(
             f'Sentinel-1 AND {product_specs} AND {aoi} AND {toi}'
         )
 
@@ -248,12 +255,13 @@ class Sentinel1(Generic):
         search.scihub_catalogue(
             query, self.inventory_file, append, uname, pword
         )
+        del uname, pword
 
         if self.inventory_file.exists():
             # read inventory into the inventory attribute
             self.read_inventory()
         else:
-            print('No images found in the AOI for this date range')
+            logger.info('No images found in the AOI for this date range')
 
     def read_inventory(self):
         """Read the Sentinel-1 data inventory from a OST invetory shapefile
@@ -277,10 +285,15 @@ class Sentinel1(Generic):
         # add download_path to inventory, so we can check if data needs to be
         # downloaded
         self.inventory = search.check_availability(
-            geodataframe, self.download_dir, self.data_mount)
+            geodataframe, self.download_dir, self.data_mount
+        )
 
     def download_size(self, inventory_df=None):
+        """Function to get the total size of all products when extracted in GB
 
+        :param inventory_df:
+        :return:
+        """
         if inventory_df is None:
             download_size = self.inventory[
                 'size'].str.replace(' GB', '').astype('float32').sum()
@@ -299,15 +312,18 @@ class Sentinel1(Generic):
                          area_reduce=0.05,
                          complete_coverage=True):
 
-        self.refined_inventory_dict, self.coverages = refine.search_refinement(
-            self.aoi,
-            self.inventory,
-            self.inventory_dir,
-            exclude_marginal=exclude_marginal,
-            full_aoi_crossing=full_aoi_crossing,
-            mosaic_refine=mosaic_refine,
-            area_reduce=area_reduce,
-            complete_coverage=complete_coverage)
+        self.refined_inventory_dict, self.coverages = (
+            refine_inventory.search_refinement(
+                self.aoi,
+                self.inventory,
+                self.inventory_dir,
+                exclude_marginal=exclude_marginal,
+                full_aoi_crossing=full_aoi_crossing,
+                mosaic_refine=mosaic_refine,
+                area_reduce=area_reduce,
+                complete_coverage=complete_coverage
+            )
+        )
 
         # summing up information
         print('--------------------------------------------')
@@ -670,6 +686,12 @@ class Sentinel1Batch(Sentinel1):
             logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
+        #!!!!!!!!!!!!!!!!
+        # subset determination
+        # we need a check funciton that checks if all images to process 100% overlap the AOI
+        # !!!!!!!!!!!!!!!!
+
+
         # set resolution in degree
         #        self.center_lat = loads(self.aoi).centroid.y
         #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
@@ -680,11 +702,7 @@ class Sentinel1Batch(Sentinel1):
         # the grd to ard batch routine
         grd_batch.grd_to_ard_batch(
             inventory_df=self.inventory,
-            download_dir=self.download_dir,
-            processing_dir=self.processing_dir,
-            temp_dir=self.temp_dir,
             config_file=self.config_file,
-            subset=self.aoi,
         )
 
         # time-series part

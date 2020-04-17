@@ -17,6 +17,7 @@ from fiona.crs import from_epsg
 
 logger = logging.getLogger(__name__)
 
+
 def get_epsg(prjfile):
     '''Get the epsg code from a projection file of a shapefile
 
@@ -131,7 +132,9 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     return geom.to_wkt()
 
 
-def latlon_to_wkt(lat, lon, buffer_degree=None, buffer_meter=None, envelope=False):
+def latlon_to_wkt(
+        lat, lon, buffer_degree=None, buffer_meter=None, envelope=False
+):
     """A helper function to create a WKT representation of Lat/Lon pair
 
     This function takes lat and lon values and returns
@@ -214,7 +217,8 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
 
     for feat in lyr:
         geom.AddGeometry(feat.GetGeometryRef())
-        wkt = geom.ExportToWkt()
+
+    wkt = geom.ExportToWkt()
 
     if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
         logger.info('Reprojecting AOI file to Lat/Long (WGS84)')
@@ -245,22 +249,6 @@ def latlon_to_shp(lon, lat, shapefile):
 
         output.write({'geometry': mapping(wkt),
                       'properties': {'id': '1'}})
-
-
-def shp_to_gdf(shapefile):
-
-    gdf = gpd.GeoDataFrame.from_file(shapefile)
-
-    prjfile = shapefile[:-4] + '.prj'
-    proj4 = get_proj4(prjfile)
-
-    if proj4 != '+proj=longlat +datum=WGS84 +no_defs':
-        logger.info('reprojecting AOI layer to WGS84.')
-        # reproject
-        gdf.crs = (proj4)
-        gdf = gdf.to_crs({'init': 'epsg:4326'})
-
-    return gdf
 
 
 def wkt_to_gdf(wkt):

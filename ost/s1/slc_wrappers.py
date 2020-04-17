@@ -54,8 +54,8 @@ def burst_import(
     )
 
     command = (
-        f'{GPT_FILE} {graph} -x -q {2 * cpus} -Pinput={infile} '
-        f'-Ppolar={polars} -Pswath={swath} -Pburst={burst} -Poutput={outfile}'
+        f'{GPT_FILE} {graph} -x -q {2 * cpus} -Pinput={str(infile)} '
+        f'-Ppolar={polars} -Pswath={swath} -Pburst={burst} -Poutput={str(outfile)}'
     )
 
     logger.debug(f'Executing command: {command}')
@@ -95,12 +95,12 @@ def ha_alpha(infile, outfile, logfile, config_dict):
         graph = OST_ROOT.joinpath(
             'graphs/S1_SLC2ARD/S1_SLC_Deb_Spk_Halpha.xml'
         )
-        logger.info('Applying the polarimetric speckle filter and'
+        logger.debug('Applying the polarimetric speckle filter and'
                     ' calculating the H-alpha dual-pol decomposition')
         command = (
             f'{GPT_FILE} {graph} -x -q {2 * cpus} '
-            f'-Pinput={infile} '
-            f'-Poutput={outfile} '
+            f'-Pinput={str(infile)} '
+            f'-Poutput={str(outfile)} '
             f"-Pfilter=\'{pol_speckle_dict['polarimetric_filter']}\' "
             f'-Pfilter_size=\'{pol_speckle_dict["filter_size"]}\' '
             f'-Pnr_looks={pol_speckle_dict["num_of_looks"]} '
@@ -114,18 +114,18 @@ def ha_alpha(infile, outfile, logfile, config_dict):
             'graphs/S1_SLC2ARD/S1_SLC_Deb_Halpha.xml'
         )
 
-        logger.info('Calculating the H-alpha dual polarisation')
+        logger.debug('Calculating the H-alpha dual polarisation')
         command = (
             f'{GPT_FILE} {graph} -x -q {2 * cpus} '
-            f'-Pinput="{infile}" '
-            f'-Poutput="{outfile}"'
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
         )
 
     logger.debug(f'Executing command: {command}')
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.info('Succesfully created H/A/Alpha product')
+        logger.debug('Succesfully created H/A/Alpha product')
     else:
         raise GPTRuntimeError(
             f'H/Alpha exited with an error {return_code}. '
@@ -188,8 +188,8 @@ def calibration(
             f"-Pdem_nodata={dem_dict['dem_nodata']} "
             f"-Pdem_resampling={dem_dict['dem_resampling']} "
             f"-Pregion='{region}' "
-            f"-Pinput={infile} "
-            f"-Poutput={outfile}"
+            f"-Pinput={str(infile)} "
+            f"-Poutput={str(outfile)}"
         )
 
     elif ard['product_type'] == 'GTC-gamma0':
@@ -206,8 +206,8 @@ def calibration(
             f'-Prange_looks={range_looks} '
             f'-Pazimuth_looks={azimuth_looks} '
             f'-Pregion="{region}" '
-            f'-Pinput="{infile}" '
-            f'-Poutput="{outfile}"'
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
         )
 
     elif ard['product_type'] == 'GTC-sigma0':
@@ -224,8 +224,8 @@ def calibration(
             f'-Prange_looks={range_looks} '
             f'-Pazimuth_looks={azimuth_looks} '
             f'-Pregion="{region}" '
-            f'-Pinput="{infile}" '
-            f'-Poutput="{outfile}"'
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
         )
     else:
         raise TypeError('Wrong product type selected.')
@@ -274,7 +274,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
         f'-PexternalDEMFile=\'{dem_dict["dem_file"]}\' '
         f'-PexternalDEMNoDataValue=\'{dem_dict["dem_nodata"]}\' '
         f'-PmaskOutAreaWithoutElevation=false '
-        f'-t \'{outfile}\''
+        f'-t \'{str(outfile)}\''
         f' "{master}" "{slave}"'
     )
 
@@ -323,7 +323,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
         f" -Pdem_file=\'{dem_dict['dem_file']}\' "
         f" -Pdem_nodata=\'{dem_dict['dem_nodata']}\' "
         f" -Pdem_resampling=\'{dem_dict['dem_resampling']}\' "
-        f" -Poutput={outfile}"
+        f" -Poutput={str(outfile)}"
     )
 
     return_code = h.run_command(command, logfile)
@@ -366,8 +366,8 @@ def coherence(infile, outfile, logfile, config_dict):
         f"-Pazimuth_window={ard['coherence_azimuth']} "
         f"-Prange_window={ard['coherence_range']} "
         f'-Ppolar=\'{polars}\' '
-        f'-Pinput="{infile}" '
-        f'-Poutput="{outfile}"'
+        f'-Pinput="{str(infile)}" '
+        f'-Poutput="{str(outfile)}"'
     )
 
     logger.debug(f'Executing command: {command}')

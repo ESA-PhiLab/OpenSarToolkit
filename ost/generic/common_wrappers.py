@@ -1,30 +1,52 @@
-import os
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import logging
 from retrying import retry
-from os.path import join as opj
-from pathlib import Path
 
 from ost.helpers import helpers as h
 from ost.helpers.settings import GPT_FILE, OST_ROOT
 from ost.helpers.errors import GPTRuntimeError
 
+
 logger = logging.getLogger(__name__)
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count()):
-    logger.info('Multi-looking the image with {} looks in'
-                ' azimuth and {} looks in range.'.format(az_looks, rg_looks)
-                )
+def speckle_filter(infile, outfile, logfile, config_dict):
+    """Wrapper function around SNAP's Speckle Filter function
+
+    This function takes OST imported Sentinel-1 product and applies
+    the Speckle Filter as defind within the config dictionary.
+
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    cpus = config_dict['cpus_per_process']
+    speckle_dict = config_dict['processing']['single_ARD']['speckle_filter']
+
+    logger.debug('Applying speckle filtering.')
+
     # construct command string
-    command = ('{} Multilook -x -q {}'
-               ' -PnAzLooks={}'
-               ' -PnRgLooks={}'
-               ' -t \'{}\' {}'.format(
-        GPT_FILE, 2 * ncores,
-        az_looks, rg_looks,
-        outfile, infile
-    )
+    command = (
+        f"{GPT_FILE} Speckle-Filter -x -q {2*cpus} "
+        f"-PestimateENL=\'{speckle_dict['estimate_ENL']}\' "
+        f"-PanSize=\'{speckle_dict['pan_size']}\' "
+        f"-PdampingFactor=\'{speckle_dict['damping']}\' "
+        f"-Penl=\'{speckle_dict['ENL']}\' "
+        f"-Pfilter=\'{speckle_dict['filter']}\' "
+        f"-PfilterSizeX=\'{speckle_dict['filter_x_size']}\' "
+        f"-PfilterSizeY=\'{speckle_dict['filter_y_size']}\' "
+        f"-PnumLooksStr=\'{speckle_dict['num_of_looks']}\' "
+        f"-PsigmaStr=\'{speckle_dict['sigma']}\' "
+        f"-PtargetWindowSizeStr=\"{speckle_dict['target_window_size']}\" "
+        f"-PwindowSize=\"{speckle_dict['window_size']}\" "
+        f"-t \'{str(outfile)}\' \'{str(infile)}\' "
     )
 
     # run command and get return code
@@ -32,98 +54,38 @@ def multi_look(infile, outfile, logfile, rg_looks, az_looks, ncores=os.cpu_count
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully multi-looked product.')
-    else:
-        print(' ERROR: Multi-look exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-
-    return return_code
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def speckle_filter(infile, outfile, logfile, config_dict):
-    """ Wrapper around SNAP's peckle Filter function
-
-    This function takes OST imported Sentinel-1 product and applies
-    a standardised version of the Lee-Sigma Speckle Filter with
-    SNAP's defaut values.
-
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        ncores (int): number of cpus used - useful for parallel processing
-    """
-
-    logger.info('Applying speckle filtering.')
-    # contrcut command string
-    command = (
-        '{} Speckle-Filter -x -q {}'
-        ' -PestimateENL=\'{}\''
-        ' -PanSize=\'{}\''
-        ' -PdampingFactor=\'{}\''
-        ' -Penl=\'{}\''
-        ' -Pfilter=\'{}\''
-        ' -PfilterSizeX=\'{}\''
-        ' -PfilterSizeY=\'{}\''
-        ' -PnumLooksStr=\'{}\''
-        ' -PsigmaStr=\'{}\''
-        ' -PtargetWindowSizeStr=\"{}\"'
-        ' -PwindowSize=\"{}\"'
-        ' -t \'{}\' \'{}\''.format(
-              GPT_FILE, 2*ncores,
-              speckle_dict['estimate_ENL'],
-              speckle_dict['pan_size'],
-              speckle_dict['damping'],
-              speckle_dict['ENL'],
-              speckle_dict['filter'],
-              speckle_dict['filter_x_size'],
-              speckle_dict['filter_y_size'],
-              speckle_dict['num_of_looks'],
-              speckle_dict['sigma'],
-              speckle_dict['target_window_size'],
-              speckle_dict['window_size'],
-              outfile, infile)
-              )
-
-    # run command and get return code
-    return_code = h.run_command(command, logfile)
-
-    # hadle errors and logs
-    if return_code == 0:
-        logger.info('Successfully applied speckle filtering.')
+        logger.debug('Successfully applied speckle filtering.')
         return return_code
     else:
         raise GPTRuntimeError(
-            'ERROR: Speckle filtering exited with an error {}. See {} for '
-            'Snap Error output'.format(return_code, logfile)
+            f'Speckle filtering exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
         )
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def linear_to_db(infile, outfile, logfile, config_dict):
-    """A wrapper around SNAP's linear to db routine
+    """Wrapper function around SNAP's linear to db routine
 
     This function takes an OST calibrated Sentinel-1 product
     and converts it to dB.
 
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        ncores (int): number of cpus used - useful for parallel processing
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
     """
 
-    logger.info('Converting the image to dB-scale.')
+    # get relevant config parameters
+    cpus = config_dict['cpus_per_process']
+
+    logger.debug('Converting calibrated power image to dB scale.')
+
     # construct command string
     command = (
-        f'{GPT_FILE} LinearToFromdB -x -q {2*ncores} -t \'{outfile}\' {infile}'
+        f'{GPT_FILE} LinearToFromdB -x -q {2*cpus} '
+        f'-t \'{str(outfile)}\' {str(infile)}'
     )
 
     # run command and get return code
@@ -134,13 +96,13 @@ def linear_to_db(infile, outfile, logfile, config_dict):
         logger.info('Succesfully converted product to dB-scale.')
     else:
         raise GPTRuntimeError(
-            'ERROR: dB Scaling exited with an error {}. See {} for '
-            'Snap Error output'.format(return_code, logfile)
+            f'dB Scaling exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
         )
 
 
 def terrain_flattening(infile, outfile, logfile, config_dict):
-    """
+    """Wrapper function to Snap's Terrain Flattening routine
 
     :param infile:
     :param outfile:
@@ -149,102 +111,42 @@ def terrain_flattening(infile, outfile, logfile, config_dict):
     :return:
     """
 
+    # get relevant config parameters
+    cpus = config_dict['cpus_per_process']
+    dem_dict = config_dict['processing']['single_ARD']['dem']
+
+    logger.debug('Applying terrain flattening to calibrated product.')
+
     command = (
-        '{} Terrain-Flattening -x -q {}'
-        ' -PdemName=\'{}\''
-        ' -PdemResamplingMethod=\'{}\''
-        ' -PexternalDEMFile=\'{}\''
-        ' -PexternalDEMNoDataValue={}'
-        ' -t \'{}\' \'{}\''.format(
-            GPT_FILE,
-            2 * ncores,
-            dem_dict['dem_name'],
-            dem_dict['dem_resampling'],
-            dem_dict['dem_file'],
-            dem_dict['dem_nodata'],
-            outfile,
-            infile
-        )
+        f"{GPT_FILE} Terrain-Flattening -x -q {2*cpus} "
+        f"-PdemName=\'{dem_dict['dem_name']}\' "
+        f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
+        f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "
+        f"-PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
+        f"-t \'{str(outfile)}\' \'{str(infile)}\'"
     )
+
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully terrain flattened product')
+        logger.debug('Succesfully terrain flattened product')
         return return_code
     else:
         raise GPTRuntimeError(
-            'ERROR: Terrain Flattening exited with an error {}. See {} for '
-            'Snap Error output'.format(return_code, logfile)
+            f'Terrain Flattening exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
         )
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def terrain_correction(infile, outfile, logfile, config_dict):
-    """
-    A wrapper around SNAP's Terrain Correction routine
-    This function takes an OST calibrated Sentinel-1 product and
-    does the geocodification.
+    """Wrapper function around Snap's terrain or ellipsoid correction
 
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        resolution (int): the resolution of the output product in meters
-        dem (str): A Snap compliant string for the dem to use.
-                   Possible choices are:
-                       'SRTM 1sec HGT' (default)
-                       'SRTM 3sec'
-                       'ASTER 1sec GDEM'
-                       'ACE30'
-        ncores (int): number of cpus used - useful for parallel processing
-
-    """
-
-    command = (
-        '{} Terrain-Correction -x -q {}'
-        ' -PdemName=\'{}\''
-        ' -PdemResamplingMethod=\'{}\''
-        ' -PexternalDEMFile=\'{}\''
-        ' -PexternalDEMNoDataValue={}'
-        ' -PexternalDEMApplyEGM=\'{}\''
-        ' -PimgResamplingMethod=\'{}\''
-        ' -PpixelSpacingInMeter={}'
-        ' -t \'{}\' \'{}\''.format(
-            GPT_FILE,
-            2 * ncores,
-            dem_dict['dem_name'],
-            dem_dict['dem_resampling'],
-            dem_dict['dem_file'],
-            dem_dict['dem_nodata'],
-            str(dem_dict['egm_correction']).lower(),
-            dem_dict['image_resampling'],
-            resolution,
-            outfile,
-            infile
-        )
-    )
-    # run command and get return code
-    return_code = h.run_command(command, logfile)
-
-    # handle errors and logs
-    if return_code == 0:
-        logger.info('Succesfully terrain corrected product')
-        return return_code
-    else:
-        raise GPTRuntimeError(
-            'ERROR: Terrain Correction exited with an error {}. See {} for '
-            'Snap Error output'.format(return_code, logfile)
-        )
-
-
-@retry(stop_max_attempt_number=3, wait_fixed=1)
-def ls_mask(infile, outfile, logfile, config_dict):
-    """
+    Based on the configuration parameters either the
+    Range-Doppler terrain correction or an Ellisoid correction
+    is applied for geocoding a calibrated Sentinel-1 product.
 
     :param infile:
     :param outfile:
@@ -253,14 +155,64 @@ def ls_mask(infile, outfile, logfile, config_dict):
     :return:
     """
 
-    logger.info('Creating the Layover/Shadow mask')
-    # get path to workflow xml
-    graph = OST_ROOT.joinpath('graphs/S1_GRD2ARD/3_LSmap.xml')
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
     dem_dict = ard['dem']
+    cpus = config_dict['cpus_per_process']
+
+    logger.debug('Geocoding product.')
 
     command = (
-        f'{GPT_FILE} {graph} -x -q {2 * ncores} '
-        f'-Pinput=\'{infile}\' '
+        f"{GPT_FILE} Terrain-Correction -x -q {2*cpus} "
+        f" -PdemName=\'{dem_dict['dem_name']}\' "
+        f" -PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
+        f" -PexternalDEMFile=\'{dem_dict['dem_file']}\' "
+        f" -PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
+        f" -PexternalDEMApplyEGM="
+        f"\'{str(dem_dict['egm_correction']).lower()}\' "
+        f" -PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
+        f" -PpixelSpacingInMeter={ard['resolution']} "
+        f" -t \'{str(outfile)}\' \'{str(infile)}\' "
+    )
+
+    # run command and get return code
+    return_code = h.run_command(command, logfile)
+
+    # handle errors and logs
+    if return_code == 0:
+        logger.debug('Succesfully geocoded product')
+        return return_code
+    else:
+        raise GPTRuntimeError(
+            f'Geocoding exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
+        )
+
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def ls_mask(infile, outfile, logfile, config_dict):
+    """Wrapper function of a Snap graph for Layover/Shadow mask creation
+
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    ard = config_dict['single_ARD']
+    dem_dict = config_dict['single_ARD']['dem']
+    cpus = config_dict['cpus_per_process']
+
+    logger.debug('Creating the Layover/Shadow mask')
+
+    # get path to workflow xml
+    graph = OST_ROOT.joinpath('graphs/S1_GRD2ARD/3_LSmap.xml')
+
+    command = (
+        f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+        f'-Pinput=\'{str(infile)}\' '
         f'-Presol={ard["resolution"]} '
         f'-Pdem=\'{dem_dict["dem_name"]}\' '
         f'-Pdem_file=\'{dem_dict["dem_file"]}\' '
@@ -268,7 +220,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
         f'-Pdem_resampling=\'{dem_dict["dem_resampling"]}\' '
         f'-Pimage_resampling=\'{dem_dict["image_resampling"]}\' '
         f'-Pegm_correction=\'{str(dem_dict["egm_correction"]).lower()}\' '
-        f'-Poutput=\'{outfile}\''
+        f'-Poutput=\'{str(outfile)}\''
     )
 
     # run command and get return code
@@ -276,12 +228,12 @@ def ls_mask(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully created a Layover/Shadow mask')
+        logger.debug('Succesfully created a Layover/Shadow mask')
         return return_code
     else:
-        raise RuntimeError(
-            f'Layover/Shadow mask creation exited with an error {return_code}.'
-            f' See {logfile} for Snap Error output'
+        raise GPTRuntimeError(
+            f'Layover/Shadow mask creation exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
         )
 
 
@@ -290,31 +242,42 @@ def create_stack(
         file_list,
         out_stack,
         logfile,
+        config_dict,
         polarisation=None,
         pattern=None,
-        ncores=os.cpu_count()
 ):
     """
 
-    :param filelist:
+    :param file_list:
     :param out_stack:
     :param logfile:
+    :param config_dict:
     :param polarisation:
     :param pattern:
-    :param ncores:
     :return:
     """
 
+    # get relevant config parameters
+    cpus = config_dict['cpus_per_process']
+
+    logger.debug('Creating multi-temporal stack.')
+
     if pattern:
-        graph = opj(OST_ROOT, 'graphs', 'S1_TS', '1_BS_Stacking_HAalpha.xml')
-        command = '{} {} -x -q {} -Pfilelist={} -PbandPattern=\'{}.*\' \
-               -Poutput={}'.format(GPT_FILE, graph, 2*ncores,
-                                   file_list, pattern, out_stack)
+        graph = OST_ROOT.joinpath('graph/S1_TS/1_BS_Stacking_HAalpha.xml')
+
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2*cpus} '
+            f'-Pfilelist={file_list} '
+            f'-PbandPattern=\'{pattern}.*\' '
+            f'-Poutput={out_stack}'
+        )
     else:
-        graph = opj(OST_ROOT, 'graphs', 'S1_TS', '1_BS_Stacking.xml')
-        command = '{} {} -x -q {} -Pfilelist={} -Ppol={} \
-               -Poutput={}'.format(GPT_FILE, graph, 2*ncores,
-                                   file_list, polarisation, out_stack)
+        graph = OST_ROOT.joinpath('graph/S1_TS/1_BS_Stacking.xml')
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2*cpus} '
+            f'-Ppol={polarisation} '
+            f'-Poutput={out_stack}'
+        )
 
     return_code = h.run_command(command, logfile)
 
@@ -322,46 +285,46 @@ def create_stack(
         logger.info('Successfully created multi-temporal stack')
     else:
         raise GPTRuntimeError(
-            'Multi-temporal Spackle Filter exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
+            f'Multi-temporal stack creation exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
         )
-
-    return return_code
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
+    """
 
+    :param in_stack:
+    :param out_stack:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    cpus = config_dict['cpus_per_process']
+    speckle_dict = (
+        config_dict['processing']['time-series_ARD']['mt_speckle_filter']
+    )
+
+    # debug message
     logger.debug('Applying multi-temporal speckle filtering.')
 
     # construct command string
-    command = ('{} Multi-Temporal-Speckle-Filter -x -q {}'
-               ' -PestimateENL={}'
-               ' -PanSize={}'
-               ' -PdampingFactor={}'
-               ' -Penl={}'
-               ' -Pfilter=\'{}\''
-               ' -PfilterSizeX={}'
-               ' -PfilterSizeY={}'
-               ' -PnumLooksStr={}'
-               ' -PsigmaStr={}'
-               ' -PtargetWindowSizeStr={}'
-               ' -PwindowSize={}'
-               ' -t \'{}\' \'{}\''.format(
-        GPT_FILE, 2 * ncores,
-        speckle_dict['estimate_ENL'],
-        speckle_dict['pan_size'],
-        speckle_dict['damping'],
-        speckle_dict['ENL'],
-        speckle_dict['filter'],
-        speckle_dict['filter_x_size'],
-        speckle_dict['filter_y_size'],
-        speckle_dict['num_of_looks'],
-        speckle_dict['sigma'],
-        speckle_dict['target_window_size'],
-        speckle_dict['window_size'],
-        out_stack, in_stack
-    )
+    command = (
+        f"{GPT_FILE} Multi-Temporal-Speckle-Filter -x -q {2*cpus} "
+        f"-PestimateENL=\'{speckle_dict['estimate_ENL']}\' "
+        f"-PanSize=\'{speckle_dict['pan_size']}\' "
+        f"-PdampingFactor=\'{speckle_dict['damping']}\' "
+        f"-Penl=\'{speckle_dict['ENL']}\' "
+        f"-Pfilter=\'{speckle_dict['filter']}\' "
+        f"-PfilterSizeX=\'{speckle_dict['filter_x_size']}\' "
+        f"-PfilterSizeY=\'{speckle_dict['filter_y_size']}\' "
+        f"-PnumLooksStr=\'{speckle_dict['num_of_looks']}\' "
+        f"-PsigmaStr=\'{speckle_dict['sigma']}\' "
+        f"-PtargetWindowSizeStr=\"{speckle_dict['target_window_size']}\" "
+        f"-PwindowSize=\"{speckle_dict['window_size']}\" "
+        f"-t \'{out_stack}\' \'{in_stack}\' "
     )
 
     return_code = h.run_command(command, logfile)
@@ -370,8 +333,6 @@ def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
         logger.info('Successfully applied multi-temporal speckle filtering')
     else:
         raise GPTRuntimeError(
-            'Multi-temporal Spackle Filter exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
+            f'Multi-temporal Spackle Filter exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message'
         )
-
-    return return_code

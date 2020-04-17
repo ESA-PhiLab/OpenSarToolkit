@@ -5,6 +5,7 @@ import glob
 import itertools
 import logging
 import gdal
+from pathlib import Path
 
 from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard
@@ -19,15 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 def _create_processing_dict(inventory_df):
-    ''' This function might be obsolete?
+    """Function that creates a dictionary to handle GRD batch processing
 
-    '''
+    This helper function takes the inventory dataframe and creates
+    a dictionary with the track as key, and all the files to process as
+    a list, whereas the list is
+
+    :param inventory_df:
+    :return:
+    """
 
     # initialize empty dictionary
     dict_scenes = {}
 
     # get relative orbits and loop through each
     tracklist = inventory_df['relativeorbit'].unique()
+
     for track in tracklist:
 
         # initialize an empty list that will be filled by
@@ -42,62 +50,61 @@ def _create_processing_dict(inventory_df):
         for acquisition_date in acquisition_dates:
 
             # get the scene ids per acquisition_date and write into a list
-            single_id = []
-            single_id.append(inventory_df['identifier'][
+            single_id = inventory_df['identifier'][
                 (inventory_df['relativeorbit'] == track) &
-                (inventory_df['acquisitiondate'] == acquisition_date)].tolist())
+                (inventory_df['acquisitiondate'] == acquisition_date)
+            ].tolist()
 
             # append the list of scenes to the list of scenes per track
-            all_ids.append(single_id[0])
+            all_ids.append(single_id)
 
-        # add this list to the dctionary and associate the track number
+        # add this list to the dictionary and associate the track number
         # as dict key
         dict_scenes[track] = all_ids
 
     return dict_scenes
 
 
-def grd_to_ard_batch(
-        inventory_df,
-        download_dir,
-        processing_dir,
-        temp_dir,
-        project_dict,
-        subset=None,
-):
+def grd_to_ard_batch(inventory_df, config_file):
+
+    # load relevant config parameters
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        download_dir = Path(config_dict['download_dir'])
+        processing_dir = Path(config_dict['processing_dir'])
+
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
 
     for track, allScenes in processing_dict.items():
+
         for list_of_scenes in processing_dict[track]:
+
             # get acquisition date
             acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
             # create a subdirectory baed on acq. date
-            out_dir = opj(processing_dir, track, acquisition_date)
-            os.makedirs(out_dir, exist_ok=True)
+            out_dir = processing_dir.joinpath(f'{track}/{acquisition_date}')
+            out_dir.mkdir(parents=True, exist_ok=True)
 
             # check if already processed
-            if os.path.isfile(opj(out_dir, '.processed')):
+            if out_dir.joinpath('.processed').exists():
                 logger.info(
-                    'Acquisition from {} of track {}'
-                    ' already processed'.format(acquisition_date, track)
+                    f'Acquisition from {acquisition_date} of track {track} '
+                    f'already processed'
                 )
             else:
                 # get the paths to the file
-                scene_paths = ([Sentinel1Scene(i).get_path(download_dir)
-                               for i in list_of_scenes])
+                scene_paths = (
+                    [Sentinel1Scene(scene).get_path(download_dir)
+                     for scene in list_of_scenes]
+                )
 
-                file_id = '{}_{}'.format(acquisition_date, track)
+                file_id = f'{acquisition_date}_{track}'
 
                 # apply the grd_to_ard function
-                grd_to_ard.grd_to_ard(scene_paths,
-                                      out_dir,
-                                      file_id,
-                                      temp_dir,
-                                      project_dict['processing_parameters'],
-                                      subset=subset,
-                                      ncores=project_dict['cpus_per_process']
-                                      )
+                grd_to_ard.grd_to_ard(
+                    scene_paths, out_dir, file_id, config_file
+                )
 
 
 def ards_to_timeseries(inventory_df, processing_dir, temp_dir,

@@ -18,12 +18,9 @@ import zipfile
 import logging
 
 import gdal
-import fiona
 import geopandas as gpd
 from shapely.wkt import loads
-from shapely.geometry import shape, LineString
 
-from ost.helpers import vector as vec
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +57,7 @@ def aoi_to_wkt(aoi):
     # if it is a file
     elif Path(aoi).exists():
 
-        with fiona.open(aoi) as src:
-            collection = [shape(item['geometry']).to_wkt() for item in src]
-            rings = [LineString(pol.exterior.coords).wkt for pol in collection]
-            aoi_wkt = rings[0]
-            #aoi_wkt = str(vec.shp_to_wkt(aoi))
+        gdf = gpd.GeoDataFrame.from_file(aoi)
 
 
         logger.info(f'Using {aoi} as Area of Interest definition.')
@@ -96,8 +89,7 @@ def timer(start):
 def remove_folder_content(folder):
     """A helper function that cleans the content of a folder
 
-    Args:
-        folder: the folder, where everything should be deleted
+    :param folder:
     """
 
     for root, dirs, files in os.walk(folder):
@@ -284,9 +276,12 @@ def check_zipfile(filename):
 
 
 def resolution_in_degree(latitude, meters):
-    '''Convert resolution in meters to degree based on Latitude
+    """Convert resolution in meters to degree based on Latitude
 
-    '''
+    :param latitude:
+    :param meters:
+    :return:
+    """
 
     earth_radius = 6378137
     degrees_to_radians = math.pi / 180.0
