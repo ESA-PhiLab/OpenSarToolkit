@@ -108,7 +108,7 @@ def run_command(command, logfile=None, elapsed=True):
 
     """
 
-    currtime = time.time()
+    # currtime = time.time()
 
     if os.name == 'nt':
         process = subprocess.run(command, stderr=subprocess.PIPE)
@@ -120,10 +120,10 @@ def run_command(command, logfile=None, elapsed=True):
     if return_code != 0 and logfile is not None:
         with open(str(logfile), 'w') as file:
             for line in process.stderr.decode().splitlines():
-                file.write('{}\n'.format(line))
+                file.write(f'{line}\n')
 
-    if elapsed:
-        timer(currtime)
+    # if elapsed:
+    #    timer(currtime)
 
     return process.returncode
 
@@ -133,11 +133,11 @@ def delete_dimap(dimap_prefix):
 
     """
 
-    if os.path.isdir('{}.data'.format(dimap_prefix)):
-        shutil.rmtree('{}.data'.format(dimap_prefix))
+    if dimap_prefix.with_suffix('.data').exists():
+        shutil.rmtree(dimap_prefix.with_suffix('.data'))
 
-    if os.path.isfile('{}.dim'.format(dimap_prefix)):
-        os.remove('{}.dim'.format(dimap_prefix))
+    if dimap_prefix.with_suffix('.dim').exists():
+        dimap_prefix.with_suffix('.dim').unlink()
 
 
 def delete_shapefile(shapefile):
@@ -156,72 +156,64 @@ def delete_shapefile(shapefile):
 
 
 def move_dimap(infile_prefix, outfile_prefix):
-    """This function moves a dimap file to another locations
-
-
+    """Function to move dimap's data and dim another locations
     """
 
     # delete outfile if exists
-    if os.path.isdir('{}.data'.format(outfile_prefix)):
+    if outfile_prefix.with_suffix('.data').exists():
         delete_dimap(outfile_prefix)
 
-    # move them to the outfolder
-    shutil.move('{}.data'.format(infile_prefix),
-                '{}.data'.format(outfile_prefix))
-    shutil.move('{}.dim'.format(infile_prefix),
-                '{}.dim'.format(outfile_prefix))
+    outsuffix = outfile_prefix.suffixes[0]
+    suffix_dim = f'{outsuffix}.dim'
+    suffix_data = f'{outsuffix}.data'
+
+    # move them
+    infile_prefix.with_suffix('.data').rename(
+        outfile_prefix.with_suffix(suffix_data)
+    )
+    infile_prefix.with_suffix('.dim').rename(
+        outfile_prefix.with_suffix(suffix_dim)
+    )
 
 
 def check_out_dimap(dimap_prefix, test_stats=True):
 
     # check if both dim and data exist, else return
-    if not os.path.isfile('{}.dim'.format(dimap_prefix)):
-        raise FileNotFoundError(' Output file {}.dim has not been generated'
-                                .format(dimap_prefix))
+    if not dimap_prefix.withsuffix('dim').exists():
+        return f'Output file {dimap_prefix}.dim has not been generated'
 
-    if not os.path.isdir('{}.data'.format(dimap_prefix)):
-        raise NotADirectoryError(' Output directory {}.dim has not been '
-                                 'generated'.format(dimap_prefix)
-                                 )
+    if not dimap_prefix.withsuffix('data').exists():
+        return f'Output file {dimap_prefix}.data has not been generated'
 
     # check for file size of the dim file
-    dim_size_in_mb = os.path.getsize('{}.dim'.format(dimap_prefix)) / 1048576
+    dim_size_in_mb = dimap_prefix.withsuffix('data').stat().st_size / 1048576
 
     if dim_size_in_mb < 0.1:
-        raise ValueError(' File {}.dim seems to small.'.format(dimap_prefix))
+        return f'File {dimap_prefix}.dim seems to small.'
 
-    for file in glob.glob(opj('{}.data'.format(dimap_prefix), '*.img')):
+    for file in dimap_prefix.withsuffix('data').glob('*.img'):
 
         # check size
-        data_size_in_mb = os.path.getsize(file) / 1048576
+        data_size_in_mb = file.stat().st_size / 1048576
 
         if data_size_in_mb < 1:
-            raise ValueError(' Data file {} in {}.data seem to small.'
-                             .format(file, dimap_prefix)
-                             )
+            return f'Data file {file} in {dimap_prefix}.data seem to small.'
 
+        # test on statistics
         if test_stats:
+
             # open the file
             ds = gdal.Open(file)
             stats = ds.GetRasterBand(1).GetStatistics(0, 1)
 
-            # check for mean value of layer
-            if stats[2] == 0:
-                raise ValueError(' Data file {} in {}.data contains only'
-                                 ' no data values.'.format(file, dimap_prefix)
-                                 )
+            # if difference of min and max is 0 and mean are all 0
+            if stats[1] - stats[0] == 0 and stats[2] == 0:
+                return (
+                    f'Data file {file} in {dimap_prefix}.data contains only '
+                    f'no data values.'
+                )
 
-            # check for stddev value of layer
-            if stats[3] == 0:
-                raise ValueError(' Data file {} in {}.data contains only'
-                                 ' no data values.'.format(file, dimap_prefix)
-                                 )
-
-            # if difference of min and max is 0
-            if stats[1] - stats[0] == 0:
-                raise ValueError(' Data file {} in {}.data contains only'
-                                 ' no data values.'.format(file, dimap_prefix)
-                                 )
+    return 0
 
 
 def check_out_tiff(file, test_stats=True):

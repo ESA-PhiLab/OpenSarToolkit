@@ -6,7 +6,7 @@ import logging
 from retrying import retry
 
 from ost.helpers.settings import GPT_FILE, OST_ROOT
-from ost.helpers.errors import GPTRuntimeError
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 from ost.helpers import helpers as h
 
 
@@ -54,8 +54,12 @@ def burst_import(
     )
 
     command = (
-        f'{GPT_FILE} {graph} -x -q {2 * cpus} -Pinput={str(infile)} '
-        f'-Ppolar={polars} -Pswath={swath} -Pburst={burst} -Poutput={str(outfile)}'
+        f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+        f'-Pinput={str(infile)} '
+        f'-Ppolar={polars} '
+        f'-Pswath={swath} '
+        f'-Pburst={burst} '
+        f'-Poutput={str(outfile)}'
     )
 
     logger.debug(f'Executing command: {command}')
@@ -63,11 +67,19 @@ def burst_import(
 
     if return_code == 0:
         logger.debug('Succesfully imported burst.')
-        return return_code
     else:
         raise GPTRuntimeError(
-            f'Frame import exited with an error {return_code}. '
+            f'Frame import exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -95,8 +107,11 @@ def ha_alpha(infile, outfile, logfile, config_dict):
         graph = OST_ROOT.joinpath(
             'graphs/S1_SLC2ARD/S1_SLC_Deb_Spk_Halpha.xml'
         )
-        logger.debug('Applying the polarimetric speckle filter and'
-                    ' calculating the H-alpha dual-pol decomposition')
+        logger.debug(
+            'Applying the polarimetric speckle filter and'
+            ' calculating the H-alpha dual-pol decomposition'
+        )
+
         command = (
             f'{GPT_FILE} {graph} -x -q {2 * cpus} '
             f'-Pinput={str(infile)} '
@@ -130,6 +145,15 @@ def ha_alpha(infile, outfile, logfile, config_dict):
         raise GPTRuntimeError(
             f'H/Alpha exited with an error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -235,11 +259,19 @@ def calibration(
 
     if return_code == 0:
         logger.debug('Succesfully calibrated product')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Calibration exited with an error {return_code}. '
             f'See {logfile} for Snap\'s error output.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -289,6 +321,15 @@ def coreg(master, slave, outfile, logfile, config_dict):
             f'See {logfile} for Snap error output.'
         )
 
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
+
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def coreg2(master, slave, outfile, logfile, config_dict):
@@ -336,6 +377,15 @@ def coreg2(master, slave, outfile, logfile, config_dict):
             f'See {logfile} for Snap\'s error message.'
         )
 
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
+
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def coherence(infile, outfile, logfile, config_dict):
@@ -375,9 +425,17 @@ def coherence(infile, outfile, logfile, config_dict):
 
     if return_code == 0:
         logger.debug('Succesfully created coherence product.')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Coherence exited with an error {return_code}. '
-            f'See {logfile} for Snap Error output'
+            f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )

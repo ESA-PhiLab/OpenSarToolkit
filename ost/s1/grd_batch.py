@@ -5,6 +5,7 @@ import glob
 import itertools
 import logging
 import gdal
+import pandas as pd
 from pathlib import Path
 
 from ost import Sentinel1Scene
@@ -65,6 +66,21 @@ def _create_processing_dict(inventory_df):
     return dict_scenes
 
 
+def create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error):
+
+    df = pd.DataFrame(columns=['identifier', 'outfile', 'out_ls', 'error'])
+    for scene in list_of_scenes:
+
+        # get index
+        temp_df = inventory_df.identifier[inventory_df.identifier == scene]
+        temp_df['outfile'] = outfile
+        temp_df['out_ls'] = out_ls
+        temp_df['error'] = error
+        df = df.append(temp_df)
+
+    return df
+
+
 def grd_to_ard_batch(inventory_df, config_file):
 
     # load relevant config parameters
@@ -75,9 +91,17 @@ def grd_to_ard_batch(inventory_df, config_file):
 
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
+    processing_df = pd.DataFrame(
+        columns=['identifier', 'outfile', 'out_ls', 'error']
+    )
+    # we could use this generator as a unique iterable or rewrite the
+    # create_processing_dict funciton for godale
+    #for list_of_scenes in (
+    #        processing_dict[track]
+    #        for track, allScenes in processing_dict.items()
+    #):
 
     for track, allScenes in processing_dict.items():
-
         for list_of_scenes in processing_dict[track]:
 
             # get acquisition date
@@ -87,6 +111,7 @@ def grd_to_ard_batch(inventory_df, config_file):
             out_dir.mkdir(parents=True, exist_ok=True)
 
             # check if already processed
+            # !!!this should go into grd_to_ard!!!
             if out_dir.joinpath('.processed').exists():
                 logger.info(
                     f'Acquisition from {acquisition_date} of track {track} '
@@ -99,12 +124,19 @@ def grd_to_ard_batch(inventory_df, config_file):
                      for scene in list_of_scenes]
                 )
 
-                file_id = f'{acquisition_date}_{track}'
-
                 # apply the grd_to_ard function
-                grd_to_ard.grd_to_ard(
-                    scene_paths, out_dir, file_id, config_file
+                outfile, out_ls, error = grd_to_ard.grd_to_ard(
+                    scene_paths, config_file
                 )
+
+                # return the info of processing as dataframe
+                temp_df = create_processed_df(
+                    inventory_df, list_of_scenes, outfile, out_ls, error
+                )
+
+                processing_df = processing_df.append(temp_df)
+
+    return processing_df
 
 
 def ards_to_timeseries(inventory_df, processing_dir, temp_dir,

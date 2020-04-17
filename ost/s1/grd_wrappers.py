@@ -9,7 +9,7 @@ from retrying import retry
 from pathlib import Path
 
 from ost.helpers import helpers as h
-from ost.helpers.errors import GPTRuntimeError
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 from ost.helpers.settings import GPT_FILE, OST_ROOT
 
 
@@ -77,12 +77,20 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Succesfully imported GRD product')
-        return return_code
     else:
         # read logfile
         raise GPTRuntimeError(
             f'GRD frame import exited with error {return_code}. '
             f'See {logfile} for Snap\'s error output.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -132,12 +140,20 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully assembled products')
-        return return_code
+        logger.debug('Succesfully assembled products')
     else:
         raise GPTRuntimeError(
-            'ERROR: Slice Assembly exited with an error {}. '
-            'See {} for Snap Error output'.format(return_code, logfile)
+            f'ERROR: Slice Assembly exited with error {return_code}. '
+            f'See {logfile} for Snap Error output'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -176,11 +192,19 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Succesfully subsetted product.')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Subsetting exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -206,11 +230,11 @@ def grd_remove_border(infile):
     :return:
     """
 
-    # logger.info('Removing the GRD Border Noise.')
+    logger.debug(f'Removing the GRD Border Noise for {infile.name}.')
     currtime = time.time()
 
     # read raster file and get number of columns adn rows
-    raster = gdal.Open(infile, gdal.GA_Update)
+    raster = gdal.Open(str(infile), gdal.GA_Update)
     cols = raster.RasterXSize
     rows = raster.RasterYSize
 
@@ -311,13 +335,22 @@ def calibration(infile, outfile, logfile, config_dict):
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
-    # hadle errors and logs
+    # handle errors and logs
     if return_code == 0:
         logger.debug(f'Calibration to {product_type} successful.')
     else:
-        GPTRuntimeError(
+        raise GPTRuntimeError(
             f'Calibration exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -354,9 +387,18 @@ def multi_look(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully multi-looked product.')
+        logger.debug('Succesfully multi-looked product.')
     else:
         raise GPTRuntimeError(
             f' ERROR: Multi-look exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )

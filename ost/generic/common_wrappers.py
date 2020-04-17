@@ -6,7 +6,7 @@ from retrying import retry
 
 from ost.helpers import helpers as h
 from ost.helpers.settings import GPT_FILE, OST_ROOT
-from ost.helpers.errors import GPTRuntimeError
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 
 
 logger = logging.getLogger(__name__)
@@ -55,11 +55,19 @@ def speckle_filter(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Successfully applied speckle filtering.')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Speckle filtering exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -93,11 +101,20 @@ def linear_to_db(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.info('Succesfully converted product to dB-scale.')
+        logger.debug('Succesfully converted product to dB-scale.')
     else:
         raise GPTRuntimeError(
             f'dB Scaling exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -132,11 +149,19 @@ def terrain_flattening(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Succesfully terrain flattened product')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Terrain Flattening exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -181,11 +206,19 @@ def terrain_correction(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Succesfully geocoded product')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Geocoding exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -229,11 +262,19 @@ def ls_mask(infile, outfile, logfile, config_dict):
     # handle errors and logs
     if return_code == 0:
         logger.debug('Succesfully created a Layover/Shadow mask')
-        return return_code
     else:
         raise GPTRuntimeError(
             f'Layover/Shadow mask creation exited with error {return_code}. '
             f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
 
 
@@ -289,6 +330,15 @@ def create_stack(
             f'See {logfile} for Snap\'s error message.'
         )
 
+    # do check routine
+    return_code = h.check_out_dimap(out_stack)
+    if return_code == 0:
+        return str(out_stack.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
+
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
@@ -330,9 +380,18 @@ def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.info('Successfully applied multi-temporal speckle filtering')
+        logger.debug('Successfully applied multi-temporal speckle filtering')
     else:
         raise GPTRuntimeError(
             f'Multi-temporal Spackle Filter exited with error {return_code}. '
-            f'See {logfile} for Snap\'s error message'
+            f'See {logfile} for Snap\'s error message.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(out_stack)
+    if return_code == 0:
+        return str(out_stack.with_suffix('dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
         )
