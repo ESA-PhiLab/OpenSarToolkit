@@ -18,49 +18,56 @@ logger = logging.getLogger(__name__)
 
 
 def burst_extract(scene_id, track, acq_date, et_root):
-    """Creation of a burst inventory GeoDataFrame
+    """Extract all bursts from the Sentinel-1 annotation files
 
-    This functions expects an xml string from a Sentinel-1 SLC
-    annotation file, extracts the relevant information of all bursts
-    and returns a GeoDataFrame.
-
-    Much of the code is taken from RapidSAR
-    package (once upon a time on github).
-
-    :param et_root: parsed XML annotation from a Sentinel-1 SLC product
-    :type et_root: ElementTree root
+    :param scene_id:
+    :param track:
+    :param acq_date:
+    :param et_root:
     :return:
     """
 
-    column_names = ['SceneID', 'Track', 'Date', 'SwathID', 'AnxTime',
-                    'BurstNr', 'geometry']
+    # define columns for burst gdf and create empty gdf
+    column_names = [
+        'SceneID', 'Track', 'Date', 'SwathID', 'AnxTime', 'BurstNr', 'geometry'
+    ]
     gdf = gpd.GeoDataFrame(columns=column_names)
 
     # pol = root.find('adsHeader').find('polarisation').text
     swath = et_root.find('adsHeader').find('swath').text
-    lines_per_burst = np.int(et_root.find('swathTiming').find(
-        'linesPerBurst').text)
-    pixels_per_burst = np.int(et_root.find('swathTiming').find(
-        'samplesPerBurst').text)
-    burstlist = et_root.find('swathTiming').find('burstList')
+    burst_lines = np.int(
+        et_root.find('swathTiming').find('linesPerBurst').text
+    )
+
+    burst_samples = np.int(
+        et_root.find('swathTiming').find('samplesPerBurst').text
+    )
+
+    list_of_bursts = et_root.find('swathTiming').find('burstList')
     geolocation_grid = et_root.find('geolocationGrid')[0]
-    first = {}
-    last = {}
+
+    first, last = {}, {}
 
     # Get burst corner geolocation info
     for geo_point in geolocation_grid:
+
         if geo_point.find('pixel').text == '0':
             first[geo_point.find('line').text] = np.float32(
                 [geo_point.find('latitude').text,
-                 geo_point.find('longitude').text])
-        elif geo_point.find('pixel').text == str(pixels_per_burst - 1):
+                 geo_point.find('longitude').text]
+            )
+
+        elif geo_point.find('pixel').text == str(burst_samples - 1):
             last[geo_point.find('line').text] = np.float32(
                 [geo_point.find('latitude').text,
-                 geo_point.find('longitude').text])
+                 geo_point.find('longitude').text]
+            )
 
-    for i, b in enumerate(burstlist):
-        firstline = str(i * lines_per_burst)
-        lastline = str((i + 1) * lines_per_burst)
+    for i, b in enumerate(list_of_bursts):
+
+        firstline = str(i * burst_lines)
+        lastline = str((i + 1) * burst_lines)
+
         azi_anx_time = np.float32(b.find('azimuthAnxTime').text)
         orbit_time = 12 * 24 * 60 * 60 / 175
 
@@ -72,22 +79,23 @@ def burst_extract(scene_id, track, acq_date, et_root):
         # first and lastline sometimes shifts by 1 for some reason?
         try:
             firstthis = first[firstline]
-        except:
+        except KeyError:
             firstline = str(int(firstline) - 1)
             try:
                 firstthis = first[firstline]
-            except:
+            except KeyError:
                 print('First line not found in annotation file')
                 firstthis = []
         try:
             lastthis = last[lastline]
-        except:
+        except KeyError:
             lastline = str(int(lastline) - 1)
             try:
                 lastthis = last[lastline]
-            except:
+            except KeyError:
                 print('Last line not found in annotation file')
                 lastthis = []
+
         corners = np.zeros([4, 2], dtype=np.float32)
 
         # Had missing info for 1 burst in a file, hence the check
@@ -109,10 +117,15 @@ def burst_extract(scene_id, track, acq_date, et_root):
             np.around(float(corners[0, 1]), 3),
             np.around(float(corners[0, 0]), 3))
 
-        geo_dict = {'SceneID': scene_id, 'Track': track,
-                    'Date': acq_date, 'SwathID': swath,
-                    'AnxTime': azi_anx_time, 'BurstNr': i + 1,
-                    'geometry': loads(wkt)}
+        geo_dict = {
+            'SceneID': scene_id,
+            'Track': track,
+            'Date': acq_date,
+            'SwathID': swath,
+            'AnxTime': azi_anx_time,
+            'BurstNr': i + 1,
+            'geometry': loads(wkt)
+        }
 
         gdf = gdf.append(geo_dict, ignore_index=True)
 
@@ -133,7 +146,6 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
     crs = {'init': 'epsg:4326', 'no_defs': True}
     # create empty dataframe
     gdf_full = gpd.GeoDataFrame(columns=column_names, crs=crs)
-    # uname, pword = scihub.askScihubCreds()
 
     for scene_id in inventory_df.identifier:
 
@@ -146,8 +158,9 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
         orbit_direction = inventory_df[
             inventory_df.identifier == scene_id].orbitdirection.values[0]
 
-        filepath = scene.get_path(download_dir, data_mount)
-        if not filepath:
+        file_path = scene.get_path(download_dir, data_mount)
+        if not file_path:
+
             logger.info('Retrieving burst info from scihub'
                         ' (need to download xml files)')
             if not uname and not pword:
@@ -155,21 +168,27 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
             opener = scihub.connect(uname=uname, pword=pword)
             if scene.scihub_online_status(opener) is False:
-                logger.info('Product needs to be online'
-                            ' to create a burst database.')
-                logger.info('Download the product first and '
-                            ' do the burst list from the local data.')
+                raise RuntimeError(
+                    'Product needs to be downloaded or online '
+                    'to create a burst database.'
+                    'Download the product first and '
+                    'do the burst inventory with the local data.'
+                )
             else:
                 single_gdf = scene.scihub_annotation_get(uname, pword)
-        elif filepath.suffix == '.zip':
+
+        elif file_path.suffix == '.zip':
             single_gdf = scene.zip_annotation_get(download_dir, data_mount)
-        elif filepath.suffix == '.SAFE':
+
+        elif file_path.suffix == '.SAFE':
             single_gdf = scene.safe_annotation_get(download_dir, data_mount)
+
         else:
             raise RuntimeError(
                 'Burst inventory failed because of unavailability of data. '
                 'Make sure to download all scenes first.'
             )
+
         # add orbit direction
         single_gdf['Direction'] = orbit_direction
 
@@ -331,5 +350,3 @@ def prepare_burst_inventory(burst_gdf, config_file):
             proc_burst_gdf = proc_burst_gdf.append(burst_row, sort=False)
 
     return proc_burst_gdf
-
-

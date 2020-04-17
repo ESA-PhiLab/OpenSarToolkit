@@ -65,17 +65,20 @@ def bursts_to_ards(
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
-    # we update max_workers in case we have less cpus_per_process
+    # we update max_workers in case we have less snap_cpu_parallelism
     # then cpus available
-    if max_workers == 1 and config_dict['cpus_per_process'] < os.cpu_count():
-        max_workers = int(os.cpu_count() / config_dict['cpus_per_process'])
+    if (
+            max_workers == 1 and
+            config_dict['snap_cpu_parallelism'] < os.cpu_count()
+    ):
+        max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(executor=executor_type, max_workers=max_workers)
     for task in executor.as_completed(
             func=burst_to_ard,
             iterable=proc_inventory.iterrows(),
-            fargs=(str(config_file), )
+            fargs=([str(config_file), ])
     ):
         task.result()
 
@@ -168,7 +171,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
 
     # parallelizing on all cpus
     concurrent = int(
-        mp.cpu_count() / project_params['project']['cpus_per_process']
+        mp.cpu_count() / project_params['project']['snap_cpu_parallelism']
     )
     pool = mp.Pool(processes=concurrent)
     pool.map(ts_ls_mask.mt_layover, iter_list)
@@ -218,7 +221,7 @@ def _create_timeseries(burst_gdf, project_file):
 
     # parallelizing on all cpus
     concurrent = int(
-        mp.cpu_count() / project_params['project']['cpus_per_process']
+        mp.cpu_count() / project_params['project']['snap_cpu_parallelism']
     )
     pool = mp.Pool(processes=concurrent)
     pool.map(ard_to_ts.ard_to_ts, iter_list)
@@ -235,7 +238,6 @@ def ards_to_timeseries(burst_gdf, project_file):
         ard_params = json.load(ard_file)['processing_parameters']
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
-
 
     # create all extents
     _create_extents(burst_gdf, project_file)
@@ -270,8 +272,7 @@ def timeseries_to_timescan(burst_gdf, project_file):
         ard_tscan = project_params['processing_parameters']['time-scan_ARD']
 
     # get the db scaling right
-    if ard['to_db'] or ard_mt['to_db']:
-        to_db = True
+    to_db = True if ard['to_db'] or ard_mt['to_db'] else False
 
     # get datatype right
     dtype_conversion = True if ard_mt['dtype_output'] != 'float32' else False
@@ -290,7 +291,7 @@ def timeseries_to_timescan(burst_gdf, project_file):
 
             # check if already processed
             if timescan_dir.joinpath(f'.{product}.processed').exists():
-                #logger.info(f'Timescans for burst {burst} already processed.')
+                logger.debug(f'Timescans for burst {burst} already processed.')
                 continue
 
             # get respective timeseries
@@ -425,7 +426,7 @@ def mosaic_timeseries(burst_inventory, project_file):
     pool.map(mosaic.create_timeseries_mosaic_vrt, vrt_iter_list)
 
 
-def mosaic_timescan(burst_inventory, project_file):
+def mosaic_timescan(project_file):
 
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-scan layers.')

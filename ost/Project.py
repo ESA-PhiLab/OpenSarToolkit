@@ -9,6 +9,7 @@ import logging
 from os.path import join as opj
 from pathlib import Path
 from datetime import datetime
+from multiprocessing import cpu_count
 
 import rasterio
 import geopandas as gpd
@@ -361,8 +362,14 @@ class Sentinel1(Generic):
                 pword=pword
             )
 
-    def create_burst_inventory(self, inventory_df=None, refine=True,
-                               outfile=None, uname=None, pword=None):
+    def create_burst_inventory(
+            self,
+            inventory_df=None,
+            refine=True,
+            outfile=None,
+            uname=None,
+            pword=None
+    ):
 
         # assert SLC product type
         if not self.product_type == 'SLC':
@@ -447,7 +454,8 @@ class Sentinel1Batch(Sentinel1):
             beam_mode='IW',
             polarisation='*',
             ard_type='OST-GTC',
-            cpus_per_process=2,
+            snap_cpu_parallelism=cpu_count(),
+            max_workers=1,
             log_level=logging.INFO
     ):
         # ------------------------------------------
@@ -493,11 +501,13 @@ class Sentinel1Batch(Sentinel1):
             raise ValueError("Only 'IW' beam mode supported for processing.")
 
         # ---------------------------------------
-        # 3 Add cpus_per_process
-        self.config_dict['cpus_per_process'] = cpus_per_process
+        # 3 Add snap_cpu_parallelism
+        self.config_dict['snap_cpu_parallelism'] = snap_cpu_parallelism
+        self.config_dict['max_workers'] = max_workers
 
         # ---------------------------------------
         # 4 Set up project JSON
+        self.config_file = self.project_dir.joinpath('config.json')
         self.ard_parameters = self.get_ard_parameters(ard_type)
 
         # re-create config dict with update ard parameters
@@ -582,7 +592,8 @@ class Sentinel1Batch(Sentinel1):
         :type timeseries: bool, optional
         :param timescan: if True, Timescans will be generated for each burst id
         type: timescan: bool, optional
-        :param mosaic: if True, Mosaics will be generated from the Time-Series/Timescans of each burst id
+        :param mosaic: if True, Mosaics will be generated from the
+                       Time-Series/Timescans of each burst id
         :type mosaic: bool, optional
         :param overwrite: (if True, the processing folder will be
         emptied
@@ -677,28 +688,54 @@ class Sentinel1Batch(Sentinel1):
             timeseries=False,
             timescan=False,
             mosaic=False,
-            overwrite=False,
-            cut_to_aoi=False
+            overwrite=False
     ):
-        self.update_ard_parameters()
 
+        # --------------------------------------------
+        # 1 delete data in case of previous runs
+
+        # delete data in temporary directory in case there is
+        # something left from aborted previous runs
+        h.remove_folder_content(self.temp_dir)
+
+        # in case we start from scratch, delete all data
+        # within processing folder
         if overwrite:
             logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
-        #!!!!!!!!!!!!!!!!
-        # subset determination
-        # we need a check funciton that checks if all images to process 100% overlap the AOI
-        # !!!!!!!!!!!!!!!!
+        # --------------------------------------------
+        # 2 Check if within SRTM coverage
+        # set ellipsoid correction and force GTC production
+        # when outside SRTM
+        center_lat = loads(self.aoi).centroid.y
+        if float(center_lat) > 59 or float(center_lat) < -59:
+            logger.info('Scene is outside SRTM coverage. Will use '
+                        'ellipsoid based terrain correction.')
+            self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
 
+        # --------------------------------------------
+        # 3 Check ard parameters in case they have been updated,
+        #   and write them to json file
+        self.update_ard_parameters()
 
-        # set resolution in degree
-        #        self.center_lat = loads(self.aoi).centroid.y
-        #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-        #            logger.info('Scene is outside SRTM coverage. Will use 30m ASTER'
-        #                  ' DEM instead.')
-        #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+        # --------------------------------------------
+        # 4 subset determination
+        # we need a check function that checks
+        # if all images to process 100% overlap the AOI
 
+        # --------------------------------------------
+        # 5 set resolution in degree
+        # self.center_lat = loads(self.aoi).centroid.y
+        # if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+        #   logger.info(
+        #       'Scene is outside SRTM coverage. Will use 30m #
+        #       'ASTER DEM instead.'
+        #   )
+        #   self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+
+        # --------------------------------------------
+        # 5 set resolution in degree
         # the grd to ard batch routine
         grd_batch.grd_to_ard_batch(
             inventory_df=self.inventory,
@@ -707,71 +744,15 @@ class Sentinel1Batch(Sentinel1):
 
         # time-series part
         if timeseries or timescan:
-
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*',
-                              'Timeseries', '.*processed')))
-
-            nr_of_polar = len(
-                self.inventory.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(self.inventory.relativeorbit.unique())
-            nr_of_ts = nr_of_polar * nr_of_tracks
-
-            # check and retry function
-            i = 0
-            while nr_of_ts > nr_of_processed:
-
-                grd_batch.ards_to_timeseries(self.inventory,
-                                             self.processing_dir,
-                                             self.temp_dir,
-                                             self.proc_file,
-                                             )
-
-                nr_of_processed = len(
-                    glob.glob(opj(self.processing_dir, '*',
-                                  'Timeseries', '.*processed')))
-                i += 1
-
-                # not more than 5 trys
-                if i == 5:
-                    break
+            grd_batch.ards_to_timeseries(self.inventory, self.config_file)
 
         if timescan:
-
-            # number of already processed timescans
-            nr_of_processed = len(glob.glob(opj(
-                self.processing_dir, '*', 'Timescan', '.*processed')))
-
-            # number of expected timescans
-            nr_of_polar = len(
-                self.inventory.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(self.inventory.relativeorbit.unique())
-            nr_of_ts = nr_of_polar * nr_of_tracks
-
-            i = 0
-            while nr_of_ts > nr_of_processed:
-
-                grd_batch.timeseries_to_timescan(
-                    self.inventory,
-                    self.processing_dir,
-                    self.proc_file)
-
-                nr_of_processed = len(glob.glob(opj(
-                    self.processing_dir, '*', 'Timescan', '.*processed')))
-
-                i += 1
-
-                # not more than 5 trys
-                if i == 5:
-                    break
-
-        if cut_to_aoi:
-            cut_to_aoi = self.aoi
+            grd_batch.timeseries_to_timescan(self.inventory, self.config_file)
 
         if mosaic and timeseries:
-            grd_batch.mosaic_timeseries(
-                self.inventory,
-                self.processing_dir,
-                self.temp_dir,
-                cut_to_aoi
-            )
+            grd_batch.mosaic_timeseries(self.inventory, self.config_file)
+
+        # --------------------------------------------
+        # 9 mosaic the timescans
+        if mosaic and timescan:
+            grd_batch.mosaic_timescan(self.burst_inventory, self.config_file)

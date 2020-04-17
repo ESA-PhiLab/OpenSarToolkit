@@ -27,7 +27,7 @@ def speckle_filter(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     speckle_dict = config_dict['processing']['single_ARD']['speckle_filter']
 
     logger.debug('Applying speckle filtering.')
@@ -78,7 +78,7 @@ def linear_to_db(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Converting calibrated power image to dB scale.')
 
@@ -112,7 +112,7 @@ def terrain_flattening(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     dem_dict = config_dict['processing']['single_ARD']['dem']
 
     logger.debug('Applying terrain flattening to calibrated product.')
@@ -158,7 +158,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
     dem_dict = ard['dem']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Geocoding product.')
 
@@ -203,7 +203,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
     # get relevant config parameters
     ard = config_dict['single_ARD']
     dem_dict = config_dict['single_ARD']['dem']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Creating the Layover/Shadow mask')
 
@@ -258,7 +258,7 @@ def create_stack(
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Creating multi-temporal stack.')
 
@@ -302,7 +302,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     speckle_dict = (
         config_dict['processing']['time-series_ARD']['mt_speckle_filter']
     )

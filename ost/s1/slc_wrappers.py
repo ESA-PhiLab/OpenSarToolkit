@@ -44,7 +44,7 @@ def burst_import(
     polars = bs_polar if len(bs_polar) >= len(coh_polar) else coh_polar
 
     # get cpus
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     # get path to graph
     graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_BurstSplit_AO.xml')
@@ -89,7 +89,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
     # get relevant config parameters
     remove_pol_speckle = config_dict['processing']['remove_pol_speckle']
     pol_speckle_dict = config_dict['processing']['pol_speckle_filter']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     if remove_pol_speckle:
         graph = OST_ROOT.joinpath(
@@ -162,7 +162,7 @@ def calibration(
 
     # get relevant config parameters
     ard = config_dict['processing']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     dem_dict = ard['dem']
 
     # calculate Multi-Look factors
@@ -261,7 +261,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     dem_dict = config_dict['processing']['dem']
 
     logger.debug(f'Co-registering {master} and {slave}')
@@ -308,7 +308,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     dem_dict = config_dict['processing']['dem']
 
     # get path to graph
@@ -354,7 +354,7 @@ def coherence(infile, outfile, logfile, config_dict):
     # get relevant config parameters
     ard = config_dict['processing']
     polars = ard['coherence_bands'].replace(' ', '')
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     # get path to graph
     graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_Coh_Deb.xml')

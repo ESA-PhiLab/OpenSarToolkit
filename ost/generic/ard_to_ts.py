@@ -27,7 +27,7 @@ def ard_to_ts(list_of_args):
         project_params = json.load(file)
         processing_dir = project_params['project']['processing_dir']
         temp_dir = project_params['project']['temp_dir']
-        cpus_per_process = project_params['project']['cpus_per_process']
+        snap_cpu_parallelism = project_params['project']['snap_cpu_parallelism']
         ard_params = project_params['processing_parameters']
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
@@ -103,7 +103,7 @@ def ard_to_ts(list_of_args):
             logger.info('Applying multi-temporal speckle filter')
             mt_speckle_filter(
                 f'{temp_stack}.dim', out_stack, speckle_log,
-                speckle_dict=ard_mt_speck, ncores=cpus_per_process
+                speckle_dict=ard_mt_speck, ncores=snap_cpu_parallelism
             )
             # remove tmp files
             h.delete_dimap(temp_stack)

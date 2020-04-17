@@ -41,7 +41,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
     polars = ard['polarisation'].replace(' ', '')
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     subset = config_dict['subset']
 
     logger.debug(
@@ -116,7 +116,7 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
     polars = ard['polarisation'].replace(' ', '')
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Assembling consecutive frames:')
 
@@ -156,7 +156,7 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     subset = config_dict['subset']
 
     logger.debug('Subsetting imported imagery.')
@@ -285,7 +285,7 @@ def calibration(infile, outfile, logfile, config_dict):
 
     # get relevant config parameters
     product_type = config_dict['processing']['single_ARD']['product_type']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     # transform calibration parameter to snap readable
     sigma0, beta0, gamma0 = 'false', 'false', 'false'
@@ -333,7 +333,7 @@ def multi_look(infile, outfile, logfile, config_dict):
     """
 
     ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
     ml_factor = int(int(ard['resolution']) / 10)
 
     logger.debug(

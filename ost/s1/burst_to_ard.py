@@ -213,7 +213,7 @@ def create_coherence_layers(
 
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['cpus_per_process']
+    cpus = config_dict['snap_cpu_parallelism']
 
     with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
@@ -299,7 +299,7 @@ def burst_to_ard(burst, config_file):
         config_dict = json.load(file)
         ard = config_dict['processing']['single_ARD']
         temp_dir = Path(config_dict['temp_dir'])
-        cpus = config_dict['cpus_per_process']
+        cpus = config_dict['snap_cpu_parallelism']
 
     # creation of out_directory
     out_dir = Path(burst.out_directory)
