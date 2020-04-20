@@ -261,7 +261,6 @@ def mask_by_shape(
 
 def create_tscan_vrt(list_of_args):
 
-
     timescan_dir, project_file = list_of_args
 
     # load ard parameters
@@ -342,14 +341,20 @@ def visualise_rgb(filepath, shrink_factor=25):
     # convert 0 to nans
     array[array == 0] = np.nan
 
-    # normalise RGB bands
-    red = norm(scale_to_int(array[0], -18, 0, 'uint8'))
-    green = norm(scale_to_int(array[1], -25, -5, 'uint8'))
-    blue = norm(scale_to_int(array[2], 1, 15, 'uint8'))
+    if src.count == 3:
+        # normalise RGB bands
+        red = norm(scale_to_int(array[0], -18, 0, 'uint8'))
+        green = norm(scale_to_int(array[1], -25, -5, 'uint8'))
+        blue = norm(scale_to_int(array[2], 1, 15, 'uint8'))
+
+    else:
+        red = norm(scale_to_int(array[0], -18, 0, 'uint8'))
+        green = norm(scale_to_int(array[0], -18, 0, 'uint8'))
+        blue = norm(scale_to_int(array[0], -18, 0, 'uint8'))
 
     # stack image
     img = np.dstack((red, green, blue))
-    # img[img == 0] = np.nan
+
     plt.imshow(img)
 
 

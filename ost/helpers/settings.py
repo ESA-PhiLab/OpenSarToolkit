@@ -33,6 +33,7 @@ stream_handler.setLevel(logging.DEBUG)
 
 
 def set_log_level(log_level=logging.INFO):
+
     # if set to logging.INFO then only show logging.info
     if log_level == logging.INFO:
         info_filter = SingleLevelFilter(logging.INFO, False)
@@ -200,6 +201,7 @@ config_check = dict({
         ['VV, VH, HH, HV', 'VV', 'VH', 'VV VH', 'HH HV', 'VV, HH']
                      },
     'to_db': {'type': bool},
+    'to_tif': {'type': bool},
     'geocoding': {'type': str, 'choices': ['terrain', 'ellipsoid']},
     'remove_speckle': {'type': bool},
     'filter': {'type': str, 'choices':

@@ -12,6 +12,7 @@ For GRD products it is possible to pre-process the respective scene
 based on a ARD product type.
 """
 
+import os
 import sys
 import json
 import logging
@@ -20,6 +21,7 @@ import fnmatch
 import xml.dom.minidom
 import xml.etree.ElementTree as eTree
 import urllib.request
+import urllib.parse
 from urllib.error import URLError
 from pathlib import Path
 
@@ -29,16 +31,18 @@ import geopandas as gpd
 
 from ost.helpers import scihub, peps, onda, asf, raster as ras
 from ost.helpers.settings import APIHUB_BASEURL, OST_ROOT
-from ost.helpers.settings import check_ard_parameters
-from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb, ard_to_thumbnail
-
+from ost.helpers.settings import set_log_level, check_ard_parameters
+from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb
 
 logger = logging.getLogger(__name__)
 
 
 class Sentinel1Scene:
 
-    def __init__(self, scene_id, ard_type='OST_GTC'):
+    def __init__(self, scene_id, ard_type='OST_GTC', log_level=logging.INFO):
+
+        # set log level
+        set_log_level(log_level)
 
         # get metadata from scene identifier
         self.scene_id = scene_id
@@ -254,7 +258,6 @@ class Sentinel1Scene:
             self.download_path(download_dir=download_dir, mkdir=False)
 
             # check if scene is succesfully downloaded
-            print(self.product_dl_path.with_suffix('.downloaded'))
             if self.product_dl_path.with_suffix('.downloaded').exists():
                 path = self.product_dl_path
             else:
@@ -295,7 +298,7 @@ class Sentinel1Scene:
         )
 
         # request
-        action = urllib.request.quote(f'Name eq \'{self.scene_id}\'')
+        action = urllib.parse.quote(f'Name eq \'{self.scene_id}\'')
 
         # construct the download url
         url = base_url + action
@@ -752,13 +755,11 @@ class Sentinel1Scene:
         # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-    def create_ard(self, infile, out_dir, out_prefix, temp_dir, subset=None):
+    def create_ard(self, infile, out_dir, subset=None):
         """
 
         :param infile:
         :param out_dir:
-        :param out_prefix:
-        :param temp_dir:
         :param subset:
         :return:
         """
@@ -774,6 +775,16 @@ class Sentinel1Scene:
 
         if isinstance(out_dir, str):
             out_dir = Path(out_dir)
+
+        # set config param necessary for processing
+        self.config_dict['processing_dir'] = str(out_dir)
+        self.config_dict['temp_dir'] = str(out_dir.joinpath('temp'))
+        self.config_dict['subset'] = subset
+        self.config_dict['snap_cpu_parallelism'] = os.cpu_count()
+
+        # create directories
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir.joinpath('temp').mkdir(parents=True, exist_ok=True)
 
         # --------------------------------------------
         # 2 Check if within SRTM coverage
@@ -802,12 +813,17 @@ class Sentinel1Scene:
 
         # --------------------------------------------
         # 5 run the burst to ard batch routine
-        grd_to_ard(
-            [infile], out_dir, out_prefix, temp_dir, self.config_file, subset
+        out_bs, out_ls, error = grd_to_ard(
+            [infile], self.config_file,
         )
 
-        # write to class attribute
-        self.ard_dimap = out_dir.joinpath(f'{out_prefix}*bs.dim')[0]
+        # print error if any
+        if error:
+            logger.info(error)
+        else:
+            # remove temp folder
+            out_dir.joinpath('temp').rmdir()
+            self.ard_dimap = out_bs
 
     def create_rgb(self, outfile, driver='GTiff'):
 
@@ -821,7 +837,7 @@ class Sentinel1Scene:
         ard_to_rgb(self.ard_dimap, outfile, driver, to_db)
         self.ard_rgb = outfile
 
-    def create_rgb_thumbnail(self, outfile, driver='JPEG', shrink_factor=25):
+    def create_rgb_thumbnail(self, outfile,  shrink_factor=25):
 
         # invert ot db from create_ard workflow for rgb creation
         # (otherwise we do it double)
@@ -831,8 +847,10 @@ class Sentinel1Scene:
             to_db = True
 
         self.rgb_thumbnail = outfile
-        ard_to_thumbnail(self.ard_dimap, self.rgb_thumbnail,
-                         driver, shrink_factor, to_db)
+        driver = 'JPEG'
+        ard_to_rgb(
+            self.ard_dimap, self.rgb_thumbnail, driver, to_db, shrink_factor
+        )
 
     def visualise_rgb(self, shrink_factor=25):
 
@@ -853,6 +871,7 @@ class Sentinel1Scene:
             raise ValueError('Invalid file.')
 
         root = eTree.fromstring(manifest)
+        coordinates = None
         for child in root:
             metadata = child.findall('metadataObject')
             for meta in metadata:
@@ -877,8 +896,13 @@ class Sentinel1Scene:
                                         coordinates = (
                                             coords.text.split(' '))
 
-        sums = 0
-        for i, coords in enumerate(coordinates):
-            sums = sums + float(coords.split(',')[0])
+        if coordinates:
+            sums, i = 0, 0
+            for i, coords in enumerate(coordinates):
+                sums = sums + float(coords.split(',')[0])
 
-        return sums / (i + 1)
+            return sums / (i + 1)
+        else:
+            raise RuntimeError(
+                'Could not find any coordinates within the metadata file'
+            )

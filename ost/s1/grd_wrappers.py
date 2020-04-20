@@ -87,7 +87,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -150,7 +150,7 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -201,14 +201,14 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
         )
 
 
-@retry(tries=3, delay=1, logger=logger)
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def grd_remove_border(infile):
     """OST function to remove GRD border noise from Sentinel-1 data
 
@@ -231,7 +231,7 @@ def grd_remove_border(infile):
     """
 
     logger.debug(f'Removing the GRD Border Noise for {infile.name}.')
-    currtime = time.time()
+    # currtime = time.time()
 
     # read raster file and get number of columns adn rows
     raster = gdal.Open(str(infile), gdal.GA_Update)
@@ -293,7 +293,7 @@ def grd_remove_border(infile):
         array_right[:, cols_right:], col_right_start, 0
     )
 
-    h.timer(currtime)
+    # h.timer(currtime)
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -314,12 +314,14 @@ def calibration(infile, outfile, logfile, config_dict):
     # transform calibration parameter to snap readable
     sigma0, beta0, gamma0 = 'false', 'false', 'false'
 
-    if product_type is 'GTC-gamma0':
-        gamma0 = 'true'
-    if product_type is 'RTC-gamma0':
-        beta0 = 'true'
-    if product_type is 'GTC-sigma0':
+    if product_type == 'GTC-sigma0':
         sigma0 = 'true'
+    elif product_type == 'GTC-gamma0':
+        gamma0 = 'true'
+    elif product_type == 'RTC-gamma0':
+        beta0 = 'true'
+    else:
+        raise TypeError('Wrong product type selected.')
 
     logger.debug(f'Calibrating the product to {product_type}.')
 
@@ -347,7 +349,7 @@ def calibration(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -397,7 +399,7 @@ def multi_look(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'

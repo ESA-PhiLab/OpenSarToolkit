@@ -434,7 +434,7 @@ def coherence(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'

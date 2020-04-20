@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import json
-import glob
 import urllib.request
 import urllib.parse
 import logging
-from os.path import join as opj
 from pathlib import Path
 from datetime import datetime
 from multiprocessing import cpu_count

@@ -5,7 +5,6 @@
 """
 
 import os
-from os.path import join as opj
 import math
 import glob
 import shlex
@@ -58,7 +57,6 @@ def aoi_to_wkt(aoi):
     elif Path(aoi).exists():
 
         gdf = gpd.GeoDataFrame.from_file(aoi)
-
 
         logger.info(f'Using {aoi} as Area of Interest definition.')
     else:
@@ -155,43 +153,56 @@ def delete_shapefile(shapefile):
                 os.remove(file)
 
 
-def move_dimap(infile_prefix, outfile_prefix):
+def move_dimap(infile_prefix, outfile_prefix, to_tif):
     """Function to move dimap's data and dim another locations
     """
 
-    # delete outfile if exists
-    if outfile_prefix.with_suffix('.data').exists():
-        delete_dimap(outfile_prefix)
+    # get any pre-sufffix (e.g. .LS or .bs)
+    out_suffix = outfile_prefix.suffixes[0]
 
-    outsuffix = outfile_prefix.suffixes[0]
-    suffix_dim = f'{outsuffix}.dim'
-    suffix_data = f'{outsuffix}.data'
+    if to_tif:
 
-    # move them
-    infile_prefix.with_suffix('.data').rename(
-        outfile_prefix.with_suffix(suffix_data)
-    )
-    infile_prefix.with_suffix('.dim').rename(
-        outfile_prefix.with_suffix(suffix_dim)
-    )
+        suffix_tif = f'{out_suffix}.tif'
+        gdal.Warp(
+            outfile_prefix.with_suffix(suffix_tif),
+            infile_prefix.with_suffix('.dim')
+        )
+
+    else:
+
+        # construct final suffix
+        suffix_dim = f'{out_suffix}.dim'
+        suffix_data = f'{out_suffix}.data'
+
+        # delete outfile if exists
+        if outfile_prefix.with_suffix(suffix_data).exists():
+            delete_dimap(outfile_prefix)
+
+        # move them
+        infile_prefix.with_suffix('.data').rename(
+            outfile_prefix.with_suffix(suffix_data)
+        )
+        infile_prefix.with_suffix('.dim').rename(
+            outfile_prefix.with_suffix(suffix_dim)
+        )
 
 
 def check_out_dimap(dimap_prefix, test_stats=True):
 
     # check if both dim and data exist, else return
-    if not dimap_prefix.withsuffix('dim').exists():
+    if not dimap_prefix.with_suffix('.dim').exists():
         return f'Output file {dimap_prefix}.dim has not been generated'
 
-    if not dimap_prefix.withsuffix('data').exists():
+    if not dimap_prefix.with_suffix('.data').exists():
         return f'Output file {dimap_prefix}.data has not been generated'
 
     # check for file size of the dim file
-    dim_size_in_mb = dimap_prefix.withsuffix('data').stat().st_size / 1048576
+    dim_size_in_mb = dimap_prefix.with_suffix('.dim').stat().st_size / 1048576
 
     if dim_size_in_mb < 0.1:
         return f'File {dimap_prefix}.dim seems to small.'
 
-    for file in dimap_prefix.withsuffix('data').glob('*.img'):
+    for file in dimap_prefix.with_suffix('.data').glob('*.img'):
 
         # check size
         data_size_in_mb = file.stat().st_size / 1048576
@@ -203,14 +214,14 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         if test_stats:
 
             # open the file
-            ds = gdal.Open(file)
+            ds = gdal.Open(str(file))
             stats = ds.GetRasterBand(1).GetStatistics(0, 1)
 
             # if difference of min and max is 0 and mean are all 0
             if stats[1] - stats[0] == 0 and stats[2] == 0:
                 return (
-                    f'Data file {file} in {dimap_prefix}.data contains only '
-                    f'no data values.'
+                    f'Data file {file.name} in {dimap_prefix}.data only '
+                    f'contains no data values.'
                 )
 
     return 0
@@ -263,7 +274,6 @@ def check_zipfile(filename):
         print('Error')
         return 1
     else:
-        print(zip_test)
         return zip_test
 
 

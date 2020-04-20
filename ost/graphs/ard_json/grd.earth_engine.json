@@ -7,6 +7,7 @@
             "product_type": "GTC-sigma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": true,
+            "to_tif": false,
             "remove_speckle": false,
             "speckle_filter": {
                 "filter": "Refined Lee",

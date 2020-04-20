@@ -64,7 +64,7 @@ def speckle_filter(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -111,7 +111,7 @@ def linear_to_db(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -158,7 +158,7 @@ def terrain_flattening(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -215,7 +215,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -234,8 +234,8 @@ def ls_mask(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    ard = config_dict['single_ARD']
-    dem_dict = config_dict['single_ARD']['dem']
+    ard = config_dict['processing']['single_ARD']
+    dem_dict = ard['dem']
     cpus = config_dict['snap_cpu_parallelism']
 
     logger.debug('Creating the Layover/Shadow mask')
@@ -271,7 +271,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('dim'))
+        return str(outfile.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'
@@ -323,7 +323,7 @@ def create_stack(
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.info('Successfully created multi-temporal stack')
+        logger.debug('Successfully created multi-temporal stack')
     else:
         raise GPTRuntimeError(
             f'Multi-temporal stack creation exited with error {return_code}. '
@@ -331,12 +331,12 @@ def create_stack(
         )
 
     # do check routine
-    return_code = h.check_out_dimap(out_stack)
-    if return_code == 0:
-        return str(out_stack.with_suffix('dim'))
+    return_msg = h.check_out_dimap(out_stack)
+    if return_msg == 0:
+        logger.debug('Product passed validity check.')
     else:
         raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
+            f'Product did not pass file check: {return_msg}'
         )
 
 

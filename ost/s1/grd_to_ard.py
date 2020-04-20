@@ -1,23 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import json
-import glob
 import logging
 import rasterio
 import numpy as np
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from os.path import join as opj
-
 from ost.generic import common_wrappers as common
 from ost.helpers import helpers as h, raster as ras
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 from ost.s1 import grd_wrappers as grd
-from ost.s1.s1scene import Sentinel1Scene
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,27 +33,65 @@ def grd_to_ard(filelist, config_file):
     :return:
     """
 
-    # load relevant config parameters
+    from ost.s1.s1scene import Sentinel1Scene
+
+    # ----------------------------------------------------
+    # 1 load relevant config parameters
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
         ard = config_dict['processing']['single_ARD']
         processing_dir = Path(config_dict['processing_dir'])
         subset = config_dict['subset']
 
-    # construct output directory and file name
+    # ----------------------------------------------------
+    # 2 define final destination dir/file and ls mask
+
+    # get acq data and track from first scene in list
     first = Sentinel1Scene(Path(filelist[0]).stem)
     acquisition_date = first.start_date
     track = first.rel_orbit
-    out_dir = processing_dir.joinpath(f'{track}/{acquisition_date}')
-    file_id = f'{acquisition_date}_{track}'
 
+    logger.info(f'Processing scene {first.scene_id}')
+
+    # construct namespace for out directory etc.
+    out_dir = processing_dir.joinpath(f'{track}/{acquisition_date}')
+    out_dir.mkdir(parents=True, exist_ok=True)
+    file_id = f'{acquisition_date}_{track}'
+    out_final = out_dir.joinpath(f'{file_id}.bs')
+    out_ls_mask = out_dir.joinpath(f'{file_id}.LS')
+
+    if ard['to_tif']:
+        out_final_suf = '.bs.tif'
+        out_ls_suf = '.LS.tif'
+    else:
+        out_final_suf = '.bs.dim'
+        out_ls_suf = '.LS.dim'
+
+    # ----------------------------------------------------
+    # 3 check if already processed
+    if out_dir.joinpath('.processed').exists() and \
+            out_final.with_suffix(out_final_suf).exists():
+        logger.info(
+            f'Acquisition from {acquisition_date} of track {track} '
+            f'already processed'
+        )
+
+        if out_ls_mask.with_suffix(out_ls_suf).exists():
+            out_ls = out_ls_mask.with_suffix(out_ls_suf)
+        else:
+            out_ls = None
+
+        return out_final.with_suffix(out_final_suf), out_ls, None
+
+    # ----------------------------------------------------
+    # 4 run the processing routine
     with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
         # convert temp directory to Path object
         temp = Path(temp)
 
         # ---------------------------------------------------------------------
-        # 1 Import
+        # 4.1 Import
         # slice assembly if more than one scene
         if len(filelist) > 1:
 
@@ -150,7 +182,7 @@ def grd_to_ard(filelist, config_file):
         infile = grd_import.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 2 GRD Border Noise
+        # 4.2 GRD Border Noise
         if ard['remove_border_noise'] and not subset:
 
             # loop through possible polarisations
@@ -159,15 +191,15 @@ def grd_to_ard(filelist, config_file):
                 # get input file
                 file = list(temp.glob(
                     f'{file_id}_imported*data/Intensity_{polarisation}.img'
-                ))[0]
+                ))
 
                 # remove border noise
-                if file.exists():
+                if len(file) == 1:
                     # run grd Border Remove
-                    grd.grd_remove_border(file)
+                    grd.grd_remove_border(file[0])
 
         # ---------------------------------------------------------------------
-        # 3 Calibration
+        # 4.3 Calibration
 
         # create namespace for temporary calibrated product
         calibrated = temp.joinpath(f'{file_id}_cal')
@@ -183,13 +215,13 @@ def grd_to_ard(filelist, config_file):
             return None, None, error
 
         # delete input
-        h.delete_dimap(infile[:-4])
+        h.delete_dimap(infile.with_suffix(''))
 
         # input for next step
         infile = calibrated.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 4 Multi-looking
+        # 4.4 Multi-looking
         if int(ard['resolution']) >= 20:
 
             # create namespace for temporary multi-looked product
@@ -206,13 +238,13 @@ def grd_to_ard(filelist, config_file):
                 return None, None, error
 
             # delete input
-            h.delete_dimap(infile[:-4])
+            h.delete_dimap(infile.with_suffix(''))
 
             # define input for next step
             infile = multi_looked.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 5 Layover shadow mask
+        # 4.5 Layover shadow mask
         out_ls = None   # set to none for final return statement
         if ard['create_ls_mask'] is True:
 
@@ -224,21 +256,21 @@ def grd_to_ard(filelist, config_file):
 
             # run ls mask routine
             try:
-                out_ls = common.ls_mask(infile, ls_mask, logfile, config_dict)
+                common.ls_mask(infile, ls_mask, logfile, config_dict)
+                out_ls = out_ls_mask.with_suffix('.LS.dim')
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, error
 
             # move to final destination
-            out_ls_mask = out_dir.joinpath(f'{file_id}.LS')
-            h.move_dimap(ls_mask, out_ls_mask)
+            h.move_dimap(ls_mask, out_ls_mask, ard['to_tif'])
 
         # ---------------------------------------------------------------------
-        # 6 Speckle filtering
+        # 4.6 Speckle filtering
         if ard['remove_speckle']:
 
             # create namespace for temporary speckle filtered product
-            filtered = temp.joinpath('{file_id}_spk')
+            filtered = temp.joinpath(f'{file_id}_spk')
 
             # create namespace for speckle filter log
             logfile = out_dir.joinpath(f'{file_id}.Speckle.errLog')
@@ -251,13 +283,13 @@ def grd_to_ard(filelist, config_file):
                 return None, None, error
 
             # delete input
-            h.delete_dimap(infile[:-4])
+            h.delete_dimap(infile.with_suffix(''))
 
             # define input for next step
             infile = filtered.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 7 Terrain flattening
+        # 4.7 Terrain flattening
         if ard['product_type'] == 'RTC-gamma0':
 
             # create namespace for temporary terrain flattened product
@@ -276,13 +308,13 @@ def grd_to_ard(filelist, config_file):
                 return None, None, error
 
             # delete input file
-            h.delete_dimap(infile[:-4])
+            h.delete_dimap(infile.with_suffix(''))
 
             # define input for next step
             infile = flattened.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 8 Linear to db
+        # 4.8 Linear to db
         if ard['to_db']:
 
             # create namespace for temporary db scaled product
@@ -299,13 +331,13 @@ def grd_to_ard(filelist, config_file):
                 return None, None, error
 
             # delete input file
-            h.delete_dimap(infile[:-4])
+            h.delete_dimap(infile.with_suffix(''))
 
             # set input for next step
             infile = db_scaled.with_suffix('.dim')
 
         # ---------------------------------------------------------------------
-        # 9 Geocoding
+        # 4.9 Geocoding
 
         # create namespace for temporary geocoded product
         geocoded = temp.joinpath(f'{file_id}_bs')
@@ -321,139 +353,107 @@ def grd_to_ard(filelist, config_file):
             return None, None, error
 
         # delete input file
-        h.delete_dimap(infile[:-4])
+        h.delete_dimap(infile.with_suffix(''))
 
         # define final destination
         out_final = out_dir.joinpath(f'{file_id}.bs')
 
         # ---------------------------------------------------------------------
-        # 10 Move to output directory
-        h.move_dimap(geocoded, out_final)
+        # 4.10 Move to output directory
+        h.move_dimap(geocoded, out_final, ard['to_tif'])
 
-        # write processed file to keep track of files already processed
-        with open(out_dir.joinpath('.processed'), 'w') as file:
-            file.write('passed all tests \n')
+    # ---------------------------------------------------------------------
+    # 5 write processed file to keep track of files already processed
+    with open(out_dir.joinpath('.processed'), 'w') as file:
+        file.write('passed all tests \n')
 
-        return out_final.with_suffix('.bs.dim'), out_ls, None
+    return out_final.with_suffix('.bs.dim'), out_ls, None
 
 
-def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True):
+def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
 
-    prefix = glob.glob(os.path.abspath(infile[:-4]) + '*data')[0]
+    if infile.suffix != '.dim':
+        raise TypeError('File needs to be in BEAM-DIMAP format')
 
-    if len(glob.glob(opj(prefix, '*VV*.img'))) == 1:
-        co_pol = glob.glob(opj(prefix, '*VV*.img'))[0]
+    data_dir = infile.with_suffix('.data')
 
-    if len(glob.glob(opj(prefix, '*VH*.img'))) == 1:
-        cross_pol = glob.glob(opj(prefix, '*VH*.img'))[0]
+    if list(data_dir.glob('*VV*.img'))[0].exists():
+        co_pol = list(data_dir.glob('*VV*.img'))[0]
+    elif list(data_dir.glob('HH*.img'))[0].exists():
+        co_pol = list(data_dir.glob('HH*.img'))[0]
+    else:
+        raise RuntimeError('No co-polarised band found.')
 
-    if len(glob.glob(opj(prefix, '*HH*.img'))) == 1:
-        co_pol = glob.glob(opj(prefix, '*HH*.img'))[0]
+    if list(data_dir.glob('*VH*.img'))[0].exists():
+        cross_pol = list(data_dir.glob('*VH*.img'))[0]
+    elif list(data_dir.glob('*HV*.img'))[0].exists():
+        cross_pol = list(data_dir.glob('*HV*.img'))[0]
+    else:
+        cross_pol = None
 
-    if len(glob.glob(opj(prefix, '*HV*.img'))) == 1:
-        cross_pol = glob.glob(opj(prefix, '*HV*.img'))[0]
+    if cross_pol.exists():
 
-    # !!!!assure and both pols exist!!!
-    with rasterio.open(co_pol) as co:
+        with rasterio.open(co_pol) as co:
 
-        # get meta data
-        meta = co.meta
+            # get meta data
+            meta = co.meta
 
-        # update meta
-        meta.update(driver=driver, count=3, nodata=0)
+            # update meta
+            meta.update(driver=driver, count=3, nodata=0)
 
-        with rasterio.open(cross_pol) as cr:
-            # !assure that dimensions match ####
-            with rasterio.open(outfile, 'w', **meta) as dst:
+            with rasterio.open(cross_pol) as cr:
+
                 if co.shape != cr.shape:
-                    print(' dimensions do not match')
-                # loop through blocks
-                for i, window in co.block_windows(1):
+                    raise RuntimeError(
+                        'Dimensions of co- and cross-polarised bands '
+                        'do not match')
 
-                    # read arrays and turn to dB (in case it isn't)
-                    co_array = co.read(window=window)
-                    cr_array = cr.read(window=window)
+                new_height = int(co.height / shrink_factor)
+                new_width = int(co.width / shrink_factor)
+                out_shape = (co.count, new_height, new_width)
 
-                    if to_db:
-                        # turn to db
-                        co_array = ras.convert_to_db(co_array)
-                        cr_array = ras.convert_to_db(cr_array)
+                meta.update(height=new_height, width=new_width)
 
-                        # adjust for dbconversion
-                        co_array[co_array == -130] = 0
-                        cr_array[cr_array == -130] = 0
+                co_array = co.read(out_shape=out_shape, resampling=5)
+                cr_array = cr.read(out_shape=out_shape, resampling=5)
 
-                    # turn 0s to nan
-                    co_array[co_array == 0] = np.nan
-                    cr_array[cr_array == 0] = np.nan
+                # turn 0s to nan
+                co_array[co_array == 0] = np.nan
+                cr_array[cr_array == 0] = np.nan
 
-                    # create log ratio by subtracting the dbs
-                    ratio_array = np.subtract(co_array, cr_array)
+                # create log ratio by subtracting the dbs
+                ratio_array = np.divide(co_array, cr_array)
+
+                if to_db:
+                    # turn to db
+                    co_array = ras.convert_to_db(co_array)
+                    cr_array = ras.convert_to_db(cr_array)
+
+                if driver == 'JPEG':
+                    print('here')
+                    co_array = ras.scale_to_int(co_array, -20, 0, 'uint8')
+                    cr_array = ras.scale_to_int(cr_array, -25, -5, 'uint8')
+                    ratio_array = ras.scale_to_int(ratio_array, 1, 15, 'uint8')
+                    meta.update(dtype='uint8')
+
+                with rasterio.open(outfile, 'w', **meta) as dst:
 
                     # write file
-                    for k, arr in [(1, co_array), (2, cr_array),
-                                   (3, ratio_array)]:
-                        dst.write(arr[0, ], indexes=k, window=window)
+                    for k, arr in [
+                        (1, co_array), (2, cr_array), (3, ratio_array)
+                    ]:
+                        dst.write(arr[0, ], indexes=k)
 
+    # greyscale
+    else:
+        logger.info(
+            'No cross-polarised band found. Creating 1-band greyscale'
+            'image.')
 
-def ard_to_thumbnail(infile, outfile, driver='JPEG', shrink_factor=25,
-                     to_db=True):
+        with rasterio.open(co_pol) as co:
 
-    prefix = glob.glob(os.path.abspath(infile[:-4]) + '*data')[0]
+            # get meta data
+            meta = co.meta
 
-    if len(glob.glob(opj(prefix, '*VV*.img'))) == 1:
-        co_pol = glob.glob(opj(prefix, '*VV*.img'))[0]
-
-    if len(glob.glob(opj(prefix, '*VH*.img'))) == 1:
-        cross_pol = glob.glob(opj(prefix, '*VH*.img'))[0]
-
-    if len(glob.glob(opj(prefix, '*HH*.img'))) == 1:
-        co_pol = glob.glob(opj(prefix, '*HH*.img'))[0]
-
-    if len(glob.glob(opj(prefix, '*HV*.img'))) == 1:
-        cross_pol = glob.glob(opj(prefix, '*HV*.img'))[0]
-
-    # !!!assure and both pols exist
-    with rasterio.open(co_pol) as co:
-
-        # get meta data
-        meta = co.meta
-
-        # update meta
-        meta.update(driver=driver, count=3, dtype='uint8')
-
-        with rasterio.open(cross_pol) as cr:
-
-            # !!!assure that dimensions match ####
-            new_height = int(co.height/shrink_factor)
-            new_width = int(co.width/shrink_factor)
-            out_shape = (co.count, new_height, new_width)
-
-            meta.update(height=new_height, width=new_width)
-
-            if co.shape != cr.shape:
-                print(' dimensions do not match')
-
-            # read arrays and turn to dB
-
-            co_array = co.read(out_shape=out_shape, resampling=5)
-            cr_array = cr.read(out_shape=out_shape, resampling=5)
-
-            if to_db:
-                co_array = ras.convert_to_db(co_array)
-                cr_array = ras.convert_to_db(cr_array)
-
-            co_array[co_array == 0] = np.nan
-            cr_array[cr_array == 0] = np.nan
-
-            # create log ratio
-            ratio_array = np.subtract(co_array, cr_array)
-
-            r = ras.scale_to_int(co_array, -20, 0, 'uint8')
-            g = ras.scale_to_int(cr_array, -25, -5, 'uint8')
-            b = ras.scale_to_int(ratio_array, 1, 15, 'uint8')
-
-            with rasterio.open(outfile, 'w', **meta) as dst:
-
-                for k, arr in [(1, r), (2, g), (3, b)]:
-                    dst.write(arr[0, ], indexes=k)
+            # update meta
+            meta.update(driver=driver, count=3, nodata=0)

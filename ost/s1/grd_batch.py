@@ -101,40 +101,29 @@ def grd_to_ard_batch(inventory_df, config_file):
     #        for track, allScenes in processing_dict.items()
     #):
 
+    iterable = []
     for track, allScenes in processing_dict.items():
         for list_of_scenes in processing_dict[track]:
 
-            # get acquisition date
-            acquisition_date = Sentinel1Scene(list_of_scenes[0]).start_date
-            # create a subdirectory baed on acq. date
-            out_dir = processing_dir.joinpath(f'{track}/{acquisition_date}')
-            out_dir.mkdir(parents=True, exist_ok=True)
+            # get the paths to the file
+            scene_paths = (
+                [Sentinel1Scene(scene).get_path(download_dir)
+                 for scene in list_of_scenes]
+            )
 
-            # check if already processed
-            # !!!this should go into grd_to_ard!!!
-            if out_dir.joinpath('.processed').exists():
-                logger.info(
-                    f'Acquisition from {acquisition_date} of track {track} '
-                    f'already processed'
-                )
-            else:
-                # get the paths to the file
-                scene_paths = (
-                    [Sentinel1Scene(scene).get_path(download_dir)
-                     for scene in list_of_scenes]
-                )
+            iterable.append(scene_paths)
 
-                # apply the grd_to_ard function
-                outfile, out_ls, error = grd_to_ard.grd_to_ard(
-                    scene_paths, config_file
-                )
+            # apply the grd_to_ard function
+            outfile, out_ls, error = grd_to_ard.grd_to_ard(
+                scene_paths, config_file
+            )
 
-                # return the info of processing as dataframe
-                temp_df = create_processed_df(
-                    inventory_df, list_of_scenes, outfile, out_ls, error
-                )
+            # return the info of processing as dataframe
+            temp_df = create_processed_df(
+                inventory_df, list_of_scenes, outfile, out_ls, error
+            )
 
-                processing_df = processing_df.append(temp_df)
+            processing_df = processing_df.append(temp_df)
 
     return processing_df
 
