@@ -63,24 +63,27 @@ def bursts_to_ards(
     logger.info('Preparing the processing pipeline. This may take a moment.')
     proc_inventory = prepare_burst_inventory(burst_gdf, config_file)
 
-    with open(config_file, 'r') as file:
-        config_dict = json.load(file)
-    # we update max_workers in case we have less snap_cpu_parallelism
-    # then cpus available
-    if (
-            max_workers == 1 and
-            config_dict['snap_cpu_parallelism'] < os.cpu_count()
-    ):
-        max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
-
-    # now we run with godale, which works also with 1 worker
-    executor = Executor(executor=executor_type, max_workers=max_workers)
-    for task in executor.as_completed(
-            func=burst_to_ard,
-            iterable=proc_inventory.iterrows(),
-            fargs=([str(config_file), ])
-    ):
-        task.result()
+    for burst in proc_inventory.iterrows():
+        burst_to_ard(burst, config_file)
+    #
+    # with open(config_file, 'r') as file:
+    #     config_dict = json.load(file)
+    # # we update max_workers in case we have less snap_cpu_parallelism
+    # # then cpus available
+    # if (
+    #         max_workers == 1 and
+    #         config_dict['snap_cpu_parallelism'] < os.cpu_count()
+    # ):
+    #     max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
+#
+    # # now we run with godale, which works also with 1 worker
+    # executor = Executor(executor=executor_type, max_workers=max_workers)
+    # for task in executor.as_completed(
+    #         func=burst_to_ard,
+    #         iterable=proc_inventory.iterrows(),
+    #         fargs=([str(config_file), ])
+    # ):
+    #     task.result()
 
 
 def _create_extents(burst_gdf, config_file):
@@ -94,7 +97,7 @@ def _create_extents(burst_gdf, config_file):
     """
 
     with open(config_file, 'r') as file:
-        config_dict = json.load(file)['project']
+        config_dict = json.load(file)
         processing_dir = Path(config_dict['processing_dir'])
         temp_dir = Path(config_dict['temp_dir'])
 
@@ -177,16 +180,16 @@ def _create_mt_ls_mask(burst_gdf, config_file):
     pool.map(ts_ls_mask.mt_layover, iter_list)
 
 
-def _create_timeseries(burst_gdf, project_file):
+def _create_timeseries(burst_gdf, config_file):
 
     # we need a
     dict_of_product_types = {'bs': 'Gamma0', 'coh': 'coh', 'pol': 'pol'}
     pols = ['VV', 'VH', 'HH', 'HV', 'Alpha', 'Entropy', 'Anisotropy']
 
     # read config file
-    with open(project_file, 'r') as file:
+    with open(config_file, 'r') as file:
         config_dict = json.load(file)
-        processing_dir = config_dict['project']['processing_dir']
+        processing_dir = config_dict['processing_dir']
 
     # create iterable
     iter_list = []
@@ -217,7 +220,7 @@ def _create_timeseries(burst_gdf, project_file):
 
             # create list of dims if polarisation is present
             list_of_dims = sorted(list(burst_dir.glob(f'20*/*{product}*dim')))
-            iter_list.append([list_of_dims, burst, product, pol, project_file])
+            iter_list.append([list_of_dims, burst, product, pol, config_file])
 
     # parallelizing on all cpus
     concurrent = int(
@@ -227,33 +230,33 @@ def _create_timeseries(burst_gdf, project_file):
     pool.map(ard_to_ts.ard_to_ts, iter_list)
 
 
-def ards_to_timeseries(burst_gdf, project_file):
+def ards_to_timeseries(burst_gdf, config_file):
 
     print('--------------------------------------------------------------')
     logger.info('Processing all burst ARDs time-series')
     print('--------------------------------------------------------------')
 
     # load ard parameters
-    with open(project_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing_parameters']
+    with open(config_file, 'r') as ard_file:
+        ard_params = json.load(ard_file)['processing']
         ard = ard_params['single_ARD']
         ard_mt = ard_params['time-series_ARD']
 
     # create all extents
-    _create_extents(burst_gdf, project_file)
+    _create_extents(burst_gdf, config_file)
 
     # update extents in case of ls_mask
     if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
-        _create_mt_ls_mask(burst_gdf, project_file)
+        _create_mt_ls_mask(burst_gdf, config_file)
 
     # finally create time-series
-    _create_timeseries(burst_gdf, project_file)
+    _create_timeseries(burst_gdf, config_file)
 
 
 # --------------------
 # timescan part
 # --------------------
-def timeseries_to_timescan(burst_gdf, project_file):
+def timeseries_to_timescan(burst_gdf, config_file):
     """Function to create a timescan out of a OST timeseries.
 
     """
@@ -264,12 +267,12 @@ def timeseries_to_timescan(burst_gdf, project_file):
 
     # -------------------------------------
     # 1 load project config
-    with open(project_file, 'r') as ard_file:
+    with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
-        processing_dir = config_dict['project']['processing_dir']
-        ard = config_dict['processing_parameters']['single_ARD']
-        ard_mt = config_dict['processing_parameters']['time-series_ARD']
-        ard_tscan = config_dict['processing_parameters']['time-scan_ARD']
+        processing_dir = config_dict['processing_dir']
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
+        ard_tscan = config_dict['processing']['time-scan_ARD']
 
     # get the db scaling right
     to_db = True if ard['to_db'] or ard_mt['to_db'] else False
@@ -323,7 +326,7 @@ def timeseries_to_timescan(burst_gdf, project_file):
                  rescale, to_power, ard_tscan['remove_outliers'], datelist]
             )
 
-        vrt_iter_list.append([timescan_dir, project_file])
+        vrt_iter_list.append([timescan_dir, config_file])
 
     concurrent = mp.cpu_count()
     pool = mp.Pool(processes=concurrent)
@@ -331,7 +334,7 @@ def timeseries_to_timescan(burst_gdf, project_file):
     pool.map(ras.create_tscan_vrt, vrt_iter_list)
 
 
-def mosaic_timeseries(burst_inventory, project_file):
+def mosaic_timeseries(burst_inventory, config_file):
 
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-series layers.')
@@ -339,7 +342,7 @@ def mosaic_timeseries(burst_inventory, project_file):
 
     # -------------------------------------
     # 1 load project config
-    with open(project_file, 'r') as ard_file:
+    with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
         processing_dir = config_dict['project']['processing_dir']
 
@@ -416,7 +419,7 @@ def mosaic_timeseries(burst_inventory, project_file):
 
             # append to list of outfile for vrt creation
             outfiles.append(outfile)
-            iter_list.append([filelist, outfile, project_file])
+            iter_list.append([filelist, outfile, config_file])
 
         vrt_iter_list.append([ts_dir, product, outfiles])
 
@@ -426,13 +429,13 @@ def mosaic_timeseries(burst_inventory, project_file):
     pool.map(mosaic.create_timeseries_mosaic_vrt, vrt_iter_list)
 
 
-def mosaic_timescan(project_file):
+def mosaic_timescan(config_file):
 
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-scan layers.')
     print(' -----------------------------------------------------------------')
 
-    with open(project_file, 'r') as ard_file:
+    with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
         processing_dir = config_dict['project']['processing_dir']
         metrics = config_dict['processing']['time-scan_ARD']['metrics']
@@ -471,9 +474,9 @@ def mosaic_timescan(project_file):
 
         logger.info(f'Mosaicking layer {outfile.name}.')
         outfiles.append(outfile)
-        iter_list.append([filelist, outfile, project_file])
+        iter_list.append([filelist, outfile, config_file])
 
     concurrent = mp.cpu_count()
     pool = mp.Pool(processes=concurrent)
     pool.map(mosaic.mosaic, iter_list)
-    ras.create_tscan_vrt([tscan_dir, project_file])
+    ras.create_tscan_vrt([tscan_dir, config_file])

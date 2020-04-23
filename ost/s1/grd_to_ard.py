@@ -106,7 +106,7 @@ def grd_to_ard(filelist, config_file):
                     grd.grd_frame_import(
                         file, grd_import, logfile, config_dict
                     )
-                except GPTRuntimeError as error:
+                except (GPTRuntimeError, NotValidFileError) as error:
                     logger.info(error)
                     return filelist, None, None, error
 

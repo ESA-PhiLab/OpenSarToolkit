@@ -7,9 +7,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from ost.helpers import helpers as h
-from ost.generic import common_wrappers as common
 from ost.s1 import slc_wrappers as slc
-
+from ost.generic import common_wrappers as common
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,11 @@ def create_polarimetric_layers(
         haa_log = out_dir.joinpath(f'{burst_prefix}_haa.err_log')
 
         # run polarimetric decomposition
-        slc.ha_alpha(import_file, out_haa, haa_log, config_dict)
-
+        try:
+            slc.ha_alpha(import_file, out_haa, haa_log, config_dict)
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, error
         # -------------------------------------------------------
         # 2 Geocoding
 
@@ -51,15 +54,13 @@ def create_polarimetric_layers(
         haa_tc_log = out_dir.joinpath(f'{burst_prefix}_haa_tc.err_log')
 
         # run geocoding
-        common.terrain_correction(
-            out_haa.with_suffix('.dim'), out_htc, haa_tc_log, config_dict
-        )
-
-        # last check on the output files
         try:
-            h.check_out_dimap(out_htc)
-        except ValueError:
-            pass
+            common.terrain_correction(
+                out_haa.with_suffix('.dim'), out_htc, haa_tc_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, error
 
         # move to final destination
         ard = config_dict['processing']['single_ARD']
@@ -70,6 +71,11 @@ def create_polarimetric_layers(
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.pol.processed'), 'w+') as file:
             file.write('passed all tests \n')
+
+        return (
+            str(out_dir.joinpath(f'{burst_prefix}_pol').with_suffix('.dim')),
+            None
+        )
 
 
 def create_backscatter_layers(
@@ -101,9 +107,13 @@ def create_backscatter_layers(
         cal_log = out_dir.joinpath(f'{burst_prefix}_cal.err_log')
 
         # run calibration on imported scene
-        slc.calibration(
-            import_file, out_cal, cal_log, config_dict, region=''
-        )
+        try:
+            slc.calibration(
+                import_file, out_cal, cal_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, None, error
 
         # ---------------------------------------------------------------------
         # 2 Speckle filtering
@@ -116,10 +126,14 @@ def create_backscatter_layers(
             speckle_log = out_dir.joinpath(f'{burst_prefix}_speckle.err_log')
 
             # run speckle filter on calibrated input
-            common.speckle_filter(
-                out_cal.with_suffix('.dim'), speckle_import, speckle_log,
-                config_dict
-            )
+            try:
+                common.speckle_filter(
+                    out_cal.with_suffix('.dim'), speckle_import, speckle_log,
+                    config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return None, None, error
 
             # remove input
             h.delete_dimap(out_cal)
@@ -138,9 +152,13 @@ def create_backscatter_layers(
             db_log = out_dir.joinpath(f'{burst_prefix}_cal_db.err_log')
 
             # run db scaling on calibrated/speckle filtered input
-            common.linear_to_db(
-                out_cal.with_suffix('.dim'), out_db, db_log, config_dict
-            )
+            try:
+                common.linear_to_db(
+                    out_cal.with_suffix('.dim'), out_db, db_log, config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return None, None, error
 
             # remove tmp files
             h.delete_dimap(out_cal)
@@ -158,15 +176,13 @@ def create_backscatter_layers(
         tc_log = out_dir.joinpath(f'{burst_prefix}_bs_tc.err_log')
 
         # run terrain correction on calibrated/speckle filtered/db  input
-        common.terrain_correction(
-            out_cal.with_suffix('.dim'), out_tc, tc_log, config_dict
-        )
-
-        # check for validity of final backscatter product
         try:
-            h.check_out_dimap(out_tc)
-        except ValueError:
-            pass
+            common.terrain_correction(
+                out_cal.with_suffix('.dim'), out_tc, tc_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, None, error
 
         # move final backscatter product to actual output directory
         h.move_dimap(
@@ -175,6 +191,7 @@ def create_backscatter_layers(
 
         # ---------------------------------------------------------------------
         # 9 Layover/Shadow mask
+        out_ls_final = None
         if ard['create_ls_mask']:
 
             # create namespace for temporary LS map product
@@ -184,24 +201,32 @@ def create_backscatter_layers(
             ls_log = out_dir.joinpath(f'{burst_prefix}_LS.err_log')
 
             # run ls mask generation on calibration
-            common.ls_mask(
-                out_cal.with_suffix('.dim'), out_ls, ls_log, config_dict
-            )
-
-            # check for validity of final backscatter product
             try:
-                h.check_out_dimap(out_ls)
-            except ValueError:
-                pass
+                common.ls_mask(
+                    out_cal.with_suffix('.dim'), out_ls, ls_log, config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return None, None, error
 
             # move ls data to final destination
             h.move_dimap(
                 out_ls, out_dir.joinpath(f'{burst_prefix}_LS'), ard['to_tif']
             )
 
+            out_ls_final = (
+                str(out_dir.joinpath(f'{burst_prefix}_LS').with_suffix('.dim'))
+            )
+
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.bs.processed'), 'w+') as file:
             file.write('passed all tests \n')
+
+        return (
+            str(out_dir.joinpath(f'{burst_prefix}_bs').with_suffix('.dim')),
+            out_ls_final,
+            None
+        )
 
 
 def create_coherence_layers(
@@ -233,9 +258,13 @@ def create_coherence_layers(
         coreg_log = out_dir.joinpath(f'{master_prefix}_coreg.err_log')
 
         # run co-registration
-        slc.coreg(
-            master_import, slave_import, out_coreg, coreg_log, config_dict
-        )
+        try:
+            slc.coreg(
+                master_import, slave_import, out_coreg, coreg_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, error
 
         # remove imports
         h.delete_dimap(master_import)
@@ -253,9 +282,13 @@ def create_coherence_layers(
         coh_log = out_dir.joinpath(f'{master_prefix}_coh.err_log')
 
         # run coherence estimation
-        slc.coherence(
-            out_coreg.with_suffix('.dim'), out_coh, coh_log, config_dict
-        )
+        try:
+            slc.coherence(
+                out_coreg.with_suffix('.dim'), out_coh, coh_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, error
 
         # remove coreg tmp files
         h.delete_dimap(out_coreg)
@@ -270,21 +303,19 @@ def create_coherence_layers(
         tc_log = out_dir.joinpath(f'{master_prefix}_coh_tc.err_log')
 
         # run geocoding
-        common.terrain_correction(
-            out_coh.with_suffix('.dim'), out_tc, tc_log, config_dict
-        )
+        try:
+            common.terrain_correction(
+                out_coh.with_suffix('.dim'), out_tc, tc_log, config_dict
+            )
+        except (GPTRuntimeError, NotValidFileError) as error:
+            logger.info(error)
+            return None, error
 
         # ---------------------------------------------------------------
         # 4 Checks and Clean-up
 
         # remove tmp files
         h.delete_dimap(out_coh)
-
-        # check on coherence data
-        try:
-            h.check_out_dimap(out_tc)
-        except ValueError:
-            pass
 
         # move to final destination
         h.move_dimap(
@@ -294,6 +325,11 @@ def create_coherence_layers(
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.coh.processed'), 'w+') as file:
             file.write('passed all tests \n')
+
+        return (
+            str(out_dir.joinpath(f'{master_prefix}_coh').with_suffix('.dim')),
+            None
+        )
 
 
 def burst_to_ard(burst, config_file):
@@ -307,7 +343,6 @@ def burst_to_ard(burst, config_file):
         config_dict = json.load(file)
         ard = config_dict['processing']['single_ARD']
         temp_dir = Path(config_dict['temp_dir'])
-        cpus = config_dict['snap_cpu_parallelism']
 
     # creation of out_directory
     out_dir = Path(burst.out_directory)
@@ -318,6 +353,9 @@ def burst_to_ard(burst, config_file):
     bs_file = out_dir.joinpath('.bs.processed').exists()
     coh_file = out_dir.joinpath('.coh.processed').exists()
 
+    # set all return values initially to None
+    out_bs, out_ls, out_pol, out_coh = None, None, None, None
+
     # check if we need to produce coherence
     if ard['coherence']:
         # we check if there is actually a slave file or
@@ -326,6 +364,13 @@ def burst_to_ard(burst, config_file):
     else:
         coherence = False
 
+    # get info on master from GeoSeries
+    master_prefix = burst['master_prefix']
+    master_file = burst['file_location']
+    master_burst_nr = burst['BurstNr']
+    swath = burst['SwathID']
+
+    logger.info(f'Processing burst {burst.bid} acquired at {burst.Date}')
     # check if somethings already processed
     if (
             (ard['H-A-Alpha'] and not pol_file) or
@@ -334,52 +379,60 @@ def burst_to_ard(burst, config_file):
     ):
 
         # ---------------------------------------------------------------------
-        # 1 Import
-        # import master
-        # get info on master from GeoSeries
-        master_prefix = burst['master_prefix']
-        master_file = burst['file_location']
-        master_burst_nr = burst['BurstNr']
-        swath = burst['SwathID']
-
+        # 1 Master import
         # create namespace for master import
         master_import = temp_dir.joinpath(f'{master_prefix}_import')
 
         if not master_import.with_suffix('.dim').exists():
 
-            # create namesapce for log file
+            # create namespace for log file
             import_log = out_dir.joinpath(f'{master_prefix}_import.err_log')
 
             # run import
-            return_code = slc.burst_import(
-                master_file,
-                master_import,
-                import_log,
-                swath,
-                master_burst_nr,
-                config_dict
-            )
-            if return_code != 0:
-                h.delete_dimap(master_import)
-                return return_code
+            try:
+                slc.burst_import(
+                    master_file,
+                    master_import,
+                    import_log,
+                    swath,
+                    master_burst_nr,
+                    config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return None, None, None, None, error
 
         # ---------------------------------------------------------------------
         # 2 Product Generation
         if ard['H-A-Alpha'] and not pol_file:
-            create_polarimetric_layers(
+            out_pol, error = create_polarimetric_layers(
                 master_import.with_suffix('.dim'),
                 out_dir,
                 master_prefix,
                 config_dict
+            )
+        elif ard['H-A-Alpha'] and pol_file:
+            # construct namesapce for existing pol layer
+            out_pol = str(
+                out_dir.joinpath(f'{master_prefix}_pol').with_suffix('.dim')
             )
 
         if ard['backscatter'] and not bs_file:
-            create_backscatter_layers(
+            out_bs, out_ls, error = create_backscatter_layers(
                 master_import.with_suffix('.dim'),
                 out_dir,
                 master_prefix,
                 config_dict
             )
+        elif ard['backscatter'] and bs_file:
+            out_bs = str(
+                out_dir.joinpath(f'{master_prefix}_bs').with_suffix('.dim')
+            )
+
+            if ard['create_ls_mask'] and bs_file:
+                out_ls = str(
+                    out_dir.joinpath(f'{master_prefix}_LS').with_suffix('.dim')
+                )
 
         if coherence and not coh_file:
 
@@ -391,26 +444,63 @@ def burst_to_ard(burst, config_file):
             # import slave burst
             slave_import = temp_dir.joinpath(f'{slave_prefix}_import')
             import_log = out_dir.joinpath(f'{slave_prefix}_import.err_log')
-            polars = ard['polarisation'].replace(' ', '')
-            return_code = slc.burst_import(
-                slave_file, slave_import, import_log, swath, slave_burst_nr,
-                polars, cpus
-            )
 
-            if return_code != 0:
-                h.remove_folder_content(temp_dir)
-                return return_code
+            try:
+                slc.burst_import(
+                    slave_file,
+                    slave_import,
+                    import_log,
+                    swath,
+                    slave_burst_nr,
+                    config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return None, None, None, None, error
 
-            create_coherence_layers(
+            out_coh, error = create_coherence_layers(
                 master_import.with_suffix('.dim'),
                 slave_import.with_suffix('.dim'),
                 out_dir,
                 master_prefix,
                 config_dict
             )
+
+        elif coherence and coh_file:
+            out_coh = str(
+                out_dir.joinpath(f'{master_prefix}_coh').with_suffix('.dim')
+            )
+
+            # remove master import
+            h.delete_dimap(master_import)
         else:
             # remove master import
             h.delete_dimap(master_import)
+
+    # in case everything has been already processed,
+    # we re-construct the out names for proper return value
+    else:
+        if ard['H-A-Alpha'] and pol_file:
+            out_pol = str(
+                out_dir.joinpath(f'{master_prefix}_pol').with_suffix('.dim')
+            )
+
+        if ard['backscatter'] and bs_file:
+            out_bs = str(
+                out_dir.joinpath(f'{master_prefix}_bs').with_suffix('.dim')
+            )
+
+        if ard['create_ls_mask'] and bs_file:
+            out_ls = str(
+                out_dir.joinpath(f'{master_prefix}_LS').with_suffix('.dim')
+            )
+
+        if coherence and coh_file:
+            out_coh = str(
+                out_dir.joinpath(f'{master_prefix}_coh').with_suffix('.dim')
+            )
+
+    return out_bs, out_ls, out_pol, out_coh, None
 
 
 if __name__ == "__main__":

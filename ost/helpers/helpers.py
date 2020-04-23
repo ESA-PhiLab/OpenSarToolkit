@@ -142,7 +142,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
     # check for file size of the dim file
     dim_size_in_mb = dimap_prefix.with_suffix('.dim').stat().st_size / 1048576
 
-    if dim_size_in_mb < 0.1:
+    if dim_size_in_mb < 0.05:
         return f'File {dimap_prefix}.dim seems to small.'
 
     for file in dimap_prefix.with_suffix('.data').glob('*.img'):
@@ -150,7 +150,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
         # check size
         data_size_in_mb = file.stat().st_size / 1048576
 
-        if data_size_in_mb < 1:
+        if data_size_in_mb < 0.1:
             return f'Data file {file} in {dimap_prefix}.data seem to small.'
 
         # test on statistics

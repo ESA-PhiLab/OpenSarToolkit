@@ -586,7 +586,8 @@ class Sentinel1Batch(Sentinel1):
             timescan=False,
             mosaic=False,
             overwrite=False,
-            max_workers=1
+            max_workers=1,
+            executer_type='multiprocessing'
     ):
         """Batch processing function for full burst pre-processing workflow
 
@@ -608,6 +609,9 @@ class Sentinel1Batch(Sentinel1):
         processing jobs
         :return:
         """
+
+        self.config_dict['max_workers'] = max_workers
+        self.config_dict['executer_type'] = executer_type
 
         # --------------------------------------------
         # 1 delete data from previous runnings
@@ -632,25 +636,31 @@ class Sentinel1Batch(Sentinel1):
             self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
 
         # --------------------------------------------
-        # 3 Check ard parameters in case they have been updated,
+        # 3 subset determination
+        # we need a check function that checks
+        self.config_dict['subset'] = False
+        # self.config_dict['subset'] = vec.set_subset(
+        #     self.aoi, self.burst_inventory
+        # )
+
+        # --------------------------------------------
+        # 4 Check ard parameters in case they have been updated,
         #   and write them to json file
         self.update_ard_parameters()
 
         # --------------------------------------------
-        # 4 set resolution to degree
+        # 5 set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
         # --------------------------------------------
-        # 5 run the burst to ard batch routine
-        burst_batch.bursts_to_ards(
-            self.burst_inventory, self.config_file, max_workers=max_workers
-        )
+        # 6 run the burst to ard batch routine
+        burst_batch.bursts_to_ards(self.burst_inventory, self.config_file)
         # --------------------------------------------
         # 6 run the timeseries creation
         if timeseries or timescan:
             burst_batch.ards_to_timeseries(
-                self.burst_inventory, self.config_file, max_workers=max_workers
+                self.burst_inventory, self.config_file
             )
 
         # --------------------------------------------

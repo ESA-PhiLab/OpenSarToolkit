@@ -537,7 +537,7 @@ class Sentinel1Scene:
             download_dir=download_dir, data_mount=data_mount
         )
 
-        for anno_file in download_dir.glob(f'{file_path}/annotation/*xml'):
+        for anno_file in list(file_path.glob('annotation/*xml')):
             # parse the xml page from the response
             gdf = burst_extract(
                 self.scene_id, self.rel_orbit, self.start_date,

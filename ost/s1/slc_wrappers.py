@@ -39,9 +39,15 @@ def burst_import(
     """
 
     # get polarisations to import
-    bs_polar = config_dict['processing']['polarisation'].replace(' ', '')
-    coh_polar = config_dict['processing']['coherence_bands'].replace(' ', '')
-    polars = bs_polar if len(bs_polar) >= len(coh_polar) else coh_polar
+    ard = config_dict['processing']['single_ARD']
+    bs_polar = ard['polarisation'].replace(' ', '')
+    coh_polar = ard['coherence_bands'].replace(' ', '')
+    subset = config_dict['subset']
+
+    region = config_dict['aoi'] if subset else ''
+
+    if ard['coherence']:
+        polars = bs_polar if len(bs_polar) >= len(coh_polar) else coh_polar
 
     # get cpus
     cpus = config_dict['snap_cpu_parallelism']
@@ -59,6 +65,7 @@ def burst_import(
         f'-Ppolar={polars} '
         f'-Pswath={swath} '
         f'-Pburst={burst} '
+        f'-Pregion=\'{region}\' '
         f'-Poutput={str(outfile)}'
     )
 
@@ -99,8 +106,9 @@ def ha_alpha(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    remove_pol_speckle = config_dict['processing']['remove_pol_speckle']
-    pol_speckle_dict = config_dict['processing']['pol_speckle_filter']
+    ard = config_dict['processing']['single_ARD']
+    remove_pol_speckle = ard['remove_pol_speckle']
+    pol_speckle_dict = ard['pol_speckle_filter']
     cpus = config_dict['snap_cpu_parallelism']
 
     if remove_pol_speckle:
@@ -163,7 +171,6 @@ def calibration(
         outfile,
         logfile,
         config_dict,
-        region='',
 ):
     """A wrapper around SNAP's radiometric calibration
 
@@ -185,10 +192,10 @@ def calibration(
     """
 
     # get relevant config parameters
-    ard = config_dict['processing']
+    ard = config_dict['processing']['single_ARD']
     cpus = config_dict['snap_cpu_parallelism']
     dem_dict = ard['dem']
-
+    region=''
     # calculate Multi-Look factors
     azimuth_looks = 1  # int(np.floor(ard['resolution'] / 10 ))
     range_looks = 5  # int(azimuth_looks * 5)
@@ -211,7 +218,7 @@ def calibration(
             f"-Pdem_file=\'{dem_dict['dem_file']}\' "
             f"-Pdem_nodata={dem_dict['dem_nodata']} "
             f"-Pdem_resampling={dem_dict['dem_resampling']} "
-            f"-Pregion='{region}' "
+            f"-Pregion=\'{region}\' "
             f"-Pinput={str(infile)} "
             f"-Poutput={str(outfile)}"
         )
@@ -294,7 +301,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
 
     # get relevant config parameters
     cpus = config_dict['snap_cpu_parallelism']
-    dem_dict = config_dict['processing']['dem']
+    dem_dict = config_dict['processing']['single_ARD']['dem']
 
     logger.debug(f'Co-registering {master} and {slave}')
 
@@ -350,7 +357,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
 
     # get relevant config parameters
     cpus = config_dict['snap_cpu_parallelism']
-    dem_dict = config_dict['processing']['dem']
+    dem_dict = config_dict['processing']['single_ARD']['dem']
 
     # get path to graph
     graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_Coreg.xml')
@@ -402,7 +409,7 @@ def coherence(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    ard = config_dict['processing']
+    ard = config_dict['processing']['single_ARD']
     polars = ard['coherence_bands'].replace(' ', '')
     cpus = config_dict['snap_cpu_parallelism']
 
