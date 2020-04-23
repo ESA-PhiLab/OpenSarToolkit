@@ -158,16 +158,21 @@ def nan_percentile(arr, q):
     return result
 
 
-def mt_metrics(list_of_args):
+def mt_metrics(
+        stack, out_prefix, metrics, rescale_to_datatype, to_power,
+        outlier_removal, datelist
+):
     """
 
-    :param list_of_args:
+    :param stack:
+    :param out_prefix:
+    :param metrics:
+    :param rescale_to_datatype:
+    :param to_power:
+    :param outlier_removal:
+    :param datelist:
     :return:
     """
-    # -------------------------------------
-    # 1 extract args
-    stack, out_prefix, metrics, rescale_to_datatype = list_of_args[:4]
-    to_power, outlier_removal, datelist = list_of_args[4:]
 
     with rasterio.open(stack) as src:
 
@@ -284,7 +289,9 @@ def mt_metrics(list_of_args):
 
                 if ((rescale_to_datatype is True
                      and meta['dtype'] != 'float32')
-                        or metric in ['cov', 'phase']):
+                        or (metric in ['cov', 'phase']
+                            and meta['dtype'] != 'float32')
+                ):
                     arr[metric] = ras.scale_to_int(
                         arr[metric], minimums[metric], maximums[metric],
                         meta['dtype']
@@ -322,3 +329,13 @@ def mt_metrics(list_of_args):
     check_file = dirname.joinpath(f'.{out_prefix.name}.processed')
     with open(str(check_file), 'w') as file:
         file.write('passed all tests \n')
+
+
+def gd_mt_metrics(list_of_args):
+
+    stack, out_prefix, metrics, rescale_to_datatype = list_of_args[:4]
+    to_power, outlier_removal, datelist = list_of_args[4:]
+    mt_metrics(
+        stack, out_prefix, metrics, rescale_to_datatype, to_power,
+        outlier_removal, datelist
+    )

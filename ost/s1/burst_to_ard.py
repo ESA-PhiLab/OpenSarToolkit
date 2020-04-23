@@ -62,7 +62,10 @@ def create_polarimetric_layers(
             pass
 
         # move to final destination
-        h.move_dimap(out_htc, out_dir.joinpath(f'{burst_prefix}_pol'))
+        ard = config_dict['processing']['single_ARD']
+        h.move_dimap(
+            out_htc, out_dir.joinpath(f'{burst_prefix}_pol'), ard['to_tif']
+        )
 
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.pol.processed'), 'w+') as file:
@@ -166,7 +169,9 @@ def create_backscatter_layers(
             pass
 
         # move final backscatter product to actual output directory
-        h.move_dimap(out_tc, out_dir.joinpath(f'{burst_prefix}_bs'))
+        h.move_dimap(
+            out_tc, out_dir.joinpath(f'{burst_prefix}_bs'), ard['to_tif']
+        )
 
         # ---------------------------------------------------------------------
         # 9 Layover/Shadow mask
@@ -190,7 +195,9 @@ def create_backscatter_layers(
                 pass
 
             # move ls data to final destination
-            h.move_dimap(out_ls, out_dir.joinpath(f'{burst_prefix}_LS'))
+            h.move_dimap(
+                out_ls, out_dir.joinpath(f'{burst_prefix}_LS'), ard['to_tif']
+            )
 
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.bs.processed'), 'w+') as file:
@@ -213,7 +220,6 @@ def create_coherence_layers(
 
     # get relevant config parameters
     ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['snap_cpu_parallelism']
 
     with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
@@ -281,7 +287,9 @@ def create_coherence_layers(
             pass
 
         # move to final destination
-        h.move_dimap(out_tc, out_dir.joinpath(f'{master_prefix}_coh'))
+        h.move_dimap(
+            out_tc, out_dir.joinpath(f'{master_prefix}_coh'), ard['to_tif']
+        )
 
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.coh.processed'), 'w+') as file:
@@ -342,8 +350,6 @@ def burst_to_ard(burst, config_file):
             # create namesapce for log file
             import_log = out_dir.joinpath(f'{master_prefix}_import.err_log')
 
-
-
             # run import
             return_code = slc.burst_import(
                 master_file,
@@ -382,7 +388,7 @@ def burst_to_ard(burst, config_file):
             slave_file = burst['slave_file']
             slave_burst_nr = burst['slave_burst_nr']
 
-            # import slave
+            # import slave burst
             slave_import = temp_dir.joinpath(f'{slave_prefix}_import')
             import_log = out_dir.joinpath(f'{slave_prefix}_import.err_log')
             polars = ard['polarisation'].replace(' ', '')

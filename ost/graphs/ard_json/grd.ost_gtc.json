@@ -23,7 +23,7 @@
                 "pan_size": 50
             },
             "create_ls_mask": true,
-            "apply_ls_mask": false,
+
             "dem": {
                 "dem_name": "SRTM 1Sec HGT",
                 "dem_file": "",
@@ -50,6 +50,7 @@
                 "damping": 2,
                 "pan_size": 50
             },
+            "apply_ls_mask": false,
             "deseasonalize": false,
             "dtype_output": "float32"
         },

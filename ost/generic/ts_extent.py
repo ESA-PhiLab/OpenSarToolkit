@@ -1,42 +1,52 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import time
+import json
 import gdal
+import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from ost.helpers import helpers as h, raster as ras, vector as vec
+from ost.helpers import raster as ras, vector as vec
+
+logger = logging.getLogger(__name__)
 
 
-def mt_extent(list_of_args):
+def mt_extent(list_of_scenes, config_file):
 
-    # extract list
-    list_of_scenes, out_file, temp_dir, buffer = list_of_args
+    with open(config_file) as file:
+        config_dict = json.load(file)
+        temp_dir = Path(config_dict['temp_dir'])
+        aoi = config_dict['aoi']
 
+    # get track/burst dir from first scene
+    target_dir = Path(list_of_scenes[0]).parent.parent.parent
+    out_file = target_dir.joinpath(f'{target_dir.name}.extent.gpkg')
+
+    logger.info(f'Creating common extent mask for track {target_dir.name}.')
     # get out directory
     out_dir = out_file.parent
 
+    temp_extent = out_dir.joinpath('extent.vrt')
     # build vrt stack from all scenes
-    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
     gdal.BuildVRT(
-        str(out_dir.joinpath('extent.vrt')), list_of_scenes,
-        options=vrt_options
+        str(temp_extent),
+        list_of_scenes,
+        options=gdal.BuildVRTOptions(srcNodata=0, separate=True)
     )
-
-    # start timer
-    start = time.time()
 
     with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
 
         # create namespace for temp file
-        outline_file = Path(temp).joinpath(out_file.name)
+        temp = Path(temp)
+        image_bounds = temp.joinpath(out_file.name)
+        exterior = temp.joinpath(out_file.name + '_ext')
 
         # create outline
-        ras.outline(out_dir.joinpath('extent.vrt'), outline_file, 0, False)
+        ras.outline(temp_extent, image_bounds, 0, False)
 
         # create exterior ring and write out
-        vec.exterior(outline_file, out_file, buffer)
+        vec.exterior(image_bounds, exterior, -0.0018)
 
-    out_dir.joinpath('extent.vrt').unlink()
-    h.timer(start)
+        # intersect with aoi
+        vec.aoi_intersection(aoi, exterior, out_file)

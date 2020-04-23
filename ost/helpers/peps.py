@@ -45,8 +45,6 @@ def connect(uname=None, pword=None):
     :rtype: opener object
     """
 
-    base_url = 'https://peps.cnes.fr/'
-
     if not uname:
         print(' If you do not have a CNES Peps user account'
               ' go to: https://peps.cnes.fr/ and register')
@@ -55,9 +53,10 @@ def connect(uname=None, pword=None):
     if not pword:
         pword = getpass.getpass(' Your CNES Peps Password:')
 
-    # open a connection to the scihub
+    # open a connection to the CNES Peps
+    base_url = 'https://peps.cnes.fr/'
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(str(), base_url, uname, pword)
+    manager.add_password(None, base_url, uname, pword)
     handler = urllib.request.HTTPBasicAuthHandler(manager)
     opener = urllib.request.build_opener(handler)
 

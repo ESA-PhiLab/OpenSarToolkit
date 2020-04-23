@@ -7,68 +7,19 @@
 import os
 import math
 import glob
+import time
 import shlex
 import shutil
 import subprocess
-import time
-from datetime import timedelta
-from pathlib import Path
 import zipfile
 import logging
 
+from datetime import timedelta
+
 import gdal
-import geopandas as gpd
-from shapely.wkt import loads
 
 
 logger = logging.getLogger(__name__)
-
-
-def aoi_to_wkt(aoi):
-    """Helper function to transform various AOI formats into WKT
-
-    This function is used to import an AOI definition into an OST project.
-    The AOIs definition can be from difffrent sources, i.e. an ISO3 country
-    code (that calls GeoPandas low-resolution country boundaries),
-    a WKT string,
-
-    :param aoi: AOI , which can be an ISO3 country code, a WKT String or
-                a path to a shapefile, a GeoPackage or a GeoJSON file
-    :type aoi: str/Path
-    :return: AOI as WKT string
-    :rtype: WKT string
-    """
-
-    # load geopandas low res data and check if AOI is ISO3 country code
-    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-    if aoi in world.iso_a3.tolist():
-
-        # get lowres data from geopandas
-        country = world.name[world.iso_a3 == aoi].values[0]
-        logger.info(
-            f'Getting the country boundaries from Geopandas low '
-            f'resolution data for {country}'
-        )
-
-        # convert to WKT string
-        aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
-
-    # if it is a file
-    elif Path(aoi).exists():
-
-        gdf = gpd.GeoDataFrame.from_file(aoi)
-
-        logger.info(f'Using {aoi} as Area of Interest definition.')
-    else:
-        try:
-            # let's check if it is a shapely readable WKT
-            loads(str(aoi))
-        except:
-            raise ValueError('No valid OST AOI definition.')
-        else:
-            aoi_wkt = aoi
-
-    return aoi_wkt
 
 
 def timer(start):
@@ -157,33 +108,25 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
     """Function to move dimap's data and dim another locations
     """
 
-    # get any pre-sufffix (e.g. .LS or .bs)
-    out_suffix = outfile_prefix.suffixes[0]
-
     if to_tif:
 
-        suffix_tif = f'{out_suffix}.tif'
         gdal.Warp(
-            outfile_prefix.with_suffix(suffix_tif),
+            outfile_prefix.with_suffix('.tif'),
             infile_prefix.with_suffix('.dim')
         )
 
     else:
 
-        # construct final suffix
-        suffix_dim = f'{out_suffix}.dim'
-        suffix_data = f'{out_suffix}.data'
-
         # delete outfile if exists
-        if outfile_prefix.with_suffix(suffix_data).exists():
+        if outfile_prefix.with_suffix('.data').exists():
             delete_dimap(outfile_prefix)
 
         # move them
         infile_prefix.with_suffix('.data').rename(
-            outfile_prefix.with_suffix(suffix_data)
+            outfile_prefix.with_suffix('.data')
         )
         infile_prefix.with_suffix('.dim').rename(
-            outfile_prefix.with_suffix(suffix_dim)
+            outfile_prefix.with_suffix('.dim')
         )
 
 

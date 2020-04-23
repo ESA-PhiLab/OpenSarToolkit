@@ -304,7 +304,7 @@ def create_stack(
     logger.debug('Creating multi-temporal stack.')
 
     if pattern:
-        graph = OST_ROOT.joinpath('graph/S1_TS/1_BS_Stacking_HAalpha.xml')
+        graph = OST_ROOT.joinpath('graphs/S1_TS/1_BS_Stacking_HAalpha.xml')
 
         command = (
             f'{GPT_FILE} {graph} -x -q {2*cpus} '
@@ -313,9 +313,11 @@ def create_stack(
             f'-Poutput={out_stack}'
         )
     else:
-        graph = OST_ROOT.joinpath('graph/S1_TS/1_BS_Stacking.xml')
+        graph = OST_ROOT.joinpath('graphs/S1_TS/1_BS_Stacking.xml')
+
         command = (
             f'{GPT_FILE} {graph} -x -q {2*cpus} '
+            f'-Pfilelist={file_list} '
             f'-Ppol={polarisation} '
             f'-Poutput={out_stack}'
         )
@@ -390,7 +392,7 @@ def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
     # do check routine
     return_code = h.check_out_dimap(out_stack)
     if return_code == 0:
-        return str(out_stack.with_suffix('dim'))
+        return str(out_stack.with_suffix('.dim'))
     else:
         raise NotValidFileError(
             f'Product did not pass file check: {return_code}'

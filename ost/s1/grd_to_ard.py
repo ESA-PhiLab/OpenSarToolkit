@@ -51,37 +51,34 @@ def grd_to_ard(filelist, config_file):
     acquisition_date = first.start_date
     track = first.rel_orbit
 
-    logger.info(f'Processing scene {first.scene_id}')
+    logger.info(
+        f'Processing acquisition from {acquisition_date} over track {track}.'
+    )
 
     # construct namespace for out directory etc.
     out_dir = processing_dir.joinpath(f'{track}/{acquisition_date}')
     out_dir.mkdir(parents=True, exist_ok=True)
     file_id = f'{acquisition_date}_{track}'
-    out_final = out_dir.joinpath(f'{file_id}.bs')
-    out_ls_mask = out_dir.joinpath(f'{file_id}.LS')
+    out_final = out_dir.joinpath(f'{file_id}_bs')
+    out_ls_mask = out_dir.joinpath(f'{file_id}_LS')
 
-    if ard['to_tif']:
-        out_final_suf = '.bs.tif'
-        out_ls_suf = '.LS.tif'
-    else:
-        out_final_suf = '.bs.dim'
-        out_ls_suf = '.LS.dim'
+    suf = '.tif' if ard['to_tif'] else '.dim'
 
     # ----------------------------------------------------
     # 3 check if already processed
     if out_dir.joinpath('.processed').exists() and \
-            out_final.with_suffix(out_final_suf).exists():
+            out_final.with_suffix(suf).exists():
         logger.info(
             f'Acquisition from {acquisition_date} of track {track} '
             f'already processed'
         )
 
-        if out_ls_mask.with_suffix(out_ls_suf).exists():
-            out_ls = out_ls_mask.with_suffix(out_ls_suf)
+        if out_ls_mask.with_suffix(suf).exists():
+            out_ls = out_ls_mask.with_suffix(suf)
         else:
             out_ls = None
 
-        return out_final.with_suffix(out_final_suf), out_ls, None
+        return filelist, out_final.with_suffix(suf), out_ls, None
 
     # ----------------------------------------------------
     # 4 run the processing routine
@@ -111,7 +108,7 @@ def grd_to_ard(filelist, config_file):
                     )
                 except GPTRuntimeError as error:
                     logger.info(error)
-                    return None, None, error
+                    return filelist, None, None, error
 
             # create list of scenes for full acquisition in
             # preparation of slice assembly
@@ -127,10 +124,10 @@ def grd_to_ard(filelist, config_file):
 
             # run slice assembly
             try:
-                grd.slice_assembly(scenelist, grd_import, logfile)
+                grd.slice_assembly(scenelist, grd_import, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # delete imported frames
             for file in filelist:
@@ -153,7 +150,7 @@ def grd_to_ard(filelist, config_file):
                     )
                 except (GPTRuntimeError, NotValidFileError) as error:
                     logger.info(error)
-                    return None, None, error
+                    return filelist, None, None, error
 
                 # delete slice assembly input to subset
                 h.delete_dimap(grd_import)
@@ -176,7 +173,7 @@ def grd_to_ard(filelist, config_file):
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
         # set input for next step
         infile = grd_import.with_suffix('.dim')
@@ -212,7 +209,7 @@ def grd_to_ard(filelist, config_file):
             grd.calibration(infile, calibrated, logfile, config_dict)
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
-            return None, None, error
+            return filelist, None, None, error
 
         # delete input
         h.delete_dimap(infile.with_suffix(''))
@@ -235,7 +232,7 @@ def grd_to_ard(filelist, config_file):
                 grd.multi_look(infile, multi_looked, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # delete input
             h.delete_dimap(infile.with_suffix(''))
@@ -257,10 +254,10 @@ def grd_to_ard(filelist, config_file):
             # run ls mask routine
             try:
                 common.ls_mask(infile, ls_mask, logfile, config_dict)
-                out_ls = out_ls_mask.with_suffix('.LS.dim')
+                out_ls = out_ls_mask.with_suffix('.dim')
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # move to final destination
             h.move_dimap(ls_mask, out_ls_mask, ard['to_tif'])
@@ -280,7 +277,7 @@ def grd_to_ard(filelist, config_file):
                 common.speckle_filter(infile, filtered, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # delete input
             h.delete_dimap(infile.with_suffix(''))
@@ -305,7 +302,7 @@ def grd_to_ard(filelist, config_file):
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # delete input file
             h.delete_dimap(infile.with_suffix(''))
@@ -328,7 +325,7 @@ def grd_to_ard(filelist, config_file):
                 common.linear_to_db(infile, db_scaled, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return None, None, error
+                return filelist, None, None, error
 
             # delete input file
             h.delete_dimap(infile.with_suffix(''))
@@ -350,13 +347,13 @@ def grd_to_ard(filelist, config_file):
             common.terrain_correction(infile, geocoded, logfile, config_dict)
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
-            return None, None, error
+            return filelist, None, None, error
 
         # delete input file
         h.delete_dimap(infile.with_suffix(''))
 
         # define final destination
-        out_final = out_dir.joinpath(f'{file_id}.bs')
+        out_final = out_dir.joinpath(f'{file_id}_bs')
 
         # ---------------------------------------------------------------------
         # 4.10 Move to output directory
@@ -367,7 +364,7 @@ def grd_to_ard(filelist, config_file):
     with open(out_dir.joinpath('.processed'), 'w') as file:
         file.write('passed all tests \n')
 
-    return out_final.with_suffix('.bs.dim'), out_ls, None
+    return filelist, out_final.with_suffix('.bs.dim'), out_ls, None
 
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):

@@ -35,14 +35,13 @@ def ask_credentials():
     return uname, pword
 
 
-def connect(uname=None, pword=None, server='apihub'):
+def connect(uname=None, pword=None):
     """Generates an opener for the Copernicus apihub/dhus
     
     :param uname: username of Copernicus' scihub
     :type uname: str
     :param pword: password of Copernicus' scihub
     :type pword: str
-    :param server: 
     :return: an urllib opener instance for Copernicus' scihub
     :rtype: opener object
     """
@@ -55,16 +54,11 @@ def connect(uname=None, pword=None, server='apihub'):
     if not pword:
         pword = getpass.getpass(' Your Copernicus Scihub Password:')
 
-    # open a connection to the scihub
-    if server == 'apihub':
-        base_url = 'https://scihub.copernicus.eu/apihub/'
-    elif server == 'dhus':
-        base_url = 'https://scihub.copernicus.eu/dhus/'
-    else:
-        raise ValueError('Wrong server. Must be either apihub or dhus.')
+    base_url = 'https://scihub.copernicus.eu/apihub/'
 
+    # create opener
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(str(), base_url, uname, pword)
+    manager.add_password(None, base_url, uname, pword)
     handler = urllib.request.HTTPBasicAuthHandler(manager)
     opener = urllib.request.build_opener(handler)
 
@@ -249,10 +243,7 @@ def s1_download(argument_list):
     chunk_size = 1024
 
     # check if file is partially downloaded
-    if filename.exists():
-        first_byte = filename.stat().st_size
-    else:
-        first_byte = 0
+    first_byte = filename.stat().st_size if filename.exists() else 0
 
     if first_byte >= total_length:
         return
@@ -273,17 +264,14 @@ def s1_download(argument_list):
             # actual download
             with open(filename, "ab") as file:
 
-                if total_length is None:
-                    file.write(response.content)
-                else:
-                    pbar = tqdm.tqdm(
-                        total=total_length, initial=first_byte, unit='B',
-                        unit_scale=True, desc=' INFO: Downloading: '
-                    )
-                    for chunk in response.iter_content(chunk_size):
-                        if chunk:
-                            file.write(chunk)
-                            pbar.update(chunk_size)
+                pbar = tqdm.tqdm(
+                    total=total_length, initial=first_byte, unit='B',
+                    unit_scale=True, desc=' INFO: Downloading: '
+                )
+                for chunk in response.iter_content(chunk_size):
+                    if chunk:
+                        file.write(chunk)
+                        pbar.update(chunk_size)
             pbar.close()
 
             # update first_byte

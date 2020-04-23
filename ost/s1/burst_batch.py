@@ -123,7 +123,7 @@ def _create_extents(burst_gdf, config_file):
 
 
 def _create_mt_ls_mask(burst_gdf, config_file):
-    """Batch processing for multi-temporal Layover7Shadow mask
+    """Batch processing for multi-temporal Layover/Shadow mask
 
     This function handles the organization of the
 
@@ -134,10 +134,10 @@ def _create_mt_ls_mask(burst_gdf, config_file):
 
     # read config file
     with open(config_file, 'r') as file:
-        project_params = json.load(file)
-        processing_dir = project_params['project']['processing_dir']
-        temp_dir = project_params['project']['temp_dir']
-        ard = project_params['processing_parameters']['time-series_ARD']
+        config_dict = json.load(file)
+        processing_dir = config_dict['processing_dir']
+        temp_dir = config_dict['temp_dir']
+        ard = config_dict['processing']['time-series_ARD']
 
     # create layover
     iter_list = []
@@ -171,7 +171,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
 
     # parallelizing on all cpus
     concurrent = int(
-        mp.cpu_count() / project_params['project']['snap_cpu_parallelism']
+        mp.cpu_count() / config_dict['snap_cpu_parallelism']
     )
     pool = mp.Pool(processes=concurrent)
     pool.map(ts_ls_mask.mt_layover, iter_list)
@@ -185,8 +185,8 @@ def _create_timeseries(burst_gdf, project_file):
 
     # read config file
     with open(project_file, 'r') as file:
-        project_params = json.load(file)
-        processing_dir = project_params['project']['processing_dir']
+        config_dict = json.load(file)
+        processing_dir = config_dict['project']['processing_dir']
 
     # create iterable
     iter_list = []
@@ -221,7 +221,7 @@ def _create_timeseries(burst_gdf, project_file):
 
     # parallelizing on all cpus
     concurrent = int(
-        mp.cpu_count() / project_params['project']['snap_cpu_parallelism']
+        mp.cpu_count() / config_dict['project']['snap_cpu_parallelism']
     )
     pool = mp.Pool(processes=concurrent)
     pool.map(ard_to_ts.ard_to_ts, iter_list)
@@ -265,11 +265,11 @@ def timeseries_to_timescan(burst_gdf, project_file):
     # -------------------------------------
     # 1 load project config
     with open(project_file, 'r') as ard_file:
-        project_params = json.load(ard_file)
-        processing_dir = project_params['project']['processing_dir']
-        ard = project_params['processing_parameters']['single_ARD']
-        ard_mt = project_params['processing_parameters']['time-series_ARD']
-        ard_tscan = project_params['processing_parameters']['time-scan_ARD']
+        config_dict = json.load(ard_file)
+        processing_dir = config_dict['project']['processing_dir']
+        ard = config_dict['processing_parameters']['single_ARD']
+        ard_mt = config_dict['processing_parameters']['time-series_ARD']
+        ard_tscan = config_dict['processing_parameters']['time-scan_ARD']
 
     # get the db scaling right
     to_db = True if ard['to_db'] or ard_mt['to_db'] else False
@@ -340,8 +340,8 @@ def mosaic_timeseries(burst_inventory, project_file):
     # -------------------------------------
     # 1 load project config
     with open(project_file, 'r') as ard_file:
-        project_params = json.load(ard_file)
-        processing_dir = project_params['project']['processing_dir']
+        config_dict = json.load(ard_file)
+        processing_dir = config_dict['project']['processing_dir']
 
     # create output folder
     ts_dir = Path(processing_dir).joinpath('Mosaic/Timeseries')
@@ -433,9 +433,9 @@ def mosaic_timescan(project_file):
     print(' -----------------------------------------------------------------')
 
     with open(project_file, 'r') as ard_file:
-        project_params = json.load(ard_file)
-        processing_dir = project_params['project']['processing_dir']
-        metrics = project_params['processing']['time-scan_ARD']['metrics']
+        config_dict = json.load(ard_file)
+        processing_dir = config_dict['project']['processing_dir']
+        metrics = config_dict['processing']['time-scan_ARD']['metrics']
 
     if 'harmonics' in metrics:
         metrics.remove('harmonics')

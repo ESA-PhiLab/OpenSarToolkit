@@ -1,7 +1,7 @@
 import itertools
 
 # some more libs for plotting and DB connection
-import fiona
+import fiona.crs
 import geopandas as gpd
 import logging
 
@@ -31,16 +31,17 @@ def _remove_double_entries(inventory_df):
     """
 
     # filter footprint data frame for obit direction and polarisation &
-    # get unqiue entries
+    # get unique entries
     idx = inventory_df.groupby(
-        inventory_df['identifier'].str.slice(0, 63))[
-              'ingestiondate'].transform(max) == inventory_df['ingestiondate']
+        inventory_df['identifier'].str.slice(0, 63)
+    )['ingestiondate'].transform(max) == inventory_df['ingestiondate']
 
     # re-initialize GDF geometry due to groupby function
     crs = fiona.crs.from_epsg(4326)
     gdf = gpd.GeoDataFrame(inventory_df[idx], geometry='geometry', crs=crs)
-    logger.info('{} frames remain after double entry removal'.format(
-        len(inventory_df[idx])))
+    logger.info(
+        f'{len(inventory_df[idx])} frames remain after double entry removal'
+    )
     return gdf
 
 
@@ -66,15 +67,16 @@ def _remove_outside_aoi(aoi_gdf, inventory_df):
     cols = inventory_df.columns
 
     # 1) get only intersecting footprints (double, since we do this before)
-    inventory_df = gpd.sjoin(inventory_df, aoi_gdf,
-                             how='inner', op='intersects')
+    inventory_df = gpd.sjoin(
+        inventory_df, aoi_gdf, how='inner', op='intersects'
+    )
 
     # if aoi  gdf has an id field we need to rename the changed id_left field
-    if 'id_left' in inventory_df.columns.tolist():
+    if 'id_left' in inventory_df.columns:
         # rename id_left to id
         inventory_df.columns = [
-            'id' if x == 'id_left' else x
-            for x in inventory_df.columns.tolist()]
+            'id' if x == 'id_left' else x for x in inventory_df.columns
+        ]
 
     return inventory_df[cols]
 
@@ -106,7 +108,9 @@ def _handle_equator_crossing(inventory_df):
 
         # get dates
         dates = inventory_df.acquisitiondate[
-            (inventory_df['relativeorbit'] == track)].unique()
+            (inventory_df['relativeorbit'] == track)
+        ].unique()
+
         for date in dates:
             # ----------------------------------------------------
             # ### NEEDS TO BE ADDED THE CHECK
@@ -121,8 +125,10 @@ def _handle_equator_crossing(inventory_df):
             # ----------------------------------------------------
 
             # get index of
-            idx = inventory_df[(inventory_df['acquisitiondate'] == date) &
-                               (inventory_df['relativeorbit'] == track)].index
+            idx = inventory_df[
+                (inventory_df['acquisitiondate'] == date) &
+                (inventory_df['relativeorbit'] == track)
+            ].index
 
             # reset relative orbit number
             inventory_df.set_value(idx, 'relativeorbit', str(int(track) - 1))
@@ -162,15 +168,14 @@ def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
         intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
 
         if intersect_track >= aoi_area - area_reduce:
-            logger.info('excluding track {}'.format(track))
+            logger.info(f'Excluding track {track}')
             inventory_refined = inventory_df[
                 inventory_df['relativeorbit'] != track]
 
     # see if there is actually any marginal track
     try:
         inventory_df = inventory_refined
-        logger.info('{} frames remain after non-AOI overlap'.format(
-            len(inventory_df)))
+        logger.info(f'{len(inventory_df)} frames remain after non-AOI overlap')
     except NameError:
         pass
     else:
@@ -208,14 +213,18 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
 
         # get area of AOI intersect for all acq.s of this track
         trackunion = inventory_df['geometry'][
-            inventory_df['relativeorbit'] == track].unary_union
+            inventory_df['relativeorbit'] == track
+        ].unary_union
+
         intersect_track = aoi_gdf.geometry.intersection(trackunion).area.sum()
 
         # loop through dates
-        for date in sorted(inventory_df['acquisitiondate'][
-                               inventory_df[
-                                   'relativeorbit'] == track].unique(),
-                           reverse=False):
+        for date in sorted(
+                inventory_df['acquisitiondate'][
+                    inventory_df['relativeorbit'] == track
+                ].unique(),
+                reverse=False
+        ):
 
             gdf_date = inventory_df[(inventory_df['relativeorbit'] == track) &
                                     (inventory_df['acquisitiondate'] == date)]
@@ -228,8 +237,9 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
             if intersect_track <= intersect_date + 0.15:
                 out_frame = out_frame.append(gdf_date)
 
-    logger.info('{} frames remain after removal of non-full AOI crossing'
-                .format(len(out_frame)))
+    logger.info(
+        f'{len(out_frame)} frames remain after removal of non-full AOI crossing'
+    )
     return out_frame
 
 
@@ -276,7 +286,7 @@ def _handle_non_continous_swath(inventory_df):
                         i += 1
 
                     uuid = row.uuid
-                    new_id = '{}.{}'.format(row.relativeorbit, i)
+                    new_id = f'{row.relativeorbit}.{i}'
                     idx = inventory_df[inventory_df['uuid'] == uuid].index
                     inventory_df.set_value(idx, 'relativeorbit', new_id)
                     last_slice = row.slicenumber
@@ -425,7 +435,8 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                         # cleanup scenes
                         out_frame = out_frame.append(temp_df)
                         temp_df = gpd.GeoDataFrame(
-                            columns=inventory_df.columns)
+                            columns=inventory_df.columns
+                        )
                         gdf_union = None
 
                         # stop for loop
@@ -435,8 +446,10 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
             if intersect_area >= aoi_area - area_reduce:
                 break
 
-    return gpd.GeoDataFrame(out_frame, geometry='geometry',
-                            crs={'init': 'epsg:4326', 'no_defs': True})
+    return gpd.GeoDataFrame(
+        out_frame, geometry='geometry',
+        crs={'init': 'epsg:4326', 'no_defs': True}
+    )
 
 
 def search_refinement(aoi,
@@ -534,6 +547,9 @@ def search_refinement(aoi,
                     aoi_gdf, inventory_refined, area_reduce)
                 inventory_refined = _backward_search(
                     aoi_gdf, inventory_refined, datelist, area_reduce)
+
+            # drop duplicates (for some reason are there)
+            inventory_refined.drop_duplicates(inplace=True)
 
             if len(inventory_refined) != 0:
                 pols = ''.join(pol.split())

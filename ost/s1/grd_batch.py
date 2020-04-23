@@ -1,3 +1,10 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Batch processing for GRD products
+
+"""
+
 import os
 from os.path import join as opj
 import json
@@ -7,6 +14,8 @@ import logging
 import gdal
 import pandas as pd
 from pathlib import Path
+
+from godale._concurrent import Executor
 
 from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard
@@ -35,20 +44,16 @@ def _create_processing_dict(inventory_df):
     dict_scenes = {}
 
     # get relative orbits and loop through each
-    tracklist = inventory_df['relativeorbit'].unique()
+    track_list = inventory_df['relativeorbit'].unique()
 
-    for track in tracklist:
-
-        # initialize an empty list that will be filled by
-        # list of scenes per acq. date
-        all_ids = []
+    for track in track_list:
 
         # get acquisition dates and loop through each
         acquisition_dates = inventory_df['acquisitiondate'][
             inventory_df['relativeorbit'] == track].unique()
 
         # loop through dates
-        for acquisition_date in acquisition_dates:
+        for i, acquisition_date in enumerate(acquisition_dates):
 
             # get the scene ids per acquisition_date and write into a list
             single_id = inventory_df['identifier'][
@@ -56,12 +61,9 @@ def _create_processing_dict(inventory_df):
                 (inventory_df['acquisitiondate'] == acquisition_date)
             ].tolist()
 
-            # append the list of scenes to the list of scenes per track
-            all_ids.append(single_id)
-
-        # add this list to the dictionary and associate the track number
-        # as dict key
-        dict_scenes[track] = all_ids
+            # add this list to the dictionary and associate the track number
+            # as dict key
+            dict_scenes[f'{track}_{i+1}'] = single_id
 
     return dict_scenes
 
@@ -69,14 +71,22 @@ def _create_processing_dict(inventory_df):
 def create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error):
 
     df = pd.DataFrame(columns=['identifier', 'outfile', 'out_ls', 'error'])
+
     for scene in list_of_scenes:
 
-        # get index
-        temp_df = inventory_df.identifier[inventory_df.identifier == scene]
+        temp_df = pd.DataFrame()
+        # get scene_id
+        temp_df['identifier'] = inventory_df.identifier[
+            inventory_df.identifier == scene
+        ].values
+        # fill outfiles/error
         temp_df['outfile'] = outfile
         temp_df['out_ls'] = out_ls
         temp_df['error'] = error
+
+        # append to final df and delete temp_df for next loop
         df = df.append(temp_df)
+        del temp_df
 
     return df
 
@@ -87,201 +97,259 @@ def grd_to_ard_batch(inventory_df, config_file):
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
         download_dir = Path(config_dict['download_dir'])
-        processing_dir = Path(config_dict['processing_dir'])
+        data_mount = Path(config_dict['data_mount'])
 
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
     processing_df = pd.DataFrame(
         columns=['identifier', 'outfile', 'out_ls', 'error']
     )
-    # we could use this generator as a unique iterable or rewrite the
-    # create_processing_dict funciton for godale
-    #for list_of_scenes in (
-    #        processing_dict[track]
-    #        for track, allScenes in processing_dict.items()
-    #):
 
-    iterable = []
-    for track, allScenes in processing_dict.items():
-        for list_of_scenes in processing_dict[track]:
+    iter_list = []
+    for _, list_of_scenes in processing_dict.items():
 
-            # get the paths to the file
-            scene_paths = (
-                [Sentinel1Scene(scene).get_path(download_dir)
-                 for scene in list_of_scenes]
-            )
+        # get the paths to the file
+        scene_paths = (
+            [Sentinel1Scene(scene).get_path(download_dir, data_mount)
+             for scene in list_of_scenes]
+        )
 
-            iterable.append(scene_paths)
+        iter_list.append(scene_paths)
 
-            # apply the grd_to_ard function
-            outfile, out_ls, error = grd_to_ard.grd_to_ard(
-                scene_paths, config_file
-            )
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
 
-            # return the info of processing as dataframe
-            temp_df = create_processed_df(
-                inventory_df, list_of_scenes, outfile, out_ls, error
-            )
+    for task in executor.as_completed(
+        func=grd_to_ard.grd_to_ard,
+        iterable=iter_list,
+        fargs=([str(config_file), ])
+    ):
 
-            processing_df = processing_df.append(temp_df)
+        list_of_scenes, outfile, out_ls, error = task.result()
+
+        # return the info of processing as dataframe
+        temp_df = create_processed_df(
+            inventory_df, list_of_scenes, outfile, out_ls, error
+        )
+
+        processing_df = processing_df.append(temp_df)
 
     return processing_df
 
 
-def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
-                       proc_file, exec_file):
+def ards_to_timeseries(inventory_df, config_file):
 
-    # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+    with open(config_file) as file:
+        config_dict = json.load(file)
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
 
+    # create all extents
+    _create_extents(inventory_df, config_file)
+
+    # update extents in case of ls_mask
+    if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
+        _create_mt_ls_mask(inventory_df, config_file)
+
+    # finally create time-series
+    _create_timeseries(inventory_df, config_file)
+
+
+def _create_extents(inventory_df, config_file):
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
 
         # get common burst extent
-        list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-        list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-        extent = opj(track_dir, '{}.extent.shp'.format(track))
+        list_of_scenes = list(track_dir.glob('**/*img'))
 
-        # placeholder for parallelisation
-        if exec_file:
-            if os.path.isfile(exec_file):
-                os.remove(exec_file)
+        list_of_scenes = [
+            str(x) for x in list_of_scenes if 'layover' not in str(x)
+        ]
 
-            print('create command')
-            continue
+        # if extent does not already exist, add to iterable
+        if not track_dir.joinpath(f'{track}.extent.gpkg').exists():
+            iter_list.append(list_of_scenes)
 
-        logger.info('Creating common extent mask for track {}'.format(track))
-        ts_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
 
-    if ard['create ls mask'] or ard['apply ls mask']:
+    for task in executor.as_completed(
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
 
-        for track in inventory_df.relativeorbit.unique():
 
-            # get the burst directory
-            track_dir = opj(processing_dir, track)
+def _create_mt_ls_mask(inventory_df, config_file):
 
-            # get common burst extent
-            list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-            list_of_layover = [x for x in list_of_scenes if 'layover' in x]
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
 
-            # layover/shadow mask
-            out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
-
-            logger.info('Creating common Layover/Shadow mask for track {}'.format(track))
-            ts_extent.mt_layover(list_of_layover, out_ls, temp_dir,
-                                      extent, ard['apply ls mask'])
-
+    iter_list = []
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
+
+        # get common burst extent
+        list_of_scenes = list(track_dir.glob('**/*img'))
+
+        list_of_layover = [
+            str(x) for x in list_of_scenes if 'layover' in str(x)
+        ]
+
+        iter_list.append(list_of_layover)
+        #ts_ls_mask.mt_layover(list_of_layover, config_file)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+    for task in executor.as_completed(
+            func=ts_ls_mask.mt_layover,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
+
+
+def _create_timeseries(inventory_df, config_file):
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
+    for track in inventory_df.relativeorbit.unique():
+
+        # get the burst directory
+        track_dir = processing_dir.joinpath(track)
 
         for pol in ['VV', 'VH', 'HH', 'HV']:
 
             # see if there is actually any imagery in thi polarisation
-            list_of_files = sorted(glob.glob(
-                opj(track_dir, '20*', '*data*', '*ma0*{}*img'.format(pol))))
+            list_of_files = sorted(
+                str(file) for file in list(
+                    track_dir.glob(f'20*/*data*/*ma0*{pol}*img')
+                )
+            )
 
             if not len(list_of_files) > 1:
                 continue
 
             # create list of dims if polarisation is present
-            list_of_dims = sorted(glob.glob(
-                opj(track_dir, '20*', '*bs*dim')))
-
-            ard_to_ts.ard_to_ts(
-                            list_of_dims,
-                            processing_dir,
-                            temp_dir,
-                            track,
-                            proc_file,
-                            product='bs',
-                            pol=pol
+            list_of_dims = sorted(
+                str(dim) for dim in list(track_dir.glob('20*/*bs*dim'))
             )
 
+            iter_list.append([list_of_dims, track, 'bs', pol])
 
-def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
-                           exec_file=None):
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
 
+    for task in executor.as_completed(
+            func=ard_to_ts.gd_ard_to_ts,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
+
+
+def timeseries_to_timescan(inventory_df, config_file):
 
     # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
-        ard_mt = ard_params['time-series ARD']
-        ard_tscan = ard_params['time-scan ARD']
-
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
+        ard_tscan = config_dict['processing']['time-scan_ARD']
 
     # get the db scaling right
-    to_db = ard['to db']
-    if ard['to db'] or ard_mt['to db']:
+    to_db = ard['to_db']
+    if ard['to_db'] or ard_mt['to_db']:
         to_db = True
 
-    dtype_conversion = True if ard_mt['dtype output'] != 'float32' else False
+    dtype_conversion = True if ard_mt['dtype_output'] != 'float32' else False
 
+    iter_list = []
     for track in inventory_df.relativeorbit.unique():
 
         logger.info('Entering track {}.'.format(track))
         # get track directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
         # define and create Timescan directory
-        timescan_dir = opj(track_dir, 'Timescan')
-        os.makedirs(timescan_dir, exist_ok=True)
+        timescan_dir = track_dir.joinpath('Timescan')
+        timescan_dir.mkdir(parents=True, exist_ok=True)
 
         # loop thorugh each polarization
         for polar in ['VV', 'VH', 'HH', 'HV']:
 
-            if os.path.isfile(opj(timescan_dir, '.{}.processed'.format(polar))):
-                logger.info('Timescans for track {} already'
-                      ' processed.'.format(track))
+            if timescan_dir.joinpath(f'.{polar}.processed').exists():
+                logger.info(f'Timescans for track {track} already processed.')
                 continue
 
-            #get timeseries vrt
-            timeseries = opj(track_dir,
-                             'Timeseries',
-                             'Timeseries.bs.{}.vrt'.format(polar)
+            # get timeseries vrt
+            time_series = track_dir.joinpath(
+                f'Timeseries/Timeseries.bs.{polar}.vrt'
             )
 
-            if not os.path.isfile(timeseries):
+            if not time_series.exists():
                 continue
 
-            logger.info('Processing Timescans of {} for track {}.'.format(polar, track))
             # create a datelist for harmonics
-            scenelist = glob.glob(
-                opj(track_dir, '*bs.{}.tif'.format(polar))
-            )
+            scene_list = [
+                str(file) for file in list(track_dir.glob(f'*bs.{polar}.tif'))
+            ]
 
             # create a datelist for harmonics calculation
             datelist = []
-            for file in sorted(scenelist):
+            for file in sorted(scene_list):
                 datelist.append(os.path.basename(file).split('.')[1])
 
             # define timescan prefix
-            timescan_prefix = opj(timescan_dir, 'bs.{}'.format(polar))
+            timescan_prefix = timescan_dir.joinpath(f'bs.{polar}')
 
-            # placeholder for parallel execution
-            if exec_file:
-                print(' Write command to a text file')
-                continue
+            iter_list.append([
+                time_series, timescan_prefix, ard_tscan['metrics'],
+                dtype_conversion, to_db, ard_tscan['remove_outliers'],
+                datelist
+            ])
 
-            # run timescan
-            timescan.mt_metrics(
-                timeseries,
-                timescan_prefix,
-                ard_tscan['metrics'],
-                rescale_to_datatype=dtype_conversion,
-                to_power=to_db,
-                outlier_removal=ard_tscan['remove outliers'],
-                datelist=datelist
-            )
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
 
-        if not exec_file:
-            # create vrt file (and rename )
-            ras.create_tscan_vrt(timescan_dir, proc_file)
+    for task in executor.as_completed(
+            func=timescan.gd_mt_metrics,
+            iterable=iter_list,
+    ):
+        task.result()
+
+    for track in inventory_df.relativeorbit.unique():
+        track_dir = processing_dir.joinpath(track)
+        timescan_dir = track_dir.joinpath('Timescan')
+        ras.create_tscan_vrt([timescan_dir, config_file])
 
 
 def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,

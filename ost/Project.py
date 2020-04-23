@@ -25,6 +25,9 @@ from ost.s1 import grd_batch
 # get the logger
 logger = logging.getLogger(__name__)
 
+OST_DATEFORMAT = "%Y-%m-%d"
+OST_INVENOTRY_FILE = 'full.inventory.gpkg'
+
 
 class Generic:
 
@@ -33,7 +36,7 @@ class Generic:
             project_dir,
             aoi,
             start='1978-06-28',
-            end=datetime.today().strftime("%Y-%m-%d"),
+            end=datetime.today().strftime(OST_DATEFORMAT),
             data_mount=None,
             log_level=logging.INFO
     ):
@@ -57,35 +60,30 @@ class Generic:
             logger.info('Project directory already exists. '
                         'No data has been deleted at this point but '
                         'make sure you really want to use this folder.')
-            pass
-
+            
         # define project sub-directories if not set, and create folders
         self.download_dir = self.project_dir.joinpath('download')
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f'Downloaded data will be stored in: {self.download_dir}. '
-            f'You can change this by setting self.download_dir. '
+            f'Downloaded data will be stored in: {self.download_dir}.'
         )
 
         self.inventory_dir = self.project_dir.joinpath('inventory')
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f'Inventory files will be stored in: {self.inventory_dir}'
-            f'You can change this by setting self.inventory_dir. '
+            f'Inventory files will be stored in: {self.inventory_dir}.'
         )
 
         self.processing_dir = self.project_dir.joinpath('processing')
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Processed data will be stored in: {self.processing_dir}.'
-            f'You can change this by setting self.processing_dir. '
         )
 
         self.temp_dir = self.project_dir.joinpath('temp')
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
             f'Using {self.temp_dir} as directory for temporary files.'
-            f'You can change this by setting self.temp_dir. '
         )
 
         # ------------------------------------------
@@ -94,19 +92,19 @@ class Generic:
 
         # ------------------------------------------
         # 4 handle AOI (read and get back WKT)
-        self.aoi = h.aoi_to_wkt(aoi)
+        self.aoi = vec.aoi_to_wkt(aoi)
 
         # ------------------------------------------
         # 5 Handle Period of Interest
         try:
-            datetime.strptime(start, '%Y-%m-%d')
+            datetime.strptime(start, OST_DATEFORMAT)
             self.start = start
         except ValueError:
             raise ValueError("Incorrect date format for start date. "
                              "It should be YYYY-MM-DD")
 
         try:
-            datetime.strptime(end, '%Y-%m-%d')
+            datetime.strptime(end, OST_DATEFORMAT)
             self.end = end
         except ValueError:
             raise ValueError("Incorrect date format for end date. "
@@ -147,7 +145,7 @@ class Sentinel1(Generic):
             project_dir,
             aoi,
             start='2014-10-01',
-            end=datetime.today().strftime("%Y-%m-%d"),
+            end=datetime.today().strftime(OST_DATEFORMAT),
             data_mount=None,
             product_type='*',
             beam_mode='*',
@@ -187,7 +185,7 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 5 Initialize the inventory file
-        inventory_file = self.inventory_dir.joinpath('full.inventory.gpkg')
+        inventory_file = self.inventory_dir.joinpath(OST_INVENOTRY_FILE)
         if inventory_file.exists():
             self.inventory_file = inventory_file
             logging.info(
@@ -209,17 +207,26 @@ class Sentinel1(Generic):
         self.burst_inventory = None
         self.burst_inventory_file = None
 
+        # ------------------------------------------
+        # 7 Initialize uname and pword to None
+        self.scihub_uname = None
+        self.scihub_pword = None
+
+        self.asf_uname = None
+        self.asf_pword = None
+
+        self.peps_uname = None
+        self.peps_pword = None
+
+        self.onda_uname = None
+        self.onda_pword = None
+
     # ------------------------------------------
     # methods
-    def search(
-            self, outfile='full.inventory.gpkg', append=False,
-            uname=None, pword=None
-    ):
+    def search(self, outfile=OST_INVENOTRY_FILE, append=False):
         """High Level search function
         :param outfile:
         :param append:
-        :param uname:
-        :param pword:
         :return:
         """
 
@@ -239,22 +246,22 @@ class Sentinel1(Generic):
             f'Sentinel-1 AND {product_specs} AND {aoi} AND {toi}'
         )
 
-        if not uname or not pword:
+        if not self.scihub_uname or not self.scihub_pword:
             # ask for username and password
-            uname, pword = scihub.ask_credentials()
+            self.scihub_uname, self.scihub_pword = scihub.ask_credentials()
 
         # do the search
-        if outfile == 'full.inventory.gpkg':
+        if outfile == OST_INVENOTRY_FILE:
             self.inventory_file = self.inventory_dir.joinpath(
-                'full.inventory.gpkg'
+                OST_INVENOTRY_FILE
             )
         else:
             Path(outfile)
 
         search.scihub_catalogue(
-            query, self.inventory_file, append, uname, pword
+            query, self.inventory_file, append,
+            self.scihub_uname, self.scihub_pword
         )
-        del uname, pword
 
         if self.inventory_file.exists():
             # read inventory into the inventory attribute
@@ -446,7 +453,7 @@ class Sentinel1Batch(Sentinel1):
             project_dir,
             aoi,
             start='2014-10-01',
-            end=datetime.today().strftime("%Y-%m-%d"),
+            end=datetime.today().strftime(OST_DATEFORMAT),
             data_mount=None,
             product_type='SLC',
             beam_mode='IW',
@@ -683,12 +690,17 @@ class Sentinel1Batch(Sentinel1):
 
     def grds_to_ard(
             self,
+            inventory_df,
             timeseries=False,
             timescan=False,
             mosaic=False,
-            overwrite=False
+            overwrite=False,
+            max_workers=1,
+            executer_type='multiprocessing'
     ):
 
+        self.config_dict['max_workers'] = max_workers
+        self.config_dict['executer_type'] = executer_type
         # --------------------------------------------
         # 1 delete data in case of previous runs
 
@@ -713,14 +725,14 @@ class Sentinel1Batch(Sentinel1):
             self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
 
         # --------------------------------------------
-        # 3 Check ard parameters in case they have been updated,
-        #   and write them to json file
-        self.update_ard_parameters()
+        # 3 subset determination
+        # we need a check function that checks
+        self.config_dict['subset'] = vec.set_subset(self.aoi, inventory_df)
 
         # --------------------------------------------
-        # 4 subset determination
-        # we need a check function that checks
-        # if all images to process 100% overlap the AOI
+        # 4 Check ard parameters in case they have been updated,
+        #   and write them to json file
+        self.update_ard_parameters()
 
         # --------------------------------------------
         # 5 set resolution in degree
@@ -735,22 +747,23 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 5 set resolution in degree
         # the grd to ard batch routine
-        grd_batch.grd_to_ard_batch(
-            inventory_df=self.inventory,
-            config_file=self.config_file,
+        processing_df = grd_batch.grd_to_ard_batch(
+            inventory_df, self.config_file
         )
 
         # time-series part
         if timeseries or timescan:
-            grd_batch.ards_to_timeseries(self.inventory, self.config_file)
+            grd_batch.ards_to_timeseries(inventory_df, self.config_file)
 
         if timescan:
-            grd_batch.timeseries_to_timescan(self.inventory, self.config_file)
+            grd_batch.timeseries_to_timescan(inventory_df, self.config_file)
 
         if mosaic and timeseries:
-            grd_batch.mosaic_timeseries(self.inventory, self.config_file)
+            grd_batch.mosaic_timeseries(inventory_df, self.config_file)
 
         # --------------------------------------------
         # 9 mosaic the timescans
         if mosaic and timescan:
-            grd_batch.mosaic_timescan(self.burst_inventory, self.config_file)
+            grd_batch.mosaic_timescan(inventory_df, self.config_file)
+
+        return processing_df

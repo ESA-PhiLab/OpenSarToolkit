@@ -13,29 +13,33 @@ from ost.helpers import raster as ras, helpers as h
 logger = logging.getLogger(__name__)
 
 
-def ard_to_ts(list_of_args):
+def gd_ard_to_ts(list_of_args, config_file):
+
+    list_of_files, burst, product, pol = list_of_args
+    ard_to_ts(list_of_files, burst, product, pol, config_file)
+
+
+def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
     # -------------------------------------------
     # 1 unpack list of args
-    list_of_files, burst, product, pol, project_file = list_of_args
+
+
     # convert list of files readable for snap
     list_of_files = f"\'{','.join(str(x) for x in list_of_files)}\'"
 
     # -------------------------------------------
     # 2 read config file
-    with open(project_file, 'r') as file:
-        project_params = json.load(file)
-        processing_dir = project_params['project']['processing_dir']
-        temp_dir = project_params['project']['temp_dir']
-        snap_cpu_parallelism = project_params['project']['snap_cpu_parallelism']
-        ard_params = project_params['processing_parameters']
-        ard = ard_params['single_ARD']
-        ard_mt = ard_params['time-series_ARD']
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
 
     # -------------------------------------------
     # 3 get namespace of directories and check if already processed
     # get the burst directory
-    burst_dir = Path(processing_dir).joinpath(burst)
+    burst_dir = processing_dir.joinpath(burst)
 
     # get timeseries directory and create if non existent
     out_dir = burst_dir.joinpath('Timeseries')
@@ -44,8 +48,10 @@ def ard_to_ts(list_of_args):
     # in case some processing has been done before, check if already processed
     check_file = out_dir.joinpath(f'.{product}.{pol}.processed')
     if Path.exists(check_file):
-        logger.info(f'Timeseries of {burst} for {product} in {pol} '
-                    f'polarisation already processed.')
+        logger.info(
+            f'Timeseries of {burst} for {product} in {pol} '
+            f'polarisation already processed.'
+        )
         return
 
     # -------------------------------------------
@@ -66,7 +72,7 @@ def ard_to_ts(list_of_args):
 
     # -------------------------------------------
     # 5 SNAP processing
-    with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
+    with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
 
         # turn to Path object
         temp = Path(temp)
@@ -78,32 +84,34 @@ def ard_to_ts(list_of_args):
 
         # run stacking routine
         if pol in ['Alpha', 'Anisotropy', 'Entropy']:
-            logger.info(
+            logger.debug(
                 f'Creating multi-temporal stack of images of burst/track '
                 f'{burst} for the {pol} band of the polarimetric '
                 f'H-A-Alpha decomposition.'
             )
-            create_stack(list_of_files, temp_stack, stack_log, pattern=pol)
+            create_stack(
+                list_of_files, temp_stack, stack_log, config_dict, pattern=pol
+            )
         else:
-            logger.info(
+            logger.debug(
                 f'Creating multi-temporal stack of images of burst/track '
                 f'{burst} for {product} product in {pol} polarization.'
             )
             create_stack(
-                list_of_files, temp_stack, stack_log, polarisation=pol
+                list_of_files, temp_stack, stack_log, config_dict,
+                polarisation=pol
             )
 
         # run mt speckle filter
         if ard_mt['remove_mt_speckle'] is True:
-            ard_mt_speck = ard_params['time-series_ARD']['mt_speckle_filter']
+
             speckle_log = out_dir.joinpath(
                 f'{burst}_{product}_{pol}_mt_speckle.err_log'
             )
 
             logger.info('Applying multi-temporal speckle filter')
             mt_speckle_filter(
-                f'{temp_stack}.dim', out_stack, speckle_log,
-                speckle_dict=ard_mt_speck, ncores=snap_cpu_parallelism
+                temp_stack.with_suffix('.dim'), out_stack, speckle_log, config_dict
             )
             # remove tmp files
             h.delete_dimap(temp_stack)

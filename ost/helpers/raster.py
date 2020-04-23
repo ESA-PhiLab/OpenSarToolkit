@@ -84,7 +84,7 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
         meta.update(blockxsize=src.shape[1], blockysize=1)
 
         # create outfiles
-        with rasterio.open(f'{outfile.stem}.tif', 'w', **meta) as out_min:
+        with rasterio.open(outfile.with_suffix('.tif'), 'w', **meta) as out_min:
 
             # loop through blocks
             for _, window in out_min.block_windows(1):
@@ -93,7 +93,8 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
                 stack = src.read(range(1, src.count + 1), window=window)
 
                 # get stats
-                min_array = np.nanmin(stack, axis=0)
+                stack[stack == np.nan] = 0
+                min_array = np.min(stack, axis=0)
 
                 if less_then is True:
                     min_array[min_array <= ndv] = 0
@@ -106,8 +107,8 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
                 out_min.write(np.uint8(min_array), window=window, indexes=1)
 
     # now let's polygonize
-    polygonize_raster(f'{outfile.stem}.tif', outfile, driver)
-    Path(f'{outfile.stem}.tif').unlink()
+    polygonize_raster(outfile.with_suffix('.tif'), outfile, driver=driver)
+    outfile.with_suffix('.tif').unlink()
 
 
 # convert power to dB
@@ -229,7 +230,9 @@ def mask_by_shape(
 
     # unmask array
     out_image = out_image.data
-    out_image[out_image == 0] = np.nan
+
+    if out_image.dtype == 'float32':
+        out_image[out_image == 0] = np.nan
 
     # if to decibel should be applied
     if to_db is True:

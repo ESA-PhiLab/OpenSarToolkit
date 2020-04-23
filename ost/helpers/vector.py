@@ -2,6 +2,7 @@ import os
 import sys
 import json
 from functools import partial
+from pathlib import Path
 
 import osr
 import ogr
@@ -16,6 +17,61 @@ from fiona import collection
 from fiona.crs import from_epsg
 
 logger = logging.getLogger(__name__)
+
+
+def aoi_to_wkt(aoi):
+    """Helper function to transform various AOI formats into WKT
+
+    This function is used to import an AOI definition into an OST project.
+    The AOIs definition can be from difffrent sources, i.e. an ISO3 country
+    code (that calls GeoPandas low-resolution country boundaries),
+    a WKT string,
+
+    :param aoi: AOI , which can be an ISO3 country code, a WKT String or
+                a path to a shapefile, a GeoPackage or a GeoJSON file
+    :type aoi: str/Path
+    :return: AOI as WKT string
+    :rtype: WKT string
+    """
+
+    # load geopandas low res data and check if AOI is ISO3 country code
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    if aoi in world.iso_a3.tolist():
+
+        # get lowres data from geopandas
+        country = world.name[world.iso_a3 == aoi].values[0]
+        logger.info(
+            f'Getting the country boundaries from Geopandas low '
+            f'resolution data for {country}'
+        )
+
+        # convert to WKT string
+        aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
+
+    # if it is a file
+    elif Path(aoi).exists():
+
+        logger.info(f'Loading {aoi} as Area of Interest definition.')
+        gdf = gpd.GeoDataFrame.from_file(aoi)
+        if gdf.crs != {'init': 'epsg:4326'}:
+            logger.info('Reprojecting AOI to Lat/Lon.')
+            gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
+
+        # return AOI as single vector object
+        aoi_wkt = str(gdf.geometry.unary_union)
+
+    # if it is WKT
+    else:
+        try:
+            # let's check if it is a shapely readable WKT
+            loads(str(aoi))
+        except:
+            raise ValueError('No valid OST AOI definition.')
+        else:
+            aoi_wkt = aoi
+
+    return aoi_wkt
+
 
 
 def get_epsg(prjfile):
@@ -355,17 +411,56 @@ def exterior(infile, outfile, buffer=None):
     if buffer:
         gdf_clean.geometry = gdf_clean.geometry.buffer(buffer)
 
+    # a negative buffer might polygons make disappear, so let's clean them
+    gdf_clean = gdf_clean[~gdf_clean.geometry.is_empty]
+
     gdf_clean.to_file(outfile, driver='GPKG')
+
+
+def aoi_intersection(aoi_wkt, infile2, outfile):
+
+    gdf1 = wkt_to_gdf(aoi_wkt)
+    gdf2 = gpd.read_file(infile2)
+
+    gdf3 = gpd.overlay(gdf1, gdf2, how='intersection')
+
+    gdf3.to_file(outfile, driver='GPKG')
 
 
 def difference(infile1, infile2, outfile):
 
     gdf1 = gpd.read_file(infile1)
     gdf2 = gpd.read_file(infile2)
-
+    print(gdf2)
     gdf3 = gpd.overlay(gdf1, gdf2, how='symmetric_difference')
 
     gdf3.to_file(outfile, driver='GPKG')
+
+
+def set_subset(aoi, inventory_df):
+
+    # WKT aoi to shapely geom
+    aoi = loads(aoi)
+
+    # burst_inventory case
+    if 'bid' in inventory_df.columns:
+        for burst in inventory_df.bid.unique():
+            burst_geom = inventory_df.geometry[
+                inventory_df.bid == burst].unary_union
+            subset = True if aoi.within(burst_geom) else False
+            if not subset:
+                return subset
+
+    # grd inventory case
+    else:
+        for track in inventory_df.relativeorbit.unique():
+            track_geom = inventory_df.geometry[
+                inventory_df.relativeorbit == track].unary_union
+            subset = True if aoi.within(track_geom) else False
+            if not subset:
+                return subset
+
+    return subset
 
 
 def buffer_shape(infile, outfile, buffer=None):

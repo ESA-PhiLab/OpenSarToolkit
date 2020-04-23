@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """Class for handling a single Sentinel-1 product
@@ -35,6 +35,9 @@ from ost.helpers.settings import set_log_level, check_ard_parameters
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb
 
 logger = logging.getLogger(__name__)
+
+CONNECTION_ERROR = 'We failed to connect to the server. Reason: '
+CONNECTION_ERROR_2 = 'The server couldn\'t fulfill the request. Error code: '
 
 
 class Sentinel1Scene:
@@ -248,6 +251,7 @@ class Sentinel1Scene:
 
     def get_path(self, download_dir=None, data_mount=None):
 
+        path = None
         if download_dir:
 
             # convert download_dir to Path object
@@ -260,10 +264,6 @@ class Sentinel1Scene:
             # check if scene is succesfully downloaded
             if self.product_dl_path.with_suffix('.downloaded').exists():
                 path = self.product_dl_path
-            else:
-                path = None
-        else:
-            path = None
 
         if data_mount and not path:
 
@@ -278,14 +278,6 @@ class Sentinel1Scene:
             # check for ondadias folder structure
             elif self._onda_path(data_mount).exists():
                 path = self._onda_path(data_mount)
-            else:
-                path = None
-
-        # if path to scene not found
-        if path is None:
-            raise FileNotFoundError(
-                f'No product path found for: {self.scene_id}'
-            )
 
         return path
 
@@ -308,12 +300,10 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -347,12 +337,10 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(f' Reason: {error.reason}')
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(f' Error code: {error.code}')
+                logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -379,13 +367,11 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
-                return
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
+                sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
-                return
+                logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
+                sys.exit()
         else:
             # write the request to to the response variable
             # (i.e. the xml coming back from scihub)
@@ -428,12 +414,10 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
                 sys.exit()
         else:
             # read out the response
@@ -482,12 +466,10 @@ class Sentinel1Scene:
                 req = opener.open(url)
             except URLError as error:
                 if hasattr(error, 'reason'):
-                    print(' We failed to connect to the server.')
-                    print(' Reason: ', error.reason)
+                    logger.info(f'{CONNECTION_ERROR}{error.reason}')
                     sys.exit()
                 elif hasattr(error, 'code'):
-                    print(' The server couldn\'t fulfill the request.')
-                    print(' Error code: ', error.code)
+                    logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
                     sys.exit()
             else:
                 # write the request to to the response variable
@@ -582,12 +564,10 @@ class Sentinel1Scene:
             req = opener.open(url)
         except URLError as error:
             if hasattr(error, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', error.reason)
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
                 sys.exit()
             elif hasattr(error, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', error.code)
+                logger.info(f'{CONNECTION_ERROR_2}{error.reason}')
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -877,11 +857,11 @@ class Sentinel1Scene:
             for meta in metadata:
                 for wrap in meta.findall('metadataWrap'):
                     for data in wrap.findall('xmlData'):
-                        for frameSet in data.findall(
+                        for frame_set in data.findall(
                             '{http://www.esa.int/safe/sentinel-1.0}'
                             'frameSet'
                         ):
-                            for frame in frameSet.findall(
+                            for frame in frame_set.findall(
                                 '{http://www.esa.int/safe/sentinel-1.0}'
                                 'frame'
                             ):

@@ -56,7 +56,7 @@ def connect(uname=None, pword=None):
 
     # open a connection to the scihub
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-    manager.add_password(str(), base_url, uname, pword)
+    manager.add_password(None, base_url, uname, pword)
     handler = urllib.request.HTTPBasicAuthHandler(manager)
     opener = urllib.request.build_opener(handler)
 
