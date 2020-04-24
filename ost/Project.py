@@ -351,7 +351,7 @@ class Sentinel1(Generic):
             inventory_df, self.download_dir, self.data_mount)
 
         # extract only those scenes that need to be downloaded
-        download_df = inventory_df[inventory_df.download_path.isnull()]
+        download_df = inventory_df[inventory_df.download_path == 'None']
 
         # to download or not ot download - that is here the question
         if not download_df.any().any():
