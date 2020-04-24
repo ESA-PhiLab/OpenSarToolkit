@@ -7,6 +7,8 @@
             "product_type": "GTC-gamma0",
             "polarisation": "VV, HH",
             "to_db": false,
+            "to_tif": false,
+            "geocoding": "terrain",
             "remove_speckle": false,
             "speckle_filter": {
                 "filter": "Refined Lee",
@@ -73,6 +75,10 @@
             "apply_ls_mask": false,
             "metrics": ["avg", "max", "min", "std", "cov"],
             "remove_outliers": true
+        },
+        "mosaic": {
+            "production": false,
+            "cut_to_aoi": true
         }
     }
  }

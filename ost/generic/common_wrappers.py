@@ -189,15 +189,16 @@ def terrain_correction(infile, outfile, logfile, config_dict):
 
     command = (
         f"{GPT_FILE} Terrain-Correction -x -q {2*cpus} "
-        f" -PdemName=\'{dem_dict['dem_name']}\' "
-        f" -PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
-        f" -PexternalDEMFile=\'{dem_dict['dem_file']}\' "
-        f" -PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
-        f" -PexternalDEMApplyEGM="
+        f"-PdemName=\'{dem_dict['dem_name']}\' "
+        f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
+        f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "
+        f"-PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
+        f"-PexternalDEMApplyEGM="
         f"\'{str(dem_dict['egm_correction']).lower()}\' "
-        f" -PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
-        f" -PpixelSpacingInMeter={ard['resolution']} "
-        f" -t \'{str(outfile)}\' \'{str(infile)}\' "
+        f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
+        f"-PpixelSpacingInMeter={ard['resolution']} "
+        f"-PalignToStandardGrid=true "
+        f"-t \'{str(outfile)}\' \'{str(infile)}\' "
     )
 
     # run command and get return code

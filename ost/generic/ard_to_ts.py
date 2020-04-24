@@ -197,7 +197,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 file.name.split('_')[-1][:-4], SNAP_DATEFORMAT)
                 for file in list(out_stack.with_suffix('.data').glob('*.img'))
             ])
-            print(dates)
+
             # write them back to string for following loop
             dates = [dt.strftime(ts, "%d%b%Y") for ts in dates]
 

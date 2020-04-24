@@ -7,6 +7,8 @@
             "product_type": "RTC-gamma0",
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
+            "to_tif": false,
+            "geocoding": "terrain",
             "remove_speckle": true,
             "speckle_filter": {
                 "filter": "Refined Lee",
@@ -70,6 +72,10 @@
         "time-scan_ARD": {
             "metrics": ["avg", "max", "min", "std", "cov"],
             "remove_outliers": true
+        },
+        "mosaic": {
+            "production": false,
+            "cut_to_aoi": true
         }
     }
  }

@@ -57,6 +57,10 @@
         "time-scan_ARD": {
             "metrics": ["avg", "max", "min", "std", "cov"],
             "remove_outliers": true
+        },
+        "mosaic": {
+            "production": false,
+            "cut_to_aoi": true
         }
     }
 }

@@ -6,8 +6,9 @@
             "remove_border_noise": true,
             "product_type": "GTC-sigma0",
             "polarisation": "VV, VH, HH, HV",
-            "to_db": true,
+            "to_db": false,
             "to_tif": false,
+            "geocoding": "terrain",
             "remove_speckle": false,
             "speckle_filter": {
                 "filter": "Refined Lee",
@@ -56,6 +57,10 @@
         "time-scan_ARD": {
             "metrics": ["avg", "max", "min", "std", "cov"],
             "remove_outliers": false
+        },
+        "mosaic": {
+            "production": false,
+            "cut_to_aoi": true
         }
     }
 }

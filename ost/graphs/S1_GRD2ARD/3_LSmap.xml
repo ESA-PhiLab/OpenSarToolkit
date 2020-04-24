@@ -44,7 +44,7 @@
   UNIT[&quot;degree&quot;, 0.017453292519943295],
   AXIS[&quot;Geodetic longitude&quot;, EAST],
   AXIS[&quot;Geodetic latitude&quot;, NORTH]]</mapProjection>
-      <alignToStandardGrid>false</alignToStandardGrid>
+      <alignToStandardGrid>true</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>
       <standardGridOriginY>0.0</standardGridOriginY>
       <nodataValueAtSea>false</nodataValueAtSea>
