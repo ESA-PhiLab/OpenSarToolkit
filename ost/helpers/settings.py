@@ -126,9 +126,9 @@ def get_gpt():
     else:
         # possible UNIX paths
         paths = [
-            Path.home().joinpath('/.ost/gpt'),
-            Path.home().joinpath('/snap/bin/gpt'),
-            Path.home().joinpath('/programs/snap/bin/gpt'),
+            Path.home().joinpath('.ost/gpt'),
+            Path.home().joinpath('snap/bin/gpt'),
+            Path.home().joinpath('programs/snap/bin/gpt'),
             Path('/usr/bin/gpt'),
             Path('/opt/snap/bin/gpt'),
             Path('/usr/local/snap/bin/gpt'),
@@ -166,7 +166,7 @@ def get_gpt():
             # we will find it right away
             Path.home().joinpath('.ost').mkdir(exist_ok=True)
             if not (Path.home().joinpath('.ost/gpt')).exists():
-                os.symlink(GPT_FILE, Path.home().joinpath('.ost/gpt'))
+                os.symlink(gpt_file, Path.home().joinpath('.ost/gpt'))
             gpt_file = Path.home().joinpath('.ost/gpt')
 
     return gpt_file
