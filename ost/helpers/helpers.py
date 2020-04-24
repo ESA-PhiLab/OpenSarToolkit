@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import zipfile
 import logging
-
+from pathlib import Path
 from datetime import timedelta
 
 import gdal
@@ -134,23 +134,23 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
     # check if both dim and data exist, else return
     if not dimap_prefix.with_suffix('.dim').exists():
-        return f'Output file {dimap_prefix}.dim has not been generated'
+        return f'Output file {dimap_prefix}.dim has not been generated.'
 
     if not dimap_prefix.with_suffix('.data').exists():
-        return f'Output file {dimap_prefix}.data has not been generated'
+        return f'Output file {dimap_prefix}.data has not been generated.'
 
     # check for file size of the dim file
-    dim_size_in_mb = dimap_prefix.with_suffix('.dim').stat().st_size / 1048576
+    dim_size = dimap_prefix.with_suffix('.dim').stat().st_size
 
-    if dim_size_in_mb < 0.05:
+    if dim_size < 8:
         return f'File {dimap_prefix}.dim seems to small.'
 
     for file in dimap_prefix.with_suffix('.data').glob('*.img'):
 
         # check size
-        data_size_in_mb = file.stat().st_size / 1048576
+        data_size = file.stat().st_size
 
-        if data_size_in_mb < 0.1:
+        if data_size < 8:
             return f'Data file {file} in {dimap_prefix}.data seem to small.'
 
         # test on statistics
@@ -171,34 +171,29 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
 
 def check_out_tiff(file, test_stats=True):
+
     return_code = 0
-    file = str(file)
+    if isinstance(file, str):
+        file = Path(file)
+
     # check if both dim and data exist, else return
-    if not os.path.isfile(file):
-        return 666
+    if not file.exists():
+        return f'Output file {file.name} has not been generated.'
 
     # check for file size of the dim file
-    tiff_size_in_mb = os.path.getsize(file) / 1048576
+    tiff_size = file.stat().st_size
 
-    if tiff_size_in_mb < 0.3:
-        return 666
+    if tiff_size < 8:
+        return f'File {file.name} seems to small.'
 
     if test_stats:
         # open the file
-        ds = gdal.Open(file)
+        ds = gdal.Open(str(file))
         stats = ds.GetRasterBand(1).GetStatistics(0, 1)
 
-        # check for mean value of layer
-        if stats[2] == 0:
-            return 666
-
-        # check for stddev value of layer
-        if stats[3] == 0:
-            return 666
-
-        # if difference ofmin and max is 0
-        if stats[1] - stats[0] == 0:
-            return 666
+        # if difference of min and max is 0 and mean are all 0
+        if stats[1] - stats[0] == 0 and stats[2] == 0:
+            return f'Data file {file.name} only contains no data values.'
 
     return return_code
 

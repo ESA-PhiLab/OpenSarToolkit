@@ -49,4 +49,7 @@ def mt_extent(list_of_scenes, config_file):
         vec.exterior(image_bounds, exterior, -0.0018)
 
         # intersect with aoi
-        vec.aoi_intersection(aoi, exterior, out_file)
+        if config_dict['processing']['mosaic']['cut_to_aoi']:
+            vec.aoi_intersection(aoi, exterior, out_file)
+
+    return target_dir.name, list_of_scenes, out_file

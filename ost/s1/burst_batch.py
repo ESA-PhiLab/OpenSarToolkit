@@ -15,6 +15,7 @@ import logging
 import multiprocessing as mp
 from pathlib import Path
 
+import pandas as pd
 from godale._concurrent import Executor
 
 from ost.helpers import raster as ras
@@ -63,27 +64,27 @@ def bursts_to_ards(
     logger.info('Preparing the processing pipeline. This may take a moment.')
     proc_inventory = prepare_burst_inventory(burst_gdf, config_file)
 
-    for burst in proc_inventory.iterrows():
-        burst_to_ard(burst, config_file)
-    #
-    # with open(config_file, 'r') as file:
-    #     config_dict = json.load(file)
-    # # we update max_workers in case we have less snap_cpu_parallelism
-    # # then cpus available
-    # if (
-    #         max_workers == 1 and
-    #         config_dict['snap_cpu_parallelism'] < os.cpu_count()
-    # ):
-    #     max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
-#
-    # # now we run with godale, which works also with 1 worker
-    # executor = Executor(executor=executor_type, max_workers=max_workers)
-    # for task in executor.as_completed(
-    #         func=burst_to_ard,
-    #         iterable=proc_inventory.iterrows(),
-    #         fargs=([str(config_file), ])
-    # ):
-    #     task.result()
+    # for burst in proc_inventory.iterrows():
+    #     burst_to_ard(burst, config_file)
+
+    with open(config_file, 'r') as file:
+            config_dict = json.load(file)
+    # we update max_workers in case we have less snap_cpu_parallelism
+    # then cpus available
+    if (
+            max_workers == 1 and
+            config_dict['snap_cpu_parallelism'] < os.cpu_count()
+    ):
+        max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(executor=executor_type, max_workers=max_workers)
+    for task in executor.as_completed(
+            func=burst_to_ard,
+            iterable=proc_inventory.iterrows(),
+            fargs=([str(config_file), ])
+    ):
+        task.result()
 
 
 def _create_extents(burst_gdf, config_file):
@@ -99,11 +100,10 @@ def _create_extents(burst_gdf, config_file):
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
         processing_dir = Path(config_dict['processing_dir'])
-        temp_dir = Path(config_dict['temp_dir'])
 
     # create extent iterable
     iter_list = []
-    for burst in burst_gdf.bid.unique():  # ***
+    for burst in burst_gdf.bid.unique():
 
         # get the burst directory
         burst_dir = processing_dir.joinpath(burst)
@@ -113,16 +113,24 @@ def _create_extents(burst_gdf, config_file):
         list_of_bursts = [
             str(x) for x in list_of_bursts if 'layover' not in str(x)
         ]
-        extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
 
         # if the file does not already exist, add to iterable
+        extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
         if not extent.exists():
-            iter_list.append([list_of_bursts, extent, temp_dir, -0.0018])
+            iter_list.append(list_of_bursts)
 
-    # parallelizing on all cpus
-    concurrent = mp.cpu_count()
-    pool = mp.Pool(processes=concurrent)
-    pool.map(ts_extent.mt_extent, iter_list)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    for task in executor.as_completed(
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
 
 
 def _create_mt_ls_mask(burst_gdf, config_file):
@@ -139,8 +147,6 @@ def _create_mt_ls_mask(burst_gdf, config_file):
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
         processing_dir = config_dict['processing_dir']
-        temp_dir = config_dict['temp_dir']
-        ard = config_dict['processing']['time-series_ARD']
 
     # create layover
     iter_list = []
@@ -167,17 +173,20 @@ def _create_mt_ls_mask(burst_gdf, config_file):
 
         # if the file does not already exists, then put into list to process
         if not out_ls.exists():
-            iter_list.append(
-                [list_of_layover, out_ls, temp_dir, str(extent),
-                 ard['apply_ls_mask']]
-            )
+            iter_list.append(list_of_layover)
 
-    # parallelizing on all cpus
-    concurrent = int(
-        mp.cpu_count() / config_dict['snap_cpu_parallelism']
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
     )
-    pool = mp.Pool(processes=concurrent)
-    pool.map(ts_ls_mask.mt_layover, iter_list)
+
+    for task in executor.as_completed(
+            func=ts_ls_mask.mt_layover,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
 
 
 def _create_timeseries(burst_gdf, config_file):
@@ -219,15 +228,24 @@ def _create_timeseries(burst_gdf, config_file):
                 continue
 
             # create list of dims if polarisation is present
-            list_of_dims = sorted(list(burst_dir.glob(f'20*/*{product}*dim')))
-            iter_list.append([list_of_dims, burst, product, pol, config_file])
+            list_of_dims = sorted(
+                str(dim) for dim in list(burst_dir.glob(f'20*/*{product}*dim'))
+            )
 
-    # parallelizing on all cpus
-    concurrent = int(
-        mp.cpu_count() / config_dict['project']['snap_cpu_parallelism']
+            iter_list.append([list_of_dims, burst, product, pol])
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
     )
-    pool = mp.Pool(processes=concurrent)
-    pool.map(ard_to_ts.ard_to_ts, iter_list)
+
+    for task in executor.as_completed(
+            func=ard_to_ts.gd_ard_to_ts,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
 
 
 def ards_to_timeseries(burst_gdf, config_file):
@@ -321,17 +339,41 @@ def timeseries_to_timescan(burst_gdf, config_file):
             else:
                 to_power, rescale = False, False
 
-            iter_list.append(
-                [timeseries, timescan_prefix, ard_tscan['metrics'],
-                 rescale, to_power, ard_tscan['remove_outliers'], datelist]
-            )
+            iter_list.append([
+                timeseries, timescan_prefix, ard_tscan['metrics'],
+                rescale, to_power, ard_tscan['remove_outliers'], datelist
+            ])
 
-        vrt_iter_list.append([timescan_dir, config_file])
+        vrt_iter_list.append(timescan_dir)
 
-    concurrent = mp.cpu_count()
-    pool = mp.Pool(processes=concurrent)
-    pool.map(timescan.mt_metrics, iter_list)
-    pool.map(ras.create_tscan_vrt, vrt_iter_list)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run timescan creation
+    out_dict = {'burst': [], 'prefix': [], 'metrics': [], 'error': []}
+    for task in executor.as_completed(
+            func=timescan.gd_mt_metrics,
+            iterable=iter_list
+    ):
+        burst, prefix, metrics, error = task.result()
+        out_dict['burst'].append(burst)
+        out_dict['prefix'].append(prefix)
+        out_dict['metrics'].append(metrics)
+        out_dict['error'].append(error)
+
+    df = pd.DataFrame.from_dict(out_dict)
+    # run vrt creation
+    for task in executor.as_completed(
+            func=ras.create_tscan_vrt,
+            iterable=vrt_iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
+
+    return df
 
 
 def mosaic_timeseries(burst_inventory, config_file):

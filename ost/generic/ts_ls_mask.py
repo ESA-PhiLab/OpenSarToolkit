@@ -79,6 +79,7 @@ def mt_layover(list_of_files, config_file):
 
                     out_min.write(np.uint8(arr), window=window, indexes=1)
 
+        print('here')
         ras.mask_by_shape(
             ls_layer, outfile, extent, to_db=False,
             datatype='uint8', rescale=False, ndv=0
@@ -86,6 +87,7 @@ def mt_layover(list_of_files, config_file):
 
         ls_layer.unlink()
 
+        extent_ls_masked = None
         if update_extent:
 
             # get some info
@@ -109,7 +111,9 @@ def mt_layover(list_of_files, config_file):
             # and ls mask, for masked extent
             try:
                 vec.difference(
-                    extent, f'{str(outfile)[:-4]}.gpkg', extent_ls_masked
+                    extent, f'{outfile.stem}.gpkg', extent_ls_masked
                 )
             except:
                 shutil.copy(extent, extent_ls_masked)
+
+    return burst_dir, list_of_files, outfile, extent_ls_masked

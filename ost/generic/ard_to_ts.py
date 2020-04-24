@@ -9,22 +9,17 @@ from tempfile import TemporaryDirectory
 
 from ost.generic.common_wrappers import create_stack, mt_speckle_filter
 from ost.helpers import raster as ras, helpers as h
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 
 logger = logging.getLogger(__name__)
 
-
-def gd_ard_to_ts(list_of_args, config_file):
-
-    list_of_files, burst, product, pol = list_of_args
-    ard_to_ts(list_of_files, burst, product, pol, config_file)
+SNAP_DATEFORMAT = '%d%b%Y'
 
 
 def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
     # -------------------------------------------
     # 1 unpack list of args
-
-
     # convert list of files readable for snap
     list_of_files = f"\'{','.join(str(x) for x in list_of_files)}\'"
 
@@ -89,19 +84,27 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 f'{burst} for the {pol} band of the polarimetric '
                 f'H-A-Alpha decomposition.'
             )
-            create_stack(
-                list_of_files, temp_stack, stack_log, config_dict, pattern=pol
-            )
+            try:
+                create_stack(
+                    list_of_files, temp_stack, stack_log, config_dict,
+                    pattern=pol
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return
         else:
             logger.debug(
                 f'Creating multi-temporal stack of images of burst/track '
                 f'{burst} for {product} product in {pol} polarization.'
             )
-            create_stack(
-                list_of_files, temp_stack, stack_log, config_dict,
-                polarisation=pol
-            )
-
+            try:
+                create_stack(
+                    list_of_files, temp_stack, stack_log, config_dict,
+                    polarisation=pol
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return
         # run mt speckle filter
         if ard_mt['remove_mt_speckle'] is True:
 
@@ -110,9 +113,15 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
             )
 
             logger.info('Applying multi-temporal speckle filter')
-            mt_speckle_filter(
-                temp_stack.with_suffix('.dim'), out_stack, speckle_log, config_dict
-            )
+            try:
+                mt_speckle_filter(
+                    temp_stack.with_suffix('.dim'), out_stack, speckle_log,
+                    config_dict
+                )
+            except (GPTRuntimeError, NotValidFileError) as error:
+                logger.info(error)
+                return
+
             # remove tmp files
             h.delete_dimap(temp_stack)
         else:
@@ -134,20 +143,24 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
             # get slave and master dates from file names and sort them
             mst_dates = sorted([
-                dt.strptime(file.name.split('_')[3].split('.')[0], '%d%b%Y')
+                dt.strptime(
+                    file.name.split('_')[3].split('.')[0], SNAP_DATEFORMAT
+                )
                 for file in list(out_stack.with_suffix('.data').glob('*.img'))
             ])
 
             slv_dates = sorted([
-                dt.strptime(file.name.split('_')[4].split('.')[0], '%d%b%Y')
+                dt.strptime(
+                    file.name.split('_')[4].split('.')[0], SNAP_DATEFORMAT
+                )
                 for file in list(out_stack.with_suffix('.data').glob('*.img'))
             ])
 
             # write them back to string for following loop
-            mst_dates = [dt.strftime(ts, "%d%b%Y") for ts in mst_dates]
-            slv_dates = [dt.strftime(ts, "%d%b%Y") for ts in slv_dates]
+            mst_dates = [dt.strftime(ts, SNAP_DATEFORMAT) for ts in mst_dates]
+            slv_dates = [dt.strftime(ts, SNAP_DATEFORMAT) for ts in slv_dates]
 
-            outfiles = []
+            out_files = []
             for i, (mst, slv) in enumerate(zip(mst_dates, slv_dates)):
 
                 # re-construct namespace for input file
@@ -158,8 +171,8 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )[0]
 
                 # rename dates to YYYYMMDD format
-                mst = dt.strftime(dt.strptime(mst, '%d%b%Y'), '%y%m%d')
-                slv = dt.strftime(dt.strptime(slv, '%d%b%Y'), '%y%m%d')
+                mst = dt.strftime(dt.strptime(mst, SNAP_DATEFORMAT), '%y%m%d')
+                slv = dt.strftime(dt.strptime(slv, SNAP_DATEFORMAT), '%y%m%d')
 
                 # create namespace for output file with renamed dates
                 outfile = out_dir.joinpath(
@@ -176,19 +189,19 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                     ndv=0.0, description=True)
 
                 # add ot a list for subsequent vrt creation
-                outfiles.append(str(outfile))
+                out_files.append(str(outfile))
 
         else:
             # get the dates of the files
             dates = sorted([dt.strptime(
-                file.name.split('_')[-1][:-4], '%d%b%Y')
+                file.name.split('_')[-1][:-4], SNAP_DATEFORMAT)
                 for file in list(out_stack.with_suffix('.data').glob('*.img'))
             ])
-
+            print(dates)
             # write them back to string for following loop
             dates = [dt.strftime(ts, "%d%b%Y") for ts in dates]
 
-            outfiles = []
+            out_files = []
             for i, date in enumerate(dates):
 
                 # re-construct namespace for input file
@@ -197,7 +210,9 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )[0]
 
                 # restructure date to YYMMDD
-                date = dt.strftime(dt.strptime(date, '%d%b%Y'), '%y%m%d')
+                date = dt.strftime(
+                    dt.strptime(date, SNAP_DATEFORMAT), '%y%m%d'
+                )
 
                 # create namespace for output file
                 outfile = out_dir.joinpath(
@@ -213,15 +228,23 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                                   ndv=0.0)
 
                 # add ot a list for subsequent vrt creation
-                outfiles.append(str(outfile))
+                out_files.append(str(outfile))
 
     # -----------------------------------------------
     # 7 Filechecks
-    for file in outfiles:
+    for file in out_files:
         return_code = h.check_out_tiff(file)
         if return_code != 0:
-            Path(file).unlink()
-            return return_code
+
+            for file_ in out_files:
+                Path(file_).unlink()
+                if Path(f'{file}.xml').exists():
+                    Path(f'{file}.xml').unlink()
+
+            return (
+                burst, list_of_files, None, None,
+                f'{product}.{pol}', return_code
+            )
 
     # write file, so we know this ts has been successfully processed
     with open(str(check_file), 'w') as file:
@@ -230,8 +253,17 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
     # -----------------------------------------------
     # 8 Create vrts
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+    out_vrt = str(out_dir.joinpath(f'Timeseries.{product}.{pol}.vrt'))
     gdal.BuildVRT(
-        str(out_dir.joinpath(f'Timeseries.{product}.{pol}.vrt')),
-        outfiles,
+        out_vrt,
+        out_files,
         options=vrt_options
     )
+
+    return burst, list_of_files, out_files, out_vrt, f'{product}.{pol}', None
+
+
+def gd_ard_to_ts(list_of_args, config_file):
+
+    list_of_files, burst, product, pol = list_of_args
+    return ard_to_ts(list_of_files, burst, product, pol, config_file)

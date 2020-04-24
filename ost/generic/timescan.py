@@ -15,7 +15,6 @@ from scipy import stats
 from ost.helpers import raster as ras
 from ost.helpers import helpers as h
 
-
 logger = logging.getLogger(__name__)
 
 # suppress irrelevant numpy warnings
@@ -25,7 +24,6 @@ with warnings.catch_warnings():
 
 
 def remove_outliers(arrayin, stddev=3, z_threshold=None):
-
     if z_threshold:
         z_score = np.abs(stats.zscore(arrayin))
         array_out = np.ma.MaskedArray(
@@ -43,8 +41,8 @@ def remove_outliers(arrayin, stddev=3, z_threshold=None):
             mask=np.logical_or(
                 arrayin > perc95,
                 arrayin < perc5
-                )
             )
+        )
 
         # we calculate new std and mean
         masked_std = np.std(masked_array, axis=0)
@@ -56,19 +54,18 @@ def remove_outliers(arrayin, stddev=3, z_threshold=None):
             mask=np.logical_or(
                 arrayin > masked_mean + masked_std * stddev,
                 arrayin < masked_mean - masked_std * stddev,
-                )
             )
+        )
 
     return array_out
 
 
 def date_as_float(date):
-
     size_of_day = 1. / 366.
     size_of_second = size_of_day / (24. * 60. * 60.)
     days_from_jan1 = date - datetime(date.year, 1, 1)
 
-    if not isleap(date.year) and days_from_jan1.days >= 31+28:
+    if not isleap(date.year) and days_from_jan1.days >= 31 + 28:
         days_from_jan1 += timedelta(1)
 
     return (
@@ -82,7 +79,6 @@ def difference_in_years(start, end):
 
 
 def deseasonalize(stack):
-    
     percentiles = np.percentile(stack, 95, axis=[1, 2])
     deseasoned = np.subtract(
         percentiles[:, np.newaxis], stack.reshape(stack.shape[0], -1)
@@ -110,7 +106,6 @@ def _zvalue_from_index(arr, ind):
 
 
 def nan_percentile(arr, q):
-
     # taken from:
     # https://krstn.eu/np.nanpercentile()-there-has-to-be-a-faster-way/
 
@@ -133,7 +128,6 @@ def nan_percentile(arr, q):
 
     result = []
     for i in range(len(qs)):
-
         quant = qs[i]
 
         # desired position as well as floor and ceiling of it
@@ -290,8 +284,7 @@ def mt_metrics(
                 if ((rescale_to_datatype is True
                      and meta['dtype'] != 'float32')
                         or (metric in ['cov', 'phase']
-                            and meta['dtype'] != 'float32')
-                ):
+                            and meta['dtype'] != 'float32')):
                     arr[metric] = ras.scale_to_int(
                         arr[metric], minimums[metric], maximums[metric],
                         meta['dtype']
@@ -313,16 +306,21 @@ def mt_metrics(
     for metric in metrics:
         # close rio opening
         metric_dict[metric].close()
+
         # construct filename
         filename = f'{str(out_prefix)}.{metric}.tif'
         return_code = h.check_out_tiff(filename)
+
         if return_code != 0:
-            # remove all files and return
-            filename = f'{str(out_prefix)}.{metric}.tif'
-            Path(filename).unlink()
-            # Path(f'{filename}.xml').unlink()
-            
-            return return_code
+
+            for metric_ in metrics:
+                # remove all files and return
+                filename = f'{str(out_prefix)}.{metric_}.tif'
+                Path(filename).unlink()
+                if Path(f'{filename}.xml').exists():
+                    Path(f'{filename}.xml').unlink()
+
+            return None, None, None, return_code
 
     # write out that it's been processed
     dirname = out_prefix.parent
@@ -330,12 +328,14 @@ def mt_metrics(
     with open(str(check_file), 'w') as file:
         file.write('passed all tests \n')
 
+    target = out_prefix.parent.parent.name
+    return target, out_prefix.name, metrics, None
+
 
 def gd_mt_metrics(list_of_args):
-
     stack, out_prefix, metrics, rescale_to_datatype = list_of_args[:4]
     to_power, outlier_removal, datelist = list_of_args[4:]
-    mt_metrics(
+    return mt_metrics(
         stack, out_prefix, metrics, rescale_to_datatype, to_power,
         outlier_removal, datelist
     )

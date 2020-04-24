@@ -187,12 +187,18 @@ def _create_extents(inventory_df, config_file):
         max_workers=config_dict['max_workers']
     )
 
+    out_dict = {'track': [], 'list_of_scenes': [], 'extent': []}
     for task in executor.as_completed(
             func=ts_extent.mt_extent,
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-        task.result()
+        track, list_of_scenes, extent = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_scenes'].append(list_of_scenes)
+        out_dict['extent'].append(extent)
+
+    return pd.DataFrame.from_dict(out_dict)
 
 
 def _create_mt_ls_mask(inventory_df, config_file):
@@ -215,19 +221,28 @@ def _create_mt_ls_mask(inventory_df, config_file):
         ]
 
         iter_list.append(list_of_layover)
-        #ts_ls_mask.mt_layover(list_of_layover, config_file)
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
         executor=config_dict['executer_type'],
         max_workers=config_dict['max_workers']
     )
+
+    out_dict = {
+        'track': [], 'list_of_layover': [], 'ls_mask': [], 'ls_extent': []
+    }
     for task in executor.as_completed(
             func=ts_ls_mask.mt_layover,
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-        task.result()
+        track, list_of_layover, ls_mask, ls_extent = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_layover'].append(list_of_layover)
+        out_dict['ls_mask'].append(list_of_layover)
+        out_dict['ls_extent'].append(ls_extent)
+
+    return pd.DataFrame.from_dict(out_dict)
 
 
 def _create_timeseries(inventory_df, config_file):
@@ -251,7 +266,7 @@ def _create_timeseries(inventory_df, config_file):
                 )
             )
 
-            if not len(list_of_files) > 1:
+            if len(list_of_files) <= 1:
                 continue
 
             # create list of dims if polarisation is present
@@ -266,12 +281,24 @@ def _create_timeseries(inventory_df, config_file):
         max_workers=config_dict['max_workers']
     )
 
+    out_dict = {
+        'track': [], 'list_of_dims': [], 'out_files': [],
+        'out_vrt': [], 'product': [], 'error': []
+    }
     for task in executor.as_completed(
             func=ard_to_ts.gd_ard_to_ts,
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-        task.result()
+        track, list_of_dims, out_files, out_vrt, product, error = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_dims'].append(list_of_dims)
+        out_dict['out_files'].append(out_files)
+        out_dict['out_vrt'].append(out_vrt)
+        out_dict['product'].append(product)
+        out_dict['error'].append(error)
+
+    return pd.DataFrame.from_dict(out_dict)
 
 
 def timeseries_to_timescan(inventory_df, config_file):
@@ -291,7 +318,7 @@ def timeseries_to_timescan(inventory_df, config_file):
 
     dtype_conversion = True if ard_mt['dtype_output'] != 'float32' else False
 
-    iter_list = []
+    iter_list, vrt_iter_list = [], []
     for track in inventory_df.relativeorbit.unique():
 
         logger.info('Entering track {}.'.format(track))
@@ -335,21 +362,37 @@ def timeseries_to_timescan(inventory_df, config_file):
                 datelist
             ])
 
+        vrt_iter_list.append(timescan_dir)
+
+    # now we run with godale, which works also with 1 worker
     executor = Executor(
         executor=config_dict['executer_type'],
         max_workers=config_dict['max_workers']
     )
 
+    # run timescan creation
+    out_dict = {'track': [], 'prefix': [], 'metrics': [], 'error': []}
     for task in executor.as_completed(
             func=timescan.gd_mt_metrics,
-            iterable=iter_list,
+            iterable=iter_list
+    ):
+        burst, prefix, metrics, error = task.result()
+        out_dict['track'].append(burst)
+        out_dict['prefix'].append(prefix)
+        out_dict['metrics'].append(metrics)
+        out_dict['error'].append(error)
+
+    timescan_df = pd.DataFrame.from_dict(out_dict)
+
+    # run vrt creation
+    for task in executor.as_completed(
+            func=ras.create_tscan_vrt,
+            iterable=vrt_iter_list,
+            fargs=([str(config_file), ])
     ):
         task.result()
 
-    for track in inventory_df.relativeorbit.unique():
-        track_dir = processing_dir.joinpath(track)
-        timescan_dir = track_dir.joinpath('Timescan')
-        ras.create_tscan_vrt([timescan_dir, config_file])
+    return timescan_df
 
 
 def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,

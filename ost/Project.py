@@ -639,6 +639,9 @@ class Sentinel1Batch(Sentinel1):
         # 3 subset determination
         # we need a check function that checks
         self.config_dict['subset'] = False
+        # This does not work at the moment, and maybe does not even make sense,
+        # since for the co-registration we would need a sufficient
+        # part of the image
         # self.config_dict['subset'] = vec.set_subset(
         #     self.aoi, self.burst_inventory
         # )
@@ -666,7 +669,7 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 7 run the timescan creation
         if timescan:
-            burst_batch.timeseries_to_timescan(
+            df = burst_batch.timeseries_to_timescan(
                 self.burst_inventory, self.config_file
             )
 

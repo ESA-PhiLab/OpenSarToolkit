@@ -10,7 +10,6 @@ import numpy as np
 import json
 import glob
 import itertools
-from pathlib import Path
 
 import gdal
 import fiona
@@ -222,7 +221,7 @@ def mask_by_shape(
         features = [feature['geometry'] for feature in file
                     if feature['geometry']]
 
-    # import raster
+    # import raster file
     with rasterio.open(infile) as src:
         out_image, out_transform = rasterio.mask.mask(src, features, crop=True)
         out_meta = src.meta.copy()
@@ -252,6 +251,13 @@ def mask_by_shape(
          'blockxsize': 128, 'blockysize': 128}
     )
 
+    # check that block size is in range of image (for very small subsets)
+    if out_meta['blockysize'] > out_image.shape[1]:
+        del out_meta['blockysize']
+
+    if out_meta['blockxsize'] > out_image.shape[2]:
+        del out_meta['blockxsize']
+
     # write output
     with rasterio.open(outfile, 'w', **out_meta) as dest:
         dest.write(np.nan_to_num(out_image))
@@ -262,12 +268,10 @@ def mask_by_shape(
             dest.set_band_description(1, str(infile.name)[:-4])
 
 
-def create_tscan_vrt(list_of_args):
-
-    timescan_dir, project_file = list_of_args
+def create_tscan_vrt(timescan_dir, config_file):
 
     # load ard parameters
-    with open(project_file, 'r') as ard_file:
+    with open(config_file, 'r') as ard_file:
         ard_params = json.load(ard_file)['processing']
         ard_tscan = ard_params['time-scan_ARD']
 
@@ -491,15 +495,14 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
 
     # update outfile's metadata
     if filetype:
-        out_meta.update({'driver': filetype,
-                         'dtype': 'uint8',
-                         'count': count})
+        out_meta.update(
+            {'driver': filetype, 'dtype': 'uint8', 'count': count}
+        )
     else:
-        out_meta.update({'driver': 'JPEG',
-                     'dtype': 'uint8',
-                     'count': count})
+        out_meta.update(
+            {'driver': 'JPEG', 'dtype': 'uint8', 'count': count}
+        )
 
-    
     if outfile:    # write array to disk
         with rasterio.open(outfile, 'w', **out_meta) as out:
             out.write(arr.astype('uint8'))
@@ -516,8 +519,11 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
         plt.imshow(arr)
 
     
-def create_timeseries_animation(timeseries_folder, product_list, out_folder,
-                                shrink_factor=1, resampling_factor=5, duration=1, add_dates=False, prefix=False):
+def create_timeseries_animation(
+        timeseries_folder, product_list, out_folder,
+        shrink_factor=1, resampling_factor=5, duration=1,
+        add_dates=False, prefix=False
+):
 
     
     nr_of_products = len(glob.glob(
