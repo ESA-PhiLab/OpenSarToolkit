@@ -419,15 +419,32 @@ class Sentinel1(Generic):
         :return: geodataframe
         """
         if not burst_file:
-            burst_file = self.inventory_dir.joinpath('burst_inventory.gpkg')
 
+            non_ref = self.inventory_dir.joinpath('burst_inventory.gpkg')
+            refined = self.inventory_dir.joinpath(
+                'burst_inventory.refined.gpkg'
+            )
+
+            if refined.exists():
+                logger.info(
+                    f'Importing refined burst inventory file {str(refined)}.')
+                burst_file = refined
+            elif non_ref.exists():
+                logger.info(
+                    f'Importing refined burst inventory file {str(non_ref)}.')
+                burst_file = non_ref
+            else:
+                raise FileNotFoundError(
+                    'No previously created burst inventory file '
+                    'has been found.'
+                )
         # define column names of file (since in shp they are truncated)
         # create column names for empty data frame
         column_names = ['SceneID', 'Track', 'Direction', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
 
         geodataframe = gpd.read_file(burst_file)
-        geodataframe.columns = column_names
+        geodataframe = geodataframe[column_names]
         self.burst_inventory = geodataframe
 
         return geodataframe

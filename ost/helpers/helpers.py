@@ -32,7 +32,7 @@ def timer(start):
     """
 
     elapsed = time.time() - start
-    logger.info(f'Time elapsed: {timedelta(seconds=elapsed)}')
+    logger.debug(f'Time elapsed: {timedelta(seconds=elapsed)}')
 
 
 def remove_folder_content(folder):
@@ -49,15 +49,15 @@ def remove_folder_content(folder):
 
 
 def run_command(command, logfile=None, elapsed=True):
-    """ A helper function to execute a command line command
-
-    Args:
-        command (str): the command to execute
-        logfile (str): path to the logfile in case of errors
-
     """
 
-    # currtime = time.time()
+    :param command:
+    :param logfile:
+    :param elapsed:
+    :return:
+    """
+
+    currtime = time.time()
 
     if os.name == 'nt':
         process = subprocess.run(command, stderr=subprocess.PIPE)
@@ -71,8 +71,8 @@ def run_command(command, logfile=None, elapsed=True):
             for line in process.stderr.decode().splitlines():
                 file.write(f'{line}\n')
 
-    # if elapsed:
-    #    timer(currtime)
+    if elapsed:
+        timer(currtime)
 
     return process.returncode
 
@@ -96,12 +96,12 @@ def delete_shapefile(shapefile):
 
     extensions = ('.shp', '.prj', '.shx', '.dbf', '.cpg', 'shb')
 
-    for file in glob.glob('{}*'.format(os.path.abspath(shapefile[:-4]))):
+    for file in glob.glob(f'{os.path.abspath(shapefile[:-4])}*'):
 
-        if len(os.path.abspath(shapefile)) == len(file):
+        if len(os.path.abspath(shapefile)) == len(file) and \
+                file.endswith(extensions):
 
-            if file.endswith(extensions):
-                os.remove(file)
+            os.remove(file)
 
 
 def move_dimap(infile_prefix, outfile_prefix, to_tif):
@@ -122,12 +122,33 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
             delete_dimap(outfile_prefix)
 
         # move them
-        infile_prefix.with_suffix('.data').rename(
-            outfile_prefix.with_suffix('.data')
-        )
-        infile_prefix.with_suffix('.dim').rename(
-            outfile_prefix.with_suffix('.dim')
-        )
+        try:
+            infile_prefix.with_suffix('.data').rename(
+                outfile_prefix.with_suffix('.data')
+            )
+        except OSError:
+
+            shutil.copytree(
+                infile_prefix.with_suffix('.data'),
+                outfile_prefix.with_suffix('.data')
+            )
+            shutil.rmtree(
+                infile_prefix.with_suffix('.data')
+            )
+            shutil.move(
+                infile_prefix.with_suffix('.data'),
+                outfile_prefix.with_suffix('.data')
+            )
+
+        try:
+            infile_prefix.with_suffix('.dim').rename(
+                outfile_prefix.with_suffix('.dim')
+            )
+        except OSError:
+            shutil.move(
+                infile_prefix.with_suffix('.dim'),
+                outfile_prefix.with_suffix('.dim')
+            )
 
 
 def check_out_dimap(dimap_prefix, test_stats=True):
