@@ -25,17 +25,18 @@ def mt_layover(list_of_files, config_file):
     """
 
     # this is a godale thing
-    #if isinstance(list_of_files, tuple):
-    #    i, list_of_files = list_of_files
-
     with open(config_file) as file:
         config_dict = json.load(file)
         temp_dir = Path(config_dict['temp_dir'])
-        update_extent = config_dict['processing']['time-series_ARD']['apply_ls_mask']
+        update_extent = (
+            config_dict['processing']['time-series_ARD']['apply_ls_mask']
+        )
 
     target_dir = Path(list_of_files[0]).parent.parent.parent
     outfile = target_dir.joinpath(f'{target_dir.name}.ls_mask.tif')
     extent = target_dir.joinpath(f'{target_dir.name}.extent.gpkg')
+    burst_dir = Path(outfile).parent
+    burst = burst_dir.name
 
     logger.info(
         f'Creating common Layover/Shadow mask for track {target_dir.name}.'
@@ -79,7 +80,6 @@ def mt_layover(list_of_files, config_file):
 
                     out_min.write(np.uint8(arr), window=window, indexes=1)
 
-        print('here')
         ras.mask_by_shape(
             ls_layer, outfile, extent, to_db=False,
             datatype='uint8', rescale=False, ndv=0
@@ -90,13 +90,8 @@ def mt_layover(list_of_files, config_file):
         extent_ls_masked = None
         if update_extent:
 
-            # get some info
-            burst_dir = Path(outfile).parent
-            burst = burst_dir.name
-            extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
-
             logger.info(
-                'Calculating symetrical difference of extent and ls_mask'
+                'Calculating symmetrical difference of extent and ls_mask'
             )
 
             # polygonize the multi-temporal ls mask

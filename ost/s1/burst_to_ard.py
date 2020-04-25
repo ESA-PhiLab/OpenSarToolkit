@@ -264,6 +264,8 @@ def create_coherence_layers(
             )
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
+            # remove imports
+            h.delete_dimap(master_import)
             return None, error
 
         # remove imports

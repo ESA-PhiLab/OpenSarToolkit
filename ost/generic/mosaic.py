@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
-from os.path import join as opj
 import gdal
 import json
 import numpy as np
 import rasterio
+import rasterio.mask
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -22,17 +22,15 @@ def create_timeseries_mosaic_vrt(list_of_args):
     )
 
 
-def mosaic(list_of_args):
-    # unpack list of args
-    filelist, outfile, project_file = list_of_args
+def mosaic(filelist, outfile, config_file):
+    
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        temp_dir = config_dict['temp_dir']
+        aoi = config_dict['aoi']
+        cut_to_aoi = config_dict['processing']['mosaic']['cut_to_aoi']
 
-    with open(project_file, 'r') as ard_file:
-        project_params = json.load(ard_file)
-        temp_dir = project_params['project']['temp_dir']
-        aoi = project_params['project']['aoi']
-        cut_to_aoi = project_params['processing_parameters']['mosaic']['cut_to_aoi']
-
-    logfile = outfile.parent.joinpath(f'{str((outfile))[:-4]}.errLog')
+    logfile = outfile.parent.joinpath(f'{str(outfile)[:-4]}.errLog')
 
     with TemporaryDirectory(prefix=f'{temp_dir}/') as temp:
 
@@ -54,13 +52,13 @@ def mosaic(list_of_args):
             f"-harmo.cost rmse "
             f"-tmpdir {str(temp)} "
             f" -il {filelist} "
-            f" -out {tempfile} {dtype}"
+            f" -out {str(tempfile)} {dtype}"
         )
 
         return_code = h.run_command(cmd, logfile)
         if return_code != 0:
-            if os.path.isfile(tempfile):
-                os.remove(tempfile)
+            if tempfile.exists():
+                tempfile.unlink()
 
             return
 
@@ -91,10 +89,17 @@ def mosaic(list_of_args):
         # check
         return_code = h.check_out_tiff(outfile)
         if return_code != 0:
-            if os.path.isfile(outfile):
-                os.remove(outfile)
+            if outfile.exists():
+                outfile.unlink()
+        else:
+            check_file = outfile.parent.joinpath(
+                f'.{outfile.name[:-4]}.processed'
+            )
+            with open(str(check_file), 'w') as file:
+                file.write('passed all tests \n')
 
-        # write file, so we know this ts has been succesfully processed
-        #if return_code == 0:
-        #    with open(str(check_file), 'w') as file:
-        #        file.write('passed all tests \n')
+
+def gd_mosaic(list_of_args):
+
+    filelist, outfile, config_file = list_of_args
+    mosaic(filelist, outfile, config_file)

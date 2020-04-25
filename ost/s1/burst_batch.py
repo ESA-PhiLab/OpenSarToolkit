@@ -12,7 +12,6 @@ import os
 import json
 import itertools
 import logging
-import multiprocessing as mp
 from pathlib import Path
 
 import pandas as pd
@@ -64,11 +63,8 @@ def bursts_to_ards(
     logger.info('Preparing the processing pipeline. This may take a moment.')
     proc_inventory = prepare_burst_inventory(burst_gdf, config_file)
 
-    # for burst in proc_inventory.iterrows():
-    #     burst_to_ard(burst, config_file)
-
     with open(config_file, 'r') as file:
-            config_dict = json.load(file)
+        config_dict = json.load(file)
     # we update max_workers in case we have less snap_cpu_parallelism
     # then cpus available
     if (
@@ -365,6 +361,7 @@ def timeseries_to_timescan(burst_gdf, config_file):
         out_dict['error'].append(error)
 
     df = pd.DataFrame.from_dict(out_dict)
+
     # run vrt creation
     for task in executor.as_completed(
             func=ras.create_tscan_vrt,
@@ -386,7 +383,7 @@ def mosaic_timeseries(burst_inventory, config_file):
     # 1 load project config
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
-        processing_dir = config_dict['project']['processing_dir']
+        processing_dir = config_dict['processing_dir']
 
     # create output folder
     ts_dir = Path(processing_dir).joinpath('Mosaic/Timeseries')
@@ -418,7 +415,7 @@ def mosaic_timeseries(burst_inventory, config_file):
                 f'*/Timeseries/{i:02d}.*{product}.tif'
             ))
 
-            # assure that we do not inlcude potential Mosaics
+            # assure that we do not include potential Mosaics
             # from anterior runs
             filelist = [file for file in filelist if 'Mosaic' not in str(file)]
 
@@ -441,22 +438,21 @@ def mosaic_timeseries(burst_inventory, config_file):
             # create namespace for output file
             if start == end:
                 outfile = ts_dir.joinpath(
-                              f'{i:02d}.{start}.{product}.tif'
+                    f'{i:02d}.{start}.{product}.tif'
                 )
 
             else:
                 outfile = ts_dir.joinpath(
-                              f'{i:02d}.{start}-{end}.{product}.tif'
+                    f'{i:02d}.{start}-{end}.{product}.tif'
                 )
 
-            # create nmespace for check_file
+            # create namespace for check_file
             check_file = outfile.parent.joinpath(
                 f'.{outfile.name[:-4]}.processed'
             )
 
-            if os.path.isfile(check_file):
-                print('INFO: Mosaic layer {} already'
-                      ' processed.'.format(outfile))
+            if check_file.exists():
+                logger.info(f'Mosaic layer {outfile} already processed.')
                 continue
 
             # append to list of outfile for vrt creation
@@ -465,10 +461,25 @@ def mosaic_timeseries(burst_inventory, config_file):
 
         vrt_iter_list.append([ts_dir, product, outfiles])
 
-    concurrent = mp.cpu_count()
-    pool = mp.Pool(processes=concurrent)
-    pool.map(mosaic.mosaic, iter_list)
-    pool.map(mosaic.create_timeseries_mosaic_vrt, vrt_iter_list)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    # run mosaicking vrts
+    for task in executor.as_completed(
+            func=mosaic.create_timeseries_mosaic_vrt,
+            iterable=vrt_iter_list
+    ):
+        task.result()
 
 
 def mosaic_timescan(config_file):
@@ -479,7 +490,7 @@ def mosaic_timescan(config_file):
 
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
-        processing_dir = config_dict['project']['processing_dir']
+        processing_dir = Path(config_dict['processing_dir'])
         metrics = config_dict['processing']['time-scan_ARD']['metrics']
 
     if 'harmonics' in metrics:
@@ -490,13 +501,13 @@ def mosaic_timescan(config_file):
         metrics.remove('percentiles')
         metrics.extend(['p95', 'p5'])
 
-    tscan_dir = Path(processing_dir).joinpath('Mosaic/Timescan')
+    tscan_dir = processing_dir.joinpath('Mosaic/Timescan')
     tscan_dir.mkdir(parents=True, exist_ok=True)
 
     iter_list, outfiles = [], []
     for product, metric in itertools.product(PRODUCT_LIST, metrics):
 
-        filelist = list(Path(processing_dir).glob(
+        filelist = list(processing_dir.glob(
             f'*/Timescan/*{product}.{metric}.tif'
         ))
 
@@ -518,7 +529,17 @@ def mosaic_timescan(config_file):
         outfiles.append(outfile)
         iter_list.append([filelist, outfile, config_file])
 
-    concurrent = mp.cpu_count()
-    pool = mp.Pool(processes=concurrent)
-    pool.map(mosaic.mosaic, iter_list)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
     ras.create_tscan_vrt([tscan_dir, config_file])

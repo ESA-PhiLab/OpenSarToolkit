@@ -48,6 +48,8 @@ def burst_import(
 
     if ard['coherence']:
         polars = bs_polar if len(bs_polar) >= len(coh_polar) else coh_polar
+    else:
+        polars = bs_polar
 
     # get cpus
     cpus = config_dict['snap_cpu_parallelism']

@@ -51,5 +51,7 @@ def mt_extent(list_of_scenes, config_file):
         # intersect with aoi
         if config_dict['processing']['mosaic']['cut_to_aoi']:
             vec.aoi_intersection(aoi, exterior, out_file)
+        else:
+            exterior.rename(out_file)
 
     return target_dir.name, list_of_scenes, out_file

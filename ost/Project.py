@@ -683,11 +683,12 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 9 mosaic the timescans
         if mosaic and timescan:
-            burst_batch.mosaic_timescan(self.burst_inventory, self.config_file)
+            burst_batch.mosaic_timescan(self.config_file)
 
+    @staticmethod
     def create_timeseries_animation(
-            self,
-            timeseries_dir, product_list,
+            timeseries_dir,
+            product_list,
             outfile,
             shrink_factor=1,
             resampling_factor=5,
