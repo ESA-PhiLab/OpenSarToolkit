@@ -414,7 +414,7 @@ def burst_to_ard(burst, config_file):
                 config_dict
             )
         elif ard['H-A-Alpha'] and pol_file:
-            # construct namesapce for existing pol layer
+            # construct namespace for existing pol layer
             out_pol = str(
                 out_dir.joinpath(f'{master_prefix}_pol').with_suffix('.dim')
             )

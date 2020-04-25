@@ -135,10 +135,6 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
             shutil.rmtree(
                 infile_prefix.with_suffix('.data')
             )
-            shutil.move(
-                infile_prefix.with_suffix('.data'),
-                outfile_prefix.with_suffix('.data')
-            )
 
         try:
             infile_prefix.with_suffix('.dim').rename(
