@@ -7,6 +7,9 @@ from pathlib import Path
 from datetime import datetime as dt
 from tempfile import TemporaryDirectory
 
+import rasterio
+from retrying import retry
+
 from ost.generic.common_wrappers import create_stack, mt_speckle_filter
 from ost.helpers import raster as ras, helpers as h
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
@@ -16,6 +19,7 @@ logger = logging.getLogger(__name__)
 SNAP_DATEFORMAT = '%d%b%Y'
 
 
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
     # -------------------------------------------
@@ -47,7 +51,13 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
             f'Timeseries of {burst} for {product} in {pol} '
             f'polarisation already processed.'
         )
-        return
+
+        out_files = 'already_processed'
+        out_vrt = 'already_processed'
+
+        return (
+            burst, list_of_files, out_files, out_vrt, f'{product}.{pol}', None
+        )
 
     # -------------------------------------------
     # 4 adjust processing parameters according to config
@@ -79,7 +89,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
         # run stacking routine
         if pol in ['Alpha', 'Anisotropy', 'Entropy']:
-            logger.debug(
+            logger.info(
                 f'Creating multi-temporal stack of images of burst/track '
                 f'{burst} for the {pol} band of the polarimetric '
                 f'H-A-Alpha decomposition.'
@@ -91,9 +101,9 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return
+                return None, None, None, None, None, error
         else:
-            logger.debug(
+            logger.info(
                 f'Creating multi-temporal stack of images of burst/track '
                 f'{burst} for {product} product in {pol} polarization.'
             )
@@ -104,7 +114,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return
+                return None, None, None, None, None, error
         # run mt speckle filter
         if ard_mt['remove_mt_speckle'] is True:
 
@@ -112,7 +122,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 f'{burst}_{product}_{pol}_mt_speckle.err_log'
             )
 
-            logger.info('Applying multi-temporal speckle filter')
+            logger.debug('Applying multi-temporal speckle filter')
             try:
                 mt_speckle_filter(
                     temp_stack.with_suffix('.dim'), out_stack, speckle_log,
@@ -120,7 +130,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
-                return
+                return None, None, None, None, None, error
 
             # remove tmp files
             h.delete_dimap(temp_stack)
@@ -179,6 +189,14 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                     f'{i+1:02d}.{mst}.{slv}.{product}.{pol}.tif'
                 )
 
+                # fill internal values if any
+                with rasterio.open(str(infile), 'r') as src:
+                    meta = src.meta.copy()
+                    filled = ras.fill_internal_nans(src.read())
+
+                with rasterio.open(str(infile), 'w', **meta) as dest:
+                    dest.write(filled)
+
                 # produce final outputfile,
                 # including dtype conversion and ls mask
                 ras.mask_by_shape(
@@ -218,6 +236,14 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 outfile = out_dir.joinpath(
                     f'{i+1:02d}.{date}.{product}.{pol}.tif'
                 )
+
+                # fill internal nodata
+                with rasterio.open(str(infile), 'r') as src:
+                    meta = src.meta.copy()
+                    filled = ras.fill_internal_nans(src.read())
+
+                with rasterio.open(str(infile), 'w', **meta) as dest:
+                    dest.write(filled)
 
                 # run conversion routine
                 ras.mask_by_shape(infile, outfile, extent,

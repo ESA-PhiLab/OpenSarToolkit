@@ -82,7 +82,15 @@ def grd_to_ard(filelist, config_file):
 
     # ----------------------------------------------------
     # 4 run the processing routine
-    with TemporaryDirectory(prefix=f"{config_dict['temp_dir']}/") as temp:
+
+    # this might happen in the create_ard from s1scene class
+    if not config_dict['temp_dir']:
+        temp_dir = processing_dir.joinpath('temp')
+        temp_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        temp_dir = config_dict['temp_dir']
+
+    with TemporaryDirectory(prefix=f"{temp_dir}/") as temp:
 
         # convert temp directory to Path object
         temp = Path(temp)
@@ -373,17 +381,18 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
         raise TypeError('File needs to be in BEAM-DIMAP format')
 
     data_dir = infile.with_suffix('.data')
-
-    if list(data_dir.glob('*VV*.img'))[0].exists():
+    print(data_dir)
+    print(list(data_dir.glob('*VV*.img')))
+    if list(data_dir.glob('*VV*.img')):
         co_pol = list(data_dir.glob('*VV*.img'))[0]
-    elif list(data_dir.glob('HH*.img'))[0].exists():
+    elif list(data_dir.glob('HH*.img')):
         co_pol = list(data_dir.glob('HH*.img'))[0]
     else:
         raise RuntimeError('No co-polarised band found.')
 
-    if list(data_dir.glob('*VH*.img'))[0].exists():
+    if list(data_dir.glob('*VH*.img')):
         cross_pol = list(data_dir.glob('*VH*.img'))[0]
-    elif list(data_dir.glob('*HV*.img'))[0].exists():
+    elif list(data_dir.glob('*HV*.img')):
         cross_pol = list(data_dir.glob('*HV*.img'))[0]
     else:
         cross_pol = None

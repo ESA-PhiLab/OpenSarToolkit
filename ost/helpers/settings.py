@@ -2,7 +2,7 @@ import os
 import sys
 import getpass
 import shutil
-import importlib
+import importlib.util
 import logging
 from pathlib import Path
 import numpy as np
@@ -231,7 +231,7 @@ config_check = dict({
                            'choices': [i for i in range(3, 27, 2)]},
     'scale_size': {'type': int, 'choices': range(0, 2)},
     'create_ls_mask': {'type': bool},
-    'dem_name': {'type': str, 'choices': ['SRTM 1Sec HGT', 'SRTM 3Sec']},
+    'dem_name': {'type': str, 'choices': ['SRTM 1Sec HGT', 'SRTM 3Sec', 'Aster 1sec GDEM']},
     'dem_file': {'type': str},
     'dem_nodata': {'type': int, 'choices': range(0, 66000)},
     'dem_resampling': {'type': str,

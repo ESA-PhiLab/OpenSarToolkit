@@ -2,14 +2,20 @@
 import os
 import gdal
 import json
-import numpy as np
-import rasterio
-import rasterio.mask
+import shutil
+import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import numpy as np
+import rasterio
+import rasterio.mask
+from retrying import retry
+
 from ost.helpers import vector as vec
 from ost.helpers import helpers as h
+
+logger = logging.getLogger(__name__)
 
 
 def create_timeseries_mosaic_vrt(list_of_args):
@@ -22,13 +28,16 @@ def create_timeseries_mosaic_vrt(list_of_args):
     )
 
 
-def mosaic(filelist, outfile, config_file):
-    
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def mosaic(filelist, outfile, config_file, cut_to_aoi=None):
+
+    logger.info('Mosaicking.')
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
         temp_dir = config_dict['temp_dir']
         aoi = config_dict['aoi']
-        cut_to_aoi = config_dict['processing']['mosaic']['cut_to_aoi']
+        if not cut_to_aoi:
+            cut_to_aoi = config_dict['processing']['mosaic']['cut_to_aoi']
 
     logfile = outfile.parent.joinpath(f'{str(outfile)[:-4]}.errLog')
 
@@ -47,9 +56,10 @@ def mosaic(filelist, outfile, config_file):
             tempfile = outfile
 
         cmd = (
-            f"otbcli_Mosaic -ram 4096  -progress 1 "
-            f"-comp.feather large -harmo.method band "
-            f"-harmo.cost rmse "
+            f"otbcli_Mosaic -ram 16384  -progress 1 "
+            f"-comp.feather large "
+            f"-harmo.method band "
+            f"-harmo.cost musig "
             f"-tmpdir {str(temp)} "
             f" -il {filelist} "
             f" -out {str(tempfile)} {dtype}"
@@ -103,3 +113,63 @@ def gd_mosaic(list_of_args):
 
     filelist, outfile, config_file = list_of_args
     mosaic(filelist, outfile, config_file)
+
+
+def mosaic_slc_acquisition(track, date, product, outfile, config_file):
+
+    logger.info(
+        f'Pre-mosaicking {product} acquisition from {track} taken at {date}.'
+    )
+    # -------------------------------------
+    # 1 load project config
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
+        temp_dir = Path(config_dict['temp_dir'])
+
+    if 'coh' in product:
+        search_last = f'*.{product}.tif'
+    else:
+        search_last = f'{product}.tif'
+    # search for bursts with IW1 and IW 2
+    list_of_iw12 = processing_dir.glob(
+        f'*{track}_IW[1,2]*/Timeseries/'
+        f'*.{date[2:]}.{search_last}'
+    )
+    # and join them into a otb readable list
+    list_of_iw12 = ' '.join(
+        [str(file) for file in list(list_of_iw12)]
+    )
+
+    if list_of_iw12:
+        temp_iw12 = temp_dir.joinpath(f'{date}_{track}_IW1_2.tif')
+        mosaic(list_of_iw12, temp_iw12, config_file)
+
+    list_of_iw3 = processing_dir.glob(
+        f'*{track}_IW3*/Timeseries/*.{date[2:]}.{search_last}'
+    )
+    list_of_iw3 = ' '.join(
+        [str(file) for file in list(list_of_iw3)]
+    )
+
+    if list_of_iw3:
+        temp_iw3 = temp_dir.joinpath(f'{date}_{track}_IW3.tif')
+        mosaic(list_of_iw3, temp_iw3, config_file)
+
+    if list_of_iw12 and list_of_iw3:
+        mosaic(
+            ' '.join([str(temp_iw12), str(temp_iw3)]), outfile, config_file,
+            False
+        )
+    elif list_of_iw12 and not list_of_iw3:
+        shutil.move(temp_iw12, outfile)
+    elif not list_of_iw12 and list_of_iw3:
+        shutil.move(temp_iw3, outfile)
+    else:
+        return
+
+
+def gd_mosaic_slc_acquisition(list_of_args):
+
+    track, date, product, outfile, config_file = list_of_args
+    mosaic_slc_acquisition(track, date, product, outfile, config_file)

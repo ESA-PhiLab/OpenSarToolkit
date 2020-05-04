@@ -10,12 +10,13 @@ from tempfile import TemporaryDirectory
 import gdal
 import rasterio
 import numpy as np
+from retrying import retry
 
 from ost.helpers import raster as ras, vector as vec
 
 logger = logging.getLogger(__name__)
 
-
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_layover(list_of_files, config_file):
     """
 

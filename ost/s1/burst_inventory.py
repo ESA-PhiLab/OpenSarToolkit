@@ -201,14 +201,14 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
 
         # get similar burst times
         idx = gdf_full.index[
-            (gdf_full.AnxTime >= i - 1) &
-            (gdf_full.AnxTime <= i + 1) &
+            (gdf_full.AnxTime >= i - 6) &
+            (gdf_full.AnxTime <= i + 6) &
             (gdf_full.AnxTime != i)
             ].unique().values
 
         # reset all to first value
         for j in idx:
-            gdf_full.at[j, 'AnxTime'] = i
+            gdf_full.loc[j, 'AnxTime'] = i
 
     # create the actual burst id
     gdf_full['bid'] = (

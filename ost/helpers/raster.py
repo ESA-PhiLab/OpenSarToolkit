@@ -17,6 +17,7 @@ import imageio
 import rasterio
 import rasterio.mask
 from rasterio.features import shapes
+from scipy.interpolate import griddata
 
 from ost.helpers import helpers as h
 
@@ -189,6 +190,29 @@ def rescale_to_float(int_array, data_type):
     return np.add(np.multiply(int_array, a), b)
 
 
+def fill_internal_nans(array):
+    """Function that fills no-data values with interpolation
+
+    :param array:
+    :return:
+    """
+
+
+    a = array[0].astype('float32')
+    shape = a.shape
+    a[a == 0] = np.nan
+    x, y = np.indices(shape)
+    interp = np.array(a)
+    interp[np.isnan(interp)] = griddata(
+        (x[~np.isnan(a)], y[~np.isnan(a)]),  # points we know
+        a[~np.isnan(a)],  # values we know
+        (x[np.isnan(a)], y[np.isnan(a)]),
+        method='nearest'
+    )
+
+    return interp[np.newaxis, :]
+
+
 def mask_by_shape(
         infile,
         outfile,
@@ -316,7 +340,9 @@ def norm(array, percentile=False):
     :return:
     """
     if percentile:
-        array_min, array_max = np.percentile(array, 2), np.percentile(array, 98)
+        array_min, array_max = (
+            np.percentile(array, 2), np.percentile(array, 98)
+        )
     else:
         array_min, array_max = np.nanmin(array), np.nanmax(array)
         
@@ -398,23 +424,38 @@ def calc_min(band, stretch='minmax'):
     elif stretch == 'minmax':
         band_min = np.nanmin(band)
     else:
-        print("Please select one of percentile or minmax for the stretch parameter")
+        raise ValueError(
+            'Please select one of percentile or minmax '
+            'for the stretch parameter.'
+        )
 
     return band_min
 
 
 def calc_max(band, stretch='minmax'):
+
     if stretch == 'percentile':
         band_max = np.percentile(band, 98)
     elif stretch == 'minmax':
         band_max = np.nanmax(band)
     else:
-        print("Please select one of percentile or minmax for the stretch parameter")
+        raise ValueError(
+            'Please select one of percentile or minmax '
+            'for the stretch parameter.'
+        )
     return band_max
 
 
-def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5, plot=False,
-                   minimum_list=None, maximum_list=None, date=None, filetype=None, stretch=False):
+def create_rgb_jpeg(
+        filelist,
+        outfile=None,
+        shrink_factor=1,
+        resampling_factor=5,
+        plot=False,
+        date=None,
+        filetype=None,
+        stretch=False
+):
 
     import matplotlib.pyplot as plt
 
@@ -425,12 +466,12 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
         
         # get metadata
         out_meta = src.meta.copy()
-
+        dtype = src.meta['dtype']
         # !!!assure that dimensions match ####
         new_height = int(src.height/shrink_factor)
         new_width = int(src.width/shrink_factor)
         out_meta.update(height=new_height, width=new_width)
-        count=1
+        count = 1
         
         layer1 = src.read(
                 out_shape=(src.count, new_height, new_width),
@@ -450,14 +491,17 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
                     out_shape=(src.count, new_height, new_width),
                     resampling=resampling_factor    # 5 = average
                     )[0]
-            if stretch:
+            if stretch and dtype == 'float32':
                 minimum_list.append(calc_min(layer2, stretch))
                 maximum_list.append(calc_max(layer2, stretch))
             else:
                 minimum_list.append(get_min(filelist[1]))
                 maximum_list.append(get_max(filelist[1]))
-            layer2[layer2 == 0] = np.nan
-            count=3
+
+            if dtype == 'float32':
+                layer2[layer2 == 0] = np.nan
+
+            count = 3
             
     if len(filelist) == 2:    # that should be the BS ratio case
         layer3 = np.subtract(layer1, layer2)
@@ -477,7 +521,10 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
         else:
             minimum_list.append(get_min(filelist[2]))
             maximum_list.append(get_max(filelist[2]))
-        layer3[layer3 == 0] = np.nan
+
+        if dtype == 'float32':
+            layer3[layer3 == 0] = np.nan
+
     # create empty array
     arr = np.zeros((int(out_meta['height']),
                     int(out_meta['width']),
@@ -520,22 +567,30 @@ def create_rgb_jpeg(filelist, outfile=None, shrink_factor=1, resampling_factor=5
 
     
 def create_timeseries_animation(
-        timeseries_folder, product_list, out_folder,
-        shrink_factor=1, resampling_factor=5, duration=1,
-        add_dates=False, prefix=False
+        timeseries_folder,
+        product_list,
+        out_folder,
+        shrink_factor=1,
+        resampling_factor=5,
+        duration=1,
+        add_dates=False,
+        prefix=False
 ):
 
-    
-    nr_of_products = len(glob.glob(
-        opj(timeseries_folder, '*{}.tif'.format(product_list[0]))))
-    outfiles = []
+
+    # get number of products
+    nr_of_products = len(
+        list(timeseries_folder.glob(f'*{product_list[0]}.tif'))
+    )
+
     # for coherence it must be one less
     if 'coh.VV' in product_list or 'coh.VH' in product_list:
-        nr_of_products == nr_of_products - 1
-        
+        nr_of_products = nr_of_products - 1
+
+    outfiles = []
     for i in range(nr_of_products):
 
-        filelist = [glob.glob(opj(timeseries_folder, '{}.*{}*tif'.format(i + 1, product)))[0] for product in product_list]
+        filelist = [glob.glob(opj(timeseries_folder, '*{}.*{}*tif'.format(i + 1, product)))[0] for product in product_list]
         dates = os.path.basename(filelist[0]).split('.')[1]    
         
         if add_dates:
@@ -553,7 +608,7 @@ def create_timeseries_animation(
 
     # create gif
     if prefix:
-        gif_name = '{}_{}_ts_animation.gif'.format(prefix,product_list[0])
+        gif_name = '{}_{}_ts_animation.gif'.format(prefix, product_list[0])
     else:
         gif_name = '{}_ts_animation.gif'.format(product_list[0])
     with imageio.get_writer(opj(out_folder, gif_name), mode='I',

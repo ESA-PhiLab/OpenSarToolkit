@@ -8,6 +8,7 @@
             "polarisation": "VV, VH, HH, HV",
             "to_db": false,
             "to_tif": false,
+            "geocoding": "terrain",
             "remove_speckle": false,
             "speckle_filter": {
                 "filter": "Refined Lee",

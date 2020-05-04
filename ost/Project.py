@@ -604,7 +604,7 @@ class Sentinel1Batch(Sentinel1):
             mosaic=False,
             overwrite=False,
             max_workers=1,
-            executer_type='multiprocessing'
+            executer_type='concurrent_processes'
     ):
         """Batch processing function for full burst pre-processing workflow
 
@@ -648,9 +648,10 @@ class Sentinel1Batch(Sentinel1):
         # when outside SRTM
         center_lat = loads(self.aoi).centroid.y
         if float(center_lat) > 59 or float(center_lat) < -59:
-            logger.info('Scene is outside SRTM coverage. Will use '
-                        'ellipsoid based terrain correction.')
-            self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
+            logger.info('Scene is outside SRTM coverage. Snap will therefore '
+                        'use the Earth\'s geoid model.')
+            self.ard_parameters['single_ARD']['dem'][
+                'dem_name'] = 'Aster 1sec GDEM'
 
         # --------------------------------------------
         # 3 subset determination
@@ -679,14 +680,14 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 6 run the timeseries creation
         if timeseries or timescan:
-            burst_batch.ards_to_timeseries(
+            tseries_df = burst_batch.ards_to_timeseries(
                 self.burst_inventory, self.config_file
             )
 
         # --------------------------------------------
         # 7 run the timescan creation
         if timescan:
-            df = burst_batch.timeseries_to_timescan(
+            burst_batch.timeseries_to_timescan(
                 self.burst_inventory, self.config_file
             )
 
@@ -699,8 +700,11 @@ class Sentinel1Batch(Sentinel1):
 
         # --------------------------------------------
         # 9 mosaic the timescans
-        if mosaic and timescan:
-            burst_batch.mosaic_timescan(self.config_file)
+        #if mosaic and timescan:
+        #    burst_batch.mosaic_timescan(self.config_file)
+
+        return tseries_df
+
 
     @staticmethod
     def create_timeseries_animation(
@@ -727,7 +731,7 @@ class Sentinel1Batch(Sentinel1):
             mosaic=False,
             overwrite=False,
             max_workers=1,
-            executer_type='multiprocessing'
+            executer_type='concurrent_processes'
     ):
 
         self.config_dict['max_workers'] = max_workers
@@ -751,9 +755,10 @@ class Sentinel1Batch(Sentinel1):
         # when outside SRTM
         center_lat = loads(self.aoi).centroid.y
         if float(center_lat) > 59 or float(center_lat) < -59:
-            logger.info('Scene is outside SRTM coverage. Will use '
-                        'ellipsoid based terrain correction.')
-            self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
+            logger.info('Scene is outside SRTM coverage. Snap will therefore '
+                        'use the Earth\'s geoid model.')
+            self.ard_parameters['single_ARD']['dem'][
+                'dem_name'] = 'Aster 1sec GDEM'
 
         # --------------------------------------------
         # 3 subset determination
@@ -795,6 +800,6 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 9 mosaic the timescans
         if mosaic and timescan:
-            grd_batch.mosaic_timescan(inventory_df, self.config_file)
+            grd_batch.mosaic_timescan(self.config_file)
 
         return processing_df

@@ -6,6 +6,9 @@ import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import numpy as np
+import rasterio
+
 from ost.helpers import helpers as h
 from ost.s1 import slc_wrappers as slc
 from ost.generic import common_wrappers as common
@@ -61,6 +64,17 @@ def create_polarimetric_layers(
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             return None, error
+
+        # set nans to 0 (issue from SNAP for polarimetric layers)
+        for infile in list(out_htc.with_suffix('.data').glob('*.img')):
+
+            with rasterio.open(str(infile), 'r') as src:
+                meta = src.meta.copy()
+                array = src.read()
+                array[np.isnan(array)] = 0
+
+            with rasterio.open(str(infile), 'w', **meta) as dest:
+                dest.write(array)
 
         # move to final destination
         ard = config_dict['processing']['single_ARD']
@@ -401,6 +415,9 @@ def burst_to_ard(burst, config_file):
                     config_dict
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
+                if master_import.with_suffix('.dim').exists():
+                    h.delete_dimap(master_import)
+
                 logger.info(error)
                 return None, None, None, None, error
 
@@ -457,6 +474,9 @@ def burst_to_ard(burst, config_file):
                     config_dict
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
+                if slave_import.with_suffix('.dim').exists():
+                    h.delete_dimap(slave_import)
+
                 logger.info(error)
                 return None, None, None, None, error
 

@@ -431,7 +431,7 @@ def difference(infile1, infile2, outfile):
 
     gdf1 = gpd.read_file(infile1)
     gdf2 = gpd.read_file(infile2)
-    print(gdf2)
+
     gdf3 = gpd.overlay(gdf1, gdf2, how='symmetric_difference')
 
     gdf3.to_file(outfile, driver='GPKG')

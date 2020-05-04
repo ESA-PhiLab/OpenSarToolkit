@@ -1,5 +1,5 @@
 {
-    "processing_parameters": {
+    "processing": {
         "single_ARD": {
             "type": "OST-RTC",
             "resolution": 20,

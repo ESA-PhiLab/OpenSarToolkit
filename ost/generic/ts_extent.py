@@ -3,15 +3,18 @@
 
 import json
 import gdal
+import shutil
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+from retrying import retry
 
 from ost.helpers import raster as ras, vector as vec
 
 logger = logging.getLogger(__name__)
 
-
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_extent(list_of_scenes, config_file):
 
     with open(config_file) as file:
@@ -50,8 +53,11 @@ def mt_extent(list_of_scenes, config_file):
 
         # intersect with aoi
         if config_dict['processing']['mosaic']['cut_to_aoi']:
-            vec.aoi_intersection(aoi, exterior, out_file)
+            try:
+                vec.aoi_intersection(aoi, exterior, out_file)
+            except ValueError:
+                shutil.move(exterior, out_file)
         else:
-            exterior.rename(out_file)
+            shutil.move(exterior, out_file)
 
     return target_dir.name, list_of_scenes, out_file

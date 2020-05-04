@@ -9,6 +9,7 @@ large-scale time-series and timescan mosaics.
 """
 
 import os
+import shutil
 import json
 import itertools
 import logging
@@ -80,6 +81,7 @@ def bursts_to_ards(
             iterable=proc_inventory.iterrows(),
             fargs=([str(config_file), ])
     ):
+
         task.result()
 
 
@@ -182,6 +184,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
+
         task.result()
 
 
@@ -236,12 +239,26 @@ def _create_timeseries(burst_gdf, config_file):
         max_workers=config_dict['max_workers']
     )
 
+    out_dict = {
+        'burst': [], 'list_of_dims': [], 'out_files': [],
+        'out_vrt': [], 'product': [], 'error': []
+    }
     for task in executor.as_completed(
             func=ard_to_ts.gd_ard_to_ts,
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-        task.result()
+
+
+        burst, list_of_dims, out_files, out_vrt, product, error = task.result()
+        out_dict['burst'].append(burst)
+        out_dict['list_of_dims'].append(list_of_dims)
+        out_dict['out_files'].append(out_files)
+        out_dict['out_vrt'].append(out_vrt)
+        out_dict['product'].append(product)
+        out_dict['error'].append(error)
+
+    return pd.DataFrame.from_dict(out_dict)
 
 
 def ards_to_timeseries(burst_gdf, config_file):
@@ -264,8 +281,8 @@ def ards_to_timeseries(burst_gdf, config_file):
         _create_mt_ls_mask(burst_gdf, config_file)
 
     # finally create time-series
-    _create_timeseries(burst_gdf, config_file)
-
+    df = _create_timeseries(burst_gdf, config_file)
+    return df
 
 # --------------------
 # timescan part
@@ -383,48 +400,72 @@ def mosaic_timeseries(burst_inventory, config_file):
     # 1 load project config
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
-        processing_dir = config_dict['processing_dir']
+        processing_dir = Path(config_dict['processing_dir'])
 
     # create output folder
-    ts_dir = Path(processing_dir).joinpath('Mosaic/Timeseries')
+    ts_dir = processing_dir.joinpath('Mosaic/Timeseries')
     ts_dir.mkdir(parents=True, exist_ok=True)
 
+    temp_mosaic = processing_dir.joinpath('Mosaic/temp')
+    temp_mosaic.mkdir(parents=True, exist_ok=True)
     # -------------------------------------
     # 2 create iterable
     # loop through each product
     iter_list, vrt_iter_list = [], []
     for product in PRODUCT_LIST:
 
-        #
-        bursts = burst_inventory.bid.unique()
-        nr_of_ts = len(list(
-            Path(processing_dir).glob(
-                f'{bursts[0]}/Timeseries/*.{product}.tif'
-            )
-        ))
+        for track in burst_inventory.Track.unique():
 
-        # in case we only have one layer
-        if not nr_of_ts > 1:
-            continue
+            dates = sorted(
+                burst_inventory.Date[burst_inventory.Track == track].unique()
+            )
+
+            for i, date in enumerate(dates):
+
+                if 'coh' in product:
+                    # we do the try, since for the last date
+                    # there is no dates[i+1] for coherence
+                    try:
+                        temp_acq = temp_mosaic.joinpath(
+                            f'{i}.{date}.{dates[i+1]}.{track}.{product}.tif'
+                        )
+                    except IndexError:
+                        pass
+                else:
+                    temp_acq = temp_mosaic.joinpath(
+                        f'{i}.{date}.{track}.{product}.tif'
+                    )
+
+                iter_list.append([track, date, product, temp_acq, config_file])
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    ## run vrt creation
+    for task in executor.as_completed(
+        func=mosaic.gd_mosaic_slc_acquisition,
+        iterable=iter_list
+    ):
+        task.result()
+
+    # mosaic the acquisitions
+    iter_list, vrt_iter_list = [], []
+    for product in PRODUCT_LIST:
 
         outfiles = []
-        for i in range(1, nr_of_ts + 1):
+        for i in range(len(dates)):
 
-            # create the file list for files to mosaic
-            filelist = list(Path(processing_dir).glob(
-                f'*/Timeseries/{i:02d}.*{product}.tif'
-            ))
+            list_of_files = list(temp_mosaic.glob(f'{i}*{product}.tif'))
 
-            # assure that we do not include potential Mosaics
-            # from anterior runs
-            filelist = [file for file in filelist if 'Mosaic' not in str(file)]
-
-            logger.info(f'Creating timeseries mosaic {i} for {product}.')
-
-            # create dates for timseries naming
+            if not list_of_files:
+                continue
+            print(list_of_files)
             datelist = []
-            for file in filelist:
-                if '.coh.' in str(file):
+            for file in list_of_files:
+                if 'coh' in product:
                     datelist.append(
                         f"{file.name.split('.')[2]}_{file.name.split('.')[1]}"
                     )
@@ -433,17 +474,19 @@ def mosaic_timeseries(burst_inventory, config_file):
 
             # get start and endate of mosaic
             start, end = sorted(datelist)[0], sorted(datelist)[-1]
-            filelist = ' '.join([str(file) for file in filelist])
+            list_of_files = ' '.join([str(file) for file in list_of_files])
 
             # create namespace for output file
             if start == end:
                 outfile = ts_dir.joinpath(
-                    f'{i:02d}.{start}.{product}.tif'
+                    f'{i+1:02d}.{start}.{product}.tif'
                 )
+                shutil.move(list_of_files[0], outfile)
+                continue
 
             else:
                 outfile = ts_dir.joinpath(
-                    f'{i:02d}.{start}-{end}.{product}.tif'
+                    f'{i+1:02d}.{start}-{end}.{product}.tif'
                 )
 
             # create namespace for check_file
@@ -457,7 +500,7 @@ def mosaic_timeseries(burst_inventory, config_file):
 
             # append to list of outfile for vrt creation
             outfiles.append(outfile)
-            iter_list.append([filelist, outfile, config_file])
+            iter_list.append([list_of_files, outfile, config_file])
 
         vrt_iter_list.append([ts_dir, product, outfiles])
 
@@ -504,7 +547,7 @@ def mosaic_timescan(config_file):
     tscan_dir = processing_dir.joinpath('Mosaic/Timescan')
     tscan_dir.mkdir(parents=True, exist_ok=True)
 
-    iter_list, outfiles = [], []
+    iter_list = []
     for product, metric in itertools.product(PRODUCT_LIST, metrics):
 
         filelist = list(processing_dir.glob(
@@ -526,7 +569,7 @@ def mosaic_timescan(config_file):
             continue
 
         logger.info(f'Mosaicking layer {outfile.name}.')
-        outfiles.append(outfile)
+
         iter_list.append([filelist, outfile, config_file])
 
     # now we run with godale, which works also with 1 worker
@@ -542,4 +585,4 @@ def mosaic_timescan(config_file):
     ):
         task.result()
 
-    ras.create_tscan_vrt([tscan_dir, config_file])
+    ras.create_tscan_vrt(tscan_dir, config_file)

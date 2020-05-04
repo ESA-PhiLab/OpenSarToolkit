@@ -11,7 +11,6 @@ import json
 import glob
 import itertools
 import logging
-import gdal
 import pandas as pd
 from pathlib import Path
 
@@ -321,7 +320,6 @@ def timeseries_to_timescan(inventory_df, config_file):
     iter_list, vrt_iter_list = [], []
     for track in inventory_df.relativeorbit.unique():
 
-        logger.info('Entering track {}.'.format(track))
         # get track directory
         track_dir = processing_dir.joinpath(track)
         # define and create Timescan directory
@@ -395,23 +393,32 @@ def timeseries_to_timescan(inventory_df, config_file):
     return timescan_df
 
 
-def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
-                      exec_file=None):
+def mosaic_timeseries(inventory_df, config_file):
 
     print(' -----------------------------------')
     logger.info('Mosaicking Time-series layers')
     print(' -----------------------------------')
 
+    # -------------------------------------
+    # 1 load project config
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
+
     # create output folder
-    ts_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
-    os.makedirs(ts_dir, exist_ok=True)
+    ts_dir = processing_dir.joinpath('Mosaic/Timeseries')
+    ts_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through polarisations
+    iter_list, vrt_iter_list = [], []
     for p in ['VV', 'VH', 'HH', 'HV']:
 
         tracks = inventory_df.relativeorbit.unique()
-        nr_of_ts = len(glob.glob(opj(
-            processing_dir, tracks[0], 'Timeseries', '*.{}.tif'.format(p))))
+        nr_of_ts = len(list(
+            processing_dir.joinpath(
+                f'{tracks[0]}/Timeseries'
+            ).glob(f'*.{p}.tif')
+        ))
 
         if not nr_of_ts >= 1:
             continue
@@ -419,104 +426,121 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
         outfiles = []
         for i in range(1, nr_of_ts + 1):
 
-            filelist = glob.glob(opj(
-                processing_dir, '*', 'Timeseries',
-                '{}.*.{}.tif'.format(i, p)))
-            filelist = [file for file in filelist if 'Mosaic' not in file]
+            filelist = list(
+                processing_dir.glob(f'*/Timeseries/*{i:02d}.*.{p}.tif')
+            )
+            filelist = [
+                str(file) for file in filelist if 'Mosaic' not in str(file)
+            ]
 
             # create
             datelist = []
             for file in filelist:
-                datelist.append(os.path.basename(file).split('.')[1])
+                datelist.append(Path(file).name.split('.')[1])
 
             filelist = ' '.join(filelist)
             start, end = sorted(datelist)[0], sorted(datelist)[-1]
 
             if start == end:
-                outfile = opj(ts_dir, '{}.{}.bs.{}.tif'.format(i, start, p))
+                outfile = ts_dir.joinpath(f'{i:02d}.{start}.bs.{p}.tif')
             else:
-                outfile = opj(ts_dir, '{}.{}-{}.bs.{}.tif'.format(i, start, end, p))
+                outfile = ts_dir.joinpath(f'{i:02d}.{start}-{end}.bs.{p}.tif')
 
-            check_file = opj(
-                os.path.dirname(outfile),
-                '.{}.processed'.format(os.path.basename(outfile)[:-4])
+            check_file = outfile.parent.joinpath(
+                f'.{outfile.stem}.processed'
             )
-               # logfile = opj(ts_dir, '{}.{}-{}.bs.{}.errLog'.format(i, start, end, p))
 
             outfiles.append(outfile)
 
-            if os.path.isfile(check_file):
-                logger.info('Mosaic layer {} already'
-                      ' processed.'.format(os.path.basename(outfile)))
+            if check_file.exists():
+                logger.info(
+                    f'Mosaic layer {outfile.name} already processed.'
+                )
                 continue
 
-            logger.info('Mosaicking layer {}.'.format(os.path.basename(outfile)))
-            mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
+            logger.info(f'Mosaicking layer {outfile.name}.')
+            iter_list.append([filelist, outfile, config_file])
 
-        if exec_file:
-            print(' gdalbuildvrt ....command, outfiles')
-            continue
+        vrt_iter_list.append([ts_dir, p, outfiles])
 
-        # create vrt
-        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-        gdal.BuildVRT(opj(ts_dir, 'Timeseries.{}.vrt'.format(p)),
-                      outfiles,
-                      options=vrt_options
-        )
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    # run mosaicking vrts
+    for task in executor.as_completed(
+            func=mosaic.create_timeseries_mosaic_vrt,
+            iterable=vrt_iter_list
+    ):
+        task.result()
 
 
-def mosaic_timescan(inventory_df, processing_dir, temp_dir, proc_file,
-                    cut_to_aoi=False, exec_file=None):
+def mosaic_timescan(config_file):
 
     # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        metrics = ard_params['time-scan ARD']['metrics']
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
+        metrics = config_dict['processing']['time-scan_ARD']['metrics']
 
     if 'harmonics' in metrics:
         metrics.remove('harmonics')
         metrics.extend(['amplitude', 'phase', 'residuals'])
 
     if 'percentiles' in metrics:
-            metrics.remove('percentiles')
-            metrics.extend(['p95', 'p5'])
+        metrics.remove('percentiles')
+        metrics.extend(['p95', 'p5'])
 
     # create out directory of not existent
-    tscan_dir = opj(processing_dir, 'Mosaic', 'Timescan')
-    os.makedirs(tscan_dir, exist_ok=True)
-    outfiles = []
+    tscan_dir = processing_dir.joinpath('Mosaic/Timescan')
+    tscan_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through all pontial proucts
+    iter_list = []
     for polar, metric in itertools.product(['VV', 'HH', 'VH', 'HV'], metrics):
 
         # create a list of files based on polarisation and metric
-        filelist = glob.glob(opj(processing_dir, '*', 'Timescan',
-                                 '*bs.{}.{}.tif'.format(polar, metric)
-                            )
-                   )
+        filelist = list(processing_dir.glob(
+            f'*/Timescan/*bs.{polar}.{metric}.tif'
+        ))
 
         # break loop if there are no files
         if not len(filelist) >= 2:
             continue
 
         # get number
-        filelist = ' '.join(filelist)
-        outfile = opj(tscan_dir, 'bs.{}.{}.tif'.format(polar, metric))
-        check_file = opj(
-                os.path.dirname(outfile),
-                '.{}.processed'.format(os.path.basename(outfile)[:-4])
-        )
+        filelist = ' '.join([str(file) for file in filelist])
+        outfile = tscan_dir.joinpath(f'bs.{polar}.{metric}.tif')
+        check_file = outfile.parent.joinpath(f'.{outfile.stem}.processed')
 
-        if os.path.isfile(check_file):
-            logger.info('Mosaic layer {} already '
-                  ' processed.'.format(os.path.basename(outfile)))
+        if check_file.exists():
+            logger.info(
+                f'Mosaic layer {outfile.name} already processed.'
+            )
             continue
 
-        logger.info('Mosaicking layer {}.'.format(os.path.basename(outfile)))
-        mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
-        outfiles.append(outfile)
+        iter_list.append([filelist, outfile, config_file])
 
-    if exec_file:
-        print(' gdalbuildvrt ....command, outfiles')
-    else:
-        ras.create_tscan_vrt(tscan_dir, proc_file)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executer_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    ras.create_tscan_vrt(tscan_dir, config_file)

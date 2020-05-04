@@ -187,19 +187,38 @@ def terrain_correction(infile, outfile, logfile, config_dict):
 
     logger.debug('Geocoding product.')
 
-    command = (
-        f"{GPT_FILE} Terrain-Correction -x -q {2*cpus} "
-        f"-PdemName=\'{dem_dict['dem_name']}\' "
-        f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
-        f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "
-        f"-PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
-        f"-PexternalDEMApplyEGM="
-        f"\'{str(dem_dict['egm_correction']).lower()}\' "
-        f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
-        f"-PpixelSpacingInMeter={ard['resolution']} "
-        f"-PalignToStandardGrid=true "
-        f"-t \'{str(outfile)}\' \'{str(infile)}\' "
-    )
+    if ard['geocoding'] == 'terrain':
+        command = (
+            f"{GPT_FILE} Terrain-Correction -x -q {2*cpus} "
+            f"-PdemName=\'{dem_dict['dem_name']}\' "
+            f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
+            f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "
+            f"-PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
+            f"-PexternalDEMApplyEGM="
+            f"\'{str(dem_dict['egm_correction']).lower()}\' "
+            f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
+            f"-PpixelSpacingInMeter={ard['resolution']} "
+            f"-PalignToStandardGrid=true "
+            f"-t \'{str(outfile)}\' \'{str(infile)}\' "
+        )
+    elif ard['geocoding'] == 'ellipsoid':
+        command = (
+            f"{GPT_FILE} Ellipsoid-Correction-RD -x -q {2 * cpus} "
+            f"-PdemName=\'{dem_dict['dem_name']}\' "
+            f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
+            f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "
+            f"-PexternalDEMNoDataValue={dem_dict['dem_nodata']} "
+            f"-PexternalDEMApplyEGM="
+            f"\'{str(dem_dict['egm_correction']).lower()}\' "
+            f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
+            f"-PpixelSpacingInMeter={ard['resolution']} "
+            f"-PalignToStandardGrid=true "
+            f"-t \'{str(outfile)}\' \'{str(infile)}\' "
+        )
+    else:
+        raise ValueError(
+            'Geocoding method should be either \'terrain\' or \'ellipsoid\'.'
+        )
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -270,7 +289,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
         )
 
     # do check routine
-    return_code = h.check_out_dimap(outfile)
+    return_code = h.check_out_dimap(outfile, test_stats=False)
     if return_code == 0:
         return str(outfile.with_suffix('.dim'))
     else:

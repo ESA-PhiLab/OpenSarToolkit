@@ -772,9 +772,10 @@ class Sentinel1Scene:
         # when outside SRTM
         center_lat = self._get_center_lat(infile)
         if float(center_lat) > 59 or float(center_lat) < -59:
-            logger.info('Scene is outside SRTM coverage. Will use '
-                        'ellipsoid based terrain correction.')
-            self.ard_parameters['single_ARD']['geocoding'] = 'ellipsoid'
+            logger.info('Scene is outside SRTM coverage. Snap will therefore '
+                        'use the Earth\'s geoid model.')
+            self.ard_parameters['single_ARD']['dem'][
+                'dem_name'] = 'Aster 1sec GDEM'
 
         # --------------------------------------------
         # 3 Check ard parameters in case they have been updated,
@@ -793,7 +794,7 @@ class Sentinel1Scene:
 
         # --------------------------------------------
         # 5 run the burst to ard batch routine
-        out_bs, out_ls, error = grd_to_ard(
+        filelist, out_bs, out_ls, error = grd_to_ard(
             [infile], self.config_file,
         )
 

@@ -217,7 +217,7 @@ def s1_download(argument_list):
     filename = Path(filename)
 
     # ask for credentials in case they are not defined as input
-    if not uname or pword:
+    if not uname or not pword:
         ask_credentials()
 
     # define url
@@ -293,7 +293,7 @@ def s1_download(argument_list):
         # otherwise we change the status to True
         else:
             logger.info(f'{filename.name} passed the zip test.')
-            with open(f'{filename}.downloaded', 'w') as file:
+            with open(filename.with_suffix('.downloaded'), 'w') as file:
                 file.write('successfully downloaded \n')
 
 

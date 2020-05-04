@@ -11,6 +11,7 @@ from calendar import isleap
 import rasterio
 import numpy as np
 from scipy import stats
+from retrying import retry
 
 from ost.helpers import raster as ras
 from ost.helpers import helpers as h
@@ -152,6 +153,7 @@ def nan_percentile(arr, q):
     return result
 
 
+@retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_metrics(
         stack, out_prefix, metrics, rescale_to_datatype, to_power,
         outlier_removal, datelist
@@ -203,7 +205,7 @@ def mt_metrics(
         # scaling factors in case we have to rescale to integer
         minimums = {'avg': int(-30), 'max': int(-30), 'min': int(-30),
                     'std': 0.00001, 'cov': 0.00001, 'phase': -np.pi}
-        maximums = {'avg': 5, 'max': 5, 'min': 5, 'std': 1, 'cov': 1,
+        maximums = {'avg': 5, 'max': 5, 'min': 5, 'std': 0.2, 'cov': 1,
                     'phase': np.pi}
 
         if harmonics:

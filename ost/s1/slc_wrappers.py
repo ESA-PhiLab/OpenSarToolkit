@@ -197,7 +197,7 @@ def calibration(
     ard = config_dict['processing']['single_ARD']
     cpus = config_dict['snap_cpu_parallelism']
     dem_dict = ard['dem']
-    region=''
+    region = ''
     # calculate Multi-Look factors
     azimuth_looks = 1  # int(np.floor(ard['resolution'] / 10 ))
     range_looks = 5  # int(azimuth_looks * 5)
@@ -285,7 +285,7 @@ def calibration(
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def coreg(master, slave, outfile, logfile, config_dict):
+def coreg2(master, slave, outfile, logfile, config_dict):
     """A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes 2 OST imported Sentinel-1 SLC products
@@ -341,7 +341,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def coreg2(master, slave, outfile, logfile, config_dict):
+def coreg(master, slave, outfile, logfile, config_dict):
     """A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes 2 OST imported Sentinel-1 SLC products
@@ -364,7 +364,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
     # get path to graph
     graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_Coreg.xml')
 
-    logger.debug('Co-registering {} and {}'.format(master, slave))
+    logger.debug(f'Co-registering {master} and {slave}')
     command = (
         f"{GPT_FILE} {graph} -x -q {2 * cpus} "
         f" -Pmaster={master} "
