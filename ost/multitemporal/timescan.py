@@ -261,13 +261,20 @@ def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype=False,
                     arr[metric] = ras.convert_to_db(arr[metric])
 
                 if rescale_to_datatype is True and meta['dtype'] != 'float32':
-                    arr[metric] = ras.scale_to_int(arr[metric], meta['dtype'],
-                                                   minimums[metric],
-                                                   maximums[metric])
+                    arr[metric] = ras.scale_to_int(arr[metric], minimums[metric],
+                                                   maximums[metric],
+                                                   meta['dtype'])
 
                 # write to dest
-                metric_dict[metric].write(
-                    np.float32(arr[metric]), window=window, indexes=1)
+                if meta['dtype'] == 'uint8':
+                    metric_dict[metric].write(
+                        np.uint8(arr[metric]), window=window, indexes=1)
+                elif meta['dtype'] == 'uint16':
+                    metric_dict[metric].write(
+                        np.uint16(arr[metric]), window=window, indexes=1)
+                elif meta['dtype'] == 'float32':
+                    metric_dict[metric].write(
+                        np.float32(arr[metric]), window=window, indexes=1)
                 metric_dict[metric].update_tags(1, 
                     BAND_NAME='{}_{}'.format(os.path.basename(out_prefix), metric))
                 metric_dict[metric].set_band_description(1, 
