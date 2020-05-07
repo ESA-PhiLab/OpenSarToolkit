@@ -28,7 +28,7 @@
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands/>
       <demName>${dem}</demName>
-      <externalDEMFile>${dem_file}<externalDEMFile>
+      <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>

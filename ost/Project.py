@@ -526,6 +526,7 @@ class Sentinel1Batch(Sentinel1):
         # 3 Add snap_cpu_parallelism
         self.config_dict['snap_cpu_parallelism'] = snap_cpu_parallelism
         self.config_dict['max_workers'] = max_workers
+        self.config_dict['executor_type'] = 'concurrent_processes'
 
         # ---------------------------------------
         # 4 Set up project JSON
@@ -602,9 +603,7 @@ class Sentinel1Batch(Sentinel1):
             timeseries=False,
             timescan=False,
             mosaic=False,
-            overwrite=False,
-            max_workers=1,
-            executer_type='concurrent_processes'
+            overwrite=False
     ):
         """Batch processing function for full burst pre-processing workflow
 
@@ -626,9 +625,6 @@ class Sentinel1Batch(Sentinel1):
         processing jobs
         :return:
         """
-
-        self.config_dict['max_workers'] = max_workers
-        self.config_dict['executer_type'] = executer_type
 
         # --------------------------------------------
         # 1 delete data from previous runnings
@@ -675,8 +671,32 @@ class Sentinel1Batch(Sentinel1):
         #    self.center_lat, self.ard_parameters['resolution'])
 
         # --------------------------------------------
-        # 6 run the burst to ard batch routine
-        burst_batch.bursts_to_ards(self.burst_inventory, self.config_file)
+        # 6 run the burst to ard batch routine (up to 3 times if needed)
+        i = 1
+        while i < 4:
+            processed_bursts_df = burst_batch.bursts_to_ards(
+                self.burst_inventory,
+                self.config_file
+            )
+
+            if False in processed_bursts_df.error.isnull().tolist():
+                i += 1
+            else:
+                i = 5
+
+        # write processed df to file
+        processing_dir = Path(self.config_dict['processing_dir'])
+        processed_bursts_df.to_pickle(
+            processing_dir.joinpath('processed_bursts.pickle')
+        )
+
+        # if not all have been processed, raise an error to avoid
+        # false time-series processing
+        if i == 4:
+            raise RuntimeError(
+                'Not all all bursts have been successfully processed'
+            )
+
         # --------------------------------------------
         # 6 run the timeseries creation
         if timeseries or timescan:
@@ -731,11 +751,11 @@ class Sentinel1Batch(Sentinel1):
             mosaic=False,
             overwrite=False,
             max_workers=1,
-            executer_type='concurrent_processes'
+            executor_type='concurrent_processes'
     ):
 
         self.config_dict['max_workers'] = max_workers
-        self.config_dict['executer_type'] = executer_type
+        self.config_dict['executor_type'] = executor_type
         # --------------------------------------------
         # 1 delete data in case of previous runs
 

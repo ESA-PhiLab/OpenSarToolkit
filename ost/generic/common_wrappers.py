@@ -203,7 +203,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
         )
     elif ard['geocoding'] == 'ellipsoid':
         command = (
-            f"{GPT_FILE} Ellipsoid-Correction-RD -x -q {2 * cpus} "
+            f"{GPT_FILE} Ellipsoid-Correction-RD -x -q {2*cpus} "
             f"-PdemName=\'{dem_dict['dem_name']}\' "
             f"-PdemResamplingMethod=\'{dem_dict['dem_resampling']}\' "
             f"-PexternalDEMFile=\'{dem_dict['dem_file']}\' "

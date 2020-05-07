@@ -207,7 +207,7 @@ def fill_internal_nans(array):
         (x[~np.isnan(a)], y[~np.isnan(a)]),  # points we know
         a[~np.isnan(a)],  # values we know
         (x[np.isnan(a)], y[np.isnan(a)]),
-        method='nearest'
+        method='linear'
     )
 
     return interp[np.newaxis, :]

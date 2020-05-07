@@ -29,13 +29,16 @@ def create_timeseries_mosaic_vrt(list_of_args):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mosaic(filelist, outfile, config_file, cut_to_aoi=None):
+def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
 
     logger.info('Mosaicking.')
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
         temp_dir = config_dict['temp_dir']
         aoi = config_dict['aoi']
+        if not harm:
+            harm = config_dict['processing']['mosaic']['harmonization']
+
         if not cut_to_aoi:
             cut_to_aoi = config_dict['processing']['mosaic']['cut_to_aoi']
 
@@ -55,12 +58,15 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None):
         else:
             tempfile = outfile
 
+        harm = 'band' if harm else 'none'
+
         cmd = (
-            f"otbcli_Mosaic -ram 16384  -progress 1 "
+            f"otbcli_Mosaic -ram 8192  -progress 1 "
             f"-comp.feather large "
-            f"-harmo.method band "
-            f"-harmo.cost musig "
+            f"-harmo.method {harm} "
+            f"-harmo.cost rmse "
             f"-tmpdir {str(temp)} "
+            f"-interpolator bco"
             f" -il {filelist} "
             f" -out {str(tempfile)} {dtype}"
         )
@@ -143,7 +149,7 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
 
     if list_of_iw12:
         temp_iw12 = temp_dir.joinpath(f'{date}_{track}_IW1_2.tif')
-        mosaic(list_of_iw12, temp_iw12, config_file)
+        mosaic(list_of_iw12, temp_iw12, config_file, harm=False)
 
     list_of_iw3 = processing_dir.glob(
         f'*{track}_IW3*/Timeseries/*.{date[2:]}.{search_last}'
@@ -154,12 +160,12 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
 
     if list_of_iw3:
         temp_iw3 = temp_dir.joinpath(f'{date}_{track}_IW3.tif')
-        mosaic(list_of_iw3, temp_iw3, config_file)
+        mosaic(list_of_iw3, temp_iw3, config_file, harm=False)
 
     if list_of_iw12 and list_of_iw3:
         mosaic(
             ' '.join([str(temp_iw12), str(temp_iw3)]), outfile, config_file,
-            False
+            False, harm=True
         )
     elif list_of_iw12 and not list_of_iw3:
         shutil.move(temp_iw12, outfile)

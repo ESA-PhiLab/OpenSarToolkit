@@ -117,7 +117,7 @@ def grd_to_ard_batch(inventory_df, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -182,7 +182,7 @@ def _create_extents(inventory_df, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -223,7 +223,7 @@ def _create_mt_ls_mask(inventory_df, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -276,7 +276,7 @@ def _create_timeseries(inventory_df, config_file):
             iter_list.append([list_of_dims, track, 'bs', pol])
 
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -364,7 +364,7 @@ def timeseries_to_timescan(inventory_df, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -465,7 +465,7 @@ def mosaic_timeseries(inventory_df, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -532,7 +532,7 @@ def mosaic_timescan(config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 

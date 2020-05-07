@@ -37,9 +37,7 @@ PRODUCT_LIST = [
 
 def bursts_to_ards(
         burst_gdf,
-        config_file,
-        executor_type='multiprocessing',
-        max_workers=1
+        config_file
 ):
     """Batch processing from single bursts to ARD format
 
@@ -66,6 +64,9 @@ def bursts_to_ards(
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
+        executor_type = config_dict['executor_type']
+        max_workers = config_dict['max_workers']
+
     # we update max_workers in case we have less snap_cpu_parallelism
     # then cpus available
     if (
@@ -75,6 +76,10 @@ def bursts_to_ards(
         max_workers = int(os.cpu_count() / config_dict['snap_cpu_parallelism'])
 
     # now we run with godale, which works also with 1 worker
+    out_dict = {
+        'burst': [], 'acq_date': [], 'out_bs': [], 'out_ls': [],
+        'out_pol': [], 'out_coh': [], 'error': []
+    }
     executor = Executor(executor=executor_type, max_workers=max_workers)
     for task in executor.as_completed(
             func=burst_to_ard,
@@ -82,7 +87,16 @@ def bursts_to_ards(
             fargs=([str(config_file), ])
     ):
 
-        task.result()
+        burst, date, out_bs, out_ls, out_pol, out_coh, error = task.result()
+        out_dict['burst'].append(burst)
+        out_dict['acq_date'].append(date)
+        out_dict['out_bs'].append(out_bs)
+        out_dict['out_ls'].append(out_ls)
+        out_dict['out_pol'].append(out_pol)
+        out_dict['out_coh'].append(out_coh)
+        out_dict['error'].append(error)
+
+    return pd.DataFrame.from_dict(out_dict)
 
 
 def _create_extents(burst_gdf, config_file):
@@ -119,7 +133,7 @@ def _create_extents(burst_gdf, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -175,7 +189,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -235,7 +249,7 @@ def _create_timeseries(burst_gdf, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -248,7 +262,6 @@ def _create_timeseries(burst_gdf, config_file):
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-
 
         burst, list_of_dims, out_files, out_vrt, product, error = task.result()
         out_dict['burst'].append(burst)
@@ -353,15 +366,15 @@ def timeseries_to_timescan(burst_gdf, config_file):
                 to_power, rescale = False, False
 
             iter_list.append([
-                timeseries, timescan_prefix, ard_tscan['metrics'],
-                rescale, to_power, ard_tscan['remove_outliers'], datelist
+                timeseries, timescan_prefix, ard_tscan['metrics'], rescale,
+                to_power, ard_tscan['remove_outliers'], datelist
             ])
 
         vrt_iter_list.append(timescan_dir)
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -440,7 +453,7 @@ def mosaic_timeseries(burst_inventory, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -506,7 +519,7 @@ def mosaic_timeseries(burst_inventory, config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 
@@ -574,7 +587,7 @@ def mosaic_timescan(config_file):
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
-        executor=config_dict['executer_type'],
+        executor=config_dict['executor_type'],
         max_workers=config_dict['max_workers']
     )
 

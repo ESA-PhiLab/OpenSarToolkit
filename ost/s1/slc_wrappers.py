@@ -285,7 +285,7 @@ def calibration(
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def coreg2(master, slave, outfile, logfile, config_dict):
+def coreg(master, slave, outfile, logfile, config_dict):
     """A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes 2 OST imported Sentinel-1 SLC products
@@ -341,7 +341,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def coreg(master, slave, outfile, logfile, config_dict):
+def coreg2(master, slave, outfile, logfile, config_dict):
     """A wrapper around SNAP's back-geocoding co-registration routine
 
     This function takes 2 OST imported Sentinel-1 SLC products
@@ -366,7 +366,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
 
     logger.debug(f'Co-registering {master} and {slave}')
     command = (
-        f"{GPT_FILE} {graph} -x -q {2 * cpus} "
+        f"{GPT_FILE} {graph} -x -q {2*cpus} "
         f" -Pmaster={master} "
         f" -Pslave={slave} "
         f" -Pdem=\'{dem_dict['dem_name']}\' "
@@ -379,7 +379,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        logger.debug('Succesfully coregistered product.')
+        logger.debug('Successfully co-registered product.')
     else:
         raise GPTRuntimeError(
             f'Co-registration exited with an error {return_code}. '

@@ -278,15 +278,32 @@ def create_coherence_layers(
             )
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
+            h.delete_dimap(out_coreg)
             # remove imports
-            h.delete_dimap(master_import)
-            return None, error
+            # h.delete_dimap(master_import)
+            # return None, error
+
+            if (
+                    'Product did not pass file check: Data file' in str(error)
+                    and 'only contains no data values.' in str(error)
+            ):
+
+                logger.info('Trying alternative Co-registration routine.')
+                try:
+                    slc.coreg2(
+                        master_import, slave_import, out_coreg, coreg_log,
+                        config_dict
+                    )
+                except (GPTRuntimeError, NotValidFileError) as error:
+                    logger.info(error)
+                    h.delete_dimap(master_import)
+                    return None, error
 
         # remove imports
         h.delete_dimap(master_import)
-
+        h.delete_dimap(slave_import)
         # if remove_slave_import is True:
-        #    h.delete_dimap(slave_import)
+
 
         # ---------------------------------------------------------------
         # 2 Coherence calculation
@@ -419,7 +436,7 @@ def burst_to_ard(burst, config_file):
                     h.delete_dimap(master_import)
 
                 logger.info(error)
-                return None, None, None, None, error
+                return burst.bid, burst.Date, None, None, None, None, error
 
         # ---------------------------------------------------------------------
         # 2 Product Generation
@@ -460,33 +477,41 @@ def burst_to_ard(burst, config_file):
             slave_file = burst['slave_file']
             slave_burst_nr = burst['slave_burst_nr']
 
-            # import slave burst
-            slave_import = temp_dir.joinpath(f'{slave_prefix}_import')
-            import_log = out_dir.joinpath(f'{slave_prefix}_import.err_log')
+            with TemporaryDirectory(prefix=f"{str(temp_dir)}/") as temp:
 
-            try:
-                slc.burst_import(
-                    slave_file,
-                    slave_import,
-                    import_log,
-                    swath,
-                    slave_burst_nr,
+                # convert temp to Path object
+                temp = Path(temp)
+
+                # import slave burst
+                slave_import = temp.joinpath(f'{slave_prefix}_import')
+                import_log = out_dir.joinpath(f'{slave_prefix}_import.err_log')
+
+                try:
+                    slc.burst_import(
+                        slave_file,
+                        slave_import,
+                        import_log,
+                        swath,
+                        slave_burst_nr,
+                        config_dict
+                    )
+                except (GPTRuntimeError, NotValidFileError) as error:
+                    if slave_import.with_suffix('.dim').exists():
+                        h.delete_dimap(slave_import)
+
+                    logger.info(error)
+                    return burst.bid, burst.Date, None, None, None, None, error
+
+                out_coh, error = create_coherence_layers(
+                    master_import.with_suffix('.dim'),
+                    slave_import.with_suffix('.dim'),
+                    out_dir,
+                    master_prefix,
                     config_dict
                 )
-            except (GPTRuntimeError, NotValidFileError) as error:
-                if slave_import.with_suffix('.dim').exists():
-                    h.delete_dimap(slave_import)
 
-                logger.info(error)
-                return None, None, None, None, error
-
-            out_coh, error = create_coherence_layers(
-                master_import.with_suffix('.dim'),
-                slave_import.with_suffix('.dim'),
-                out_dir,
-                master_prefix,
-                config_dict
-            )
+                # remove master import
+                h.delete_dimap(master_import)
 
         elif coherence and coh_file:
             out_coh = str(
@@ -522,7 +547,7 @@ def burst_to_ard(burst, config_file):
                 out_dir.joinpath(f'{master_prefix}_coh').with_suffix('.dim')
             )
 
-    return out_bs, out_ls, out_pol, out_coh, None
+    return burst.bid, burst.Date, out_bs, out_ls, out_pol, out_coh, None
 
 
 if __name__ == "__main__":

@@ -77,6 +77,7 @@
             "remove_outliers": true
         },
         "mosaic": {
+            "harmonization": true,
             "production": false,
             "cut_to_aoi": true
         }

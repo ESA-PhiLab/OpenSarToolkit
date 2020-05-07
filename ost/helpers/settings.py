@@ -276,6 +276,7 @@ config_check = dict({
          'avg', 'max', 'min', 'std', 'cov']
                 },
     'remove_outliers': {'type': bool},
+    'harmonization': {'type': bool},
     'cut_to_aoi': {'type': bool}
 })
 
