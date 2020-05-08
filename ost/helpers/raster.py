@@ -197,7 +197,6 @@ def fill_internal_nans(array):
     :return:
     """
 
-
     a = array[0].astype('float32')
     shape = a.shape
     a[a == 0] = np.nan

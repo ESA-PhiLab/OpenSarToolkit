@@ -185,6 +185,13 @@ def terrain_correction(infile, outfile, logfile, config_dict):
     dem_dict = ard['dem']
     cpus = config_dict['snap_cpu_parallelism']
 
+    # auto projections of snap
+    if 42001 <= dem_dict['out_projection'] <= 97002:
+        projection = f"AUTO:{dem_dict['out_projection']}"
+    # epsg codes
+    else:
+        projection = f"EPSG:{dem_dict['out_projection']}"
+
     logger.debug('Geocoding product.')
 
     if ard['geocoding'] == 'terrain':
@@ -199,6 +206,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
             f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
             f"-PpixelSpacingInMeter={ard['resolution']} "
             f"-PalignToStandardGrid=true "
+            f"-PmapProjection=\'{projection}\' "
             f"-t \'{str(outfile)}\' \'{str(infile)}\' "
         )
     elif ard['geocoding'] == 'ellipsoid':
@@ -213,6 +221,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
             f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
             f"-PpixelSpacingInMeter={ard['resolution']} "
             f"-PalignToStandardGrid=true "
+            f"-PmapProjection=\'{projection}\' "
             f"-t \'{str(outfile)}\' \'{str(infile)}\' "
         )
     else:

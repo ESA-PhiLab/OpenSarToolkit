@@ -43,7 +43,7 @@
                 "dem_resampling": "BILINEAR_INTERPOLATION",
                 "image_resampling": "BILINEAR_INTERPOLATION",
                 "egm_correction": false,
-                "out_projection": "WGS84(DD)"
+                "out_projection": 4326
             },
             "coherence": false,
             "coherence_bands": "VV, HH",

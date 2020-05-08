@@ -381,12 +381,11 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
         raise TypeError('File needs to be in BEAM-DIMAP format')
 
     data_dir = infile.with_suffix('.data')
-    print(data_dir)
-    print(list(data_dir.glob('*VV*.img')))
+
     if list(data_dir.glob('*VV*.img')):
         co_pol = list(data_dir.glob('*VV*.img'))[0]
-    elif list(data_dir.glob('HH*.img')):
-        co_pol = list(data_dir.glob('HH*.img'))[0]
+    elif list(data_dir.glob('*HH*.img')):
+        co_pol = list(data_dir.glob('*HH*.img'))[0]
     else:
         raise RuntimeError('No co-polarised band found.')
 
@@ -436,7 +435,7 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
                     cr_array = ras.convert_to_db(cr_array)
 
                 if driver == 'JPEG':
-                    print('here')
+
                     co_array = ras.scale_to_int(co_array, -20, 0, 'uint8')
                     cr_array = ras.scale_to_int(cr_array, -25, -5, 'uint8')
                     ratio_array = ras.scale_to_int(ratio_array, 1, 15, 'uint8')

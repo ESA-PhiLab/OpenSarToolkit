@@ -32,7 +32,7 @@
                 "dem_resampling": "BILINEAR_INTERPOLATION",
                 "image_resampling": "BICUBIC_INTERPOLATION",
                 "egm_correction": false,
-                "out_projection": "WGS84(DD)"
+                "out_projection": 4326
             }    
         },
         "time-series_ARD": {

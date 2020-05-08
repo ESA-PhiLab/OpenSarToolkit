@@ -231,7 +231,7 @@ config_check = dict({
                            'choices': [i for i in range(3, 27, 2)]},
     'scale_size': {'type': int, 'choices': range(0, 2)},
     'create_ls_mask': {'type': bool},
-    'dem_name': {'type': str, 'choices': ['SRTM 1Sec HGT', 'SRTM 3Sec', 'Aster 1sec GDEM']},
+    'dem_name': {'type': str, 'choices': ['SRTM 1Sec HGT', 'SRTM 3Sec', 'Aster 1sec GDEM', 'GETASSE30']},
     'dem_file': {'type': str},
     'dem_nodata': {'type': int, 'choices': range(0, 66000)},
     'dem_resampling': {'type': str,
@@ -247,7 +247,8 @@ config_check = dict({
                        },
     'image_resampling': {'type': str,
                          'choices':
-                             ['NEAREST_NEIGHBOUR', 'BILINEAR_INTERPOLATION',
+                             ['NEAREST_NEIGHBOUR',
+                              'BILINEAR_INTERPOLATION',
                               'CUBIC_CONVOLUTION',
                               'BISINC_5_POINT_INTERPOLATION',
                               'BISINC_11_POINT_INTERPOLATION',
@@ -255,10 +256,7 @@ config_check = dict({
                               'BICUBIC_INTERPOLATION']
                          },
     'egm_correction': {'type': bool},
-    'out_projection': {'type': str, 'choices':
-        ['WGS84(DD)', 'LatLon', 'UTM', 'Transverse Mercator', 'Orthographic',
-         'Equirectangular', 'Gnomonic', 'Stereographic']
-                       },
+    'out_projection': {'type': int, 'choices': range(2000, 42002)},
     'coherence': {'type': bool},
     'coherence_bands': {'type': str, 'choices':
         ['VV, VH, HH, HV', 'VV', 'VH', 'VV, VH', 'HH, HV', 'VV, HH']
