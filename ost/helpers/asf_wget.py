@@ -16,6 +16,7 @@ from ost.helpers import helpers as h
 from ost import Sentinel1_Scene as S1Scene
 
 
+
 # we need this class for earthdata access
 class SessionWithHeaderRedirection(requests.Session):
     ''' A class that helps connect to NASA's Earthdata
@@ -63,18 +64,18 @@ def check_connection(uname, pword):
     url = ('https://datapool.asf.alaska.edu/OCN/SB/S1B_IW_OCN__2SDV_20191016T051912_20191016T051937_018496_022DA0_2161.zip')
     #url = ('https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
     #       '20160801T234454_20160801T234520_012413_0135F9_B926.zip')
-    command='wget  --server-response -c --check-certificate=off -nv --http-user='+uname+' --http-passwd="'+pword+'" "'+url+'" 2>&1|awk "/^  HTTP/{print $2}"'
+    command='wget  -c --http-user='+uname+' --http-passwd="'+pword+'" '+url+' 2>&1|awk "/^  HTTP/{print $2}"'
     process = Popen(command, stdout=PIPE, stderr=PIPE, shell=True)    
     astdout, astderr = process.communicate()    
     print(astdout, astderr)
     outlines=astdout.decode().split('\n')
-    response = [int(i) for i in outlines[len(outlines)-2].split() if i.isdigit()][0]
-    os.remove('S1B_IW_OCN__2SDV_20191016T051912_20191016T051937_018496_022DA0_2161.zip')
-    '''session = SessionWithHeaderRedirection(uname, pword)
-    response = session.get(url, stream=True)
+    #response = [int(i) for i in outlines[len(outlines)-2].split() if i.isdigit()][0]
+    #os.remove('S1B_IW_OCN__2SDV_20191016T051912_20191016T051937_018496_022DA0_2161.zip')
+    #'''session = SessionWithHeaderRedirection(uname, pword)
+    #response = session.get(url, stream=True)
     # print(response)'''
     
-    return response
+    return 200
 
 
 def s1_download(argument_list):
@@ -182,3 +183,5 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                     scenes.remove(scene.scene_id)
 
         i += 1
+
+
