@@ -12,3 +12,6 @@ class NotValidFileError(RuntimeError):
     def __init__(self, message):
         self.message = message
 
+
+class DownloadError(RuntimeError):
+    """Raised when a download goes wrong."""

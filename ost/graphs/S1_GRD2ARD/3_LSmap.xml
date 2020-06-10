@@ -37,13 +37,7 @@
       <imgResamplingMethod>${image_resampling}</imgResamplingMethod>
       <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>
       <pixelSpacingInDegree>0.0</pixelSpacingInDegree>
-      <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,
-  DATUM[&quot;WGS84&quot;,
-    SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]],
-  PRIMEM[&quot;Greenwich&quot;, 0.0],
-  UNIT[&quot;degree&quot;, 0.017453292519943295],
-  AXIS[&quot;Geodetic longitude&quot;, EAST],
-  AXIS[&quot;Geodetic latitude&quot;, NORTH]]</mapProjection>
+      <mapProjection>${projection}</mapProjection>
       <alignToStandardGrid>true</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>
       <standardGridOriginY>0.0</standardGridOriginY>

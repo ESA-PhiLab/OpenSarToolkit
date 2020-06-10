@@ -140,7 +140,7 @@ def grd_to_ard(filelist, config_file):
             # delete imported frames
             for file in filelist:
                 h.delete_dimap(temp.joinpath(f'{file.stem}_imported'))
-        
+
             # subset mode after slice assembly
             if subset:
 
@@ -372,7 +372,7 @@ def grd_to_ard(filelist, config_file):
     with open(out_dir.joinpath('.processed'), 'w') as file:
         file.write('passed all tests \n')
 
-    return filelist, out_final.with_suffix('.bs.dim'), out_ls, None
+    return filelist, out_final.with_suffix('.dim'), out_ls, None
 
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
@@ -382,19 +382,19 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
 
     data_dir = infile.with_suffix('.data')
 
-    if list(data_dir.glob('*VV*.img')):
+    if list(data_dir.glob('*VV.img')):
         co_pol = list(data_dir.glob('*VV*.img'))[0]
-    elif list(data_dir.glob('*HH*.img')):
+    elif list(data_dir.glob('*HH.img')):
         co_pol = list(data_dir.glob('*HH*.img'))[0]
     else:
         raise RuntimeError('No co-polarised band found.')
 
-    if list(data_dir.glob('*VH*.img')):
+    if list(data_dir.glob('*VH.img')):
         cross_pol = list(data_dir.glob('*VH*.img'))[0]
-    elif list(data_dir.glob('*HV*.img')):
+    elif list(data_dir.glob('*HV.img')):
         cross_pol = list(data_dir.glob('*HV*.img'))[0]
     else:
-        cross_pol = None
+        cross_pol = Path('/no/foo/no')
 
     if cross_pol.exists():
 
@@ -461,4 +461,23 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
             meta = co.meta
 
             # update meta
-            meta.update(driver=driver, count=3, nodata=0)
+            meta.update(driver=driver, count=1, nodata=0)
+
+            new_height = int(co.height / shrink_factor)
+            new_width = int(co.width / shrink_factor)
+            out_shape = (co.count, new_height, new_width)
+
+            meta.update(height=new_height, width=new_width)
+
+            co_array = co.read(out_shape=out_shape, resampling=5)
+
+            if to_db:
+                # turn to db
+                co_array = ras.convert_to_db(co_array)
+
+            if driver == 'JPEG':
+                co_array = ras.scale_to_int(co_array, -20, 0, 'uint8')
+                meta.update(dtype='uint8')
+
+            with rasterio.open(outfile, 'w', **meta) as dst:
+                dst.write(co_array)

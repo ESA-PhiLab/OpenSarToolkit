@@ -99,8 +99,8 @@ def download_sentinel1(
         print(' (2) Alaska Satellite Facility (NASA, full archive)')
         print(' (3) PEPS (CNES, 1 year rolling archive)')
         print(
-            '(4) ONDA DIAS (ONDA DIAS full archive for SLC - '
-            'or GRD from 30 June 2019)'
+            ' (4) ONDA DIAS (ONDA DIAS full archive for SLC -'
+            ' or GRD from 30 June 2019)'
         )
         # print(' (5) Alaska Satellite Facility (using WGET - '
         # 'unstable - use only if 2 does not work)')
@@ -121,8 +121,10 @@ def download_sentinel1(
         error_code = asf.check_connection(uname, pword)
 
         if concurrent > 10:
-            logger.info('Maximum allowed parallel downloads \
-                  from Earthdata are 10. Setting concurrent accordingly.')
+            logger.info(
+                'Maximum allowed parallel downloads from Earthdata are 10. '
+                'Setting concurrent accordingly.'
+            )
             concurrent = 10
     
     elif int(mirror) == 3:

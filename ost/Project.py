@@ -25,8 +25,9 @@ from ost.s1 import grd_batch
 # get the logger
 logger = logging.getLogger(__name__)
 
+# global variables
 OST_DATEFORMAT = "%Y-%m-%d"
-OST_INVENOTRY_FILE = 'full.inventory.gpkg'
+OST_INVENTORY_FILE = 'full.inventory.gpkg'
 
 
 class Generic:
@@ -185,7 +186,7 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 5 Initialize the inventory file
-        inventory_file = self.inventory_dir.joinpath(OST_INVENOTRY_FILE)
+        inventory_file = self.inventory_dir.joinpath(OST_INVENTORY_FILE)
         if inventory_file.exists():
             self.inventory_file = inventory_file
             logging.info(
@@ -223,7 +224,7 @@ class Sentinel1(Generic):
 
     # ------------------------------------------
     # methods
-    def search(self, outfile=OST_INVENOTRY_FILE, append=False):
+    def search(self, outfile=OST_INVENTORY_FILE, append=False):
         """High Level search function
         :param outfile:
         :param append:
@@ -251,9 +252,9 @@ class Sentinel1(Generic):
             self.scihub_uname, self.scihub_pword = scihub.ask_credentials()
 
         # do the search
-        if outfile == OST_INVENOTRY_FILE:
+        if outfile == OST_INVENTORY_FILE:
             self.inventory_file = self.inventory_dir.joinpath(
-                OST_INVENOTRY_FILE
+                OST_INVENTORY_FILE
             )
         else:
             Path(outfile)
@@ -526,7 +527,7 @@ class Sentinel1Batch(Sentinel1):
         # 3 Add snap_cpu_parallelism
         self.config_dict['snap_cpu_parallelism'] = snap_cpu_parallelism
         self.config_dict['max_workers'] = max_workers
-        self.config_dict['executor_type'] = 'concurrent_processes'
+        self.config_dict['executor_type'] = 'billiard'
 
         # ---------------------------------------
         # 4 Set up project JSON
@@ -574,16 +575,17 @@ class Sentinel1Batch(Sentinel1):
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
 
         # check if file exists
-        if not Path(dem_file).eixtst():
+        if not Path(dem_file).exists():
             raise FileNotFoundError(f'No file found at {dem_file}.')
 
         # get no data value
         with rasterio.open(dem_file) as file:
-            dem_nodata = file.nodata
+            dem_nodata = int(file.nodata)
 
-        # get resampling
+        # get resampling adn projection‚
         img_res = self.ard_parameters['single_ARD']['dem']['image_resampling']
         dem_res = self.ard_parameters['single_ARD']['dem']['dem_resampling']
+        projection = self.ard_parameters['single_ARD']['dem']['out_projection']
 
         # update ard parameters
         dem_dict = dict({'dem_name': 'External DEM',
@@ -592,7 +594,7 @@ class Sentinel1Batch(Sentinel1):
                          'dem_resampling': dem_res,
                          'image_resampling': img_res,
                          'egm_correction': ellipsoid_correction,
-                         'out_projection': 'WGS84(DD)'
+                         'out_projection': projection
                          })
 
         # update ard_parameters
@@ -627,18 +629,6 @@ class Sentinel1Batch(Sentinel1):
         """
 
         # --------------------------------------------
-        # 1 delete data from previous runnings
-        # delete data in temporary directory in case there is
-        # something left from previous runs
-        h.remove_folder_content(self.temp_dir)
-
-        # in case we strat from scratch, delete all data
-        # within processing folder
-        if overwrite:
-            logger.info('Deleting processing folder to start from scratch')
-            h.remove_folder_content(self.processing_dir)
-
-        # --------------------------------------------
         # 2 Check if within SRTM coverage
         # set ellipsoid correction and force GTC production
         # when outside SRTM
@@ -665,6 +655,18 @@ class Sentinel1Batch(Sentinel1):
         #   and write them to json file
         self.update_ard_parameters()
 
+        # --------------------------------------------
+        # 1 delete data from previous runnings
+        # delete data in temporary directory in case there is
+        # something left from previous runs
+        h.remove_folder_content(self.config_dict['temp_dir'])
+
+        # in case we strat from scratch, delete all data
+        # within processing folder
+        if overwrite:
+            logger.info('Deleting processing folder to start from scratch')
+            h.remove_folder_content(self.config_dict['processing_dir'])
+            
         # --------------------------------------------
         # 5 set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
@@ -743,7 +745,7 @@ class Sentinel1Batch(Sentinel1):
                                         resampling_factor=resampling_factor,
                                         add_dates=add_dates, prefix=prefix)
 
-    def grds_to_ard(
+    def grds_to_ards(
             self,
             inventory_df,
             timeseries=False,
@@ -775,10 +777,26 @@ class Sentinel1Batch(Sentinel1):
         # when outside SRTM
         center_lat = loads(self.aoi).centroid.y
         if float(center_lat) > 59 or float(center_lat) < -59:
-            logger.info('Scene is outside SRTM coverage. Snap will therefore '
-                        'use the Earth\'s geoid model.')
+            logger.info(
+                'Scene is outside SRTM coverage. Snap will therefore use '
+                'the GETASSE30 DEM. Also consider to use a stereographic '
+                'projection. and project to NSIDC Sea Ice Polar '
+                'Stereographic North projection (EPSG 3413).'
+            )
+            epsg = input(
+                'Please type the EPSG you want to project the output data or '
+                'just press enter for keeping Lat/Lon coordinate system '
+                '(e.g. 3413 for NSIDC Sea Ice Polar Stereographic North '
+                'projection, or 3976 for NSIDC Sea Ice Polar Stereographic '
+                'South projection'
+            )
+            if not epsg:
+                epsg = 4326
+
             self.ard_parameters['single_ARD']['dem'][
-                'dem_name'] = 'Aster 1sec GDEM'
+                'dem_name'] = 'GETASSE30'
+            self.ard_parameters['single_ARD']['dem'][
+                'out_projection'] = int(epsg)
 
         # --------------------------------------------
         # 3 subset determination

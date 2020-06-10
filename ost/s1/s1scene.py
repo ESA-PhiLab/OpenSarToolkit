@@ -775,8 +775,7 @@ class Sentinel1Scene:
             logger.info(
                 'Scene is outside SRTM coverage. Snap will therefore use '
                 'the GETASSE30 DEM. Also consider to use a stereographic '
-                'projection. and project to NSIDC Sea Ice Polar '
-                'Stereographic North projection (EPSG 3413).'
+                'projection.'
             )
             epsg = input(
                 'Please type the EPSG you want to project the output data or '

@@ -43,6 +43,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     polars = ard['polarisation'].replace(' ', '')
     cpus = config_dict['snap_cpu_parallelism']
     subset = config_dict['subset']
+    aoi = config_dict['aoi']
 
     logger.debug(
         f'Importing {infile.name} by applying precise orbit file and '
@@ -56,6 +57,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
         command = (
             f'{GPT_FILE} {graph} -x -q {2 * cpus} '
             f'-Pinput=\'{str(infile)}\' '
+            f'-Pregion=\'{aoi}\' '
             f'-Ppolarisation={polars} '
             f'-Poutput=\'{str(outfile)}\''
         )
@@ -66,7 +68,6 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
         command = (
             f'{GPT_FILE} {graph} -x -q {2 * cpus} '
             f'-Pinput=\'{str(infile)}\' '
-            f'-Pregion=\'{subset}\' '
             f'-Ppolarisation={polars} '
             f'-Poutput=\'{str(outfile)}\''
         )
@@ -249,7 +250,7 @@ def grd_remove_border(infile):
         if np.mean(array_left[:, x]) <= 100:
             array_left[:, x].fill(0)
         else:
-            z = x + 50
+            z = x + 200
             if z > 3000:
                 z = 3000
             for cols_left in range(x, z, 1):
@@ -276,7 +277,7 @@ def grd_remove_border(infile):
         if np.mean(array_right[:, x]) <= 100:
             array_right[:, x].fill(0)
         else:
-            z = x - 50
+            z = x - 200
             if z < 0:
                 z = 0
             for cols_right in range(x, z, -1):

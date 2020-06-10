@@ -15,7 +15,7 @@
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <masterBands/>
       <sourceBands/>
-      <resamplingType>BILINEAR_INTERPOLATION</resamplingType>
+      <resamplingType>BICUBIC_INTERPOLATION</resamplingType>
       <extent>Minimum</extent>
       <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
     </parameters>

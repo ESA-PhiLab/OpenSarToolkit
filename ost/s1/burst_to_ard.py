@@ -273,31 +273,31 @@ def create_coherence_layers(
 
         # run co-registration
         try:
-            slc.coreg(
+            slc.coreg2(
                 master_import, slave_import, out_coreg, coreg_log, config_dict
             )
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             h.delete_dimap(out_coreg)
             # remove imports
-            # h.delete_dimap(master_import)
-            # return None, error
+            h.delete_dimap(master_import)
+            return None, error
 
-            if (
-                    'Product did not pass file check: Data file' in str(error)
-                    and 'only contains no data values.' in str(error)
-            ):
-
-                logger.info('Trying alternative Co-registration routine.')
-                try:
-                    slc.coreg2(
-                        master_import, slave_import, out_coreg, coreg_log,
-                        config_dict
-                    )
-                except (GPTRuntimeError, NotValidFileError) as error:
-                    logger.info(error)
-                    h.delete_dimap(master_import)
-                    return None, error
+            # if (
+            #         'Product did not pass file check: Data file' in str(error)
+            #         and 'only contains no data values.' in str(error)
+            # ):
+            #
+            #     logger.info('Trying alternative Co-registration routine.')
+            #     try:
+            #         slc.coreg2(
+            #             master_import, slave_import, out_coreg, coreg_log,
+            #             config_dict
+            #         )
+            #     except (GPTRuntimeError, NotValidFileError) as error:
+            #         logger.info(error)
+            #         h.delete_dimap(master_import)
+            #         return None, error
 
         # remove imports
         h.delete_dimap(master_import)

@@ -309,12 +309,14 @@ def coreg(master, slave, outfile, logfile, config_dict):
 
     # construct command
     command = (
-        f'{GPT_FILE} Back-Geocoding -x -q {2 * cpus} '
+        f'{GPT_FILE} Back-Geocoding -x -q {2*cpus} '
         f'-PdemName=\'{dem_dict["dem_name"]}\' '
+        #f'-PdemName=\'SRTM 3Sec\' '
         f'-PdemResamplingMethod=\'{dem_dict["dem_resampling"]}\' '
         f'-PexternalDEMFile=\'{dem_dict["dem_file"]}\' '
         f'-PexternalDEMNoDataValue=\'{dem_dict["dem_nodata"]}\' '
         f'-PmaskOutAreaWithoutElevation=false '
+        f'-PresamplingType=BILINEAR_INTERPOLATION '
         f'-t \'{str(outfile)}\''
         f' "{master}" "{slave}"'
     )
@@ -369,7 +371,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
         f"{GPT_FILE} {graph} -x -q {2*cpus} "
         f" -Pmaster={master} "
         f" -Pslave={slave} "
-        f" -Pdem=\'{dem_dict['dem_name']}\' "
+        f" -Pdem_name=\'{dem_dict['dem_name']}\' "
         f" -Pdem_file=\'{dem_dict['dem_file']}\' "
         f" -Pdem_nodata=\'{dem_dict['dem_nodata']}\' "
         f" -Pdem_resampling=\'{dem_dict['dem_resampling']}\' "
