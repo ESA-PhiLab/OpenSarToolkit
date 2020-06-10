@@ -727,7 +727,6 @@ class Sentinel1Batch(Sentinel1):
 
         return tseries_df
 
-
     @staticmethod
     def create_timeseries_animation(
             timeseries_dir,
@@ -753,7 +752,7 @@ class Sentinel1Batch(Sentinel1):
             mosaic=False,
             overwrite=False,
             max_workers=1,
-            executor_type='concurrent_processes'
+            executor_type='billiard'
     ):
 
         self.config_dict['max_workers'] = max_workers

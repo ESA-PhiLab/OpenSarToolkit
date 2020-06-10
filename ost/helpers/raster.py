@@ -4,12 +4,10 @@
 
 """
 
-import os
-from os.path import join as opj
 import numpy as np
 import json
-import glob
 import itertools
+from pathlib import Path
 
 import gdal
 import fiona
@@ -455,7 +453,7 @@ def create_rgb_jpeg(
         filetype=None,
         stretch=False
 ):
-
+    filelist = [str(file) for file in filelist]
     import matplotlib.pyplot as plt
 
     minimum_list = []
@@ -576,7 +574,6 @@ def create_timeseries_animation(
         prefix=False
 ):
 
-
     # get number of products
     nr_of_products = len(
         list(timeseries_folder.glob(f'*{product_list[0]}.tif'))
@@ -589,33 +586,40 @@ def create_timeseries_animation(
     outfiles = []
     for i in range(nr_of_products):
 
-        filelist = [glob.glob(opj(timeseries_folder, '*{}.*{}*tif'.format(i + 1, product)))[0] for product in product_list]
-        dates = os.path.basename(filelist[0]).split('.')[1]    
+        filelist = [
+            list(timeseries_folder.glob(f'{i+1:02d}.*.{product}.tif'))[0]
+            for product in product_list
+        ]
+
+        dates = filelist[0].name.split('.')[1]
         
         if add_dates:
             date = dates
         else:
             date = None
         
-        create_rgb_jpeg(filelist, 
-                        opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)),
-                        shrink_factor,
-                        resampling_factor,
-                        date=date)
+        create_rgb_jpeg(
+            filelist,
+            out_folder.joinpath(f'{i+1:02d}.{dates}.jpeg'),
+            shrink_factor,
+            resampling_factor,
+            date=date
+        )
 
-        outfiles.append(opj(out_folder, '{}.{}.jpeg'.format(i+1, dates)))
+        outfiles.append(out_folder.joinpath(f'{i+1:02d}.{dates}.jpeg'))
 
     # create gif
     if prefix:
-        gif_name = '{}_{}_ts_animation.gif'.format(prefix, product_list[0])
+        gif_name = f'{prefix}_{product_list[0]}_ts_animation.gif'
     else:
-        gif_name = '{}_ts_animation.gif'.format(product_list[0])
-    with imageio.get_writer(opj(out_folder, gif_name), mode='I',
-        duration=duration) as writer:
+        gif_name = f'{product_list[0]}_ts_animation.gif'
+    with imageio.get_writer(
+            out_folder.joinpath(gif_name), mode='I', duration=duration
+    ) as writer:
 
         for file in outfiles:
             image = imageio.imread(file)
             writer.append_data(image)
-            os.remove(file)
-            if os.path.isfile(file + '.aux.xml'):
-                os.remove(file + '.aux.xml')
+            file.unlink()
+            if file.with_suffix('.jpeg.aux.xml').exists():
+                file.with_suffix('.jpeg.aux.xml').unlink()

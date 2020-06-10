@@ -36,6 +36,8 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
         config_dict = json.load(ard_file)
         temp_dir = config_dict['temp_dir']
         aoi = config_dict['aoi']
+        epsg = config_dict['processing']['single_ARD']['dem']['out_projection']
+
         if not harm:
             harm = config_dict['processing']['mosaic']['harmonization']
 
@@ -72,6 +74,7 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
         )
 
         return_code = h.run_command(cmd, logfile)
+
         if return_code != 0:
             if tempfile.exists():
                 tempfile.unlink()
@@ -79,8 +82,10 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
             return
 
         if cut_to_aoi:
-            # get aoi ina way rasterio wants it
-            features = vec.gdf_to_json_geometry(vec.wkt_to_gdf(aoi))
+
+            # get aoi in a way rasterio wants it
+            aoi_gdf = vec.wkt_to_gdf(aoi)
+            features = vec.gdf_to_json_geometry(aoi_gdf.to_crs(epsg=epsg))
 
             # import raster and mask
             with rasterio.open(tempfile) as src:
@@ -90,17 +95,21 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
                 ndv = src.nodata
                 out_image = np.ma.masked_where(out_image == ndv, out_image)
 
-            out_meta.update({'driver': 'GTiff', 'height': out_image.shape[1],
-                             'width': out_image.shape[2],
-                             'transform': out_transform,
-                             'tiled': True, 'blockxsize': 128,
-                             'blockysize': 128})
+                out_meta.update({
+                    'driver': 'GTiff',
+                    'height': out_image.shape[1],
+                    'width': out_image.shape[2],
+                    'transform': out_transform,
+                    'tiled': True,
+                    'blockxsize': 128,
+                    'blockysize': 128
+                })
 
-            with rasterio.open(outfile, 'w', **out_meta) as dest:
-                dest.write(out_image.data)
+                with rasterio.open(outfile, 'w', **out_meta) as dest:
+                    dest.write(out_image.data)
 
             # remove intermediate file
-            os.remove(tempfile)
+            tempfile.unlink()
 
         # check
         return_code = h.check_out_tiff(outfile)

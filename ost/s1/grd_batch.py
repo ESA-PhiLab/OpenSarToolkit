@@ -427,7 +427,7 @@ def mosaic_timeseries(inventory_df, config_file):
         for i in range(1, nr_of_ts + 1):
 
             filelist = list(
-                processing_dir.glob(f'*/Timeseries/*{i:02d}.*.{p}.tif')
+                processing_dir.glob(f'*/Timeseries/{i:02d}.*.{p}.tif')
             )
             filelist = [
                 str(file) for file in filelist if 'Mosaic' not in str(file)

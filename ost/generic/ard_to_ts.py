@@ -238,12 +238,13 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
 
                 # fill internal nodata
-                with rasterio.open(str(infile), 'r') as src:
-                    meta = src.meta.copy()
-                    filled = ras.fill_internal_nans(src.read())
+                if ard['image_type'] == 'SLC':
+                    with rasterio.open(str(infile), 'r') as src:
+                        meta = src.meta.copy()
+                        filled = ras.fill_internal_nans(src.read())
 
-                with rasterio.open(str(infile), 'w', **meta) as dest:
-                    dest.write(filled)
+                    with rasterio.open(str(infile), 'w', **meta) as dest:
+                        dest.write(filled)
 
                 # run conversion routine
                 ras.mask_by_shape(infile, outfile, extent,
