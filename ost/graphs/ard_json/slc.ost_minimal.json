@@ -1,6 +1,7 @@
 {
     "processing": {
         "single_ARD": {
+            "image_type": "SLC",
             "type": "OST Minimal",
             "resolution": 50,
             "backscatter": true,

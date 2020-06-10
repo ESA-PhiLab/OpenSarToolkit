@@ -1,6 +1,7 @@
 {
     "processing": {
         "single_ARD": {
+            "image_type": "GRD",
             "type": "Earth Engine",
             "resolution": 10,
             "remove_border_noise": true,

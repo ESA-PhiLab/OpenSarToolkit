@@ -190,6 +190,7 @@ HERBERT_USER = {'uname': 'herbert_thethird',
                 }
 
 config_check = dict({
+    'image_type':  {'type': str, 'choices': ['GRD', 'SLC']},
     'type': {'type': str, 'choices': ['OST-GTC', 'OST-RTC']},
     'resolution': {'type': int, 'choices': range(10, 5000)},
     'backscatter': {'type': bool},

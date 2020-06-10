@@ -1,6 +1,7 @@
 {
     "processing": {
         "single_ARD": {
+            "image_type": "SLC",
             "type": "OST-RTC",
             "resolution": 10,
             "backscatter": true,

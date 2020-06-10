@@ -1,6 +1,7 @@
 {
     "processing_parameters": {
         "single_ARD": {
+            "image_type": "GRD",
             "type": "CEOS",
             "resolution": 10,
             "remove_border_noise": true,

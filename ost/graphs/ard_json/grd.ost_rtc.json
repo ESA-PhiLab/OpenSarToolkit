@@ -1,6 +1,7 @@
 {
     "processing": {
         "single_ARD": {
+            "image_type": "GRD",
             "type": "OST-RTC",
             "resolution": 20,
             "remove_border_noise": true,
