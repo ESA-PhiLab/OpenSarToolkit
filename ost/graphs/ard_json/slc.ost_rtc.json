@@ -54,6 +54,7 @@
         "time-series_ARD": {
             "to_db": true,
             "remove_mt_speckle": true,
+            "apply_ls_mask": false,
             "mt_speckle filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
@@ -72,7 +73,8 @@
         },
         "time-scan_ARD": {
             "metrics": ["avg", "max", "min", "std", "cov"],
-            "remove_outliers": true
+            "remove_outliers": true,
+            "apply_ls_mask": false
         },
         "mosaic": {
             "harmonization": true,
