@@ -7,12 +7,12 @@
 import numpy as np
 import json
 import itertools
-from pathlib import Path
+from datetime import datetime
 
 import gdal
 import fiona
 import imageio
-import rasterio
+import rasterio as rio
 import rasterio.mask
 from rasterio.features import shapes
 from scipy.interpolate import griddata
@@ -34,7 +34,7 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
     :return:
     """
 
-    with rasterio.open(infile) as src:
+    with rio.open(infile) as src:
         image = src.read(1)
 
         if mask_value is not None:
@@ -69,7 +69,7 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
     :return:
     """
 
-    with rasterio.open(infile) as src:
+    with rio.open(infile) as src:
 
         # get metadata
         meta = src.meta
@@ -82,7 +82,7 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
         meta.update(blockxsize=src.shape[1], blockysize=1)
 
         # create outfiles
-        with rasterio.open(outfile.with_suffix('.tif'), 'w', **meta) as out_min:
+        with rio.open(outfile.with_suffix('.tif'), 'w', **meta) as out_min:
 
             # loop through blocks
             for _, window in out_min.block_windows(1):
@@ -243,8 +243,8 @@ def mask_by_shape(
                     if feature['geometry']]
 
     # import raster file
-    with rasterio.open(infile) as src:
-        out_image, out_transform = rasterio.mask.mask(src, features, crop=True)
+    with rio.open(infile) as src:
+        out_image, out_transform = rio.mask.mask(src, features, crop=True)
         out_meta = src.meta.copy()
         out_image = np.ma.masked_where(out_image == ndv, out_image)
 
@@ -280,7 +280,7 @@ def mask_by_shape(
         del out_meta['blockxsize']
 
     # write output
-    with rasterio.open(outfile, 'w', **out_meta) as dest:
+    with rio.open(outfile, 'w', **out_meta) as dest:
         dest.write(np.nan_to_num(out_image))
 
         # add some metadata to tif-file
@@ -356,7 +356,7 @@ def visualise_rgb(filepath, shrink_factor=25):
 
     import matplotlib.pyplot as plt
 
-    with rasterio.open(filepath) as src:
+    with rio.open(filepath) as src:
 
         # read array and resample by shrink_factor
         array = src.read(
@@ -388,26 +388,44 @@ def visualise_rgb(filepath, shrink_factor=25):
     plt.imshow(img)
 
 
-def get_min(file):
+def get_min(file, dtype='float32'):
 
-    mins = {'bs.VV': -20, 'bs.VH': -25, 'bs.HH': -20, 'bs.HV': -25,
-            'coh.VV': 0.1, 'coh.VH': 0.1,
-            'pol.Alpha': 60, 'pol.Entropy': 0.1, 'pol.Anisotropy': 0.1,
-            'coh_IW1_VV': 0.1, 'coh_IW2_VV': 0.1, 'coh_IW3_VV': 0.1,
-            'coh_IW1_VH': 0.1, 'coh_IW2_VH': 0.1, 'coh_IW3_VH': 0.1}
+    mins = {
+        'bs.VV': -20, 'bs.VH': -25, 'bs.HH': -20, 'bs.HV': -25, 'bs.ratio': 1,
+        'coh.VV': 0.1, 'coh.VH': 0.1,
+        'pol.Alpha': 60, 'pol.Entropy': 0.1, 'pol.Anisotropy': 0.1,
+        'coh_IW1_VV': 0.1, 'coh_IW2_VV': 0.1, 'coh_IW3_VV': 0.1,
+        'coh_IW1_VH': 0.1, 'coh_IW2_VH': 0.1, 'coh_IW3_VH': 0.1
+    }
+
+    if dtype == 'uint16':
+        for item, value in mins.items():
+            mins[item] = scale_to_int(np.array(value), -30, 5, 'uint16')
+    elif dtype == 'uint8':
+        for item, value in mins.items():
+            mins[item] = scale_to_int(np.array(value), -30, 5, 'uint8')
 
     for key, items in mins.items():
         if key in file:
             return items
 
 
-def get_max(file):
+def get_max(file, dtype='float32'):
 
-    maxs = {'bs.VV': 0, 'bs.VH': -12, 'bs.HH': 0, 'bs.HV': -5,
-            'coh.VV': 0.8, 'coh.VH': 0.75,
-            'pol.Alpha': 80, 'pol.Entropy': 0.8, 'pol.Anisotropy': 0.8,
-            'coh_IW1_VV': 0.8, 'coh_IW2_VV': 0.8, 'coh_IW3_VV': 0.8,
-            'coh_IW1_VH': 0.75, 'coh_IW2_VH': 0.75, 'coh_IW3_VH': 0.75}
+    maxs = {
+        'bs.VV': 0, 'bs.VH': -12, 'bs.HH': 0, 'bs.HV': -5, 'bs.ratio': 15,
+        'coh.VV': 0.8, 'coh.VH': 0.75,
+        'pol.Alpha': 80, 'pol.Entropy': 0.8, 'pol.Anisotropy': 0.8,
+        'coh_IW1_VV': 0.8, 'coh_IW2_VV': 0.8, 'coh_IW3_VV': 0.8,
+        'coh_IW1_VH': 0.75, 'coh_IW2_VH': 0.75, 'coh_IW3_VH': 0.75
+    }
+
+    if dtype == 'uint16':
+        for item, value in maxs.items():
+            maxs[item] = scale_to_int(np.array(value), -30, 5, 'uint16')
+    elif dtype == 'uint8':
+        for item, value in maxs.items():
+            maxs[item] = scale_to_int(np.array(value), -30, 5, 'uint8')
 
     for key, items in maxs.items():
         if key in file:
@@ -443,6 +461,23 @@ def calc_max(band, stretch='minmax'):
     return band_max
 
 
+def stretch_to_8bit(file, layer, dtype, aut_stretch=False):
+
+    if aut_stretch:
+        min_val = calc_min(layer, 'percentile')
+        max_val = calc_max(layer, 'percentile')
+    else:
+        min_val = get_min(file, dtype)
+        max_val = get_max(file, dtype)
+
+    # if dtype == 'float32':
+    layer = layer.astype('float32')
+    layer[layer == 0] = np.nan
+
+    layer = scale_to_int(layer, min_val, max_val, 'uint8')
+    return np.nan_to_num(layer)
+
+
 def create_rgb_jpeg(
         filelist,
         outfile=None,
@@ -450,20 +485,31 @@ def create_rgb_jpeg(
         resampling_factor=5,
         plot=False,
         date=None,
-        filetype=None,
-        stretch=False
+        filetype=None
 ):
-    filelist = [str(file) for file in filelist]
+    """
+
+    :param filelist:
+    :param outfile:
+    :param shrink_factor:
+    :param resampling_factor: 5 is average
+    :param plot:
+    :param date:
+    :param filetype:
+    :return:
+    """
+
     import matplotlib.pyplot as plt
 
-    minimum_list = []
-    maximum_list = []
+    # convert file sto string
+    filelist = [str(file) for file in filelist]
 
-    with rasterio.open(filelist[0]) as src:
+    with rio.open(filelist[0]) as src:
         
         # get metadata
         out_meta = src.meta.copy()
         dtype = src.meta['dtype']
+
         # !!!assure that dimensions match ####
         new_height = int(src.height/shrink_factor)
         new_width = int(src.width/shrink_factor)
@@ -472,92 +518,93 @@ def create_rgb_jpeg(
         
         layer1 = src.read(
                 out_shape=(src.count, new_height, new_width),
-                resampling=resampling_factor    # 5 = average
+                resampling=resampling_factor
                 )[0]
-        if stretch:
-            minimum_list.append(calc_min(layer1, stretch))
-            maximum_list.append(calc_max(layer1, stretch))
-        else:
-            minimum_list.append(get_min(filelist[0]))
-            maximum_list.append(get_max(filelist[0]))
-        layer1[layer1 == 0] = np.nan
-        
+
     if len(filelist) > 1:
-        with rasterio.open(filelist[1]) as src:
+        with rio.open(filelist[1]) as src:
             layer2 = src.read(
                     out_shape=(src.count, new_height, new_width),
-                    resampling=resampling_factor    # 5 = average
+                    resampling=resampling_factor
                     )[0]
-            if stretch and dtype == 'float32':
-                minimum_list.append(calc_min(layer2, stretch))
-                maximum_list.append(calc_max(layer2, stretch))
-            else:
-                minimum_list.append(get_min(filelist[1]))
-                maximum_list.append(get_max(filelist[1]))
-
-            if dtype == 'float32':
-                layer2[layer2 == 0] = np.nan
-
             count = 3
             
     if len(filelist) == 2:    # that should be the BS ratio case
-        layer3 = np.subtract(layer1, layer2)
-        minimum_list.append(1)
-        maximum_list.append(15)
-        
-    elif len(filelist) >= 3:
-        # that's the full 3layer case
-        with rasterio.open(filelist[2]) as src:
-            layer3 = src.read(
-                    out_shape=(src.count, new_height, new_width),
-                    resampling=resampling_factor    # 5 = average
-                    )[0]
-        if stretch:
-            minimum_list.append(calc_min(layer3, stretch))
-            maximum_list.append(calc_max(layer3, stretch))
-        else:
-            minimum_list.append(get_min(filelist[2]))
-            maximum_list.append(get_max(filelist[2]))
 
         if dtype == 'float32':
-            layer3[layer3 == 0] = np.nan
+            layer3 = scale_to_int(np.subtract(layer1, layer2), 1, 15, 'uint8')
+        else:
+            layer3 = scale_to_int(
+                np.subtract(
+                    rescale_to_float(layer1, dtype),
+                    rescale_to_float(layer2, dtype)
+                ),
+                1, 15, 'uint8'
+            )
+
+    elif len(filelist) == 3:
+        # that's the full 3layer case
+        with rio.open(filelist[2]) as src:
+            layer3 = src.read(
+                    out_shape=(src.count, new_height, new_width),
+                    resampling=resampling_factor
+                    )[0]
+
+            layer3 = stretch_to_8bit(filelist[2], layer3, dtype)
+
+    elif len(filelist) > 3:
+        return RuntimeError(
+            'Not more than 3 bands allowed for creation of RGB file'
+        )
 
     # create empty array
-    arr = np.zeros((int(out_meta['height']),
-                    int(out_meta['width']),
-                    int(count)))
-    
-    arr[:, :, 0] = scale_to_int(layer1, minimum_list[0],
-                                maximum_list[0], 'uint8')
+    arr = np.zeros(
+        (int(out_meta['height']), int(out_meta['width']), int(count))
+    )
+
+    # fill array with layers
+    arr[:, :, 0] = stretch_to_8bit(filelist[0], layer1, dtype)
     if len(filelist) > 1:
-        arr[:, :, 1] = scale_to_int(layer2, minimum_list[1],
-                                    maximum_list[1], 'uint8')
-        arr[:, :, 2] = scale_to_int(layer3, minimum_list[2],
-                                    maximum_list[2], 'uint8')
+        arr[:, :, 1] = stretch_to_8bit(filelist[1], layer2, dtype)
+        arr[:, :, 2] = layer3
+
     # transpose array to gdal format
     arr = np.transpose(arr, [2, 0, 1])
 
     # update outfile's metadata
-    if filetype:
-        out_meta.update(
-            {'driver': filetype, 'dtype': 'uint8', 'count': count}
-        )
-    else:
-        out_meta.update(
-            {'driver': 'JPEG', 'dtype': 'uint8', 'count': count}
-        )
+    filetype = filetype if filetype else 'JPEG'
+    out_meta.update({'driver': filetype, 'dtype': 'uint8', 'count': count})
 
-    if outfile:    # write array to disk
-        with rasterio.open(outfile, 'w', **out_meta) as out:
+    if outfile:     # write array to disk
+        with rio.open(outfile, 'w', **out_meta) as out:
             out.write(arr.astype('uint8'))
             
         if date:
+
+            # convert date to human readable
+            if len(date) > 6:
+                start, end = date.split('-')
+                start = datetime.strptime(start, '%y%m%d')
+                start = datetime.strftime(start, '%d.%m.%Y')
+                end = datetime.strptime(end, '%y%m%d')
+                end = datetime.strftime(end, '%d.%m.%Y')
+                date = f'Mosaic: {start}-{end}'
+            else:
+                date = datetime.strptime(date, '%y%m%d')
+                date = f'Image from: {datetime.strftime(date, "%d.%m.%Y")}'
+
+            # calculate label height on the basis of the image width
             label_height = np.floor(np.divide(int(out_meta['height']), 15))
-            cmd = 'convert -background \'#0008\' -fill white -gravity center \
-                  -size {}x{} caption:\"{}\" {} +swap -gravity north \
-                  -composite {}'.format(out_meta['width'], label_height,
-                                        date, outfile, outfile)
-            h.run_command(cmd, '{}.log'.format(outfile), elapsed=False)
+
+            # create imagemagick command
+            cmd = (
+                f'convert -background \'#0008\' -fill white -gravity center '
+                f'-size {out_meta["width"]}x{label_height} '
+                f'caption:\"{date}\" {outfile} +swap -gravity north '
+                f'-composite {outfile}'
+            )
+            # and execute
+            h.run_command(cmd, f'{outfile}.log', elapsed=False)
             
     if plot:
         plt.imshow(arr)
