@@ -4,6 +4,7 @@
 import json
 import logging
 import rasterio
+import zipfile
 import numpy as np
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -103,6 +104,14 @@ def grd_to_ard(filelist, config_file):
             # if more than one frame import all files
             for file in filelist:
 
+                # unzip for faster import?
+                if Path(file).suffix == '.zip':
+                    with zipfile.ZipFile(file, 'r') as zip_ref:
+                        zip_ref.extractall(temp)
+
+                    file = temp.joinpath(f'{file.stem}.SAFE')
+                    unpacked = True
+
                 # create namespace for temporary imported product
                 grd_import = temp.joinpath(f'{file.stem}_imported')
 
@@ -118,6 +127,9 @@ def grd_to_ard(filelist, config_file):
                     logger.info(error)
                     return filelist, None, None, error
 
+            if unpacked:
+                file.unlink()
+                
             # create list of scenes for full acquisition in
             # preparation of slice assembly
             scenelist = ' '.join(
@@ -168,6 +180,16 @@ def grd_to_ard(filelist, config_file):
 
         # single scene case
         else:
+
+            file = filelist[0]
+
+            # unzip for faster import?
+            if Path(file).suffix == '.zip':
+                with zipfile.ZipFile(file, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+
+                file = temp_dir.joinpath(f'{file.stem}.SAFE')
+
             # create namespace for temporary imported product
             grd_import = temp.joinpath(f'{file_id}_imported')
 
@@ -176,9 +198,7 @@ def grd_to_ard(filelist, config_file):
 
             # run frame import
             try:
-                grd.grd_frame_import(
-                    filelist[0], grd_import, logfile, config_dict
-                )
+                grd.grd_frame_import(file, grd_import, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return filelist, None, None, error
