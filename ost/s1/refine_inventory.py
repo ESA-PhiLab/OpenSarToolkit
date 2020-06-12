@@ -68,7 +68,7 @@ def _remove_outside_aoi(aoi_gdf, inventory_df):
 
     # 1) get only intersecting footprints (double, since we do this before)
     inventory_df = gpd.sjoin(
-        inventory_df, aoi_gdf, how='inner', op='intersects'
+        inventory_df, aoi_gdf, how='left', op='intersects'
     )
 
     # if aoi  gdf has an id field we need to rename the changed id_left field
@@ -77,6 +77,9 @@ def _remove_outside_aoi(aoi_gdf, inventory_df):
         inventory_df.columns = [
             'id' if x == 'id_left' else x for x in inventory_df.columns
         ]
+
+    # remove duplicates (in case of more than one polygon in AOI)
+    inventory_df.drop_duplicates('identifier', inplace=True)
 
     return inventory_df[cols]
 
@@ -179,7 +182,10 @@ def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
     except NameError:
         pass
     else:
-        logger.info('All tracks fully overlap the AOI. Not removing anything')
+        logger.info(
+            'All remaining tracks fully overlap the AOI. '
+            'Not removing anything.'
+        )
     return inventory_df
 
 
@@ -452,15 +458,16 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
     )
 
 
-def search_refinement(aoi,
-                      inventory_df,
-                      inventory_dir,
-                      exclude_marginal=True,
-                      full_aoi_crossing=True,
-                      mosaic_refine=True,
-                      area_reduce=0.05,
-                      complete_coverage=True
-                      ):
+def search_refinement(
+        aoi,
+        inventory_df,
+        inventory_dir,
+        exclude_marginal=True,
+        full_aoi_crossing=True,
+        mosaic_refine=True,
+        area_reduce=0.05,
+        complete_coverage=True
+    ):
     """
     :param aoi:
     :param inventory_df:
@@ -534,7 +541,8 @@ def search_refinement(aoi,
 
             if exclude_marginal is True and nr_of_tracks > 1:
                 inventory_refined = _exclude_marginal_tracks(
-                    aoi_gdf, inventory_refined, area_reduce)
+                    aoi_gdf, inventory_refined, area_reduce
+                )
 
             if full_aoi_crossing is True:
                 inventory_refined = _remove_incomplete_tracks(
@@ -544,9 +552,11 @@ def search_refinement(aoi,
 
             if mosaic_refine is True:
                 datelist, inventory_refined = _forward_search(
-                    aoi_gdf, inventory_refined, area_reduce)
+                    aoi_gdf, inventory_refined, area_reduce
+                )
                 inventory_refined = _backward_search(
-                    aoi_gdf, inventory_refined, datelist, area_reduce)
+                    aoi_gdf, inventory_refined, datelist, area_reduce
+                )
 
             # drop duplicates (for some reason are there)
             inventory_refined.drop_duplicates(inplace=True)

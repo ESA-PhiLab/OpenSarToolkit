@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import time
 import numpy as np
 import gdal
@@ -232,7 +231,7 @@ def grd_remove_border(infile):
     """
 
     logger.debug(f'Removing the GRD Border Noise for {infile.name}.')
-    # currtime = time.time()
+    currtime = time.time()
 
     # read raster file and get number of columns adn rows
     raster = gdal.Open(str(infile), gdal.GA_Update)
@@ -294,7 +293,7 @@ def grd_remove_border(infile):
         array_right[:, cols_right:], col_right_start, 0
     )
 
-    # h.timer(currtime)
+    logger.debug(h.timer(currtime))
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)

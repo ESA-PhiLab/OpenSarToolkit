@@ -287,8 +287,6 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
     return wkt
 
 
-
-
 def latlon_to_shp(lon, lat, shapefile):
 
     shapefile = str(shapefile)
