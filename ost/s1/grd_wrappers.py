@@ -42,7 +42,11 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     polars = ard['polarisation'].replace(' ', '')
     cpus = config_dict['snap_cpu_parallelism']
     subset = config_dict['subset']
-    aoi = config_dict['aoi']
+
+    try:
+        aoi = config_dict['aoi']
+    except KeyError:
+        aoi = ''
 
     logger.debug(
         f'Importing {infile.name} by applying precise orbit file and '
