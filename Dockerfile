@@ -32,7 +32,8 @@ RUN groupadd -r ost && \
         libgfortran3 \
         wget \
         unzip \
-        imagemagick
+        imagemagick \
+        nodejs
 
 RUN alias python=python3 && \
     rm -rf /var/lib/apt/lists/*  && \
@@ -60,9 +61,9 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
 RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
-    git clone https://github.com/ESA-PhiLab/OST_Notebooks
-
-#ENV SHELL="/bin/bash/" 
+    git clone https://github.com/ESA-PhiLab/OST_Notebooks && \
+    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
+    jupyter nbextension enable --py widgetsnbextension
 
 EXPOSE 8888
 CMD jupyter lab --ip='0.0.0.0' --port=8888 --no-browser --allow-root
