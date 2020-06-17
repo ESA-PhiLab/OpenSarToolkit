@@ -6,9 +6,7 @@
 """
 
 import os
-from os.path import join as opj
 import json
-import glob
 import itertools
 import logging
 import pandas as pd

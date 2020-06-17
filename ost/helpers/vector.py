@@ -174,7 +174,8 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     project = partial(
         pyproj.transform,
         pyproj.Proj(aeqd_proj.format(lat=lat, lon=lon)),
-        proj_wgs84)
+        proj_wgs84
+    )
 
     buf = Point(0, 0).buffer(meters)  # distance in metres
 
@@ -481,6 +482,8 @@ def set_subset(aoi, inventory_df):
             if not subset:
                 return subset
 
+    # return if true
+    return subset
 
 def buffer_shape(infile, outfile, buffer=None):
 

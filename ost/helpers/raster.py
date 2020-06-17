@@ -3,11 +3,14 @@
 """Helper functions for raster data
 
 """
-
+import os
 import numpy as np
 import json
 import itertools
+import shutil
 from datetime import datetime
+
+from godale._concurrent import Executor
 
 import gdal
 import fiona
@@ -18,7 +21,6 @@ from rasterio.features import shapes
 from scipy.interpolate import griddata
 
 from ost.helpers import helpers as h
-
 
 def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
     """Polygonize a raster mask based on a mask value
@@ -292,9 +294,14 @@ def mask_by_shape(
 def create_tscan_vrt(timescan_dir, config_file):
 
     # load ard parameters
-    with open(config_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing']
-        ard_tscan = ard_params['time-scan_ARD']
+    if isinstance(config_file, dict):
+        config_dict = config_file
+    else:
+        config_file = open(config_file, 'r')
+        config_dict = json.load(config_file)
+        config_file.close()
+
+    ard_tscan = config_dict['processing']['time-scan_ARD']
 
     # loop through all potential products
     # a products list
@@ -609,7 +616,120 @@ def create_rgb_jpeg(
     if plot:
         plt.imshow(arr)
 
-    
+
+def combine_timeseries(processing_dir, config_dict, timescan=True):
+
+    # namespaces for folder
+    comb_dir = processing_dir.joinpath('combined')
+    if comb_dir.exists():
+        h.remove_folder_content(comb_dir)
+
+    tseries_dir = comb_dir.joinpath('Timeseries')
+    tseries_dir.mkdir(parents=True, exist_ok=True)
+
+    PRODUCT_LIST = [
+        'bs.HH', 'bs.VV', 'bs.HV', 'bs.VH',
+        'coh.VV', 'coh.VH', 'coh.HH', 'coh.HV',
+        'pol.Entropy', 'pol.Anisotropy', 'pol.Alpha'
+    ]
+
+    out_files, iter_list = [], []
+    for product_type in PRODUCT_LIST:
+
+        filelist = list(
+            processing_dir.glob(f'*/Timeseries/*{product_type}.tif')
+        )
+
+        if len(filelist) > 1:
+            datelist = sorted([file.name.split('.')[1] for file in filelist])
+
+            for i, date in enumerate(datelist):
+                file = list(processing_dir.glob(
+                    f'*/Timeseries/*{date}*{product_type}.tif')
+                )
+                outfile = tseries_dir.joinpath(
+                    f'{i+1:02d}.{date}.{product_type}.tif'
+                )
+
+                shutil.copy(file[0], str(outfile))
+                out_files.append(str(outfile))
+
+            vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
+            out_vrt = str(
+                tseries_dir.joinpath(f'Timeseries.{product_type}.vrt'))
+            gdal.BuildVRT(
+                str(out_vrt),
+                out_files,
+                options=vrt_options
+            )
+
+            if timescan:
+                from ost.generic import timescan as ts
+                ard = config_dict['processing']['single_ARD']
+                ard_mt = config_dict['processing']['time-series_ARD']
+                ard_tscan = config_dict['processing']['time-scan_ARD']
+
+                # get the db scaling right
+                to_db = ard['to_db']
+                if ard['to_db'] or ard_mt['to_db']:
+                    to_db = True
+
+                dtype_conversion = True if ard_mt[
+                                               'dtype_output'] != 'float32' else False
+
+                tscan_dir = comb_dir.joinpath('Timescan')
+                tscan_dir.mkdir(parents=True, exist_ok=True)
+
+                # get timeseries vrt
+                time_series = tseries_dir.joinpath(
+                    f'Timeseries.{product_type}.vrt'
+                )
+
+                if not time_series.exists():
+                    continue
+
+                # create a datelist for harmonics
+                scene_list = [
+                    str(file) for file in
+                    list(tseries_dir.glob(f'*{product_type}.tif'))
+                ]
+
+                # create a datelist for harmonics calculation
+                datelist = []
+                for file in sorted(scene_list):
+                    datelist.append(os.path.basename(file).split('.')[1])
+
+                # define timescan prefix
+                timescan_prefix = tscan_dir.joinpath(f'{product_type}')
+
+                iter_list.append([
+                    time_series, timescan_prefix, ard_tscan['metrics'],
+                    dtype_conversion, to_db, ard_tscan['remove_outliers'],
+                    datelist
+                ])
+
+    if timescan:
+        # now we run with godale, which works also with 1 worker
+        executor = Executor(
+            executor=config_dict['executor_type'],
+            max_workers=config_dict['max_workers']
+        )
+
+        # run timescan creation
+        out_dict = {'track': [], 'prefix': [], 'metrics': [], 'error': []}
+        for task in executor.as_completed(
+                func=ts.gd_mt_metrics,
+                iterable=iter_list
+        ):
+            burst, prefix, metrics, error = task.result()
+            out_dict['track'].append(burst)
+            out_dict['prefix'].append(prefix)
+            out_dict['metrics'].append(metrics)
+            out_dict['error'].append(error)
+
+        create_tscan_vrt(tscan_dir, config_dict)
+
+
 def create_timeseries_animation(
         timeseries_folder,
         product_list,

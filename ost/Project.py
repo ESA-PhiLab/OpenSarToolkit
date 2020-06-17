@@ -800,7 +800,13 @@ class Sentinel1Batch(Sentinel1):
         # --------------------------------------------
         # 3 subset determination
         # we need a check function that checks
-        self.config_dict['subset'] = vec.set_subset(self.aoi, inventory_df)
+        self.config_dict.update(
+            subset=vec.set_subset(self.aoi, inventory_df)
+        )
+
+        # dump to json file
+        with open(self.config_file, 'w') as outfile:
+            json.dump(self.config_dict, outfile, indent=4)
 
         # --------------------------------------------
         # 4 Check ard parameters in case they have been updated,

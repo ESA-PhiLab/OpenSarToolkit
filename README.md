@@ -127,7 +127,7 @@ then install OST with python pip:
 ```
 pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 
-# this is needed for the progress bar when downloading
+# this is needed for the progress bar when downloading data
 jupyter labextension install @jupyter-widgets/jupyterlab-manager
 jupyter nbextension enable --py widgetsnbextension
 ```
