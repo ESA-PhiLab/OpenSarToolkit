@@ -29,7 +29,7 @@ import requests
 import pandas as pd
 import geopandas as gpd
 
-from ost.helpers import scihub, peps, onda, asf, raster as ras
+from ost.helpers import scihub, peps, onda, asf, raster as ras, helpers as h
 from ost.helpers.settings import APIHUB_BASEURL, OST_ROOT
 from ost.helpers.settings import set_log_level, check_ard_parameters
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb
@@ -735,12 +735,13 @@ class Sentinel1Scene:
         # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-    def create_ard(self, infile, out_dir, subset=None):
+    def create_ard(self, infile, out_dir, subset=None, overwrite=False):
         """
 
         :param infile:
         :param out_dir:
         :param subset:
+        :param overwrite:
         :return:
         """
 
@@ -759,13 +760,21 @@ class Sentinel1Scene:
         # set config param necessary for processing
         self.config_dict['processing_dir'] = str(out_dir)
         self.config_dict['temp_dir'] = str(out_dir.joinpath('temp'))
-        self.config_dict['subset'] = subset
         self.config_dict['snap_cpu_parallelism'] = os.cpu_count()
+
+        if subset:
+            self.config_dict['subset'] = True
+            self.config_dict['aoi'] = subset
 
         # create directories
         out_dir.mkdir(parents=True, exist_ok=True)
         out_dir.joinpath('temp').mkdir(parents=True, exist_ok=True)
 
+        if overwrite:
+            file_dir = out_dir.joinpath(f'{self.rel_orbit}/{self.start_date}')
+            if file_dir.joinpath('.processed').exists():
+                file_dir.joinpath('.processed').unlink()
+        
         # --------------------------------------------
         # 2 Check if within SRTM coverage
         # set ellipsoid correction and force GTC production

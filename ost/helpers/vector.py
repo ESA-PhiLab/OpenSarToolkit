@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 from functools import partial
 from pathlib import Path
@@ -54,7 +53,7 @@ def aoi_to_wkt(aoi):
         logger.info(f'Loading {aoi} as Area of Interest definition.')
         gdf = gpd.GeoDataFrame.from_file(aoi)
         if gdf.crs != {'init': 'epsg:4326'}:
-            logger.info('Reprojecting AOI to Lat/Lon.')
+            logger.info('Re-projecting AOI to Lat/Lon.')
             gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
 
         # return AOI as single vector object
@@ -73,17 +72,12 @@ def aoi_to_wkt(aoi):
     return aoi_wkt
 
 
-
 def get_epsg(prjfile):
-    '''Get the epsg code from a projection file of a shapefile
+    """
 
-    Args:
-        prjfile: a .prj file of a shapefile
-
-    Returns:
-        str: EPSG code
-
-    '''
+    :param prjfile:
+    :return:
+    """
 
     prj_file = open(prjfile, 'r')
     prj_txt = prj_file.read()
@@ -95,15 +89,11 @@ def get_epsg(prjfile):
 
 
 def get_proj4(prjfile):
-    '''Get the proj4 string from a projection file of a shapefile
+    """Get the proj4 string from a projection file of a shapefile
 
-    Args:
-        prjfile: a .prj file of a shapefile
-
-    Returns:
-        str: PROJ4 code
-
-    '''
+    :param prjfile:
+    :return:
+    """
 
     prj_file = open(prjfile, 'r')
     prj_string = prj_file.read()
@@ -125,7 +115,12 @@ def get_proj4(prjfile):
 
 
 def epsg_to_wkt_projection(epsg_code):
-    
+    """
+
+    :param epsg_code:
+    :return:
+    """
+
     spatial_ref = osr.SpatialReference()
     spatial_ref.ImportFromEPSG(epsg_code)  
             
@@ -133,17 +128,13 @@ def epsg_to_wkt_projection(epsg_code):
 
 
 def reproject_geometry(geom, inproj4, out_epsg):
-    '''Reproject a wkt geometry based on EPSG code
+    """Reproject a wkt geometry based on EPSG code
 
-    Args:
-        geom (ogr-geom): an ogr geom objecct
-        inproj4 (str): a proj4 string
-        out_epsg (str): the EPSG code to which the geometry should transformed
-
-    Returns
-        geom (ogr-geometry object): the transformed geometry
-
-    '''
+    :param geom: an ogr geom object
+    :param inproj4: a proj4 string
+    :param out_epsg: the EPSG code to which the geometry should transformed
+    :return: the transformed geometry (ogr-geometry object)
+    """
 
     geom = ogr.CreateGeometryFromWkt(geom)
     # input SpatialReference
@@ -160,13 +151,20 @@ def reproject_geometry(geom, inproj4, out_epsg):
     try:
         geom.Transform(coord_transform)
     except:
-        print(' ERROR: Not able to transform the geometry')
-        sys.exit()
+        raise RuntimeError(' ERROR: Not able to transform the geometry')
 
     return geom
 
 
 def geodesic_point_buffer(lat, lon, meters, envelope=False):
+    """
+
+    :param lat:
+    :param lon:
+    :param meters:
+    :param envelope:
+    :return:
+    """
 
     # get WGS 84 proj
     proj_wgs84 = pyproj.Proj(init='epsg:4326')
@@ -185,7 +183,7 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     else:
         geom = Polygon(transform(project, buf).exterior.coords[:])
 
-    return geom.to_wkt()
+    return geom.wkt
 
 
 def latlon_to_wkt(
@@ -216,10 +214,10 @@ def latlon_to_wkt(
     """
 
     if buffer_degree is None and buffer_meter is None:
-        aoi_wkt = 'POINT ({} {})'.format(lon, lat)
+        aoi_wkt = f'POINT ({lon} {lat})'
 
     elif buffer_degree:
-        aoi_geom = loads('POINT ({} {})'.format(lon, lat)).buffer(buffer_degree)
+        aoi_geom = loads(f'POINT ({lon} {lat})').buffer(buffer_degree)
         if envelope:
             aoi_geom = aoi_geom.envelope
 
@@ -232,6 +230,14 @@ def latlon_to_wkt(
 
 
 def wkt_manipulations(wkt, buffer=None, convex=False, envelope=False):
+    """
+
+    :param wkt:
+    :param buffer:
+    :param convex:
+    :param envelope:
+    :return:
+    """
 
     geom = ogr.CreateGeometryFromWkt(wkt)
 
@@ -244,9 +250,15 @@ def wkt_manipulations(wkt, buffer=None, convex=False, envelope=False):
     if envelope:
         geom = geom.GetEnvelope()
         geom = ogr.CreateGeometryFromWkt(
-            'POLYGON (({} {}, {} {}, {} {}, {} {}, {} {}, {} {}))'.format(
-                geom[1], geom[3], geom[0], geom[3], geom[0], geom[2],
-                geom[1], geom[2], geom[1], geom[3], geom[1], geom[3]))
+                    f'POLYGON (('
+                    f'{geom[1]} {geom[3]}, '
+                    f'{geom[0]} {geom[3]}, '
+                    f'{geom[0]} {geom[2]}, '
+                    f'{geom[1]} {geom[2]}, '
+                    f'{geom[1]} {geom[3]}, '
+                    f'{geom[1]} {geom[3]}'
+                    f'))'
+        )
 
     return geom.ExportToWkt()
 
@@ -288,6 +300,13 @@ def shp_to_wkt(shapefile, buffer=None, convex=False, envelope=False):
 
 
 def latlon_to_shp(lon, lat, shapefile):
+    """
+
+    :param lon:
+    :param lat:
+    :param shapefile:
+    :return:
+    """
 
     shapefile = str(shapefile)
 
@@ -306,22 +325,25 @@ def latlon_to_shp(lon, lat, shapefile):
 
 
 def wkt_to_gdf(wkt):
+    """
+
+    :param wkt:
+    :return:
+    """
 
     # load wkt
     geometry = loads(wkt)
 
     # point wkt
     if geometry.geom_type == 'Point':
-        data = {'id': ['1'],
-                'geometry': loads(wkt).buffer(0.05).envelope}
+        data = {'id': ['1'], 'geometry': loads(wkt).buffer(0.05).envelope}
         gdf = gpd.GeoDataFrame(data)
     
     # polygon wkt
     elif geometry.geom_type == 'Polygon':
-        data = {'id': ['1'],
-                'geometry': loads(wkt)}
+        data = {'id': ['1'], 'geometry': loads(wkt)}
         gdf = gpd.GeoDataFrame(
-            data, crs = {'init': 'epsg:4326',  'no_defs': True}
+            data, crs={'init': 'epsg:4326',  'no_defs': True}
         )
 
     # geometry collection of single multiploygon
@@ -330,19 +352,20 @@ def wkt_to_gdf(wkt):
             len(geometry) == 1 and 'MULTIPOLYGON' in str(geometry)
     ):
 
-        data = {'id': ['1'],
-                'geometry': geometry}
-        gdf = gpd.GeoDataFrame(data, crs = {'init': 'epsg:4326',  'no_defs': True})
+        data = {'id': ['1'], 'geometry': geometry}
+        gdf = gpd.GeoDataFrame(
+            data, crs={'init': 'epsg:4326',  'no_defs': True}
+        )
         
-        ids, feats =[], []
+        ids, feats = [], []
         for i, feat in enumerate(gdf.geometry.values[0]):
             ids.append(i)
             feats.append(feat)
 
-        gdf = gpd.GeoDataFrame({'id': ids,
-                                'geometry': feats}, 
-                                 geometry='geometry', 
-                                 crs = gdf.crs
+        gdf = gpd.GeoDataFrame(
+            {'id': ids, 'geometry': feats},
+            geometry='geometry',
+            crs=gdf.crs
         )
     
     # geometry collection of single polygon
@@ -351,10 +374,10 @@ def wkt_to_gdf(wkt):
         data = {'id': ['1'],
                 'geometry': geometry}
         gdf = gpd.GeoDataFrame(
-            data, crs = {'init': 'epsg:4326',  'no_defs': True}
+            data, crs={'init': 'epsg:4326',  'no_defs': True}
         )
 
-    # everything else (hopefully)
+    # everything else
     else:
 
         i, ids, geoms = 1, [], []
@@ -363,10 +386,10 @@ def wkt_to_gdf(wkt):
             geoms.append(geom)
             i += 1
 
-        gdf = gpd.GeoDataFrame({'id': ids,
-                                'geometry': geoms},
-                                crs = {'init': 'epsg:4326',  'no_defs': True}
-              )
+        gdf = gpd.GeoDataFrame(
+            {'id': ids, 'geometry': geoms},
+            crs={'init': 'epsg:4326',  'no_defs': True}
+        )
     
     return gdf
 
@@ -458,13 +481,10 @@ def set_subset(aoi, inventory_df):
             if not subset:
                 return subset
 
-    return subset
-
 
 def buffer_shape(infile, outfile, buffer=None):
 
     with collection(infile, "r") as in_shape:
-        # schema = in_shape.schema.copy()
         schema = {'geometry': 'Polygon', 'properties': {'id': 'int'}}
         crs = in_shape.crs
         with collection(
@@ -480,14 +500,14 @@ def buffer_shape(infile, outfile, buffer=None):
                 })
 
 
-def plot_inventory(aoi, inventory_df, transparency=0.05, annotate = False):
+def plot_inventory(aoi, inventory_df, transparency=0.05, annotate=False):
 
     import matplotlib.pyplot as plt
 
     # load world borders for background
     world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 
-    # import aoi as gdf
+    # do the import of aoi as gdf
     aoi_gdf = wkt_to_gdf(aoi)
 
     # get bounds of AOI
@@ -513,5 +533,12 @@ def plot_inventory(aoi, inventory_df, transparency=0.05, annotate = False):
             coord = [row['geometry'].centroid.x, row['geometry'].centroid.y]
             x1, y2, x2, y1 = row['geometry'].bounds
             angle = math.degrees(math.atan2((y2 - y1), (x2 - x1)))
-            # rint(angle)
-            plt.annotate(s=row['bid'], xy=coord, rotation=angle + 5, size=10, color='red', horizontalalignment='center')
+
+            plt.annotate(
+                s=row['bid'],
+                xy=coord,
+                rotation=angle + 5,
+                size=10,
+                color='red',
+                horizontalalignment='center'
+            )
