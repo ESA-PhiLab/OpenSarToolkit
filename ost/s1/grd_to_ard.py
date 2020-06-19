@@ -392,7 +392,11 @@ def grd_to_ard(filelist, config_file):
         out_final = out_dir.joinpath(f'{file_id}_bs')
 
         # ---------------------------------------------------------------------
-        # 4.10 Move to output directory
+        # 4.11 Move to output directory
+        ras.create_valid_data_extent(geocoded.with_suffix('.data'))
+
+        # ---------------------------------------------------------------------
+        # 4.11 Move to output directory
         h.move_dimap(geocoded, out_final, ard['to_tif'])
 
     # ---------------------------------------------------------------------

@@ -24,7 +24,7 @@ with warnings.catch_warnings():
     warnings.filterwarnings('ignore', r'Mean of empty slice')
 
 
-def remove_outliers(arrayin, stddev=3, z_threshold=None):
+def remove_outliers(arrayin, stddev=2, z_threshold=None):
     if z_threshold:
         z_score = np.abs(stats.zscore(arrayin))
         array_out = np.ma.MaskedArray(

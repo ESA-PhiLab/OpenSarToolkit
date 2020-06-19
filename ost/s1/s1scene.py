@@ -761,6 +761,7 @@ class Sentinel1Scene:
         self.config_dict['processing_dir'] = str(out_dir)
         self.config_dict['temp_dir'] = str(out_dir.joinpath('temp'))
         self.config_dict['snap_cpu_parallelism'] = os.cpu_count()
+        self.config_dict['subset'] = False
 
         if subset:
             self.config_dict['subset'] = True
@@ -774,7 +775,7 @@ class Sentinel1Scene:
             file_dir = out_dir.joinpath(f'{self.rel_orbit}/{self.start_date}')
             if file_dir.joinpath('.processed').exists():
                 file_dir.joinpath('.processed').unlink()
-        
+
         # --------------------------------------------
         # 2 Check if within SRTM coverage
         # set ellipsoid correction and force GTC production
@@ -827,6 +828,7 @@ class Sentinel1Scene:
             logger.info(error)
         else:
             # remove temp folder
+            h.remove_folder_content(out_dir.joinpath('temp'))
             out_dir.joinpath('temp').rmdir()
             self.ard_dimap = out_bs
 

@@ -133,6 +133,7 @@ def get_gpt():
             Path('/opt/snap/bin/gpt'),
             Path('/usr/local/snap/bin/gpt'),
             Path('/usr/local/lib/snap/bin/gpt'),
+            Path('/usr/programs/snap/bin/gpt'),
             Path('/Applications/snap/bin/gpt')
         ]
 

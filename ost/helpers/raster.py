@@ -19,8 +19,30 @@ import rasterio as rio
 import rasterio.mask
 from rasterio.features import shapes
 from scipy.interpolate import griddata
+from shapely.geometry import shape
 
 from ost.helpers import helpers as h
+
+
+def _closure_procedure(geojson_shape, buffer):
+    """Helper function to buffer geo-json like geometries and close islands
+
+    :param geojson_shape:
+    :param buffer:
+    :return:
+    """
+    # do negative buffering to reduce border issues due to resampling
+    s = shape(geojson_shape).buffer(buffer, 1, join_style=2)
+
+    # close islands
+    s = s.buffer(
+        -buffer, 1, join_style=2
+    ).buffer(
+        buffer, 1, cap_style=1, join_style=2
+    ).__geo_interface__
+
+    return s
+
 
 def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
     """Polygonize a raster mask based on a mask value
@@ -38,6 +60,8 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
 
     with rio.open(infile) as src:
         image = src.read(1)
+        pixel_size_x, pixel_size_y = src.res
+        neg_buffer = -3 * pixel_size_x
 
         if mask_value is not None:
             mask = image == mask_value
@@ -45,17 +69,22 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
             mask = None
 
         results = (
-            {'properties': {'raster_val': v}, 'geometry': s}
+            {
+                'properties': {'raster_val': v},
+                'geometry': _closure_procedure(s, neg_buffer)
+            }
             for i, (s, v)
             in enumerate(
-                shapes(image, mask=mask, transform=src.transform)))
+                shapes(image, mask=mask, transform=src.transform)
+            )
+        )
 
         with fiona.open(
-            outfile, 'w',
-            driver=driver,
-            crs=src.crs,
-            schema={'properties': [('raster_val', 'int')],
-                    'geometry': 'Polygon'}
+                outfile, 'w',
+                driver=driver,
+                crs=src.crs,
+                schema={'properties': [('raster_val', 'int')],
+                        'geometry': 'Polygon'}
         ) as dst:
             dst.writerecords(results)
 
@@ -110,6 +139,29 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
     polygonize_raster(outfile.with_suffix('.tif'), outfile, driver=driver)
     outfile.with_suffix('.tif').unlink()
 
+
+def create_valid_data_extent(data_dir):
+    """Function to create a polygon of valid data
+
+    This function for all files within a dimap data directory
+
+    :param data_dir:
+    :return:
+    """
+    filelist = []
+    for file in data_dir.glob('*img'):
+        filelist.append(str(file))
+
+        temp_extent = data_dir.joinpath(f'{data_dir.name}.extent.vrt')
+        # build vrt stack from all scenes
+        gdal.BuildVRT(
+            str(temp_extent),
+            filelist,
+            options=gdal.BuildVRTOptions(srcNodata=0, separate=True)
+        )
+
+        outline(temp_extent, data_dir.joinpath(f'{data_dir.name}.extent.gpkg'))
+        data_dir.joinpath(f'{data_dir.name}.extent.vrt').unlink()
 
 # convert power to dB
 def convert_to_db(pow_array):
