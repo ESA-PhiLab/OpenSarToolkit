@@ -86,7 +86,6 @@ def bursts_to_ards(
             iterable=proc_inventory.iterrows(),
             fargs=([str(config_file), ])
     ):
-
         burst, date, out_bs, out_ls, out_pol, out_coh, error = task.result()
         out_dict['burst'].append(burst)
         out_dict['acq_date'].append(date)
@@ -97,6 +96,50 @@ def bursts_to_ards(
         out_dict['error'].append(error)
 
     return pd.DataFrame.from_dict(out_dict)
+
+
+def _create_extents2(burst_gdf, config_file):
+    """Batch processing for multi-temporal Layover7Shadow mask
+
+     This function handles the organization of the
+
+     :param burst_gdf:
+     :param config_file:
+     :return:
+     """
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    # create extent iterable
+    iter_list = []
+    for burst in burst_gdf.bid.unique():
+
+        # get the burst directory
+        burst_dir = processing_dir.joinpath(burst)
+
+        list_of_extents = list(burst_dir.glob('*/*/*bounds.json'))
+
+        # if extent does not already exist, add to iterable
+        if not burst_dir.joinpath(f'{burst}.min_bounds.json').exists():
+            iter_list.append(list_of_extents)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=os.cpu_count()
+    )
+
+    out_dict = {'burst': [], 'list_of_scenes': [], 'extent': []}
+    for task in executor.as_completed(
+            func=ts_extent.mt_extent2,
+            iterable=iter_list
+    ):
+        track, list_of_scenes, extent = task.result()
+        out_dict['burst'].append(track)
+        out_dict['list_of_scenes'].append(list_of_scenes)
+        out_dict['extent'].append(extent)
 
 
 def _create_extents(burst_gdf, config_file):
@@ -145,6 +188,45 @@ def _create_extents(burst_gdf, config_file):
         task.result()
 
 
+def _create_mt_ls_mask2(burst_gdf, config_file):
+    """Helper function to union the Layover/Shadow masks of a Time-series
+
+    This function creates a
+
+    :param inventory_df:
+    :param config_file:
+    :return:
+    """
+    # read config file
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = config_dict['processing_dir']
+
+    # create layover
+    iter_list = []
+    for burst in burst_gdf.bid.unique():  # ***
+
+        # get the burst directory
+        burst_dir = Path(processing_dir).joinpath(burst)
+
+        # get common burst extent
+        list_of_masks = list(burst_dir.glob('*/*/*_ls_mask.json'))
+        if not burst_dir.joinpath(f'{burst}.ls_mask.json').exists():
+            iter_list.append(list_of_masks)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=os.cpu_count()
+    )
+
+    for task in executor.as_completed(
+            func=ts_ls_mask.mt_layover2,
+            iterable=iter_list
+    ):
+        task.result()
+
+
 def _create_mt_ls_mask(burst_gdf, config_file):
     """Batch processing for multi-temporal Layover/Shadow mask
 
@@ -171,7 +253,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
         list_of_scenes = list(burst_dir.glob('20*/*data*/*img'))
         list_of_layover = [
             str(x) for x in list_of_scenes if 'layover' in str(x)
-            ]
+        ]
 
         # we need to redefine the namespace of the already created extents
         extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
@@ -198,12 +280,10 @@ def _create_mt_ls_mask(burst_gdf, config_file):
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-
         task.result()
 
 
 def _create_timeseries(burst_gdf, config_file):
-
     # we need a
     dict_of_product_types = {'bs': 'Gamma0', 'coh': 'coh', 'pol': 'pol'}
     pols = ['VV', 'VH', 'HH', 'HV', 'Alpha', 'Entropy', 'Anisotropy']
@@ -262,7 +342,6 @@ def _create_timeseries(burst_gdf, config_file):
             iterable=iter_list,
             fargs=([str(config_file), ])
     ):
-
         burst, list_of_dims, out_files, out_vrt, product, error = task.result()
         out_dict['burst'].append(burst)
         out_dict['list_of_dims'].append(list_of_dims)
@@ -275,7 +354,6 @@ def _create_timeseries(burst_gdf, config_file):
 
 
 def ards_to_timeseries(burst_gdf, config_file):
-
     print('--------------------------------------------------------------')
     logger.info('Processing all burst ARDs time-series')
     print('--------------------------------------------------------------')
@@ -287,15 +365,16 @@ def ards_to_timeseries(burst_gdf, config_file):
         ard_mt = ard_params['time-series_ARD']
 
     # create all extents
-    _create_extents(burst_gdf, config_file)
+    _create_extents2(burst_gdf, config_file)
 
     # update extents in case of ls_mask
     if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
-        _create_mt_ls_mask(burst_gdf, config_file)
+        _create_mt_ls_mask2(burst_gdf, config_file)
 
     # finally create time-series
     df = _create_timeseries(burst_gdf, config_file)
     return df
+
 
 # --------------------
 # timescan part
@@ -404,7 +483,6 @@ def timeseries_to_timescan(burst_gdf, config_file):
 
 
 def mosaic_timeseries(burst_inventory, config_file):
-
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-series layers.')
     print(' -----------------------------------------------------------------')
@@ -429,9 +507,12 @@ def mosaic_timeseries(burst_inventory, config_file):
 
         for track in burst_inventory.Track.unique():
 
-            dates = sorted(
-                burst_inventory.Date[burst_inventory.Track == track].unique()
-            )
+            dates = [
+                date[2:] for date in sorted(
+                    burst_inventory.Date[
+                        burst_inventory.Track == track].unique()
+                )
+            ]
 
             for i, date in enumerate(dates):
 
@@ -440,7 +521,7 @@ def mosaic_timeseries(burst_inventory, config_file):
                     # there is no dates[i+1] for coherence
                     try:
                         temp_acq = temp_mosaic.joinpath(
-                            f'{i}.{date}.{dates[i+1]}.{track}.{product}.tif'
+                            f'{i}.{date}.{dates[i + 1]}.{track}.{product}.tif'
                         )
                     except IndexError:
                         pass
@@ -459,8 +540,8 @@ def mosaic_timeseries(burst_inventory, config_file):
 
     ## run vrt creation
     for task in executor.as_completed(
-        func=mosaic.gd_mosaic_slc_acquisition,
-        iterable=iter_list
+            func=mosaic.gd_mosaic_slc_acquisition,
+            iterable=iter_list
     ):
         task.result()
 
@@ -475,7 +556,7 @@ def mosaic_timeseries(burst_inventory, config_file):
 
             if not list_of_files:
                 continue
-            print(list_of_files)
+
             datelist = []
             for file in list_of_files:
                 if 'coh' in product:
@@ -492,14 +573,18 @@ def mosaic_timeseries(burst_inventory, config_file):
             # create namespace for output file
             if start == end:
                 outfile = ts_dir.joinpath(
-                    f'{i+1:02d}.{start}.{product}.tif'
+                    f'{i + 1:02d}.{start}.{product}.tif'
                 )
-                shutil.move(list_of_files[0], outfile)
+
+                # with the above operation, the list automatically
+                # turns into string, so we can call directly list_of_files
+                shutil.move(list_of_files, outfile)
+                outfiles.append(outfile)
                 continue
 
             else:
                 outfile = ts_dir.joinpath(
-                    f'{i+1:02d}.{start}-{end}.{product}.tif'
+                    f'{i + 1:02d}.{start}-{end}.{product}.tif'
                 )
 
             # create namespace for check_file
@@ -539,7 +624,6 @@ def mosaic_timeseries(burst_inventory, config_file):
 
 
 def mosaic_timescan(config_file):
-
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-scan layers.')
     print(' -----------------------------------------------------------------')

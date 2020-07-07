@@ -12,8 +12,11 @@ import logging
 from shapely.ops import transform
 from shapely.wkt import loads
 from shapely.geometry import Point, Polygon, mapping, shape
+from shapely.errors import WKTReadingError
 from fiona import collection
 from fiona.crs import from_epsg
+# from pyproj.exceptions import CRSError as projCRSError
+# from fiona.errors import DriverError, CRSError
 
 logger = logging.getLogger(__name__)
 
@@ -33,41 +36,38 @@ def aoi_to_wkt(aoi):
     :rtype: WKT string
     """
 
-    # load geopandas low res data and check if AOI is ISO3 country code
-    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-    if aoi in world.iso_a3.tolist():
+    # see if aoi alread in wkt
+    try:
+        # let's check if it is a shapely readable WKT
+        loads(str(aoi))
+        aoi_wkt = aoi
+    except WKTReadingError:
 
-        # get lowres data from geopandas
-        country = world.name[world.iso_a3 == aoi].values[0]
-        logger.info(
-            f'Getting the country boundaries from Geopandas low '
-            f'resolution data for {country}'
-        )
-
-        # convert to WKT string
-        aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
-
-    # if it is a file
-    elif Path(aoi).exists():
-
-        logger.info(f'Loading {aoi} as Area of Interest definition.')
-        gdf = gpd.GeoDataFrame.from_file(aoi)
-        if gdf.crs != {'init': 'epsg:4326'}:
-            logger.info('Re-projecting AOI to Lat/Lon.')
-            gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
-
-        # return AOI as single vector object
-        aoi_wkt = str(gdf.geometry.unary_union)
-
-    # if it is WKT
-    else:
+        # see if aoi is an ISO3 country code
         try:
             # let's check if it is a shapely readable WKT
-            loads(str(aoi))
-        except:
-            raise ValueError('No valid OST AOI definition.')
-        else:
-            aoi_wkt = aoi
+            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+            aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
+
+        except IndexError:
+            # see if it is a Geovector file
+            if Path(aoi).exists():
+                try:
+                    gdf = gpd.GeoDataFrame.from_file(aoi)
+                    if gdf.crs != {'init': 'epsg:4326'}:
+                        try:
+                            gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
+                        except projCRSError:
+                            raise ValueError('No valid OST AOI definition.')
+                    # return AOI as single vector object
+                    aoi_wkt = str(gdf.geometry.unary_union)
+                except:
+                    # give up
+                    raise ValueError('No valid OST AOI definition.')
+
+            else:
+                # give up
+                raise ValueError('No valid OST AOI definition.')
 
     return aoi_wkt
 
@@ -454,9 +454,17 @@ def difference(infile1, infile2, outfile):
     gdf1 = gpd.read_file(infile1)
     gdf2 = gpd.read_file(infile2)
 
-    gdf3 = gpd.overlay(gdf1, gdf2, how='symmetric_difference')
+    gdf3 = gpd.overlay(gdf1, gdf2, how='difference')
 
-    gdf3.to_file(outfile, driver='GPKG')
+    # remove slivers and artifacts
+    gdf3 = gdf3.buffer(0)
+    buffer = 0.00001
+    gdf3 = gdf3.buffer(
+        -buffer, 1, join_style=2
+    ).buffer(
+        buffer, 1, join_style=2
+    )
+    gdf3.to_file(outfile, driver='GeoJSON')
 
 
 def set_subset(aoi, inventory_df):
@@ -484,6 +492,7 @@ def set_subset(aoi, inventory_df):
 
     # return if true
     return subset
+
 
 def buffer_shape(infile, outfile, buffer=None):
 

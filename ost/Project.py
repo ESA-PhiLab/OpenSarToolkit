@@ -14,7 +14,7 @@ import geopandas as gpd
 from shapely.wkt import loads
 
 from ost.helpers import vector as vec, raster as ras
-from ost.helpers import scihub, helpers as h
+from ost.helpers import scihub, helpers as h, srtm
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters
 
@@ -600,6 +600,12 @@ class Sentinel1Batch(Sentinel1):
         # update ard_parameters
         self.ard_parameters['single_ARD']['dem'] = dem_dict
 
+    def pre_download_srtm(self):
+
+        logger.info('Pre-downloading SRTM tiles')
+        srtm.download_srtm(self.aoi)
+
+
     def bursts_to_ards(
             self,
             timeseries=False,
@@ -672,6 +678,9 @@ class Sentinel1Batch(Sentinel1):
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
+        if self.config_dict['max_workers'] > 1:
+            self.pre_download_srtm()
+
         # --------------------------------------------
         # 6 run the burst to ard batch routine (up to 3 times if needed)
         i = 1
@@ -725,7 +734,7 @@ class Sentinel1Batch(Sentinel1):
         #if mosaic and timescan:
         #    burst_batch.mosaic_timescan(self.config_file)
 
-        return tseries_df
+        # return tseries_df
 
     @staticmethod
     def create_timeseries_animation(
@@ -757,12 +766,6 @@ class Sentinel1Batch(Sentinel1):
 
         self.config_dict['max_workers'] = max_workers
         self.config_dict['executor_type'] = executor_type
-        # --------------------------------------------
-        # 1 delete data in case of previous runs
-
-        # delete data in temporary directory in case there is
-        # something left from aborted previous runs
-        h.remove_folder_content(self.temp_dir)
 
         # in case we start from scratch, delete all data
         # within processing folder
@@ -812,6 +815,12 @@ class Sentinel1Batch(Sentinel1):
         # 4 Check ard parameters in case they have been updated,
         #   and write them to json file
         self.update_ard_parameters()
+
+        # --------------------------------------------
+        # 1 delete data in case of previous runs
+        # delete data in temporary directory in case there is
+        # something left from aborted previous runs
+        h.remove_folder_content(self.config_dict['temp_dir'])
 
         # --------------------------------------------
         # 5 set resolution in degree

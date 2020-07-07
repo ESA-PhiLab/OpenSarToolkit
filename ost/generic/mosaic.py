@@ -31,7 +31,11 @@ def create_timeseries_mosaic_vrt(list_of_args):
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
 
-    logger.info('Mosaicking.')
+    if outfile.parent.joinpath(f'.{outfile.name[:-4]}.processed').exists():
+        logger.info(f'{outfile} already exists.')
+        return
+
+    logger.info(f'Mosaicking file {outfile}.')
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
         temp_dir = config_dict['temp_dir']
@@ -132,9 +136,6 @@ def gd_mosaic(list_of_args):
 
 def mosaic_slc_acquisition(track, date, product, outfile, config_file):
 
-    logger.info(
-        f'Pre-mosaicking {product} acquisition from {track} taken at {date}.'
-    )
     # -------------------------------------
     # 1 load project config
     with open(config_file, 'r') as ard_file:
@@ -149,26 +150,35 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
     # search for bursts with IW1 and IW 2
     list_of_iw12 = processing_dir.glob(
         f'*{track}_IW[1,2]*/Timeseries/'
-        f'*.{date[2:]}.{search_last}'
+        f'*.{date}.{search_last}'
     )
+
     # and join them into a otb readable list
     list_of_iw12 = ' '.join(
         [str(file) for file in list(list_of_iw12)]
     )
 
     if list_of_iw12:
-        temp_iw12 = temp_dir.joinpath(f'{date}_{track}_IW1_2.tif')
+        logger.info(
+            f'Pre-mosaicking {product} acquisition\'s IW1 and IW2 subswaths '
+            f'from {track} taken at {date}.'
+        )
+        temp_iw12 = temp_dir.joinpath(f'{date}_{track}_{product}_IW1_2.tif')
         mosaic(list_of_iw12, temp_iw12, config_file, harm=False)
 
     list_of_iw3 = processing_dir.glob(
-        f'*{track}_IW3*/Timeseries/*.{date[2:]}.{search_last}'
+        f'*{track}_IW3*/Timeseries/*.{date}.{search_last}'
     )
     list_of_iw3 = ' '.join(
         [str(file) for file in list(list_of_iw3)]
     )
 
     if list_of_iw3:
-        temp_iw3 = temp_dir.joinpath(f'{date}_{track}_IW3.tif')
+        logger.info(
+            f'Pre-mosaicking {product} acquisition\'s IW3 subswath '
+            f'from {track} taken at {date}.'
+        )
+        temp_iw3 = temp_dir.joinpath(f'{date}_{track}_{product}_IW3.tif')
         mosaic(list_of_iw3, temp_iw3, config_file, harm=False)
 
     if list_of_iw12 and list_of_iw3:

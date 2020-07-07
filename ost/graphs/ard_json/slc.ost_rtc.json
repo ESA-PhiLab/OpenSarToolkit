@@ -49,13 +49,15 @@
             },            
             "coherence": true,
             "coherence_bands": "VV, VH, HH, HV",
+            "coherence_azimuth": 4,
+            "coherence_range": 20,
             "H-A-Alpha": true
         },
         "time-series_ARD": {
             "to_db": true,
             "remove_mt_speckle": true,
             "apply_ls_mask": false,
-            "mt_speckle filter": {
+            "mt_speckle_filter": {
                 "filter": "Refined Lee",
                 "ENL": 1,
                 "estimate_ENL": true,

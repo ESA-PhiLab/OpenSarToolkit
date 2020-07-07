@@ -10,6 +10,8 @@ from tempfile import TemporaryDirectory
 import gdal
 import rasterio
 import numpy as np
+import geopandas as gpd
+from shapely.ops import unary_union
 from retrying import retry
 
 from ost.helpers import raster as ras, vector as vec
@@ -113,3 +115,48 @@ def mt_layover(list_of_files, config_file):
                 shutil.copy(extent, extent_ls_masked)
 
     return burst_dir, list_of_files, outfile, extent_ls_masked
+
+
+def mt_layover2(list_of_ls):
+
+    target_dir = Path(list_of_ls[0]).parent.parent.parent
+    bounds = target_dir.joinpath(f'{target_dir.name}.min_bounds.json')
+    outfile = target_dir.joinpath(f'{target_dir.name}.ls_mask.json')
+    valid_file = target_dir.joinpath(f'{target_dir.name}.valid.json')
+
+    logger.info(
+        f'Creating common Layover/Shadow mask for track {target_dir.name}.'
+    )
+    logger.info(f'and writing to {outfile}')
+
+    for i, file in enumerate(list_of_ls):
+
+        if i == 0:
+            df1 = gpd.read_file(file)
+            df1 = df1[~(df1.geometry.is_empty | df1.geometry.isna())]
+            geom = df1.geometry.buffer(0).unary_union
+
+        if i > 0:
+
+            df2 = gpd.read_file(file)
+            df2 = df2[~(df2.geometry.is_empty | df2.geometry.isna())]
+            geom2 = df2.geometry.buffer(0).unary_union
+            geom = unary_union([geom, geom2])
+
+    # make geometry valid in case it isn't
+    geom = geom.buffer(0)
+
+    # remove slivers
+    buffer = 0.00001
+    geom = geom.buffer(
+            -buffer, 1, join_style=2
+        ).buffer(
+            buffer, 1, cap_style=1, join_style=2
+        ).__geo_interface__
+
+    # write to output
+    with open(outfile, 'w') as file:
+        json.dump(geom, file)
+
+    # create difference file for valid data shape
+    vec.difference(bounds, outfile, valid_file)

@@ -117,6 +117,7 @@ def linear_to_db(infile, outfile, logfile, config_dict):
             f'Product did not pass file check: {return_code}'
         )
 
+
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def terrain_flattening(infile, outfile, logfile, config_dict):
     """Wrapper function to Snap's Terrain Flattening routine
@@ -349,6 +350,7 @@ def create_stack(
             f'-PbandPattern=\'{pattern}.*\' '
             f'-Poutput={out_stack}'
         )
+
     else:
         graph = OST_ROOT.joinpath('graphs/S1_TS/1_BS_Stacking.xml')
 

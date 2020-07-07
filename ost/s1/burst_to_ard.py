@@ -12,6 +12,7 @@ import rasterio
 from ost.helpers import helpers as h
 from ost.s1 import slc_wrappers as slc
 from ost.generic import common_wrappers as common
+from ost.helpers import raster as ras
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,10 @@ def create_polarimetric_layers(
 
             with rasterio.open(str(infile), 'w', **meta) as dest:
                 dest.write(array)
+
+        # ---------------------------------------------------------------------
+        # 5 Create an outline
+        ras.image_bounds(out_htc.with_suffix('.data'))
 
         # move to final destination
         ard = config_dict['processing']['single_ARD']
@@ -198,39 +203,44 @@ def create_backscatter_layers(
             logger.info(error)
             return None, None, error
 
-        # move final backscatter product to actual output directory
-        h.move_dimap(
-            out_tc, out_dir.joinpath(f'{burst_prefix}_bs'), ard['to_tif']
-        )
+        # ---------------------------------------------------------------------
+        # 5 Create an outline
+        ras.image_bounds(out_tc.with_suffix('.data'))
 
         # ---------------------------------------------------------------------
-        # 9 Layover/Shadow mask
-        out_ls_final = None
-        if ard['create_ls_mask']:
+        # 6 Layover/Shadow mask
+        out_ls = None  # set to none for final return statement
+        if ard['create_ls_mask'] is True:
 
-            # create namespace for temporary LS map product
-            out_ls = temp.joinpath(f'{burst_prefix}_LS')
+            # create namespace for temporary ls mask product
+            ls_mask = temp.joinpath(f'{burst_prefix}_ls_mask')
 
-            # create namespace for LS map log
-            ls_log = out_dir.joinpath(f'{burst_prefix}_LS.err_log')
+            # create namespace for ls mask log
+            logfile = out_dir.joinpath(f'{burst_prefix}.ls_mask.errLog')
 
-            # run ls mask generation on calibration
+            # run ls mask routine
             try:
                 common.ls_mask(
-                    out_cal.with_suffix('.dim'), out_ls, ls_log, config_dict
+                    out_cal.with_suffix('.dim'), ls_mask, logfile, config_dict
                 )
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, error
 
-            # move ls data to final destination
-            h.move_dimap(
-                out_ls, out_dir.joinpath(f'{burst_prefix}_LS'), ard['to_tif']
-            )
+            # polygonize
+            ls_raster = list(ls_mask.with_suffix('.data').glob('*img'))[0]
+            ras.polygonize_ls(ls_raster, ls_mask.with_suffix('.json'))
 
-            out_ls_final = (
-                str(out_dir.joinpath(f'{burst_prefix}_LS').with_suffix('.dim'))
-            )
+            out_ls = out_tc.with_suffix('.data')\
+                .joinpath(ls_mask.name).with_suffix('.json')
+
+            # move to product folder
+            ls_mask.with_suffix('.json').rename(out_ls)
+
+        # move final backscatter product to actual output directory
+        h.move_dimap(
+            out_tc, out_dir.joinpath(f'{burst_prefix}_bs'), ard['to_tif']
+        )
 
         # write out check file for tracking that it is processed
         with open(out_dir.joinpath('.bs.processed'), 'w+') as file:
@@ -238,7 +248,7 @@ def create_backscatter_layers(
 
         return (
             str(out_dir.joinpath(f'{burst_prefix}_bs').with_suffix('.dim')),
-            out_ls_final,
+            str(out_ls),
             None
         )
 
@@ -279,31 +289,14 @@ def create_coherence_layers(
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             h.delete_dimap(out_coreg)
+
             # remove imports
             h.delete_dimap(master_import)
             return None, error
 
-            # if (
-            #         'Product did not pass file check: Data file' in str(error)
-            #         and 'only contains no data values.' in str(error)
-            # ):
-            #
-            #     logger.info('Trying alternative Co-registration routine.')
-            #     try:
-            #         slc.coreg2(
-            #             master_import, slave_import, out_coreg, coreg_log,
-            #             config_dict
-            #         )
-            #     except (GPTRuntimeError, NotValidFileError) as error:
-            #         logger.info(error)
-            #         h.delete_dimap(master_import)
-            #         return None, error
-
         # remove imports
         h.delete_dimap(master_import)
         h.delete_dimap(slave_import)
-        # if remove_slave_import is True:
-
 
         # ---------------------------------------------------------------
         # 2 Coherence calculation
@@ -349,6 +342,10 @@ def create_coherence_layers(
 
         # remove tmp files
         h.delete_dimap(out_coh)
+
+        # ---------------------------------------------------------------------
+        # 5 Create an outline
+        ras.image_bounds(out_tc.with_suffix('.data'))
 
         # move to final destination
         h.move_dimap(

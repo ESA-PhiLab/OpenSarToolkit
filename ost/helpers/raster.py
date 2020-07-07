@@ -18,10 +18,41 @@ import imageio
 import rasterio as rio
 import rasterio.mask
 from rasterio.features import shapes
-from scipy.interpolate import griddata
-from shapely.geometry import shape
+from scipy.interpolate import griddata, LinearNDInterpolator
+from shapely.geometry import shape, MultiPolygon
 
 from ost.helpers import helpers as h
+
+
+def polygonize_ls(infile, outfile, driver='GeoJSON'):
+
+    with rio.open(infile) as src:
+        image = src.read(1)
+
+    image[image > 0] = 1
+    mask = image == 1
+
+    results = (
+            {
+                'properties': {'raster_val': v},
+                'geometry': s
+            }
+            for i, (s, v)
+            in enumerate(
+                shapes(image, mask=mask, transform=src.transform)
+            )
+        )
+
+    with fiona.open(
+            outfile, 'w',
+            driver=driver,
+            crs=src.crs,
+            schema={
+                'properties': [('raster_val', 'int')],
+                'geometry': 'Polygon'
+            }
+    ) as dst:
+        dst.writerecords(results)
 
 
 def _closure_procedure(geojson_shape, buffer):
@@ -31,20 +62,25 @@ def _closure_procedure(geojson_shape, buffer):
     :param buffer:
     :return:
     """
-    # do negative buffering to reduce border issues due to resampling
-    s = shape(geojson_shape).buffer(buffer, 1, join_style=2)
 
     # close islands
-    s = s.buffer(
+    s = shape(geojson_shape).buffer(
         -buffer, 1, join_style=2
     ).buffer(
-        buffer, 1, cap_style=1, join_style=2
-    ).__geo_interface__
+        buffer, 1, join_style=2
+    )
 
-    return s
+    # do negative buffering to reduce border issues due to resampling
+    s = s.buffer(buffer, 1, join_style=2)
+
+    # upcast to MultiPolygon
+    if s.geom_type == 'Polygon':
+        s = MultiPolygon([s])
+
+    return s.__geo_interface__
 
 
-def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
+def polygonize_bounds(infile, outfile, mask_value=1, driver='GeoJSON'):
     """Polygonize a raster mask based on a mask value
 
     :param infile:
@@ -61,7 +97,7 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
     with rio.open(infile) as src:
         image = src.read(1)
         pixel_size_x, pixel_size_y = src.res
-        neg_buffer = -3 * pixel_size_x
+        neg_buffer = np.round(-5 * pixel_size_x, 5)
 
         if mask_value is not None:
             mask = image == mask_value
@@ -83,13 +119,15 @@ def polygonize_raster(infile, outfile, mask_value=1, driver='GPKG'):
                 outfile, 'w',
                 driver=driver,
                 crs=src.crs,
-                schema={'properties': [('raster_val', 'int')],
-                        'geometry': 'Polygon'}
+                schema={
+                    'properties': [('raster_val', 'int')],
+                    'geometry': 'MultiPolygon'
+                }
         ) as dst:
             dst.writerecords(results)
 
 
-def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
+def outline(infile, outfile, ndv=0, less_then=False, driver='GeoJSON'):
     """Generates a vector file with the valid areas of a raster file
 
     :param infile: input raster file
@@ -136,12 +174,12 @@ def outline(infile, outfile, ndv=0, less_then=False, driver='GPKG'):
                 out_min.write(np.uint8(min_array), window=window, indexes=1)
 
     # now let's polygonize
-    polygonize_raster(outfile.with_suffix('.tif'), outfile, driver=driver)
+    polygonize_bounds(outfile.with_suffix('.tif'), outfile, driver=driver)
     outfile.with_suffix('.tif').unlink()
 
 
-def create_valid_data_extent(data_dir):
-    """Function to create a polygon of valid data
+def image_bounds(data_dir):
+    """Function to create a polygon of image boundary
 
     This function for all files within a dimap data directory
 
@@ -152,7 +190,7 @@ def create_valid_data_extent(data_dir):
     for file in data_dir.glob('*img'):
         filelist.append(str(file))
 
-        temp_extent = data_dir.joinpath(f'{data_dir.name}.extent.vrt')
+        temp_extent = data_dir.joinpath(f'{data_dir.name}_bounds.vrt')
         # build vrt stack from all scenes
         gdal.BuildVRT(
             str(temp_extent),
@@ -160,8 +198,10 @@ def create_valid_data_extent(data_dir):
             options=gdal.BuildVRTOptions(srcNodata=0, separate=True)
         )
 
-        outline(temp_extent, data_dir.joinpath(f'{data_dir.name}.extent.gpkg'))
-        data_dir.joinpath(f'{data_dir.name}.extent.vrt').unlink()
+        file_id = '_'.join(data_dir.name.split('_')[:2])
+        outline(temp_extent, data_dir.joinpath(f'{file_id}_bounds.json'))
+        data_dir.joinpath(f'{data_dir.name}_bounds.vrt').unlink()
+
 
 # convert power to dB
 def convert_to_db(pow_array):
@@ -248,19 +288,27 @@ def fill_internal_nans(array):
     :param array:
     :return:
     """
-
+    print('a')
     a = array[0].astype('float32')
     shape = a.shape
     a[a == 0] = np.nan
     x, y = np.indices(shape)
+    print('b')
     interp = np.array(a)
-    interp[np.isnan(interp)] = griddata(
-        (x[~np.isnan(a)], y[~np.isnan(a)]),  # points we know
-        a[~np.isnan(a)],  # values we know
-        (x[np.isnan(a)], y[np.isnan(a)]),
-        method='linear'
-    )
+    print('c')
+    #interp[np.isnan(interp)] = griddata(
+    #    (x[~np.isnan(a)], y[~np.isnan(a)]),  # points we know
+    #    a[~np.isnan(a)],  # values we know
+    #    (x[np.isnan(a)], y[np.isnan(a)]),
+    #    method='cubic'
+    #)
 
+    interp[np.isnan(interp)] = LinearNDInterpolator(
+        (a[~np.isnan(a)], 2),
+        a[~np.isnan(a)],
+        (x[np.isnan(a)], y[np.isnan(a)])
+    )
+    print('d')
     return interp[np.newaxis, :]
 
 
@@ -537,138 +585,6 @@ def stretch_to_8bit(file, layer, dtype, aut_stretch=False):
     return np.nan_to_num(layer)
 
 
-def create_rgb_jpeg(
-        filelist,
-        outfile=None,
-        shrink_factor=1,
-        resampling_factor=5,
-        plot=False,
-        date=None,
-        filetype=None
-):
-    """
-
-    :param filelist:
-    :param outfile:
-    :param shrink_factor:
-    :param resampling_factor: 5 is average
-    :param plot:
-    :param date:
-    :param filetype:
-    :return:
-    """
-
-    import matplotlib.pyplot as plt
-
-    # convert file sto string
-    filelist = [str(file) for file in filelist]
-
-    with rio.open(filelist[0]) as src:
-        
-        # get metadata
-        out_meta = src.meta.copy()
-        dtype = src.meta['dtype']
-
-        # !!!assure that dimensions match ####
-        new_height = int(src.height/shrink_factor)
-        new_width = int(src.width/shrink_factor)
-        out_meta.update(height=new_height, width=new_width)
-        count = 1
-        
-        layer1 = src.read(
-                out_shape=(src.count, new_height, new_width),
-                resampling=resampling_factor
-                )[0]
-
-    if len(filelist) > 1:
-        with rio.open(filelist[1]) as src:
-            layer2 = src.read(
-                    out_shape=(src.count, new_height, new_width),
-                    resampling=resampling_factor
-                    )[0]
-            count = 3
-            
-    if len(filelist) == 2:    # that should be the BS ratio case
-
-        if dtype == 'float32':
-            layer3 = scale_to_int(np.subtract(layer1, layer2), 1, 15, 'uint8')
-        else:
-            layer3 = scale_to_int(
-                np.subtract(
-                    rescale_to_float(layer1, dtype),
-                    rescale_to_float(layer2, dtype)
-                ),
-                1, 15, 'uint8'
-            )
-
-    elif len(filelist) == 3:
-        # that's the full 3layer case
-        with rio.open(filelist[2]) as src:
-            layer3 = src.read(
-                    out_shape=(src.count, new_height, new_width),
-                    resampling=resampling_factor
-                    )[0]
-
-            layer3 = stretch_to_8bit(filelist[2], layer3, dtype)
-
-    elif len(filelist) > 3:
-        return RuntimeError(
-            'Not more than 3 bands allowed for creation of RGB file'
-        )
-
-    # create empty array
-    arr = np.zeros(
-        (int(out_meta['height']), int(out_meta['width']), int(count))
-    )
-
-    # fill array with layers
-    arr[:, :, 0] = stretch_to_8bit(filelist[0], layer1, dtype)
-    if len(filelist) > 1:
-        arr[:, :, 1] = stretch_to_8bit(filelist[1], layer2, dtype)
-        arr[:, :, 2] = layer3
-
-    # transpose array to gdal format
-    arr = np.transpose(arr, [2, 0, 1])
-
-    # update outfile's metadata
-    filetype = filetype if filetype else 'JPEG'
-    out_meta.update({'driver': filetype, 'dtype': 'uint8', 'count': count})
-
-    if outfile:     # write array to disk
-        with rio.open(outfile, 'w', **out_meta) as out:
-            out.write(arr.astype('uint8'))
-            
-        if date:
-
-            # convert date to human readable
-            if len(date) > 6:
-                start, end = date.split('-')
-                start = datetime.strptime(start, '%y%m%d')
-                start = datetime.strftime(start, '%d.%m.%Y')
-                end = datetime.strptime(end, '%y%m%d')
-                end = datetime.strftime(end, '%d.%m.%Y')
-                date = f'Mosaic: {start}-{end}'
-            else:
-                date = datetime.strptime(date, '%y%m%d')
-                date = f'Image from: {datetime.strftime(date, "%d.%m.%Y")}'
-
-            # calculate label height on the basis of the image width
-            label_height = np.floor(np.divide(int(out_meta['height']), 15))
-
-            # create imagemagick command
-            cmd = (
-                f'convert -background \'#0008\' -fill white -gravity center '
-                f'-size {out_meta["width"]}x{label_height} '
-                f'caption:\"{date}\" {outfile} +swap -gravity north '
-                f'-composite {outfile}'
-            )
-            # and execute
-            h.run_command(cmd, f'{outfile}.log', elapsed=False)
-            
-    if plot:
-        plt.imshow(arr)
-
-
 def combine_timeseries(processing_dir, config_dict, timescan=True):
 
     # namespaces for folder
@@ -782,6 +698,152 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
         create_tscan_vrt(tscan_dir, config_dict)
 
 
+def create_rgb_jpeg(
+        filelist,
+        outfile=None,
+        shrink_factor=1,
+        resampling_factor=5,
+        plot=False,
+        date=None,
+        filetype=None
+):
+    """
+
+    :param filelist:
+    :param outfile:
+    :param shrink_factor:
+    :param resampling_factor: 5 is average
+    :param plot:
+    :param date:
+    :param filetype:
+    :return:
+    """
+
+    import matplotlib.pyplot as plt
+
+    # convert file sto string
+    filelist = [str(file) for file in filelist]
+
+    with rio.open(filelist[0]) as src:
+
+        # get metadata
+        out_meta = src.meta.copy()
+        dtype = src.meta['dtype']
+
+        # !!!assure that dimensions match ####
+        new_height = int(src.height / shrink_factor)
+        new_width = int(src.width / shrink_factor)
+        out_meta.update(height=new_height, width=new_width)
+        count = 1
+
+        layer1 = src.read(
+            out_shape=(src.count, new_height, new_width),
+            resampling=resampling_factor
+        )[0]
+
+    if len(filelist) > 1:
+        with rio.open(filelist[1]) as src:
+            layer2 = src.read(
+                out_shape=(src.count, new_height, new_width),
+                resampling=resampling_factor
+            )[0]
+            count = 3
+
+    if len(filelist) == 2:  # that should be the BS ratio case
+
+        if dtype == 'float32':
+            layer3 = scale_to_int(np.subtract(layer1, layer2), 1, 15, 'uint8')
+        else:
+            layer3 = scale_to_int(
+                np.subtract(
+                    rescale_to_float(layer1, dtype),
+                    rescale_to_float(layer2, dtype)
+                ),
+                1, 15, 'uint8'
+            )
+
+    elif len(filelist) == 3:
+        # that's the full 3layer case
+        with rio.open(filelist[2]) as src:
+            layer3 = src.read(
+                out_shape=(src.count, new_height, new_width),
+                resampling=resampling_factor
+            )[0]
+
+            layer3 = stretch_to_8bit(filelist[2], layer3, dtype)
+
+    elif len(filelist) > 3:
+        return RuntimeError(
+            'Not more than 3 bands allowed for creation of RGB file'
+        )
+
+    # create empty array
+    arr = np.zeros(
+        (int(out_meta['height']), int(out_meta['width']), int(count))
+    )
+
+    # fill array with layers
+    arr[:, :, 0] = stretch_to_8bit(filelist[0], layer1, dtype)
+    if len(filelist) > 1:
+        arr[:, :, 1] = stretch_to_8bit(filelist[1], layer2, dtype)
+        arr[:, :, 2] = layer3
+
+    # transpose array to gdal format
+    arr = np.transpose(arr, [2, 0, 1])
+
+    # update outfile's metadata
+    filetype = filetype if filetype else 'JPEG'
+    out_meta.update({'driver': filetype, 'dtype': 'uint8', 'count': count})
+
+    if outfile:  # write array to disk
+        with rio.open(outfile, 'w', **out_meta) as out:
+            out.write(arr.astype('uint8'))
+
+        if date:
+
+            # convert date to human readable
+            # for mosaic or coherence case
+            if len(date) > 6:
+                try:
+                    start, end = date.split('-')
+                    string = 'Mosaic'
+                    try:
+                        start = start.split('_')[0]
+                        end = end.split('_')[1]
+                        string = 'Coh. Mosaic'
+                    except:
+                        pass
+                except ValueError:
+                    start, end = date.split('_')
+                    string = 'Intf. Coherence'
+
+                start = datetime.strptime(start, '%y%m%d')
+                start = datetime.strftime(start, '%d.%m.%Y')
+                end = datetime.strptime(end, '%y%m%d')
+                end = datetime.strftime(end, '%d.%m.%Y')
+                date = f'{string}: {start}-{end}'
+            # for single date
+            else:
+                date = datetime.strptime(date, '%y%m%d')
+                date = f'Image from: {datetime.strftime(date, "%d.%m.%Y")}'
+
+            # calculate label height on the basis of the image width
+            label_height = np.floor(np.divide(int(out_meta['height']), 15))
+
+            # create imagemagick command
+            cmd = (
+                f'convert -background \'#0008\' -fill white -gravity center '
+                f'-size {out_meta["width"]}x{label_height} '
+                f'caption:\"{date}\" {outfile} +swap -gravity north '
+                f'-composite {outfile}'
+            )
+            # and execute
+            h.run_command(cmd, f'{outfile}.log', elapsed=False)
+
+    if plot:
+        plt.imshow(arr)
+
+
 def create_timeseries_animation(
         timeseries_folder,
         product_list,
@@ -799,8 +861,8 @@ def create_timeseries_animation(
     )
 
     # for coherence it must be one less
-    if 'coh.VV' in product_list or 'coh.VH' in product_list:
-        nr_of_products = nr_of_products - 1
+    #if 'coh.VV' in product_list or 'coh.VH' in product_list:
+    #    nr_of_products = nr_of_products - 1
 
     outfiles = []
     for i in range(nr_of_products):

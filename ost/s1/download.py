@@ -57,8 +57,8 @@ def restore_download_dir(input_directory, download_dir):
             scene.rename(file_path)
         
             # add downloaded (should be zip checked in future)
-            with open(file_path.with_suffix('.downloaded', 'w+')) as f:
-                f.close()
+            with open(file_path.with_suffix('.downloaded', 'w+')) as file:
+                file.write('successfully downloaded \n')
         else:
             logger.info(
                 f'File {str(scene)} is corrupted and will not be moved.'

@@ -71,9 +71,9 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
         logger.debug(f'Converting to dB for {product}')
 
     if ard_mt['apply_ls_mask']:
-        extent = burst_dir.joinpath(f'{burst}.extent.masked.gpkg')
+        extent = burst_dir.joinpath(f'{burst}.valid.json')
     else:
-        extent = burst_dir.joinpath(f'{burst}.extent.gpkg')
+        extent = burst_dir.joinpath(f'{burst}.min_bounds.json')
 
     # -------------------------------------------
     # 5 SNAP processing
@@ -115,6 +115,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, None, None, None, error
+
         # run mt speckle filter
         if ard_mt['remove_mt_speckle'] is True:
 
@@ -190,13 +191,14 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
 
                 # fill internal values if any
-                with rasterio.open(str(infile), 'r') as src:
-                    meta = src.meta.copy()
-                    filled = ras.fill_internal_nans(src.read())
+                #with rasterio.open(str(infile), 'r') as src:
+                #    meta = src.meta.copy()
+                #    filled = ras.fill_internal_nans(src.read())
 
-                with rasterio.open(str(infile), 'w', **meta) as dest:
-                    dest.write(filled)
+                #with rasterio.open(str(infile), 'w', **meta) as dest:
+                #    dest.write(filled)
 
+                #print('filled')
                 # produce final outputfile,
                 # including dtype conversion and ls mask
                 ras.mask_by_shape(
@@ -238,14 +240,14 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 )
 
                 # fill internal nodata
-                if ard['image_type'] == 'SLC':
-                    with rasterio.open(str(infile), 'r') as src:
-                        meta = src.meta.copy()
-                        filled = ras.fill_internal_nans(src.read())
+                #if ard['image_type'] == 'SLC':
+                    #with rasterio.open(str(infile), 'r') as src:
+                    #    meta = src.meta.copy()
+                        #filled = ras.fill_internal_nans(src.read())
 
-                    with rasterio.open(str(infile), 'w', **meta) as dest:
-                        dest.write(filled)
-
+                    #with rasterio.open(str(infile), 'w', **meta) as dest:
+                    #    dest.write(filled)
+                    #print('filledbs')
                 # run conversion routine
                 ras.mask_by_shape(infile, outfile, extent,
                                   to_db=to_db,

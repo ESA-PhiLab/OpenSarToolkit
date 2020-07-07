@@ -119,7 +119,7 @@ def grd_to_ard(filelist, config_file):
                 # create namespace for import log
                 logfile = out_dir.joinpath(f'{file.stem}.Import.errLog')
 
-                # import frame
+                # frame import
                 try:
                     grd.grd_frame_import(
                         file, grd_import, logfile, config_dict
@@ -278,7 +278,7 @@ def grd_to_ard(filelist, config_file):
 
         # ---------------------------------------------------------------------
         # 4.5 Layover shadow mask
-        out_ls = None   # set to none for final return statement
+        out_ls = None  # set to none for final return statement
         if ard['create_ls_mask'] is True:
 
             # create namespace for temporary ls mask product
@@ -295,8 +295,9 @@ def grd_to_ard(filelist, config_file):
                 logger.info(error)
                 return filelist, None, None, error
 
-            # move to final destination
-            h.move_dimap(ls_mask, out_ls_mask, ard['to_tif'])
+            # polygonize
+            ls_raster = list(ls_mask.with_suffix('.data').glob('*img'))[0]
+            ras.polygonize_ls(ls_raster, ls_mask.with_suffix('.json'))
 
         # ---------------------------------------------------------------------
         # 4.6 Speckle filtering
@@ -392,11 +393,19 @@ def grd_to_ard(filelist, config_file):
         out_final = out_dir.joinpath(f'{file_id}_bs')
 
         # ---------------------------------------------------------------------
-        # 4.11 Move to output directory
-        ras.create_valid_data_extent(geocoded.with_suffix('.data'))
+        # 4.11 Create an outline
+        ras.image_bounds(geocoded.with_suffix('.data'))
 
         # ---------------------------------------------------------------------
-        # 4.11 Move to output directory
+        # 4.11 Copy LS Mask vector to data dir
+        if ard['create_ls_mask'] is True:
+            ls_mask.with_suffix('.json').rename(
+                geocoded.with_suffix('.data')
+                .joinpath(ls_mask.name).with_suffix('.json')
+            )
+
+        # ---------------------------------------------------------------------
+        # 4.12 Move to output directory
         h.move_dimap(geocoded, out_final, ard['to_tif'])
 
     # ---------------------------------------------------------------------
@@ -408,7 +417,6 @@ def grd_to_ard(filelist, config_file):
 
 
 def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
-
     if infile.suffix != '.dim':
         raise TypeError('File needs to be in BEAM-DIMAP format')
 
@@ -467,7 +475,6 @@ def ard_to_rgb(infile, outfile, driver='GTiff', to_db=True, shrink_factor=1):
                     cr_array = ras.convert_to_db(cr_array)
 
                 if driver == 'JPEG':
-
                     co_array = ras.scale_to_int(co_array, -20, 0, 'uint8')
                     cr_array = ras.scale_to_int(cr_array, -25, -5, 'uint8')
                     ratio_array = ras.scale_to_int(ratio_array, 1, 15, 'uint8')
