@@ -429,7 +429,7 @@ def timeseries_to_timescan(inventory_df, config_file):
         # loop thorugh each polarization
         for polar in ['VV', 'VH', 'HH', 'HV']:
 
-            if timescan_dir.joinpath(f'.{polar}.processed').exists():
+            if timescan_dir.joinpath(f'.bs.{polar}.processed').exists():
                 logger.info(f'Timescans for track {track} already processed.')
                 continue
 
