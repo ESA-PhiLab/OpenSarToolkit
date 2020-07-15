@@ -177,7 +177,11 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
 
     # get relevant config parameters
     cpus = config_dict['snap_cpu_parallelism']
-    subset = config_dict['subset']
+
+    try:
+        aoi = config_dict['aoi']
+    except KeyError:
+        aoi = ''
 
     logger.debug('Subsetting imported imagery.')
 
@@ -185,7 +189,7 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
     command = (
         f'{GPT_FILE} Subset -x -q {2*cpus} '
         f'-PcopyMetadata=true '
-        f'-PgeoRegion=\'{subset}\' '
+        f'-PgeoRegion=\'{aoi}\' '
         f'-Ssource=\'{str(infile)}\' '
         f'-t \'{str(outfile)}\''
     )

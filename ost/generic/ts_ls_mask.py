@@ -130,7 +130,6 @@ def mt_layover(list_of_ls):
     logger.info(
         f'Creating common Layover/Shadow mask for track {target_dir.name}.'
     )
-    logger.info(f'and writing to {outfile}')
 
     for i, file in enumerate(list_of_ls):
 

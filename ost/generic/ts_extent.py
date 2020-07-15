@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_extent(list_of_scenes, config_file):
+def mt_extent_old(list_of_scenes, config_file):
 
     with open(config_file) as file:
         config_dict = json.load(file)
@@ -66,7 +66,10 @@ def mt_extent(list_of_scenes, config_file):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_extent2(list_of_extents):
+def mt_extent(list_of_extents, config_file):
+
+    with open(config_file) as file:
+        config_dict = json.load(file)
 
     import warnings
     warnings.filterwarnings('ignore', 'GeoSeries.isna', UserWarning)
@@ -99,6 +102,15 @@ def mt_extent2(list_of_extents):
         else:
             raise RuntimeError('No extents found.')
 
-    df1.to_file(out_file, driver='GeoJSON')
+    if config_dict['processing']['mosaic']['cut_to_aoi']:
+
+        try:
+            aoi_df = vec.wkt_to_gdf(config_dict['aoi'])
+            df = gpd.overlay(aoi_df, df1, how='intersection')
+            df.to_file(out_file, driver='GPKG')
+        except ValueError as e:
+            df1.to_file(out_file, driver='GeoJSON')
+    else:
+        df1.to_file(out_file, driver='GeoJSON')
 
     return target_dir.name, list_of_extents, out_file

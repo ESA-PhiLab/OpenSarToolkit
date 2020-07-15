@@ -43,6 +43,7 @@ def grd_to_ard(filelist, config_file):
         ard = config_dict['processing']['single_ARD']
         processing_dir = Path(config_dict['processing_dir'])
         subset = config_dict['subset']
+        aoi = config_dict['aoi']
 
     # ----------------------------------------------------
     # 2 define final destination dir/file and ls mask
@@ -119,6 +120,8 @@ def grd_to_ard(filelist, config_file):
                 # create namespace for import log
                 logfile = out_dir.joinpath(f'{file.stem}.Import.errLog')
 
+                # set subset tempraoally to false for import routine
+                config_dict['subset'] = False
                 # frame import
                 try:
                     grd.grd_frame_import(
@@ -127,6 +130,8 @@ def grd_to_ard(filelist, config_file):
                 except (GPTRuntimeError, NotValidFileError) as error:
                     logger.info(error)
                     return filelist, None, None, error
+
+                config_dict['subset'] = subset
 
                 if unpack:
                     h.remove_folder_content(file)
@@ -168,7 +173,7 @@ def grd_to_ard(filelist, config_file):
                 try:
                     grd.grd_subset_georegion(
                         grd_import.with_suffix('.dim'), grd_subset, logfile,
-                        subset
+                        config_dict
                     )
                 except (GPTRuntimeError, NotValidFileError) as error:
                     logger.info(error)

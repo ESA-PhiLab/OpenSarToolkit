@@ -145,17 +145,17 @@ def ards_to_timeseries(inventory_df, config_file):
         ard_mt = config_dict['processing']['time-series_ARD']
 
     # create all extents
-    _create_extents2(inventory_df, config_file)
+    _create_extents(inventory_df, config_file)
 
     # update extents in case of ls_mask
     if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
-        _create_mt_ls_mask2(inventory_df, config_file)
+        _create_mt_ls_mask(inventory_df, config_file)
 
     # finally create time-series
     _create_timeseries(inventory_df, config_file)
 
 
-def _create_extents2(inventory_df, config_file):
+def _create_extents(inventory_df, config_file):
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
@@ -170,7 +170,7 @@ def _create_extents2(inventory_df, config_file):
         list_of_extents = list(track_dir.glob('*/*/*bounds.json'))
 
         # if extent does not already exist, add to iterable
-        if not track_dir.joinpath(f'{track}.bounds.json').exists():
+        if not track_dir.joinpath(f'{track}.min_bounds.json').exists():
             iter_list.append(list_of_extents)
 
     # now we run with godale, which works also with 1 worker
@@ -181,8 +181,9 @@ def _create_extents2(inventory_df, config_file):
 
     out_dict = {'track': [], 'list_of_scenes': [], 'extent': []}
     for task in executor.as_completed(
-            func=ts_extent.mt_extent2,
-            iterable=iter_list
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
     ):
         track, list_of_scenes, extent = task.result()
         out_dict['track'].append(track)
@@ -192,7 +193,7 @@ def _create_extents2(inventory_df, config_file):
     return pd.DataFrame.from_dict(out_dict)
 
 
-def _create_extents(inventory_df, config_file):
+def _create_extents_old(inventory_df, config_file):
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)
@@ -235,7 +236,7 @@ def _create_extents(inventory_df, config_file):
     return pd.DataFrame.from_dict(out_dict)
 
 
-def _create_mt_ls_mask2(inventory_df, config_file):
+def _create_mt_ls_mask(inventory_df, config_file):
     """Helper function to union the Layover/Shadow masks of a Time-series
 
     This function creates a
@@ -257,7 +258,9 @@ def _create_mt_ls_mask2(inventory_df, config_file):
         # get common burst extent
         list_of_masks = list(track_dir.glob('*/*/*_ls_mask.json'))
 
-        iter_list.append(list_of_masks)
+        # if extent does not already exist, add to iterable
+        if not track_dir.joinpath(f'{track}.ls_mask.json').exists():
+            iter_list.append(list_of_masks)
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
@@ -266,13 +269,13 @@ def _create_mt_ls_mask2(inventory_df, config_file):
     )
 
     for task in executor.as_completed(
-            func=ts_ls_mask.mt_layover2,
+            func=ts_ls_mask.mt_layover,
             iterable=iter_list
     ):
         task.result()
 
 
-def _create_mt_ls_mask(inventory_df, config_file):
+def _create_mt_ls_mask_old(inventory_df, config_file):
 
     with open(config_file, 'r') as file:
         config_dict = json.load(file)

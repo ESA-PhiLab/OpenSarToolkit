@@ -18,13 +18,11 @@ from ost.helpers import helpers as h
 
 logger = logging.getLogger(__name__)
 
-# suppress irrelevant numpy warnings
-with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-    warnings.filterwarnings('ignore', r'Mean of empty slice')
-
 
 def remove_outliers(arrayin, stddev=2, z_threshold=None):
+
+    warnings.filterwarnings('ignore', 'invalid value', RuntimeWarning)
+
     if z_threshold:
         z_score = np.abs(stats.zscore(arrayin))
         array_out = np.ma.MaskedArray(
@@ -169,6 +167,16 @@ def mt_metrics(
     :param datelist:
     :return:
     """
+
+    logger.info(
+        f'Creating timescan layers ({metrics}) of track/burst '
+        f'{out_prefix.parent.parent.name} for {out_prefix.name}'
+
+    )
+
+    warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
+    warnings.filterwarnings('ignore', r'Mean of empty slice')
+    warnings.filterwarnings('ignore', r'Degrees of freedom', RuntimeWarning)
 
     with rasterio.open(stack) as src:
 

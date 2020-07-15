@@ -439,16 +439,6 @@ def exterior(infile, outfile, buffer=None):
     gdf_clean.to_file(outfile, driver='GPKG')
 
 
-def aoi_intersection(aoi_wkt, infile2, outfile):
-
-    gdf1 = wkt_to_gdf(aoi_wkt)
-    gdf2 = gpd.read_file(infile2)
-
-    gdf3 = gpd.overlay(gdf1, gdf2, how='intersection')
-
-    gdf3.to_file(outfile, driver='GPKG')
-
-
 def difference(infile1, infile2, outfile):
 
     gdf1 = gpd.read_file(infile1)
