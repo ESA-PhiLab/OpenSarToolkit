@@ -310,7 +310,7 @@ def s1_download(uuid, filename, uname, pword,
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
-                   base_url='https://scihub.copernicus.eu/apihub/'):
+                   base_url='https://scihub.copernicus.eu/apihub'):
     """Batch download Sentinel-1 on the basis of an OST inventory GeoDataFrame
 
     :param inventory_df:

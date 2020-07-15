@@ -90,7 +90,7 @@ Before installation of OST, run the following line on the terminal to
 install further dependencies:
 
 ```
-sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs
+sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm
 ```
 
 then install OST as a global package (for all users, admin rights needed):
@@ -107,9 +107,10 @@ pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 
 run those commands to enable the correct display of progress bars
 ```
+sudo pip3 install jupyterlab
 # this is needed for the progress bar when downloading
-jupyter labextension install @jupyter-widgets/jupyterlab-manager
-jupyter nbextension enable --py widgetsnbextension
+sudo jupyter-labextension install @jupyter-widgets/jupyterlab-manager
+sudo jupyter nbextension enable --py widgetsnbextension
 ```
 
 ##### Mac OS (using homebrew/pip)

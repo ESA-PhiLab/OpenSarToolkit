@@ -3,6 +3,7 @@ fiona
 gdal
 godale
 geopandas
+jupyterlab
 matplotlib
 numpy
 pandas

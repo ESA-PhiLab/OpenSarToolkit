@@ -10,7 +10,7 @@ import requests
 import multiprocessing
 from pathlib import Path
 
-import tqdm.auto as tqdm
+import tqdm
 from retrying import retry
 from godale import Executor
 
@@ -57,8 +57,14 @@ def check_connection(uname, pword):
         return response.status_code
 
 
+def asf_download_parallel(argument_list):
+
+    url, filename, uname, pword = argument_list
+    asf_download(url, filename, uname, pword)
+
+
 @retry(stop_max_attempt_number=5, wait_fixed=5)
-def asf_download(argument_list):
+def asf_download(url, filename, uname, pword):
     """
     This function will download S1 products from ASF mirror.
     :param url: the url to the file you want to download
@@ -70,8 +76,8 @@ def asf_download(argument_list):
     """
 
     # extract list of args
-    url, filename, uname, pword = argument_list
-    filename = Path(filename)
+    if isinstance(filename, str):
+        filename = Path(filename)
 
     with requests.Session() as session:
 
@@ -166,7 +172,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                             executor='concurrent_processes')
 
         for task in executor.as_completed(
-                func=asf_download,
+                func=asf_download_parallel,
                 iterable=asf_list,
                 fargs=[]
         ):
@@ -189,56 +195,3 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                 raise DownloadError(
                     'ASF download is incomplete or has failed. Try to re-run.'
                 )
-
-
-def batch_download2(inventory_df, download_dir, uname, pword, concurrent=10):
-
-    from ost import Sentinel1Scene as S1Scene
-
-    # create list with scene ids to download
-    scenes = inventory_df['identifier'].tolist()
-
-    # initialize check variables and loop until fulfilled
-    check, i = False, 1
-    while check is False and i <= 10:
-
-        asf_list = []
-        for scene_id in scenes:
-
-            # initialize scene instance and get destination filepath
-            scene = S1Scene(scene_id)
-            file_path = scene.download_path(download_dir, True)
-
-            # check if already downloaded
-            if file_path.with_suffix('.downloaded').exists():
-                logger.info(f'{scene.scene_id} has been already downloaded.')
-                continue
-
-            # append to list
-            asf_list.append([scene.asf_url(), file_path, uname, pword])
-
-        # if list is not empty, do parallel download
-        if asf_list:
-            pool = multiprocessing.Pool(processes=concurrent)
-            pool.map(asf_download, asf_list)
-            pool.close()
-        # count downloaded scenes with its checked file
-        downloaded_scenes = len(list(download_dir.glob('**/*.downloaded')))
-
-        # if all have been downloaded then we are through
-        if len(inventory_df['identifier'].tolist()) == downloaded_scenes:
-            check = True
-            logger.info('All products are downloaded.')
-        # else we
-        else:
-            check = False
-            for scene in scenes:
-
-                # we check if outputfile exists...
-                scene = S1Scene(scene)
-                file_path = scene.download_path(download_dir)
-                if file_path.with_suffix('.downloaded').exists():
-                    # ...and remove from list of scenes to download
-                    scenes.remove(scene.scene_id)
-
-        i += 1

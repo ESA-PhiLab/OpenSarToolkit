@@ -33,7 +33,8 @@ RUN groupadd -r ost && \
         wget \
         unzip \
         imagemagick \
-        nodejs
+        nodejs \
+        npm
 
 RUN alias python=python3 && \
     rm -rf /var/lib/apt/lists/*  && \
