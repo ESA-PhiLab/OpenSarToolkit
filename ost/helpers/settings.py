@@ -158,9 +158,13 @@ def get_gpt():
             # we give up and ask the user
             gpt_file = input(' Please provide the full path to the SNAP'
                              ' gpt command line executable'
-                             ' (e.g. /path/to/snap/bin/gpt')
+                             ' (e.g. /path/to/snap/bin/gpt) or leave empty'
+                             'if you just want to use the '
+                             'OST inventory and download routines.')
 
-        if not Path(gpt_file).exists():
+        if not gpt_file:
+            gpt_file = ''
+        elif not Path(gpt_file).exists():
             raise FileNotFoundError('Given path to gpt does not exist.')
         else:
             # if file exists we copy to one of th epossible paths, so next time
