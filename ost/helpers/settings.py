@@ -159,8 +159,8 @@ def get_gpt():
             gpt_file = input(' Please provide the full path to the SNAP'
                              ' gpt command line executable'
                              ' (e.g. /path/to/snap/bin/gpt) or leave empty'
-                             'if you just want to use the '
-                             'OST inventory and download routines.')
+                             ' if you just want to use the'
+                             ' OST inventory and download routines.')
 
         if not gpt_file:
             gpt_file = ''
