@@ -211,6 +211,11 @@ def convert_to_db(pow_array):
     :return:
     """
 
+    import warnings
+    warnings.filterwarnings(
+        'ignore', 'invalid value encountered', RuntimeWarning
+    )
+
     # assure all values are positive (strangely that's not always the case)
     pow_array[pow_array < 0] = 0.0000001
 
@@ -231,6 +236,11 @@ def scale_to_int(float_array, min_value, max_value, data_type):
     :param data_type:
     :return:
     """
+
+    import warnings
+    warnings.filterwarnings(
+        'ignore', 'invalid value encountered', RuntimeWarning
+    )
 
     # set output min and max
     display_min = 1.

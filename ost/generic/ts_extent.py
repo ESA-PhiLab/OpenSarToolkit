@@ -68,6 +68,9 @@ def mt_extent(list_of_scenes, config_file):
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def mt_extent2(list_of_extents):
 
+    import warnings
+    warnings.filterwarnings('ignore', 'GeoSeries.isna', UserWarning)
+
     # get track/burst dir from first scene
     target_dir = list_of_extents[0].parent.parent.parent
     out_file = target_dir.joinpath(f'{target_dir.name}.min_bounds.json')

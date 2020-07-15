@@ -19,7 +19,7 @@ from ost.helpers import raster as ras, vector as vec
 logger = logging.getLogger(__name__)
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_layover(list_of_files, config_file):
+def mt_layover_old(list_of_files, config_file):
     """
 
     :param list_of_files:
@@ -116,8 +116,11 @@ def mt_layover(list_of_files, config_file):
 
     return burst_dir, list_of_files, outfile, extent_ls_masked
 
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def mt_layover(list_of_ls):
 
-def mt_layover2(list_of_ls):
+    import warnings
+    warnings.filterwarnings('ignore', 'GeoSeries.isna', UserWarning)
 
     target_dir = Path(list_of_ls[0]).parent.parent.parent
     bounds = target_dir.joinpath(f'{target_dir.name}.min_bounds.json')
