@@ -397,7 +397,8 @@ def check_availability(inventory_gdf, download_dir, data_mount):
 
 
 def scihub_catalogue(query_string, output, append=False,
-                     uname=None, pword=None):
+                     uname=None, pword=None,
+                     base_url='https://scihub.copernicus.eu/apihub'):
     """This is the main search function on scihub
 
     :param query_string:
@@ -412,9 +413,9 @@ def scihub_catalogue(query_string, output, append=False,
     output = str(output)
 
     # get connected to scihub
-    apihub = 'https://scihub.copernicus.eu/apihub/search?q='
-    opener = scihub.connect(uname, pword)
-    query = f'{apihub}{query_string}'
+    hub = f'{base_url}/search?q='
+    opener = scihub.connect(uname, pword, base_url)
+    query = f'{hub}{query_string}'
 
     # get the catalogue in a dict
     gdf = _query_scihub(opener, query)
@@ -434,6 +435,7 @@ def scihub_catalogue(query_string, output, append=False,
 if __name__ == "__main__":
 
     import argparse
+    import urllib
     from ost.helpers import helpers
 
     # get the current date
@@ -511,7 +513,9 @@ if __name__ == "__main__":
                                                    ARGS.polarisation,
                                                    ARGS.beam)
 
-    QUERY = scihub.create_query('Sentinel-1', AOI, TOI, PRODUCT_SPECS)
 
+    QUERY = urllib.parse.quote(
+        f'Sentinel-1 AND {PRODUCT_SPECS} AND {AOI} AND {TOI}'
+    )
     # execute full search
     scihub_catalogue(QUERY, ARGS.output, ARGS.username, ARGS.password)

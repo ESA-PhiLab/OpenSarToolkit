@@ -133,6 +133,11 @@ def download_sentinel1(
         error_code = onda.check_connection(uname, pword)
     # elif int(mirror) == 5:
     #    error_code = asf_wget.check_connection(uname, pword)
+    # hidden option for downloading from czech mirror
+    elif int(mirror) == 321:
+       error_code = scihub.check_connection(
+           uname, pword, base_url='https://dhr1.cesnet.cz/'
+       )
     else:
         raise ValueError('No valid mirror selected')
 
@@ -154,6 +159,10 @@ def download_sentinel1(
     elif int(mirror) == 4:   # ONDA DIAS
         onda.batch_download(inventory_df, download_dir,
                             uname, pword, concurrent)
+    if int(mirror) == 321:    # scihub czech mirror
+        scihub.batch_download(inventory_df, download_dir,
+                              uname, pword, concurrent,
+                              base_url='https://dhr1.cesnet.cz/')
     # elif int(mirror) == 5:    # ASF WGET
     #    asf_wget.batch_download(inventory_df, download_dir,
     #                            uname, pword, concurrent)

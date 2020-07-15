@@ -224,10 +224,13 @@ class Sentinel1(Generic):
 
     # ------------------------------------------
     # methods
-    def search(self, outfile=OST_INVENTORY_FILE, append=False):
+    def search(self, outfile=OST_INVENTORY_FILE, append=False,
+               base_url='https://scihub.copernicus.eu/apihub/'):
         """High Level search function
+
         :param outfile:
         :param append:
+        :param base_url:
         :return:
         """
 
@@ -261,7 +264,7 @@ class Sentinel1(Generic):
 
         search.scihub_catalogue(
             query, self.inventory_file, append,
-            self.scihub_uname, self.scihub_pword
+            self.scihub_uname, self.scihub_pword, base_url
         )
 
         if self.inventory_file.exists():

@@ -35,13 +35,16 @@ def ask_credentials():
     return uname, pword
 
 
-def connect(uname=None, pword=None):
+def connect(uname=None, pword=None,
+            base_url='https://scihub.copernicus.eu/apihub/'):
     """Generates an opener for the Copernicus apihub/dhus
     
+
     :param uname: username of Copernicus' scihub
     :type uname: str
     :param pword: password of Copernicus' scihub
     :type pword: str
+    :param base_url:
     :return: an urllib opener instance for Copernicus' scihub
     :rtype: opener object
     """
@@ -53,8 +56,6 @@ def connect(uname=None, pword=None):
 
     if not pword:
         pword = getpass.getpass(' Your Copernicus Scihub Password:')
-
-    base_url = 'https://scihub.copernicus.eu/apihub/'
 
     # create opener
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
@@ -185,46 +186,57 @@ def create_s1_product_specs(product_type='*', polarisation='*', beam='*'):
     )
 
 
-def check_connection(uname, pword):
+def check_connection(uname, pword,
+                     base_url='https://scihub.copernicus.eu/apihub'):
     """Check if a connection with scihub can be established
 
     :param uname:
     :param pword:
+    :param base_url:
     :return:
     """
 
-    # we use some random url for checking
-    url = ('https://scihub.copernicus.eu/apihub/odata/v1/Products?'
-           '$select=Id&$filter=substringof(%27_20171113T010515_%27,Name)')
+    # we use some random url for checking (also for czech mirror)
+    url = (
+        f'{base_url}/odata/v1/Products?'
+        '$select=Id&$filter=substringof(%27_20200714T165921_%27,Name)'
+    )
+
     response = requests.get(url, auth=(uname, pword))
     return response.status_code
 
 
-def s1_download(argument_list):
+def s1_download_parallel(argument_list):
+    """Helper function for parallel download from scihub
+    """
+
+    uuid, filename, uname, pword, base_url = argument_list
+    s1_download(uuid, filename, uname, pword, base_url)
+
+
+def s1_download(uuid, filename, uname, pword,
+                base_url='https://scihub.copernicus.eu/apihub'):
     """Single scene download function for Copernicus scihub/apihub
     
-    :param argument_list:
-        a list with 4 entries (this is used to enable parallel execution)
-                      argument_list[0]: product's uuid
-                      argument_list[1]: local path for the download
-                      argument_list[2]: username of Copernicus' scihub
-                      argument_list[3]: password of Copernicus' scihub
+    :param uuid: product's uuid
+    :param filename: local path for the download
+    :param uname: username of Copernicus' scihub
+    :param pword: password of Copernicus' scihub
+    :param base_url:
+
     :return: 
     """
 
     # get out the arguments
-    uuid, filename, uname, pword = argument_list
-    filename = Path(filename)
+    if isinstance(filename, str):
+        filename = Path(filename)
 
     # ask for credentials in case they are not defined as input
     if not uname or not pword:
         ask_credentials()
 
     # define url
-    url = (
-        f'https://scihub.copernicus.eu/apihub/odata/v1/'
-        f'Products(\'{uuid}\')/$value'
-    )
+    url = f'{base_url}/odata/v1/Products(\'{uuid}\')/$value'
 
     # get first response for file Size
     response = requests.get(url, stream=True, auth=(uname, pword))
@@ -297,7 +309,8 @@ def s1_download(argument_list):
                 file.write('successfully downloaded \n')
 
 
-def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
+def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
+                   base_url='https://scihub.copernicus.eu/apihub/'):
     """Batch download Sentinel-1 on the basis of an OST inventory GeoDataFrame
 
     :param inventory_df:
@@ -305,6 +318,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
     :param uname:
     :param pword:
     :param concurrent:
+    :param base_url:
 
     :return:
     """
@@ -332,18 +346,20 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
                 )
             except KeyError:
                 uuid = [scene.scihub_uuid(
-                    scihub.connect(uname=uname, pword=pword)
+                    connect(uname=uname, pword=pword, base_url=base_url)
                 )]
 
             if Path(f'{filepath}.downloaded').exists():
                 logger.debug(f'{scene.scene_id} is already downloaded.')
             else:
                 # create list objects for download
-                download_list.append([uuid[0], filepath, uname, pword])
+                download_list.append(
+                    [uuid[0], filepath, uname, pword, base_url]
+                )
 
         if download_list:
             pool = multiprocessing.Pool(processes=concurrent)
-            pool.map(s1_download, download_list)
+            pool.map(s1_download_parallel, download_list)
 
         downloaded_scenes = list(download_dir.glob('**/*.downloaded'))
 
