@@ -36,7 +36,7 @@ def ask_credentials():
 
 
 def connect(uname=None, pword=None,
-            base_url='https://scihub.copernicus.eu/apihub/'):
+            base_url='https://scihub.copernicus.eu/apihub'):
     """Generates an opener for the Copernicus apihub/dhus
     
 
@@ -202,7 +202,7 @@ def check_connection(uname, pword,
         '$select=Id&$filter=substringof(%27_20200714T165921_%27,Name)'
     )
 
-    response = requests.get(url, auth=(uname, pword))
+    response = requests.get(url, auth=(uname, pword), stream=True)
     return response.status_code
 
 

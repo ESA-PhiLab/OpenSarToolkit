@@ -73,7 +73,7 @@ def check_connection(uname, pword):
 
     response = requests.get(
         'https://peps.cnes.fr/rocket/#/search?view=list&maxRecords=50',
-        auth=(uname, pword)
+        auth=(uname, pword), stream=True
     )
 
     return response.status_code

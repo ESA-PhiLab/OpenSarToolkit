@@ -74,10 +74,9 @@ def check_connection(uname, pword):
     # we use some random url for checking
     url = (
         'https://catalogue.onda-dias.eu/dias-catalogue/'
-        'Products(67c39b70-85c8-43b0-842a-e2df70bf1cf5)/$value'
+        'Products(ee89ad93-c6ab-4eb3-b698-4585b4af3ca0)/$value'
     )
-    response = requests.get(url, auth=(uname, pword))
-    print(response.status_code)
+    response = requests.get(url, auth=(uname, pword), stream=True)
     return response.status_code
 
 

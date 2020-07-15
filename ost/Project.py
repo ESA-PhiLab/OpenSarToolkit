@@ -225,7 +225,7 @@ class Sentinel1(Generic):
     # ------------------------------------------
     # methods
     def search(self, outfile=OST_INVENTORY_FILE, append=False,
-               base_url='https://scihub.copernicus.eu/apihub/'):
+               base_url='https://scihub.copernicus.eu/apihub'):
         """High Level search function
 
         :param outfile:

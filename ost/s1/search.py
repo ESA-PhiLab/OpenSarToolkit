@@ -416,7 +416,7 @@ def scihub_catalogue(query_string, output, append=False,
     hub = f'{base_url}/search?q='
     opener = scihub.connect(uname, pword, base_url)
     query = f'{hub}{query_string}'
-
+    
     # get the catalogue in a dict
     gdf = _query_scihub(opener, query)
 
