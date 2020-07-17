@@ -107,7 +107,7 @@ class Sentinel1Scene:
         self.rgb_thumbnail = None
 
         # set initial ARD parameters to ard_type
-        self.ard_parameters = self.get_ard_parameters(ard_type)
+        self.get_ard_parameters(ard_type)
         self.config_dict = dict(processing=self.ard_parameters)
         self.config_file = None
 
@@ -674,9 +674,7 @@ class Sentinel1Scene:
         )
         # open and load parameters
         with open(template_file, 'r') as ard_file:
-            ard_parameters = json.load(ard_file)['processing']
-
-        return ard_parameters
+            self.ard_parameters = json.load(ard_file)['processing']
 
     def update_ard_parameters(self, ard_type=None):
         """
@@ -697,8 +695,9 @@ class Sentinel1Scene:
         )
 
         # dump to json file
-        with open(self.config_file, 'w') as outfile:
-            json.dump(self.config_dict, outfile, indent=4)
+        if self.config_file:
+            with open(self.config_file, 'w') as outfile:
+                json.dump(self.config_dict, outfile, indent=4)
 
     def set_external_dem(self, dem_file, ellipsoid_correction=True):
         """

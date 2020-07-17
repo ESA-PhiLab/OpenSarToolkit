@@ -2,7 +2,7 @@
     "processing": {
         "single_ARD": {
             "image_type": "GRD",
-            "type": "OST-GTC",
+            "ard_type": "OST-GTC",
             "resolution": 20,
             "remove_border_noise": true,
             "product_type": "GTC-gamma0",
@@ -24,8 +24,8 @@
                 "damping": 2,
                 "pan_size": 50
             },
-            "create_ls_mask": true,
-
+            "create_ls_mask": false,
+            "apply_ls_mask": false,
             "dem": {
                 "dem_name": "SRTM 1Sec HGT",
                 "dem_file": "",

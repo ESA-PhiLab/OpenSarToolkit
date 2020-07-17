@@ -43,7 +43,6 @@ def grd_to_ard(filelist, config_file):
         ard = config_dict['processing']['single_ARD']
         processing_dir = Path(config_dict['processing_dir'])
         subset = config_dict['subset']
-        aoi = config_dict['aoi']
 
     # ----------------------------------------------------
     # 2 define final destination dir/file and ls mask

@@ -2,7 +2,7 @@
     "processing": {
         "single_ARD": {
             "image_type": "GRD",
-            "type": "Earth Engine",
+            "ard_type": "Earth-Engine",
             "resolution": 10,
             "remove_border_noise": true,
             "product_type": "GTC-sigma0",

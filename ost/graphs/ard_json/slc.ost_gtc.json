@@ -2,7 +2,7 @@
     "processing": {
         "single_ARD": {
             "image_type": "SLC",
-            "type": "OST-GTC",
+            "ard_type": "OST-GTC",
             "resolution": 20,
             "backscatter": true,
             "product_type": "GTC-gamma0",

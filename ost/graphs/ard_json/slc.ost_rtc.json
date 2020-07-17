@@ -2,7 +2,7 @@
     "processing": {
         "single_ARD": {
             "image_type": "SLC",
-            "type": "OST-RTC",
+            "ard_type": "OST-RTC",
             "resolution": 10,
             "backscatter": true,
             "product_type": "RTC-gamma0",

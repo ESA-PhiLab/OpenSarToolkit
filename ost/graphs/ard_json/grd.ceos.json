@@ -2,7 +2,7 @@
     "processing_parameters": {
         "single_ARD": {
             "image_type": "GRD",
-            "type": "CEOS",
+            "ard_type": "CEOS",
             "resolution": 10,
             "remove_border_noise": true,
             "product_type": "RTC-gamma0",

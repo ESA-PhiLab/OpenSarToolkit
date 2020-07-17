@@ -196,7 +196,9 @@ HERBERT_USER = {'uname': 'herbert_thethird',
 
 config_check = dict({
     'image_type':  {'type': str, 'choices': ['GRD', 'SLC']},
-    'type': {'type': str, 'choices': ['OST-GTC', 'OST-RTC']},
+    'ard_type': {'type': str, 'choices':
+        ['OST-GTC', 'OST-RTC', 'Earth-Engine', 'CEOS']
+             },
     'resolution': {'type': int, 'choices': range(10, 5000)},
     'backscatter': {'type': bool},
     'remove_border_noise': {'type': bool},
