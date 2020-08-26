@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import gdal
 import json
 import shutil
@@ -134,29 +133,75 @@ def gd_mosaic(list_of_args):
     mosaic(filelist, outfile, config_file)
 
 
+def _burst_list(track, date, product, subswath, config_dict):
+
+    from shapely.wkt import loads
+    import geopandas as gpd
+
+    aoi = loads(config_dict['aoi'])
+    processing_dir = Path(config_dict['processing_dir'])
+
+    # adjust search pattern in case of coherence
+    search_last = f'*.{product}.tif' if 'coh' in product else f'{product}.tif'
+
+    # search for all bursts within subswath(s) in time-series
+    list_of_files = list(processing_dir.glob(
+            f'[A,D]{track}_{subswath}*/Timeseries/'
+            f'*.{date}.{search_last}'
+        ))
+
+    # search for timescans (in case timeseries not found)
+    if not list_of_files:
+
+        list_of_files = list(processing_dir.glob(
+            f'[A,D]{track}_{subswath}*/Timescan/'
+            f'*.{product}.{date}.tif'
+        ))
+
+    if not list_of_files:
+        return None
+
+    # get a list of all extent files to check for real AOI overlap
+    if config_dict['processing']['time-series_ARD']['apply_ls_mask']:
+        list_of_extents = processing_dir.glob(
+            f'*{track}_{subswath}*/*{track}*.valid.json'
+        )
+    else:
+        list_of_extents = processing_dir.glob(
+            f'*{track}_{subswath}*/*{track}*.min_bounds.json'
+        )
+
+    list_of_actual_extents = []
+    for burst_extent in list_of_extents:
+
+        burst = gpd.read_file(burst_extent)
+        if any(burst.intersects(aoi)):
+
+            burst_name = Path(str(burst_extent).split('.')[-3]).name
+            list_of_actual_extents.append(burst_name)
+
+    # filter the bursts for real AOI overlap
+    list_of_files = [
+        file for file in list_of_files for pattern in list_of_actual_extents
+        if pattern in str(file)
+    ]
+
+    # and join them into a otb readable list
+    list_of_files = ' '.join([str(file) for file in list_of_files])
+    return list_of_files
+
+
 def mosaic_slc_acquisition(track, date, product, outfile, config_file):
 
     # -------------------------------------
     # 1 load project config
     with open(config_file, 'r') as ard_file:
         config_dict = json.load(ard_file)
-        processing_dir = Path(config_dict['processing_dir'])
         temp_dir = Path(config_dict['temp_dir'])
 
-    if 'coh' in product:
-        search_last = f'*.{product}.tif'
-    else:
-        search_last = f'{product}.tif'
-    # search for bursts with IW1 and IW 2
-    list_of_iw12 = processing_dir.glob(
-        f'*{track}_IW[1,2]*/Timeseries/'
-        f'*.{date}.{search_last}'
-    )
-
-    # and join them into a otb readable list
-    list_of_iw12 = ' '.join(
-        [str(file) for file in list(list_of_iw12)]
-    )
+    # create a list of bursts that actually overlap theAOI
+    list_of_iw12 = _burst_list(track, date, product, 'IW[1,2]', config_dict)
+    list_of_iw3 = _burst_list(track, date, product, 'IW3', config_dict)
 
     if list_of_iw12:
         logger.info(
@@ -165,13 +210,6 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
         )
         temp_iw12 = temp_dir.joinpath(f'{date}_{track}_{product}_IW1_2.tif')
         mosaic(list_of_iw12, temp_iw12, config_file, harm=False)
-
-    list_of_iw3 = processing_dir.glob(
-        f'*{track}_IW3*/Timeseries/*.{date}.{search_last}'
-    )
-    list_of_iw3 = ' '.join(
-        [str(file) for file in list(list_of_iw3)]
-    )
 
     if list_of_iw3:
         logger.info(
@@ -186,6 +224,9 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
             ' '.join([str(temp_iw12), str(temp_iw3)]), outfile, config_file,
             False, harm=True
         )
+
+        temp_iw12.unlink()
+        temp_iw3.unlink()
     elif list_of_iw12 and not list_of_iw3:
         shutil.move(temp_iw12, outfile)
     elif not list_of_iw12 and list_of_iw3:

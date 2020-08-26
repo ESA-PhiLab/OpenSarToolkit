@@ -1,5 +1,5 @@
 {
-    "processing_parameters": {
+    "processing": {
         "single_ARD": {
             "image_type": "GRD",
             "ard_type": "CEOS",

@@ -553,9 +553,9 @@ class Sentinel1Batch(Sentinel1):
         )
         # open and load parameters
         with open(template_file, 'r') as ard_file:
-            ard_parameters = json.load(ard_file)['processing']
+            self.ard_parameters = json.load(ard_file)['processing']
 
-        return ard_parameters
+        # return ard_parameters
 
     def update_ard_parameters(self, ard_type=None):
 
@@ -734,8 +734,10 @@ class Sentinel1Batch(Sentinel1):
 
         # --------------------------------------------
         # 9 mosaic the timescans
-        #if mosaic and timescan:
-        #    burst_batch.mosaic_timescan(self.config_file)
+        if mosaic and timescan:
+            burst_batch.mosaic_timescan(
+                self.burst_inventory, self.config_file
+            )
 
         # return tseries_df
 

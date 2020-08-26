@@ -172,7 +172,7 @@ def calibration(
         infile,
         outfile,
         logfile,
-        config_dict,
+        config_dict
 ):
     """A wrapper around SNAP's radiometric calibration
 

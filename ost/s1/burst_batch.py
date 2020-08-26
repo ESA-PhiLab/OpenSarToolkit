@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 from godale._concurrent import Executor
 
-from ost.helpers import raster as ras
+from ost.helpers import raster as ras, helpers as h
 from ost.s1.burst_inventory import prepare_burst_inventory
 from ost.s1.burst_to_ard import burst_to_ard
 from ost.generic import ard_to_ts, ts_extent, ts_ls_mask, timescan, mosaic
@@ -98,7 +98,7 @@ def bursts_to_ards(
     return pd.DataFrame.from_dict(out_dict)
 
 
-def _create_extents2(burst_gdf, config_file):
+def _create_extents(burst_gdf, config_file):
     """Batch processing for multi-temporal Layover7Shadow mask
 
      This function handles the organization of the
@@ -133,8 +133,9 @@ def _create_extents2(burst_gdf, config_file):
 
     out_dict = {'burst': [], 'list_of_scenes': [], 'extent': []}
     for task in executor.as_completed(
-            func=ts_extent.mt_extent2,
-            iterable=iter_list
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
     ):
         track, list_of_scenes, extent = task.result()
         out_dict['burst'].append(track)
@@ -142,7 +143,7 @@ def _create_extents2(burst_gdf, config_file):
         out_dict['extent'].append(extent)
 
 
-def _create_extents(burst_gdf, config_file):
+def _create_extents_old(burst_gdf, config_file):
     """Batch processing for multi-temporal Layover7Shadow mask
 
     This function handles the organization of the
@@ -188,7 +189,7 @@ def _create_extents(burst_gdf, config_file):
         task.result()
 
 
-def _create_mt_ls_mask2(burst_gdf, config_file):
+def _create_mt_ls_mask(burst_gdf, config_file):
     """Helper function to union the Layover/Shadow masks of a Time-series
 
     This function creates a
@@ -221,13 +222,13 @@ def _create_mt_ls_mask2(burst_gdf, config_file):
     )
 
     for task in executor.as_completed(
-            func=ts_ls_mask.mt_layover2,
+            func=ts_ls_mask.mt_layover,
             iterable=iter_list
     ):
         task.result()
 
 
-def _create_mt_ls_mask(burst_gdf, config_file):
+def _create_mt_ls_mask_old(burst_gdf, config_file):
     """Batch processing for multi-temporal Layover/Shadow mask
 
     This function handles the organization of the
@@ -365,11 +366,11 @@ def ards_to_timeseries(burst_gdf, config_file):
         ard_mt = ard_params['time-series_ARD']
 
     # create all extents
-    _create_extents2(burst_gdf, config_file)
+    _create_extents(burst_gdf, config_file)
 
     # update extents in case of ls_mask
     if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
-        _create_mt_ls_mask2(burst_gdf, config_file)
+        _create_mt_ls_mask(burst_gdf, config_file)
 
     # finally create time-series
     df = _create_timeseries(burst_gdf, config_file)
@@ -524,13 +525,16 @@ def mosaic_timeseries(burst_inventory, config_file):
                             f'{i}.{date}.{dates[i + 1]}.{track}.{product}.tif'
                         )
                     except IndexError:
-                        pass
+                        temp_acq = None
                 else:
                     temp_acq = temp_mosaic.joinpath(
                         f'{i}.{date}.{track}.{product}.tif'
                     )
 
-                iter_list.append([track, date, product, temp_acq, config_file])
+                if temp_acq:
+                    iter_list.append(
+                        [track, date, product, temp_acq, config_file]
+                    )
 
     # now we run with godale, which works also with 1 worker
     executor = Executor(
@@ -538,7 +542,7 @@ def mosaic_timeseries(burst_inventory, config_file):
         max_workers=config_dict['max_workers']
     )
 
-    ## run vrt creation
+    # run vrt creation
     for task in executor.as_completed(
             func=mosaic.gd_mosaic_slc_acquisition,
             iterable=iter_list
@@ -622,8 +626,125 @@ def mosaic_timeseries(burst_inventory, config_file):
     ):
         task.result()
 
+    # remove temp folder
+    h.remove_folder_content(temp_mosaic)
 
-def mosaic_timescan(config_file):
+
+def mosaic_timescan(burst_inventory, config_file):
+    """
+
+    :param burst_inventory:
+    :param config_file:
+    :return:
+    """
+
+    print(' -----------------------------------------------------------------')
+    logger.info('Mosaicking time-scan layers.')
+    print(' -----------------------------------------------------------------')
+
+    # -------------------------------------
+    # 1 load project config
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
+        metrics = config_dict['processing']['time-scan_ARD']['metrics']
+
+    if 'harmonics' in metrics:
+        metrics.remove('harmonics')
+        metrics.extend(['amplitude', 'phase', 'residuals'])
+
+    if 'percentiles' in metrics:
+        metrics.remove('percentiles')
+        metrics.extend(['p95', 'p5'])
+
+    # create output folder
+    ts_dir = processing_dir.joinpath('Mosaic/Timescan')
+    ts_dir.mkdir(parents=True, exist_ok=True)
+
+    temp_mosaic = processing_dir.joinpath('Mosaic/temp')
+    temp_mosaic.mkdir(parents=True, exist_ok=True)
+    # -------------------------------------
+    # 2 create iterable
+    # loop through each product
+    iter_list, vrt_iter_list = [], []
+    for product, metric in itertools.product(PRODUCT_LIST, metrics):
+
+        for track in burst_inventory.Track.unique():
+
+            filelist = list(processing_dir.glob(
+                f'[A,D]{track}_IW*/Timescan/*{product}.{metric}.tif'
+            ))
+
+            if not len(filelist) >= 1:
+                continue
+
+            temp_acq = temp_mosaic.joinpath(
+                f'{track}.{product}.{metric}.tif'
+            )
+
+            if temp_acq:
+                iter_list.append(
+                    [track, metric, product, temp_acq, config_file]
+                )
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run vrt creation
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic_slc_acquisition,
+            iterable=iter_list
+    ):
+        task.result()
+
+    iter_list, vrt_iter_list = [], []
+    for product, metric in itertools.product(PRODUCT_LIST, metrics):
+
+        list_of_files = list(temp_mosaic.glob(f'*{product}.{metric}.tif'))
+
+        if not list_of_files:
+            continue
+
+        # turn to OTB readable format
+        list_of_files = ' '.join([str(file) for file in list_of_files])
+
+        # create namespace for outfile
+        outfile = ts_dir.joinpath(f'{product}.{metric}.tif')
+        check_file = outfile.parent.joinpath(
+            f'.{outfile.name[:-4]}.processed'
+        )
+
+        if check_file.exists():
+            logger.info(f'Mosaic layer {outfile.name} already processed.')
+            continue
+
+        logger.info(f'Mosaicking layer {outfile.name}.')
+
+        iter_list.append([list_of_files, outfile, config_file])
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    ras.create_tscan_vrt(ts_dir, config_file)
+
+    # remove temp folder
+    h.remove_folder_content(temp_mosaic)
+
+
+def mosaic_timescan_old(config_file):
     print(' -----------------------------------------------------------------')
     logger.info('Mosaicking time-scan layers.')
     print(' -----------------------------------------------------------------')

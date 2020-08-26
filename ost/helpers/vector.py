@@ -5,6 +5,7 @@ from pathlib import Path
 
 import osr
 import ogr
+import warnings
 import pyproj
 import geopandas as gpd
 import logging
@@ -15,8 +16,8 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from shapely.errors import WKTReadingError
 from fiona import collection
 from fiona.crs import from_epsg
-# from pyproj.exceptions import CRSError as projCRSError
-# from fiona.errors import DriverError, CRSError
+from pyproj.exceptions import CRSError as projCRSError
+#from fiona.errors import DriverError, CRSError
 
 logger = logging.getLogger(__name__)
 
@@ -332,6 +333,8 @@ def wkt_to_gdf(wkt):
     :return:
     """
 
+    warnings.filterwarnings('ignore', r'syntax is deprecated', FutureWarning)
+
     # load wkt
     geometry = loads(wkt)
 
@@ -398,21 +401,7 @@ def wkt_to_gdf(wkt):
 def gdf_to_json_geometry(gdf):
     """Function to parse features from GeoDataFrame in such a manner 
        that rasterio wants them"""
-#    
-#    try:
-#        gdf.geometry.values[0].type
-#        features = [json.loads(gdf.to_json())['features'][0]['geometry']]
-#    except AttributeError:
-#        ids, feats =[], []
-#        for i, feat in enumerate(gdf.geometry.values[0]):
-#            ids.append(i)
-#            feats.append(feat)
-#
-#        gdf = gpd.GeoDataFrame({'id': ids,
-#                                'geometry': feats}, 
-#                                    geometry='geometry', 
-#                                    crs = gdf.crs
-#                                    )
+
     geojson = json.loads(gdf.to_json())
     return [feature['geometry'] for feature in geojson['features'] 
             if feature['geometry']]

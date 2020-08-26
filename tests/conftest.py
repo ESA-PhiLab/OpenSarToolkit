@@ -1,4 +1,3 @@
-import os
 import pytest
 import shutil
 from pathlib import Path
@@ -8,11 +7,11 @@ from ost.Project import Sentinel1Batch
 from ost.s1.s1scene import Sentinel1Scene
 from ost.helpers.settings import HERBERT_USER
 
-SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
-TEMP_SLC_DIR = os.path.join(TESTDATA_DIR, "tmp_slc")
-TEMP_GRD_DIR = os.path.join(TESTDATA_DIR, "tmp_grd")
-CACHE_DIR = os.path.join(TESTDATA_DIR, "cache")
+SCRIPT_DIR = Path(__file__).resolve().parent
+TESTDATA_DIR = SCRIPT_DIR.joinpath('testdata')
+TEMP_SLC_DIR = TESTDATA_DIR.joinpath('tmp_slc')
+TEMP_GRD_DIR = TESTDATA_DIR.joinpath('tmp_grd')
+CACHE_DIR = TESTDATA_DIR.joinpath('cache')
 
 
 @pytest.fixture(scope='session')
@@ -27,49 +26,51 @@ def some_bounds_slc():
 
 @pytest.fixture
 def s1_id():
-    return 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
+    return (
+        'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
+    )
 
 
 @pytest.fixture(scope='session')
 def s1_grd_notnr():
-    return os.path.join(
-        CACHE_DIR,
-        'S1B_IW_GRDH_1SDV_20180813T054020_20180813T054045_012240_0168D6_B775.zip'
+    return CACHE_DIR.joinpath(
+        'S1B_IW_GRDH_1SDV_20180813T054020_20180813T054045_012240_0168D6_B775'
+        '.zip'
     )
 
 
 @pytest.fixture(scope='session')
 def s1_grd_notnr_ost_product(s1_grd_notnr):
-    scene_id = os.path.basename(s1_grd_notnr).replace('.zip', '')
-    return (scene_id, Sentinel1Scene(scene_id))
+    scene_id = s1_grd_notnr.stem
+    return scene_id, Sentinel1Scene(scene_id)
 
 
 @pytest.fixture(scope='session')
 def s1_slc_master():
-    return os.path.join(
-        CACHE_DIR,
-        'S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_025287_02CC09_0A0B.zip',
+    return CACHE_DIR.joinpath(
+        'S1A_IW_SLC__1SDV_20190101T171515_20190101T171542_'
+        '025287_02CC09_0A0B.zip'
     )
 
 
 @pytest.fixture
 def s1_slc_slave():
-    return os.path.join(
-        CACHE_DIR,
-        'S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063.zip',
+    return CACHE_DIR.joinpath(
+        'S1A_IW_SLC__1SDV_20190113T171514_20190113T171541_025462_02D252_C063'
+        '.zip'
     )
 
 
 @pytest.fixture(scope='session')
 def s1_slc_ost_master(s1_slc_master):
-    scene_id = os.path.basename(s1_slc_master).replace('.zip', '')
-    return (scene_id, Sentinel1Scene(scene_id))
+    scene_id = s1_slc_master.stem
+    return scene_id, Sentinel1Scene(scene_id)
 
 
 @pytest.fixture
 def s1_slc_ost_slave(s1_slc_slave):
-    scene_id = os.path.basename(s1_slc_slave).replace('.zip', '')
-    return (scene_id, Sentinel1Scene(scene_id))
+    scene_id = s1_slc_slave.stem
+    return scene_id, Sentinel1Scene(scene_id)
 
 
 @pytest.fixture(scope='session')
@@ -77,10 +78,12 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
     start = '2019-01-01'
     end = '2019-01-02'
     scene_id, product = s1_slc_ost_master
-    os.makedirs(TEMP_SLC_DIR, exist_ok=True)
-    aoi = box(some_bounds_slc[0], some_bounds_slc[1],
-              some_bounds_slc[2], some_bounds_slc[3]
-              ).wkt
+    TEMP_SLC_DIR.mkdir(parents=True, exist_ok=True)
+    aoi = box(
+        some_bounds_slc[0], some_bounds_slc[1], some_bounds_slc[2],
+        some_bounds_slc[3]
+    ).wkt
+
     try:
         s1_batch = Sentinel1Batch(
             project_dir=TEMP_SLC_DIR,
@@ -90,25 +93,29 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
             product_type='SLC',
             ard_type='OST-RTC',
         )
-        download_path = os.path.join(s1_batch.download_dir,
-                                     'SAR',
-                                     product.product_type,
-                                     product.year,
-                                     product.month,
-                                     product.day
-                                     )
-        product.download_path(download_dir=Path(download_path))
-        os.makedirs(download_path, exist_ok=True)
+
+        download_path = s1_batch.download_dir.joinpath(
+            'SAR',
+            product.product_type,
+            product.year,
+            product.month,
+            product.day
+        )
+
+        product.download_path(download_dir=download_path)
+        download_path.mkdir(parents=True, exist_ok=True)
         shutil.copy(s1_slc_master, download_path)
         shutil.move(
-            os.path.join(download_path, scene_id+'.zip'),
-            os.path.join(download_path, scene_id+'.downloaded')
+            download_path.joinpath(f'{scene_id}.zip'),
+            download_path.joinpath(f'{scene_id}.downloaded')
         )
         shutil.copy(s1_slc_master, download_path)
         product.get_path(download_dir=s1_batch.download_dir)
-        s1_batch.search(uname=HERBERT_USER['uname'],
-                        pword=HERBERT_USER['pword']
-                        )
+
+        s1_batch.scihub_uname = HERBERT_USER['uname']
+        s1_batch.scihub_pword = HERBERT_USER['pword']
+        s1_batch.search()
+
         s1_batch.refine_inventory()
         s1_batch.create_burst_inventory()
 
@@ -119,13 +126,18 @@ def slc_project_class(some_bounds_slc, s1_slc_master, s1_slc_ost_master):
 
 @pytest.fixture(scope='session')
 def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
+
     start = '2018-08-13'
     end = '2018-08-13'
+
     scene_id, product = s1_grd_notnr_ost_product
-    os.makedirs(TEMP_GRD_DIR, exist_ok=True)
-    aoi = box(some_bounds_grd[0], some_bounds_grd[1],
-              some_bounds_grd[2], some_bounds_grd[3]
-              ).wkt
+    TEMP_GRD_DIR.mkdir(parents=True, exist_ok=True)
+
+    aoi = box(
+        some_bounds_grd[0], some_bounds_grd[1], some_bounds_grd[2],
+        some_bounds_grd[3]
+    ).wkt
+
     try:
         s1_batch = Sentinel1Batch(
             project_dir=TEMP_GRD_DIR,
@@ -135,25 +147,27 @@ def grd_project_class(some_bounds_grd, s1_grd_notnr, s1_grd_notnr_ost_product):
             product_type='GRD',
             ard_type='OST-RTC'
         )
-        download_path = os.path.join(s1_batch.download_dir,
-                                     'SAR',
-                                     product.product_type,
-                                     product.year,
-                                     product.month,
-                                     product.day
-                                     )
-        product.download_path(download_dir=Path(download_path))
-        os.makedirs(download_path, exist_ok=True)
+        download_path = s1_batch.download_dir.joinpath(
+            'SAR',
+            product.product_type,
+            product.year,
+            product.month,
+            product.day
+        )
+        product.download_path(download_dir=download_path)
+        download_path.mkdir(parents=True, exist_ok=True)
         shutil.copy(s1_grd_notnr, download_path)
         shutil.move(
-            os.path.join(download_path, scene_id+'.zip'),
-            os.path.join(download_path, scene_id+'.downloaded')
+            download_path.joinpath(f'{scene_id}.zip'),
+            download_path.joinpath(f'{scene_id}.downloaded')
         )
         shutil.copy(s1_grd_notnr, download_path)
         product.get_path(download_dir=s1_batch.download_dir)
-        s1_batch.search(uname=HERBERT_USER['uname'],
-                        pword=HERBERT_USER['pword']
-                        )
+
+        s1_batch.scihub_uname = HERBERT_USER['uname']
+        s1_batch.scihub_pword = HERBERT_USER['pword']
+        s1_batch.search()
+
         s1_batch.refine_inventory()
         yield s1_batch
     finally:

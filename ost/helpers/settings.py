@@ -174,7 +174,7 @@ def get_gpt():
                 os.symlink(gpt_file, Path.home().joinpath('.ost/gpt'))
             gpt_file = Path.home().joinpath('.ost/gpt')
 
-    return gpt_file
+    return str(gpt_file)
 
 
 # set global variable for gpt path
