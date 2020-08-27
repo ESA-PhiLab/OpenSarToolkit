@@ -1,0 +1,88 @@
+{
+    "processing": {
+        "single_ARD": {
+            "image_type": "SLC",
+            "ard_type": "OST-GTC",
+            "resolution": 20,
+            "backscatter": true,
+            "product_type": "GTC-gamma0",
+            "polarisation": "VV, VH, HH, HV",
+            "to_db": false,
+            "to_tif": false,
+            "geocoding": "terrain",
+            "remove_speckle": false,
+            "speckle_filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate_ENL": true,
+                "sigma": 0.9,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+                "window_size": "7x7",
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "damping": 2,
+                "pan_size": 50
+            },
+            "remove_pol_speckle": false,
+            "pol_speckle_filter": {
+                "polarimetric_filter": "Refined Lee Filter",
+                "sigma": 0.9,
+                "filter_size": 3,
+                "window_size": "7x7",
+                "search_window_size": 15,
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "scale_size": 1,
+                "pan_size": 50
+            },
+            "create_ls_mask": true,
+            "dem": {
+                "dem_name": "SRTM 1Sec HGT",
+                "dem_file": " ",
+                "dem_nodata": 0,
+                "dem_resampling": "BILINEAR_INTERPOLATION",
+                "image_resampling": "BILINEAR_INTERPOLATION",
+                "egm_correction": false,
+                "out_projection": 4326
+            },
+            "coherence": false,
+            "coherence_bands": "VV, HH",
+            "coherence_azimuth": 4,
+            "coherence_range": 20,
+            "H-A-Alpha": false
+        },
+        "time-series_ARD": {
+            "production": false,
+            "to_db": true,
+            "apply_ls_mask": false,
+            "remove_mt_speckle": false,
+            "mt_speckle_filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate_ENL": true,
+                "sigma": 0.9,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+                "window_size": "7x7",
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "damping": 2,
+                "pan_size": 50
+            },
+            "deseasonalize": false,
+            "dtype_output": "float32"
+        },
+        "time-scan_ARD": {
+            "production": false,
+            "apply_ls_mask": false,
+            "metrics": ["avg", "max", "min", "std", "cov"],
+            "remove_outliers": true
+        },
+        "mosaic": {
+            "harmonization": true,
+            "production": false,
+            "cut_to_aoi": true
+        }
+    }
+ }

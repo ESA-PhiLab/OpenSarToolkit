@@ -1,6 +1,7 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
-'''
+"""
 Based on a set of search parameters the script will create a query
 on www.scihub.copernicus.eu and return the results either
 as shapefile, sqlite, or write to a PostGreSQL database.
@@ -50,26 +51,100 @@ python3 search.py -a /path/to/aoi-shapefile.shp -b 2018-01-01 -e 2018-31-12
 
     * optional, i.e will look for all available products as well as ask for
       username and password during script execution
-'''
+"""
 
 # import stdlib modules
 import os
 import sys
 import datetime
+import logging
 from urllib.error import URLError
 import xml.dom.minidom
 import dateutil.parser
+from pathlib import Path
 
 # import external modules
 import geopandas as gpd
 from shapely.wkt import dumps, loads
 
-# internal libs
+# internal OST libs
 from ost.helpers.db import pgHandler
 from ost.helpers import scihub
 
+# set up logger
+logger = logging.getLogger(__name__)
 
-def _query_scihub(apihub, opener, query):
+CONNECTION_ERROR = 'We failed to connect to the server. Reason: '
+CONNECTION_ERROR_2 = 'The server couldn\'t fulfill the request. Error code: '
+
+
+def _read_xml(dom):
+
+    acq_list = []
+    # loop through each entry (with all metadata)
+    for node in dom.getElementsByTagName('entry'):
+
+        # we get all the date entries
+        dict_date = {
+            s.getAttribute('name'):
+                dateutil.parser.parse(s.firstChild.data).astimezone(
+                    dateutil.tz.tzutc()
+                )
+            for s in node.getElementsByTagName('date')
+        }
+
+        # we get all the int entries
+        dict_int = {
+            s.getAttribute('name'): s.firstChild.data
+            for s in node.getElementsByTagName('int')
+        }
+
+        # we create a filter for the str entries (we do not want all)
+        # and get them
+        dict_str = {
+            s.getAttribute('name'): s.firstChild.data
+            for s in node.getElementsByTagName('str')
+        }
+
+        # merge the dicts and append to the catalogue list
+        acq = dict(dict_date, **dict_int, **dict_str)
+
+        # fill in emtpy fields in dict by using identifier
+        if 'swathidentifier' not in acq.keys():
+            acq['swathidentifier'] = acq['identifier'].split("_")[1]
+        if 'producttype' not in acq.keys():
+            acq['producttype'] = acq['identifier'].split("_")[2]
+        if 'slicenumber' not in acq.keys():
+            acq['slicenumber'] = 0
+
+        # append all scenes from this page to a list
+        acq_list.append([acq['identifier'],
+                         acq['polarisationmode'],
+                         acq['orbitdirection'],
+                         acq['beginposition'].strftime('%Y%m%d'),
+                         acq['relativeorbitnumber'],
+                         acq['orbitnumber'],
+                         acq['producttype'],
+                         acq['slicenumber'],
+                         acq['size'],
+                         acq['beginposition'].isoformat(),
+                         acq['endposition'].isoformat(),
+                         acq['lastrelativeorbitnumber'],
+                         acq['lastorbitnumber'],
+                         acq['uuid'],
+                         acq['platformidentifier'],
+                         acq['missiondatatakeid'],
+                         acq['swathidentifier'],
+                         acq['ingestiondate'].isoformat(),
+                         acq['sensoroperationalmode'],
+                         loads(acq['footprint'])]
+                        )
+
+    # transform all results from that page to a gdf
+    return acq_list
+
+
+def _query_scihub(opener, query):
     """
     Get the data from the scihub catalogue
     and write it to a GeoPandas GeoDataFrame
@@ -84,33 +159,27 @@ def _query_scihub(apihub, opener, query):
         'uuid', 'platformidentifier', 'missiondatatakeid',
         'swathidentifier', 'ingestiondate', 'sensoroperationalmode',
         'footprint'
-        ]
+    ]
 
     crs = {'init': 'epsg:4326'}
-    geo_df = gpd.GeoDataFrame(columns=columns, crs=crs,
-                              geometry='footprint')
+    geo_df = gpd.GeoDataFrame(columns=columns, crs=crs, geometry='footprint')
 
     # we need this for the paging
-    index = 0
-    rows = 99
-    next_page = 1
+    index, rows, next_page = 0, 99, 1
 
     while next_page:
 
         # construct the final url
-        url = apihub + query + "&rows={}&start={}".format(rows, index)
-
+        url = query + f'&rows={rows}&start={index}'
         try:
             # get the request
             req = opener.open(url)
-        except URLError as err:
-            if hasattr(err, 'reason'):
-                print(' We failed to connect to the server.')
-                print(' Reason: ', err.reason)
+        except URLError as error:
+            if hasattr(error, 'reason'):
+                logger.info(f'{CONNECTION_ERROR}{error.reason}')
                 sys.exit()
-            elif hasattr(err, 'code'):
-                print(' The server couldn\'t fulfill the request.')
-                print(' Error code: ', err.code)
+            elif hasattr(error, 'code'):
+                logger.info(f'{CONNECTION_ERROR_2}{error.code}')
                 sys.exit()
         else:
             # write the request to to the response variable
@@ -120,58 +189,14 @@ def _query_scihub(apihub, opener, query):
             # parse the xml page from the response
             dom = xml.dom.minidom.parseString(response)
 
-        acq_list = []
-        # loop thorugh each entry (with all metadata)
-        for node in dom.getElementsByTagName('entry'):
+            acq_list = _read_xml(dom)
 
-            # we get all the date entries
-            dict_date = {s.getAttribute('name'): dateutil.parser.parse(s.firstChild.data).astimezone(dateutil.tz.tzutc()) for s in node.getElementsByTagName('date')}
+            gdf = gpd.GeoDataFrame(
+                acq_list, columns=columns, crs=crs, geometry='footprint'
+            )
 
-            # we get all the int entries
-            dict_int = {s.getAttribute('name'): s.firstChild.data for s in node.getElementsByTagName('int')}
-
-            # we create a filter for the str entries (we do not want all) and get them
-            dict_str = {s.getAttribute('name'): s.firstChild.data for s in node.getElementsByTagName('str')}
-
-            # merge the dicts and append to the catalogue list
-            acq = dict(dict_date, **dict_int, **dict_str)
-
-            # fill in emtpy fields in dict by using identifier
-            if 'swathidentifier' not in acq.keys():
-                acq['swathidentifier'] = acq['identifier'].split("_")[1]
-            if 'producttype' not in acq.keys():
-                acq['producttype'] = acq['identifier'].split("_")[2]
-            if 'slicenumber' not in acq.keys():
-                acq['slicenumber'] = 0
-
-            # append all scenes from this page to a list
-            acq_list.append([acq['identifier'],
-                             acq['polarisationmode'],
-                             acq['orbitdirection'],
-                             acq['beginposition'].strftime('%Y%m%d'),
-                             acq['relativeorbitnumber'],
-                             acq['orbitnumber'],
-                             acq['producttype'],
-                             acq['slicenumber'],
-                             acq['size'],
-                             acq['beginposition'].isoformat(),
-                             acq['endposition'].isoformat(),
-                             acq['lastrelativeorbitnumber'],
-                             acq['lastorbitnumber'],
-                             acq['uuid'],
-                             acq['platformidentifier'],
-                             acq['missiondatatakeid'],
-                             acq['swathidentifier'],
-                             acq['ingestiondate'].isoformat(),
-                             acq['sensoroperationalmode'],
-                             loads(acq['footprint'])])
-
-        # transofmr all results from that page to a gdf
-        gdf = gpd.GeoDataFrame(acq_list, columns=columns,
-                               crs=crs, geometry='footprint')
-
-        # append the gdf to the full gdf
-        geo_df = geo_df.append(gdf)
+            # append the gdf to the full gdf
+            geo_df = geo_df.append(gdf)
 
         # retrieve next page and set index up by 99 entries
         next_page = scihub.next_page(dom)
@@ -224,7 +249,51 @@ def _to_shapefile(gdf, outfile, append=False):
     if len(gdf.index) >= 1:
         gdf.to_file(outfile)
     else:
-        print('No scenes found in this AOI during this time')
+        logger.info('No scenes found in this AOI during this time')
+
+
+def _to_geopackage(gdf, outfile, append=False):
+
+    # check if file is there
+    if Path(outfile).exists():
+
+        # in case we want to append, we load the old one and add the new one
+        if append:
+            columns = [
+                'id', 'identifier', 'polarisationmode',
+                'orbitdirection', 'acquisitiondate', 'relativeorbit',
+                'orbitnumber', 'product_type', 'slicenumber', 'size',
+                'beginposition', 'endposition',
+                'lastrelativeorbitnumber', 'lastorbitnumber',
+                'uuid', 'platformidentifier', 'missiondatatakeid',
+                'swathidentifier', 'ingestiondate',
+                'sensoroperationalmode', 'geometry'
+            ]
+
+            # get existing geodataframe from file
+            old_df = gpd.read_file(outfile)
+            old_df.columns = columns
+            # drop id
+            old_df.drop('id', axis=1, inplace=True)
+            # append new results
+            gdf.columns = columns[1:]
+            gdf = old_df.append(gdf)
+
+            # remove duplicate entries
+            gdf.drop_duplicates(subset='identifier', inplace=True)
+
+        # remove old file
+        Path(outfile).unlink()
+
+    # calculate new index
+    gdf.insert(loc=0, column='id', value=range(1, 1 + len(gdf)))
+
+    # write to new file
+    if len(gdf.index) > 0:
+        gdf.to_file(outfile, driver='GPKG')
+    else:
+        logger.info('No scenes found in this AOI during this time')
+
 
 def _to_postgis(gdf, db_connect, outtable):
 
@@ -235,30 +304,34 @@ def _to_postgis(gdf, db_connect, outtable):
                               'LOWER(\'{}\'))'.format(outtable))
     result = db_connect.cursor.fetchall()
     if result[0][0] is False:
-        print(' INFO: Table {} does not exist in the database.'
-              ' Creating it...'.format(outtable))
+        logger.info(
+            f'Table {outtable} does not exist in the database. Creating it...'
+        )
         db_connect.pgCreateS1('{}'.format(outtable))
         maxid = 1
     else:
         try:
-            maxid = db_connect.pgSQL('SELECT max(id) FROM {}'.format(outtable))
+            maxid = db_connect.pgSQL(f'SELECT max(id) FROM {outtable}')
             maxid = maxid[0][0]
             if maxid is None:
                 maxid = 0
 
-            print(' INFO: Table {} already exists with {} entries. Will add'
-                  ' all non-existent results to this table.'.format(outtable,
-                                                                    maxid))
+            logger.info(
+                f'Table {outtable} already exists with {maxid} entries. '
+                f'Will add all non-existent results to this table.'
+            )
             maxid = maxid + 1
         except:
-            raise RuntimeError(' ERROR: Existent table {} does not seem to be'
-                               ' compatible with Sentinel-1'
-                               ' data.'.format(outtable))
+            raise RuntimeError(
+                f'Existent table {outtable} does not seem to be compatible '
+                f'with Sentinel-1 data.'
+            )
 
     # add an index as first column
     gdf.insert(loc=0, column='id', value=range(maxid, maxid + len(gdf)))
-    db_connect.pgSQLnoResp('SELECT UpdateGeometrySRID(\'{}\', '
-                           '\'geometry\', 0);'.format(outtable.lower()))
+    db_connect.pgSQLnoResp(
+        f'SELECT UpdateGeometrySRID(\'{outtable.lower()}\', \'geometry\', 0);'
+    )
 
     # construct the SQL INSERT line
     for _index, row in gdf.iterrows():
@@ -273,21 +346,21 @@ def _to_postgis(gdf, db_connect, outtable):
         result = db_connect.pgSQL('SELECT uuid FROM {} WHERE '
                                   'uuid = \'{}\''.format(outtable, uuid))
         try:
-            test_query = result[0][0]
+            result[0][0]
         except IndexError:
-            print('Inserting scene {} to {}'.format(identifier, outtable))
+            logger.info(f'Inserting scene {identifier} to {outtable}')
             db_connect.pgInsert(outtable, line)
             # apply the dateline correction routine
             db_connect.pgDateline(outtable, uuid)
             maxid += 1
         else:
-            print('Scene {} already exists within table {}.'.format(identifier,
-                                                                    outtable))
+            logger.info(
+               f'Scene {identifier} already exists within table {outtable}.'
+            )
 
-    print(' INFO: Inserted {} entries into {}.'.format(len(gdf), outtable))
-    print(' INFO: Table {} now contains {} entries.'.format(outtable,
-                                                            maxid - 1))
-    print(' INFO: Optimising database table.')
+    logger.info(f'Inserted {len(gdf)} entries into {outtable}.')
+    logger.info(f'Table {outtable} now contains {maxid - 1} entries.')
+    logger.info('Optimising database table.')
 
     # drop index if existent
     try:
@@ -304,48 +377,57 @@ def _to_postgis(gdf, db_connect, outtable):
 
 
 def check_availability(inventory_gdf, download_dir, data_mount):
-    '''This function checks if the data is already downloaded or 
+    """This function checks if the data is already downloaded or
        available through a mount point on DIAS cloud
+
+    :param inventory_gdf:
+    :param download_dir:
+    :param data_mount:
+    :return:
+    """
     
-    '''
-    
-    from ost import Sentinel1_Scene
-    
+    from ost import Sentinel1Scene
+
     # add download path, or set to None if not found
     inventory_gdf['download_path'] = inventory_gdf.identifier.apply(
-        lambda row: Sentinel1_Scene(row).get_path(download_dir, data_mount))    
+        lambda row: str(Sentinel1Scene(row).get_path(download_dir, data_mount))
+    )
     
     return inventory_gdf
 
 
 def scihub_catalogue(query_string, output, append=False,
-                     uname=None, pword=None):
-    '''This is the main search function on scihub
+                     uname=None, pword=None,
+                     base_url='https://scihub.copernicus.eu/apihub'):
+    """This is the main search function on scihub
 
+    :param query_string:
+    :param output:
+    :param append:
+    :param uname:
+    :param pword:
+    :return:
+    """
 
-    '''
     # retranslate Path object to string
     output = str(output)
 
     # get connected to scihub
-    base_url = 'https://scihub.copernicus.eu/dhus/'
-    opener = scihub.connect(base_url, uname, pword)
-    action = 'search?q='
-    apihub = base_url + action
-
+    hub = f'{base_url}/search?q='
+    opener = scihub.connect(uname, pword, base_url)
+    query = f'{hub}{query_string}'
+    
     # get the catalogue in a dict
-    gdf = _query_scihub(apihub, opener, query_string)
+    gdf = _query_scihub(opener, query)
 
-    # define output
-    if output[-7:] == ".sqlite":
-        print(' INFO: writing to an sqlite file')
-        # gdfInv2Sqlite(gdf, output)
-    elif output[-4:] == ".shp":
-        print(' INFO: writing inventory data to shape file: {}'.format(output))
+    if output[-4:] == ".shp":
+        logger.info(f'Writing inventory data to shape file: {output}')
         _to_shapefile(gdf, output, append)
+    elif output[-5:] == ".gpkg":
+        logger.info(f'Writing inventory data to geopackage file: {output}')
+        _to_geopackage(gdf, output, append)
     else:
-        print(' INFO: writing inventory data toPostGIS'
-              ' table: {}'.format(output))
+        logger.info(f'Writing inventory data toPostGIS table: {output}')
         db_connect = pgHandler()
         _to_postgis(gdf, db_connect, output)
 
@@ -353,6 +435,7 @@ def scihub_catalogue(query_string, output, append=False,
 if __name__ == "__main__":
 
     import argparse
+    import urllib
     from ost.helpers import helpers
 
     # get the current date
@@ -430,7 +513,9 @@ if __name__ == "__main__":
                                                    ARGS.polarisation,
                                                    ARGS.beam)
 
-    QUERY = scihub.create_query('Sentinel-1', AOI, TOI, PRODUCT_SPECS)
 
+    QUERY = urllib.parse.quote(
+        f'Sentinel-1 AND {PRODUCT_SPECS} AND {AOI} AND {TOI}'
+    )
     # execute full search
     scihub_catalogue(QUERY, ARGS.output, ARGS.username, ARGS.password)

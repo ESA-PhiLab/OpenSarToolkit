@@ -1,142 +1,183 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
-import os
-from os.path import join as opj
-import importlib
-import sys
+import logging
 
+from retrying import retry
+
+from ost.helpers.settings import GPT_FILE, OST_ROOT
+from ost.helpers.errors import GPTRuntimeError, NotValidFileError
 from ost.helpers import helpers as h
 
 
-def _import(infile, out_prefix, logfile, swath, burst, polar='VV,VH,HH,HV',
-            ncores=os.cpu_count()):
-    '''A wrapper of SNAP import of a single Sentinel-1 SLC burst
+logger = logging.getLogger(__name__)
+
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def burst_import(
+        infile,
+        outfile,
+        logfile,
+        swath,
+        burst,
+        config_dict
+):
+    """A wrapper of SNAP import of a single Sentinel-1 SLC burst
 
     This function takes an original Sentinel-1 scene (either zip or
     SAFE format), updates the orbit information (does not fail if not
     available), and extracts a single burst based on the
     given input parameters.
 
-    Args:
-        infile: string or os.path object for
-                an original Sentinel-1 GRD product in zip or SAFE format
-        out_prefix: string or os.path object for the output
-                    file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        swath (str): the corresponding IW subswath of the burst
-        burst (str): the burst number as in the Sentinel-1 annotation file
-        polar (str): a string consisiting of the polarisation (comma separated)
-                     e.g. 'VV,VH',
-                     default value: 'VV,VH,HH,HV'
-        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
-    '''
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param swath:
+    :param burst:
+    :param config_dict:
+    :return:
+    """
 
-    # get gpt file
-    gpt_file = h.gpt_path()
+    # get polarisations to import
+    ard = config_dict['processing']['single_ARD']
+    bs_polar = ard['polarisation'].replace(' ', '')
+    coh_polar = ard['coherence_bands'].replace(' ', '')
+    subset = config_dict['subset']
+
+    region = config_dict['aoi'] if subset else ''
+
+    if ard['coherence']:
+        polars = bs_polar if len(bs_polar) >= len(coh_polar) else coh_polar
+    else:
+        polars = bs_polar
+
+    # get cpus
+    cpus = config_dict['snap_cpu_parallelism']
 
     # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BurstSplit_AO.xml')
+    graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_BurstSplit_AO.xml')
 
-    print(' INFO: Importing Burst {} from Swath {}'
-          ' from scene {}'.format(burst, swath, os.path.basename(infile)))
+    logger.debug(
+        f'Importing Burst {burst} from Swath {swath} from scene {infile.name}'
+    )
 
-    command = '{} {} -x -q {} -Pinput={} -Ppolar={} -Pswath={}\
-                      -Pburst={} -Poutput={}' \
-        .format(gpt_file, graph, ncores, infile, polar, swath,
-                burst, out_prefix)
+    command = (
+        f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+        f'-Pinput={str(infile)} '
+        f'-Ppolar={polars} '
+        f'-Pswath={swath} '
+        f'-Pburst={burst} '
+        f'-Pregion=\'{region}\' '
+        f'-Poutput={str(outfile)}'
+    )
 
+    logger.debug(f'Executing command: {command}')
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully imported product')
+        logger.debug('Succesfully imported burst.')
     else:
-        print(' ERROR: Frame import exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        # sys.exit(119)
+        raise GPTRuntimeError(
+            f'Frame import exited with error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
+        )
 
-    return return_code
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
 
 
-def _ha_alpha(infile, outfile, logfile, pol_speckle_filter=False,
-              pol_speckle_dict=None, ncores=os.cpu_count()):
-    '''A wrapper of SNAP H-A-alpha polarimetric decomposition
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def ha_alpha(infile, outfile, logfile, config_dict):
+    """A wrapper of SNAP H-A-alpha polarimetric decomposition
 
     This function takes an OST imported Sentinel-1 scene/burst
     and calulates the polarimetric decomposition parameters for
     the H-A-alpha decomposition.
 
-    Args:
-        infile: string or os.path object for
-                an original Sentinel-1 GRD product in zip or SAFE format
-        out_prefix: string or os.path object for the output
-                    file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        pol_speckle_filter (bool): wether or not to apply the
-                                   polarimetric speckle filter
-        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
 
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    remove_pol_speckle = ard['remove_pol_speckle']
+    pol_speckle_dict = ard['pol_speckle_filter']
+    cpus = config_dict['snap_cpu_parallelism']
 
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
-
-    # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-
-    if pol_speckle_filter:
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Spk_Halpha.xml')
-        print(' INFO: Applying the polarimetric speckle filter and'
-              ' calculating the H-alpha dual-pol decomposition')
-        command = ('{} {} -x -q {} -Pinput={} -Poutput={}'
-                   ' -Pfilter=\'{}\''
-                   ' -Pfilter_size=\'{}\''
-                   ' -Pnr_looks={}'
-                   ' -Pwindow_size={}'
-                   ' -Ptarget_window_size={}'
-                   ' -Ppan_size={}'
-                   ' -Psigma={}'.format(
-            gpt_file, graph, ncores,
-            infile, outfile,
-            pol_speckle_dict['filter'],
-            pol_speckle_dict['filter size'],
-            pol_speckle_dict['num of looks'],
-            pol_speckle_dict['window size'],
-            pol_speckle_dict['target window size'],
-            pol_speckle_dict['pan size'],
-            pol_speckle_dict['sigma']
+    if remove_pol_speckle:
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_Deb_Spk_Halpha.xml'
         )
+        logger.debug(
+            'Applying the polarimetric speckle filter and'
+            ' calculating the H-alpha dual-pol decomposition'
+        )
+
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+            f'-Pinput={str(infile)} '
+            f'-Poutput={str(outfile)} '
+            f"-Pfilter=\'{pol_speckle_dict['polarimetric_filter']}\' "
+            f'-Pfilter_size=\'{pol_speckle_dict["filter_size"]}\' '
+            f'-Pnr_looks={pol_speckle_dict["num_of_looks"]} '
+            f'-Pwindow_size={pol_speckle_dict["window_size"]} '
+            f'-Ptarget_window_size={pol_speckle_dict["target_window_size"]} '
+            f'-Ppan_size={pol_speckle_dict["pan_size"]} '
+            f'-Psigma={pol_speckle_dict["sigma"]}'
         )
     else:
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_Deb_Halpha.xml')
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_Deb_Halpha.xml'
+        )
 
-        print(" INFO: Calculating the H-alpha dual polarisation")
-        command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-            .format(gpt_file, graph, ncores, infile, outfile)
+        logger.debug('Calculating the H-alpha dual polarisation')
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
+        )
 
+    logger.debug(f'Executing command: {command}')
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created H/A/Alpha product')
+        logger.debug('Succesfully created H/A/Alpha product')
     else:
-        print(' ERROR: H/Alpha exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        # sys.exit(121)
+        raise GPTRuntimeError(
+            f'H/Alpha exited with an error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
+        )
 
-    return return_code
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
 
 
-def _calibration(infile, outfile, logfile, product_type='GTC-gamma0',
-                 ncores=os.cpu_count()):
-    '''A wrapper around SNAP's radiometric calibration
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def calibration(
+        infile,
+        outfile,
+        logfile,
+        config_dict
+):
+    """A wrapper around SNAP's radiometric calibration
 
     This function takes OST imported Sentinel-1 product and generates
     it to calibrated backscatter.
-
     3 different calibration modes are supported.
         - Radiometrically terrain corrected Gamma nought (RTC)
           NOTE: that the routine actually calibrates to bet0 and needs to
@@ -144,210 +185,268 @@ def _calibration(infile, outfile, logfile, product_type='GTC-gamma0',
         - ellipsoid based Gamma nought (GTCgamma)
         - Sigma nought (GTCsigma).
 
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        resolution (int): the resolution of the output product in meters
-        product_type (str): the product type of the output product
-                            i.e. RTC, GTCgamma or GTCsigma
-        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :param region:
+    :return:
+    """
 
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    cpus = config_dict['snap_cpu_parallelism']
+    dem_dict = ard['dem']
+    region = ''
+    # calculate Multi-Look factors
+    azimuth_looks = 1  # int(np.floor(ard['resolution'] / 10 ))
+    range_looks = 5  # int(azimuth_looks * 5)
 
-    '''
+    # construct command dependent on selected product type
+    if ard['product_type'] == 'RTC-gamma0':
+        logger.debug('Calibrating the product to a RTC product.')
 
-    # get gpt file
-    gpt_file = h.gpt_path()
+        # get graph for RTC generation
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml'
+        )
 
-    # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
+        # construct command
+        command = (
+            f"{GPT_FILE} {graph} -x -q {2 * cpus} "
+            f"-Prange_looks={range_looks} "
+            f"-Pazimuth_looks={azimuth_looks} "
+            f"-Pdem=\'{dem_dict['dem_name']}\' "
+            f"-Pdem_file=\'{dem_dict['dem_file']}\' "
+            f"-Pdem_nodata={dem_dict['dem_nodata']} "
+            f"-Pdem_resampling={dem_dict['dem_resampling']} "
+            f"-Pregion=\'{region}\' "
+            f"-Pinput={str(infile)} "
+            f"-Poutput={str(outfile)}"
+        )
 
-    if product_type == 'RTC-gamma0':
-        print(' INFO: Calibrating the product to beta0.')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_TNR_Calbeta_Deb.xml')
-    elif product_type == 'GTC-gamma0':
-        print(' INFO: Calibrating the product to gamma0.')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_TNR_CalGamma_Deb.xml')
-    elif product_type == 'GTC-sigma0':
-        print(' INFO: Calibrating the product to sigma0.')
-        graph = opj(rootpath, 'graphs', 'S1_SLC2ARD',
-                    'S1_SLC_TNR_CalSigma_Deb.xml')
-    elif product_type == 'Coherence_only':
-        print('INFO: No need to calibrate just for coherence')
-        return_code = 0
-        return return_code
+    elif ard['product_type'] == 'GTC-gamma0':
+        logger.debug('Calibrating the product to a GTC product (Gamma0).')
+
+        # get graph for GTC-gammao0 generation
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_TNR_CalGamma_Deb_ML_Sub.xml'
+        )
+
+        # construct command
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+            f'-Prange_looks={range_looks} '
+            f'-Pazimuth_looks={azimuth_looks} '
+            f'-Pregion="{region}" '
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
+        )
+
+    elif ard['product_type'] == 'GTC-sigma0':
+        logger.debug('Calibrating the product to a GTC product (Sigma0).')
+
+        # get graph for GTC-sigma0 generation
+        graph = OST_ROOT.joinpath(
+            'graphs/S1_SLC2ARD/S1_SLC_TNR_CalSigma_Deb_ML_Sub.xml'
+        )
+
+        # construct command
+        command = (
+            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
+            f'-Prange_looks={range_looks} '
+            f'-Pazimuth_looks={azimuth_looks} '
+            f'-Pregion="{region}" '
+            f'-Pinput="{str(infile)}" '
+            f'-Poutput="{str(outfile)}"'
+        )
     else:
-        print(' ERROR: Wrong product type selected.')
-        sys.exit(121)
+        raise TypeError('Wrong product type selected.')
 
-    print(" INFO: Removing thermal noise, calibrating and debursting")
-    command = '{} {} -x -q {} -Pinput={} -Poutput={}' \
-        .format(gpt_file, graph, ncores, infile, outfile)
-
+    logger.debug(f'Command: {command}')
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully calibrated product')
+        logger.debug('Succesfully calibrated product')
     else:
-        print(' ERROR: Frame import exited with an error. \
-                See {} for Snap Error output'.format(logfile))
-        # sys.exit(121)
+        raise GPTRuntimeError(
+            f'Calibration exited with an error {return_code}. '
+            f'See {logfile} for Snap\'s error output.'
+        )
 
-    return return_code
-
-
-# def _coreg(filelist, outfile, logfile, dem_dict, ncores=os.cpu_count()):
-#    '''A wrapper around SNAP's back-geocoding co-registration routine
-#
-#    This function takes a list of 2 OST imported Sentinel-1 SLC products
-#    and co-registers them properly. This routine is sufficient for coherence
-#    estimation, but not for InSAR, since the ESD refinement is not applied.
-#
-#    Args:
-#        infile: string or os.path object for
-#                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-#        outfile: string or os.path object for the output
-#                 file written in BEAM-Dimap format
-#        logfile: string or os.path object for the file
-#                 where SNAP'S STDOUT/STDERR is written to
-#        dem (str): A Snap compliant string for the dem to use.
-#                   Possible choices are:
-#                       'SRTM 1sec HGT' (default)
-#                       'SRTM 3sec'
-#                       'ASTER 1sec GDEM'
-#                       'ACE30'
-#        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
-
-#
-#    '''
-#
-#    # get gpt file
-#    gpt_file = h.gpt_path()
-#
-#    # get path to graph
-#    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-#    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_BGD.xml')
-#
-#    print(' INFO: Co-registering {}'.format(filelist[0]))
-#    command = '{} {} -x -q {} -Pfilelist={} -Poutput={} -Pdem=\'{}\''\
-#        .format(gpt_file, graph, ncores, filelist, outfile, dem)
-#
-#    return_code = h.run_command(command, logfile)
-#
-#    if return_code == 0:
-#        print(' INFO: Succesfully coregistered product.')
-#    else:
-#        print(' ERROR: Co-registration exited with an error. \
-#                See {} for Snap Error output'.format(logfile))
-#        # sys.exit(112)
-#
-#    return return_code
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
 
 
-def _coreg2(master, slave, outfile, logfile, dem_dict, ncores=os.cpu_count()):
-    '''A wrapper around SNAP's back-geocoding co-registration routine
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def coreg(master, slave, outfile, logfile, config_dict):
+    """A wrapper around SNAP's back-geocoding co-registration routine
 
-    This function takes a list of 2 OST imported Sentinel-1 SLC products
-    and co-registers them properly. This routine is sufficient for coherence
-    estimation, but not for InSAR, since the ESD refinement is not applied.
+    This function takes 2 OST imported Sentinel-1 SLC products
+    (master and slave) and co-registers them properly.
+    This routine is sufficient for coherence estimation,
+    but not for InSAR, since the ESD refinement is not applied.
 
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        dem (str): A Snap compliant string for the dem to use.
-                   Possible choices are:
-                       'SRTM 1sec HGT' (default)
-                       'SRTM 3sec'
-                       'ASTER 1sec GDEM'
-                       'ACE30'
-        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+    :param master:
+    :param slave:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    cpus = config_dict['snap_cpu_parallelism']
+    dem_dict = config_dict['processing']['single_ARD']['dem']
+
+    logger.debug(f'Co-registering {master} and {slave}')
+
+    # construct command
+    command = (
+        f'{GPT_FILE} Back-Geocoding -x -q {2*cpus} '
+        f'-PdemName=\'{dem_dict["dem_name"]}\' '
+        #f'-PdemName=\'SRTM 3Sec\' '
+        f'-PdemResamplingMethod=\'{dem_dict["dem_resampling"]}\' '
+        f'-PexternalDEMFile=\'{dem_dict["dem_file"]}\' '
+        f'-PexternalDEMNoDataValue=\'{dem_dict["dem_nodata"]}\' '
+        f'-PmaskOutAreaWithoutElevation=false '
+        f'-PresamplingType=BILINEAR_INTERPOLATION '
+        f'-t \'{str(outfile)}\''
+        f' "{master}" "{slave}"'
+    )
+
+    logger.debug(f'Executing command: {command}')
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        logger.debug('Succesfully coregistered product.')
+    else:
+        raise GPTRuntimeError(
+            f'Co-registration exited with an error {return_code}. '
+            f'See {logfile} for Snap error output.'
+        )
+
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
 
 
-    '''
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def coreg2(master, slave, outfile, logfile, config_dict):
+    """A wrapper around SNAP's back-geocoding co-registration routine
 
-    # get gpt file
-    gpt_file = h.gpt_path()
+    This function takes 2 OST imported Sentinel-1 SLC products
+    (master and slave) and co-registers them properly.
+    This routine is sufficient for coherence estimation,
+    but not for InSAR, since the ESD refinement is not applied.
+
+    :param master:
+    :param slave:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    cpus = config_dict['snap_cpu_parallelism']
+    dem_dict = config_dict['processing']['single_ARD']['dem']
 
     # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coreg.xml')
+    graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_Coreg.xml')
 
-    # make dem file snap readable in case of no external dem
-    if not dem_dict['dem file']:
-        dem_dict['dem file'] = " "
-
-    print(' INFO: Co-registering {} and {}'.format(master, slave))
-    command = ('{} {} -x -q {} '
-               ' -Pmaster={}'
-               ' -Pslave={}'
-               ' -Pdem=\'{}\''
-               ' -Pdem_file=\'{}\''
-               ' -Pdem_nodata=\'{}\''
-               ' -Pdem_resampling=\'{}\''
-               ' -Poutput={} '.format(
-        gpt_file, graph, ncores,
-        master, slave,
-        dem_dict['dem name'], dem_dict['dem file'],
-        dem_dict['dem nodata'], dem_dict['dem resampling'],
-        outfile)
+    logger.debug(f'Co-registering {master} and {slave}')
+    command = (
+        f"{GPT_FILE} {graph} -x -q {2*cpus} "
+        f" -Pmaster={master} "
+        f" -Pslave={slave} "
+        f" -Pdem_name=\'{dem_dict['dem_name']}\' "
+        f" -Pdem_file=\'{dem_dict['dem_file']}\' "
+        f" -Pdem_nodata=\'{dem_dict['dem_nodata']}\' "
+        f" -Pdem_resampling=\'{dem_dict['dem_resampling']}\' "
+        f" -Poutput={str(outfile)}"
     )
 
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully coregistered product.')
+        logger.debug('Successfully co-registered product.')
     else:
-        print(' ERROR: Co-registration exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            f'Co-registration exited with an error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
+        )
 
-    return return_code
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )
 
 
-def _coherence(infile, outfile, logfile, polar='VV,VH,HH,HV',
-               ncores=os.cpu_count()):
-    '''A wrapper around SNAP's coherence routine
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def coherence(infile, outfile, logfile, config_dict):
+    """A wrapper around SNAP's coherence routine
 
     This function takes a co-registered stack of 2 Sentinel-1 SLC products
     and calculates the coherence.
 
-    Args:
-        infile: string or os.path object for
-                an OST imported frame in BEAM-Dimap format (i.e. *.dim)
-        outfile: string or os.path object for the output
-                 file written in BEAM-Dimap format
-        logfile: string or os.path object for the file
-                 where SNAP'S STDOUT/STDERR is written to
-        ncores(int): the number of cpu cores to allocate to the gpt job - defaults to cpu count
+    :param infile:
+    :param outfile:
+    :param logfile:
+    :param config_dict:
+    :return:
+    """
 
-
-    '''
-
-    # get gpt file
-    gpt_file = h.gpt_path()
+    # get relevant config parameters
+    ard = config_dict['processing']['single_ARD']
+    polars = ard['coherence_bands'].replace(' ', '')
+    cpus = config_dict['snap_cpu_parallelism']
 
     # get path to graph
-    rootpath = importlib.util.find_spec('ost').submodule_search_locations[0]
-    graph = opj(rootpath, 'graphs', 'S1_SLC2ARD', 'S1_SLC_Coh_Deb.xml')
+    graph = OST_ROOT.joinpath('graphs/S1_SLC2ARD/S1_SLC_Coh_Deb.xml')
 
-    print(' INFO: Coherence estimation')
-    command = '{} {} -x -q {} -Pinput={} -Ppolar=\'{}\' -Poutput={}' \
-        .format(gpt_file, graph, ncores, infile, polar, outfile)
+    logger.debug('Coherence estimation')
 
+    command = (
+        f"{GPT_FILE} {graph} -x -q {2 * cpus} "
+        f"-Pazimuth_window={ard['coherence_azimuth']} "
+        f"-Prange_window={ard['coherence_range']} "
+        f'-Ppolar=\'{polars}\' '
+        f'-Pinput="{str(infile)}" '
+        f'-Poutput="{str(outfile)}"'
+    )
+
+    logger.debug(f'Executing command: {command}')
     return_code = h.run_command(command, logfile)
 
     if return_code == 0:
-        print(' INFO: Succesfully created coherence product.')
+        logger.debug('Succesfully created coherence product.')
     else:
-        print(' ERROR: Coherence exited with an error. \
-                See {} for Snap Error output'.format(logfile))
+        raise GPTRuntimeError(
+            f'Coherence exited with an error {return_code}. '
+            f'See {logfile} for Snap\'s error message.'
+        )
 
-    return return_code
+    # do check routine
+    return_code = h.check_out_dimap(outfile)
+    if return_code == 0:
+        return str(outfile.with_suffix('.dim'))
+    else:
+        raise NotValidFileError(
+            f'Product did not pass file check: {return_code}'
+        )

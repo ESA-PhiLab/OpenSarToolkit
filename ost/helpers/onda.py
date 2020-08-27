@@ -1,31 +1,29 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# -*- coding: utf-8 -*-
-'''
-This module provides functions for downloading data from
-ONDA Dias server.
-'''
+"""Functions for downloading from ONDA Dias mirror.
+"""
 
-import os
-from os.path import join as opj
-import glob
 import getpass
 import multiprocessing
-import urllib
+import urllib.request
 import requests
 import tqdm
+import logging
+from pathlib import Path
 
 from ost.helpers import helpers as h
 
+logger = logging.getLogger(__name__)
+
 
 def ask_credentials():
-    '''A helper function that asks for user credentials on ONDA-DIAS
+    """Interactive function asking the user for ONDA Dias credentials
 
-    Returns:
-        uname: username of ONDA DIAS  page
-        pword: password of ONDA DIAS  page
+    :return: tuple of username and password
+    :rtype: tuple
+    """
 
-    '''
     # SciHub account details (will be asked by execution)
     print(' If you do not have a ONDA DIAS user account'
           ' go to: https://www.onda-dias.eu/cms/ and register')
@@ -35,19 +33,16 @@ def ask_credentials():
     return uname, pword
 
 
-def connect(base_url='https://catalogue.onda-dias.eu/dias-catalogue/',
-            uname=None, pword=None):
-    '''A helper function to connect and authenticate to the ONDA DIAS catalogue.
+def connect(uname=None, pword=None):
+    """Generates an opener for the Copernicus apihub/dhus
 
-    Args:
-        base_url (str): basic url to the ONDA DIAS catalogue
-        uname (str): username of ONDA DIAS catalogue
-        pword (str): password of ONDA DIAS catalogue
-
-    Returns:
-        opener: an urllib opener instance to ONDA DIAS catalogue
-
-    '''
+    :param uname: username of ONDA Dias
+    :type uname: str
+    :param pword: password of ONDA Dias
+    :type pword: str
+    :return: an urllib opener instance for Copernicus' scihub
+    :rtype: opener object
+    """
 
     if not uname:
         print(' If you do not have a ONDA DIAS user'
@@ -56,6 +51,8 @@ def connect(base_url='https://catalogue.onda-dias.eu/dias-catalogue/',
 
     if not pword:
         pword = getpass.getpass(' Your ONDA DIAS Password:')
+
+    base_url = 'https://catalogue.onda-dias.eu/dias-catalogue/'
 
     # open a connection to the scihub
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
@@ -67,54 +64,53 @@ def connect(base_url='https://catalogue.onda-dias.eu/dias-catalogue/',
 
 
 def check_connection(uname, pword):
-    '''A helper function to check if a connection  can be established
+    """Check if a connection with ONDA Dias can be established
 
-    Args:
-        uname: username of ONDA DIAS page
-        pword: password of ONDA DIAS page
-
-    Returns
-        int: status code of the get request
-    '''
+    :param uname:
+    :param pword:
+    :return:
+    """
 
     # we use some random url for checking
-    url = ('https://catalogue.onda-dias.eu/dias-catalogue/Products(9d3739b5-9210-4f69-80c2-b5362dac10e0)/$value')
-    response = requests.get(url, auth=(uname, pword))
+    url = (
+        'https://catalogue.onda-dias.eu/dias-catalogue/'
+        'Products(ee89ad93-c6ab-4eb3-b698-4585b4af3ca0)/$value'
+    )
+    response = requests.get(url, auth=(uname, pword), stream=True)
     return response.status_code
 
 
-def s1_download(argument_list):
-    '''Function to download a single Sentinel-1 product from ONDA DIAS
+def onda_download(argument_list):
+    """Single scene download function for Copernicus scihub/apihub
 
-    This function will download S1 products from the ONDA DIAS catalogue.
+    :param argument_list:
+        a list with 4 entries (this is used to enable parallel execution)
+                      argument_list[0]: product's uuid
+                      argument_list[1]: local path for the download
+                      argument_list[2]: username of ONDA Dias
+                      argument_list[3]: password of ONDA Dias
+    :return:
+    """
 
-    Args:
-        argument_list: a list with 4 entries (this is used to enable parallel
-                      execution)
-                      argument_list[0] is the product's uuid
-                      argument_list[1] is the local path for the download
-                      argument_list[2] is the username of Copernicus' scihub
-                      argument_list[3] is the password of Copernicus' scihub
-
-    '''
     # get out the arguments
-    uuid = argument_list[0]
-    #uuid=''.join(uuid)
-    filename = argument_list[1]
-    uname = argument_list[2]
-    pword = argument_list[3]
+    uuid, filename, uname, pword = argument_list
+    filename = Path(filename)
 
     # ask for username and password in case you have not defined as input
     if not uname:
         print(' If you do not have a ONDA DIAS user'
               ' account go to: https://www.onda-dias.eu/cms/')
         uname = input(' Your ONDA DIAS Username:')
+
     if not pword:
         pword = getpass.getpass(' Your ONDA DIAS Password:')
 
-    # define url (url differs from scihub by the lack of '' around the product uuid)
-    url = ('https://catalogue.onda-dias.eu/dias-catalogue/'
-           'Products({})/$value'.format(uuid))
+    # define url (url differs from scihub by the
+    # lack of '' around the product uuid)
+    url = (
+        f'https://catalogue.onda-dias.eu/dias-catalogue/'
+        f'Products({uuid})/$value'
+    )
 
     # get first response for file Size
     response = requests.get(url, stream=True, auth=(uname, pword))
@@ -133,8 +129,8 @@ def s1_download(argument_list):
     chunk_size = 1024
 
     # check if file is partially downloaded
-    if os.path.exists(filename):
-        first_byte = os.path.getsize(filename)
+    if filename.exists():
+        first_byte = filename.stat().st_size
     else:
         first_byte = 0
 
@@ -147,11 +143,12 @@ def s1_download(argument_list):
         while first_byte < total_length:
 
             # get byte offset for already downloaded file
-            header = {"Range": "bytes={}-{}".format(first_byte, total_length)}
+            header = {"Range": f"bytes={first_byte}-{total_length}"}
 
-            print(' INFO: Downloading scene to: {}'.format(filename))
-            response = requests.get(url, headers=header, stream=True,
-                                    auth=(uname, pword))
+            logger.info(f'Downloading scene to: {filename.resolve()}')
+            response = requests.get(
+                url, headers=header, stream=True, auth=(uname, pword)
+            )
 
             # actual download
             with open(filename, "ab") as file:
@@ -159,39 +156,44 @@ def s1_download(argument_list):
                 if total_length is None:
                     file.write(response.content)
                 else:
-                    pbar = tqdm.tqdm(total=total_length, initial=first_byte,
-                                     unit='B', unit_scale=True,
-                                     desc=' INFO: Downloading: ')
+                    pbar = tqdm.tqdm(
+                        total=total_length, initial=first_byte, unit='B',
+                        unit_scale=True, desc=' INFO: Downloading: '
+                    )
                     for chunk in response.iter_content(chunk_size):
                         if chunk:
                             file.write(chunk)
                             pbar.update(chunk_size)
             pbar.close()
+
             # update first_byte
-            first_byte = os.path.getsize(filename)
+            first_byte = filename.stat().st_size
 
         # zipFile check
-        print(' INFO: Checking the zip archive of {} for inconsistency'.format(
-            filename))
+        logger.info(
+            f'Checking the zip archive of {filename.name} for inconsistency'
+        )
         zip_test = h.check_zipfile(filename)
         
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            print(' INFO: {} did not pass the zip test. \
-                  Re-downloading the full scene.'.format(filename))
-            os.remove(filename)
+            logger.info(
+                f'{filename.name} did not pass the zip test. '
+                f'Re-downloading the full scene.'
+            )
+            filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
         else:
-            print(' INFO: {} passed the zip test.'.format(filename))
-            with open(str('{}.downloaded'.format(filename)), 'w') as file:
+            logger.info(f'{filename.name} passed the zip test.')
+            with open(filename.with_suffix('.downloaded'), 'w') as file:
                 file.write('successfully downloaded \n')
             
             
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
     
-    from ost import Sentinel1_Scene as S1Scene
+    from ost import Sentinel1Scene as S1Scene
     from ost.helpers import onda
     
     # create list of scenes
@@ -205,40 +207,41 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
         for scene_id in scenes:
 
             scene = S1Scene(scene_id)
-            filepath = scene._download_path(download_dir, True)
+            file_path = scene.download_path(download_dir, True)
             
             try:
-                uuid = (inventory_df['uuid']
-                    [inventory_df['identifier'] == scene_id].tolist())
+                uuid = (
+                    inventory_df['uuid']
+                    [inventory_df['identifier'] == scene_id].tolist()
+                )
             except KeyError:
-                uuid = scene.ondadias_uuid(opener=onda.connect(uname=uname, pword=pword))
+                uuid = scene.ondadias_uuid(
+                    opener=onda.connect(uname=uname, pword=pword)
+                )
             
-            if os.path.exists('{}.downloaded'.format(filepath)):
-                print(' INFO: {} is already downloaded.'
-                      .format(scene.scene_id))
+            if file_path.with_suffix('.downloaded').exists():
+                logger.info(f'{scene.scene_id} is already downloaded.')
             else:
                 # create list objects for download
-                download_list.append([uuid[0], filepath, uname, pword])
+                download_list.append([uuid[0], file_path, uname, pword])
 
         if download_list:
             pool = multiprocessing.Pool(processes=concurrent)
-            pool.map(s1_download, download_list)
+            pool.map(onda_download, download_list)
                     
-        downloaded_scenes = glob.glob(
-            opj(download_dir, 'SAR', '*', '20*', '*', '*',
-                '*.zip.downloaded'))
+        downloaded_scenes = list(download_dir.glob('**/*.downloaded'))
     
         if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
-            print(' INFO: All products are downloaded.')
+            logger.info('All products are downloaded.')
             check = True
         else:
             check = False
             for scene in scenes:
 
                 scene = S1Scene(scene)
-                filepath = scene._download_path(download_dir)
+                file_path = scene.download_path(download_dir)
 
-                if os.path.exists('{}.downloaded'.format(filepath)):
+                if file_path.with_suffix('.downloaded'):
                     scenes.remove(scene.scene_id)
 
         i += 1

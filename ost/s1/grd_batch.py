@@ -1,320 +1,527 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
-This script allows to produce Sentinel-1 backscatter ARD data
-from a set of different GRD products.
-The script allows to process consecutive frames from one acquisition and
-outputs a single file.
+"""Batch processing for GRD products
 
+"""
 
-----------------
-Functions:
-----------------
-    grd_to_ardBatch:
-        processes all acquisitions
-    ard2Ts:
-        processes all time-series
-
-------------------
-Main function
-------------------
-  grd2Ts:
-    handles the whole workflow
-
-------------------
-Contributors
-------------------
-
-Andreas Vollrath, ESA phi-lab
------------------------------------
-November 2018: Original implementation
-
-------------------
-Usage
-------------------
-
-python3 grd_to_ardBatch.py -i /path/to/inventory -r 20 -p RTC -l True -s False
-                   -t /path/to/tmp -o /path/to/output
-
-    -i    defines the path to one or a list of consecutive slices
-    -r    resolution in meters (should be 10 or more, default=20)
-    -p    defines the product type (GTCsigma, GTCgamma, RTC, default=GTCgamma)
-    -l    defines the layover/shadow mask creation (True/False, default=True)
-    -s    defines the speckle filter (True/False, default=False)
-    -t    defines the folder for temporary products (default=/tmp)
-    -o    defines the /path/to/the/output
-'''
-
-# import standard python libs
 import os
-from os.path import join as opj
 import json
-import glob
 import itertools
+import logging
+import pandas as pd
+from pathlib import Path
 
-import gdal
+from godale._concurrent import Executor
 
-# import ost libs
-from ost import Sentinel1_Scene
+from ost import Sentinel1Scene
 from ost.s1 import grd_to_ard
 from ost.helpers import raster as ras
-from ost.multitemporal import common_extent
-from ost.multitemporal import common_ls_mask
-from ost.multitemporal import ard_to_ts
-from ost.multitemporal import timescan
-from ost.mosaic import mosaic
+from ost.generic import ts_extent
+from ost.generic import ts_ls_mask
+from ost.generic import ard_to_ts
+from ost.generic import timescan
+from ost.generic import mosaic
+
+logger = logging.getLogger(__name__)
 
 
 def _create_processing_dict(inventory_df):
-    ''' This function might be obsolete?
+    """Function that creates a dictionary to handle GRD batch processing
 
-    '''
+    This helper function takes the inventory dataframe and creates
+    a dictionary with the track as key, and all the files to process as
+    a list, whereas the list is
+
+    :param inventory_df:
+    :return:
+    """
 
     # initialize empty dictionary
     dict_scenes = {}
 
     # get relative orbits and loop through each
-    tracklist = inventory_df['relativeorbit'].unique()
-    for track in tracklist:
+    track_list = inventory_df['relativeorbit'].unique()
 
-        # initialize an empty list that will be filled by
-        # list of scenes per acq. date
-        all_ids = []
+    for track in track_list:
 
         # get acquisition dates and loop through each
         acquisition_dates = inventory_df['acquisitiondate'][
             inventory_df['relativeorbit'] == track].unique()
 
         # loop through dates
-        for acquisition_date in acquisition_dates:
+        for i, acquisition_date in enumerate(acquisition_dates):
 
             # get the scene ids per acquisition_date and write into a list
-            single_id = []
-            single_id.append(inventory_df['identifier'][
+            single_id = inventory_df['identifier'][
                 (inventory_df['relativeorbit'] == track) &
-                (inventory_df['acquisitiondate'] == acquisition_date)].tolist())
+                (inventory_df['acquisitiondate'] == acquisition_date)
+            ].tolist()
 
-            # append the list of scenes to the list of scenes per track
-            all_ids.append(single_id[0])
-
-        # add this list to the dctionary and associate the track number
-        # as dict key
-        dict_scenes[track] = all_ids
+            # add this list to the dictionary and associate the track number
+            # as dict key
+            dict_scenes[f'{track}_{i+1}'] = single_id
 
     return dict_scenes
 
 
-def grd_to_ard_batch(inventory_df, download_dir, processing_dir,
-                     temp_dir, proc_file, subset=None,
-                     data_mount='/eodata', exec_file=None):
+def create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error):
+
+    df = pd.DataFrame(columns=['identifier', 'outfile', 'out_ls', 'error'])
+
+    for scene in list_of_scenes:
+
+        temp_df = pd.DataFrame()
+        # get scene_id
+        temp_df['identifier'] = inventory_df.identifier[
+            inventory_df.identifier == scene
+        ].values
+        # fill outfiles/error
+        temp_df['outfile'] = outfile
+        temp_df['out_ls'] = out_ls
+        temp_df['error'] = error
+
+        # append to final df and delete temp_df for next loop
+        df = df.append(temp_df)
+        del temp_df
+
+    return df
+
+
+def grd_to_ard_batch(inventory_df, config_file):
+
+    # load relevant config parameters
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        download_dir = Path(config_dict['download_dir'])
+        data_mount = Path(config_dict['data_mount'])
 
     # where all frames are grouped into acquisitions
     processing_dict = _create_processing_dict(inventory_df)
+    processing_df = pd.DataFrame(
+        columns=['identifier', 'outfile', 'out_ls', 'error']
+    )
 
-    for track, allScenes in processing_dict.items():
-        for list_of_scenes in processing_dict[track]:
+    iter_list = []
+    for _, list_of_scenes in processing_dict.items():
 
-                # get acquisition date
-                acquisition_date = Sentinel1_Scene(list_of_scenes[0]).start_date
-                # create a subdirectory baed on acq. date
-                out_dir = opj(processing_dir, track, acquisition_date)
-                os.makedirs(out_dir, exist_ok=True)
+        # get the paths to the file
+        scene_paths = (
+            [Sentinel1Scene(scene).get_path(download_dir, data_mount)
+             for scene in list_of_scenes]
+        )
 
-                # check if already processed
-                if os.path.isfile(opj(out_dir, '.processed')):
-                    print(' INFO: Acquisition from {} of track {}'
-                          ' already processed'.format(acquisition_date, track))
-                else:
-                    # get the paths to the file
-                    scene_paths = ([Sentinel1_Scene(i).get_path(download_dir)
-                                   for i in list_of_scenes])
+        iter_list.append(scene_paths)
 
-                    file_id = '{}_{}'.format(acquisition_date, track)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
 
-                    # apply the grd_to_ard function
-                    grd_to_ard.grd_to_ard(scene_paths,
-                                          out_dir,
-                                          file_id,
-                                          temp_dir,
-                                          proc_file,
-                                          subset=subset)
+    for task in executor.as_completed(
+        func=grd_to_ard.grd_to_ard,
+        iterable=iter_list,
+        fargs=([str(config_file), ])
+    ):
+
+        list_of_scenes, outfile, out_ls, error = task.result()
+
+        # return the info of processing as dataframe
+        temp_df = create_processed_df(
+            inventory_df, list_of_scenes, outfile, out_ls, error
+        )
+
+        processing_df = processing_df.append(temp_df)
+
+    return processing_df
 
 
-def ards_to_timeseries(inventory_df, processing_dir, temp_dir,
-                       proc_file, exec_file):
+def ards_to_timeseries(inventory_df, config_file):
 
-    # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
+    with open(config_file) as file:
+        config_dict = json.load(file)
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
 
+    # create all extents
+    _create_extents(inventory_df, config_file)
+
+    # update extents in case of ls_mask
+    if ard['create_ls_mask'] or ard_mt['apply_ls_mask']:
+        _create_mt_ls_mask(inventory_df, config_file)
+
+    # finally create time-series
+    _create_timeseries(inventory_df, config_file)
+
+
+def _create_extents(inventory_df, config_file):
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
+
+        list_of_extents = list(track_dir.glob('*/*/*bounds.json'))
+
+        # if extent does not already exist, add to iterable
+        if not track_dir.joinpath(f'{track}.min_bounds.json').exists():
+            iter_list.append(list_of_extents)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=os.cpu_count()
+    )
+
+    out_dict = {'track': [], 'list_of_scenes': [], 'extent': []}
+    for task in executor.as_completed(
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        track, list_of_scenes, extent = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_scenes'].append(list_of_scenes)
+        out_dict['extent'].append(extent)
+
+    return pd.DataFrame.from_dict(out_dict)
+
+
+def _create_extents_old(inventory_df, config_file):
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
+    for track in inventory_df.relativeorbit.unique():
+
+        # get the burst directory
+        track_dir = processing_dir.joinpath(track)
 
         # get common burst extent
-        list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-        list_of_scenes = [x for x in list_of_scenes if 'layover' not in x]
-        extent = opj(track_dir, '{}.extent.shp'.format(track))
+        list_of_scenes = list(track_dir.glob('**/*img'))
 
-        # placeholder for parallelisation
-        if exec_file:
-            if os.path.isfile(exec_file):
-                os.remove(exec_file)
+        list_of_scenes = [
+            str(x) for x in list_of_scenes if 'layover' not in str(x)
+        ]
 
-            print('create command')
-            continue
+        # if extent does not already exist, add to iterable
+        if not track_dir.joinpath(f'{track}.extent.gpkg').exists():
+            iter_list.append(list_of_scenes)
 
-        print(' INFO: Creating common extent mask for track {}'.format(track))
-        common_extent.mt_extent(list_of_scenes, extent, temp_dir, -0.0018)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
 
-    if ard['create ls mask'] or ard['apply ls mask']:
+    out_dict = {'track': [], 'list_of_scenes': [], 'extent': []}
+    for task in executor.as_completed(
+            func=ts_extent.mt_extent,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        track, list_of_scenes, extent = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_scenes'].append(list_of_scenes)
+        out_dict['extent'].append(extent)
 
-        for track in inventory_df.relativeorbit.unique():
-
-            # get the burst directory
-            track_dir = opj(processing_dir, track)
-
-            # get common burst extent
-            list_of_scenes = glob.glob(opj(track_dir, '20*', '*data*', '*img'))
-            list_of_layover = [x for x in list_of_scenes if 'layover' in x]
-
-            # layover/shadow mask
-            out_ls = opj(track_dir, '{}.ls_mask.tif'.format(track))
-
-            print(' INFO: Creating common Layover/Shadow mask for track {}'.format(track))
-            common_ls_mask.mt_layover(list_of_layover, out_ls, temp_dir,
-                                      extent, ard['apply ls mask'])
+    return pd.DataFrame.from_dict(out_dict)
 
 
+def _create_mt_ls_mask(inventory_df, config_file):
+    """Helper function to union the Layover/Shadow masks of a Time-series
+
+    This function creates a
+
+    :param inventory_df:
+    :param config_file:
+    :return:
+    """
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
+
+        # get common burst extent
+        list_of_masks = list(track_dir.glob('*/*/*_ls_mask.json'))
+
+        # if extent does not already exist, add to iterable
+        if not track_dir.joinpath(f'{track}.ls_mask.json').exists():
+            iter_list.append(list_of_masks)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=os.cpu_count()
+    )
+
+    for task in executor.as_completed(
+            func=ts_ls_mask.mt_layover,
+            iterable=iter_list
+    ):
+        task.result()
+
+
+def _create_mt_ls_mask_old(inventory_df, config_file):
+
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
+    for track in inventory_df.relativeorbit.unique():
+
+        # get the burst directory
+        track_dir = processing_dir.joinpath(track)
+
+        # get common burst extent
+        list_of_scenes = list(track_dir.glob('**/*img'))
+
+        list_of_layover = [
+            str(x) for x in list_of_scenes if 'layover' in str(x)
+        ]
+
+        iter_list.append(list_of_layover)
+
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    out_dict = {
+        'track': [], 'list_of_layover': [], 'ls_mask': [], 'ls_extent': []
+    }
+    for task in executor.as_completed(
+            func=ts_ls_mask.mt_layover,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        track, list_of_layover, ls_mask, ls_extent = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_layover'].append(list_of_layover)
+        out_dict['ls_mask'].append(list_of_layover)
+        out_dict['ls_extent'].append(ls_extent)
+
+    return pd.DataFrame.from_dict(out_dict)
+
+
+def _create_timeseries(inventory_df, config_file):
+    """Helper function to create Timeseries out of OST ARD products
+
+    Based on the inventory GeoDataFrame and the configuration file,
+    this function triggers the time-series processing for all bursts/tracks
+    within the respective project. Each product/polarisation is treated
+    singularly.
+
+    Based on the ARD type/configuration settings, the function uses
+    SNAP's Create-Stack function to unify the grid of each scene and
+    applies a multi-temporal speckle filter if selected.
+
+    The output are single GeoTiff files, whereas there is the possibility to
+    reduce the data by converting the data format into uint8 or uint16.
+    This is done by linearly stretching the data between -30 and +5
+    for backscatter, 0 and 1 for coherence, polarimetric anisotropy #
+    and entropy, as well 0 and 90 for polarimetric alpha channel. All
+    the data is cropped to the same extent based on the minimum bounds layer.
+
+    This function executes the underlying functions using the godale framework
+    for parallel execution. Executor type and number of parallel processes is
+    defined within the configuration file.
+
+
+    :param inventory_df:
+    :type GeoDataFrame
+    :param config_file:
+    :type str/Path
+    :return:
+    """
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+
+    iter_list = []
+    for track in inventory_df.relativeorbit.unique():
+
+        # get the burst directory
+        track_dir = processing_dir.joinpath(track)
 
         for pol in ['VV', 'VH', 'HH', 'HV']:
 
             # see if there is actually any imagery in thi polarisation
-            list_of_files = sorted(glob.glob(
-                opj(track_dir, '20*', '*data*', '*ma0*{}*img'.format(pol))))
+            list_of_files = sorted(
+                str(file) for file in list(
+                    track_dir.glob(f'20*/*data*/*ma0*{pol}*img')
+                )
+            )
 
-            if not len(list_of_files) > 1:
+            if len(list_of_files) <= 1:
                 continue
 
             # create list of dims if polarisation is present
-            list_of_dims = sorted(glob.glob(
-                opj(track_dir, '20*', '*bs*dim')))
-
-            ard_to_ts.ard_to_ts(
-                            list_of_dims,
-                            processing_dir,
-                            temp_dir,
-                            track,
-                            proc_file,
-                            product='bs',
-                            pol=pol
+            list_of_dims = sorted(
+                str(dim) for dim in list(track_dir.glob('20*/*bs*dim'))
             )
 
+            iter_list.append([list_of_dims, track, 'bs', pol])
 
-def timeseries_to_timescan(inventory_df, processing_dir, proc_file,
-                           exec_file=None):
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
 
+    out_dict = {
+        'track': [], 'list_of_dims': [], 'out_files': [],
+        'out_vrt': [], 'product': [], 'error': []
+    }
+    for task in executor.as_completed(
+            func=ard_to_ts.gd_ard_to_ts,
+            iterable=iter_list,
+            fargs=([str(config_file), ])
+    ):
+        track, list_of_dims, out_files, out_vrt, product, error = task.result()
+        out_dict['track'].append(track)
+        out_dict['list_of_dims'].append(list_of_dims)
+        out_dict['out_files'].append(out_files)
+        out_dict['out_vrt'].append(out_vrt)
+        out_dict['product'].append(product)
+        out_dict['error'].append(error)
+
+    return pd.DataFrame.from_dict(out_dict)
+
+
+def timeseries_to_timescan(inventory_df, config_file):
 
     # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        ard = ard_params['single ARD']
-        ard_mt = ard_params['time-series ARD']
-        ard_tscan = ard_params['time-scan ARD']
-
+    with open(config_file, 'r') as file:
+        config_dict = json.load(file)
+        processing_dir = Path(config_dict['processing_dir'])
+        ard = config_dict['processing']['single_ARD']
+        ard_mt = config_dict['processing']['time-series_ARD']
+        ard_tscan = config_dict['processing']['time-scan_ARD']
 
     # get the db scaling right
-    to_db = ard['to db']
-    if ard['to db'] or ard_mt['to db']:
+    to_db = ard['to_db']
+    if ard['to_db'] or ard_mt['to_db']:
         to_db = True
 
-    dtype_conversion = True if ard_mt['dtype output'] != 'float32' else False
+    dtype_conversion = True if ard_mt['dtype_output'] != 'float32' else False
 
+    iter_list, vrt_iter_list = [], []
     for track in inventory_df.relativeorbit.unique():
 
-        print(' INFO: Entering track {}.'.format(track))
         # get track directory
-        track_dir = opj(processing_dir, track)
+        track_dir = processing_dir.joinpath(track)
         # define and create Timescan directory
-        timescan_dir = opj(track_dir, 'Timescan')
-        os.makedirs(timescan_dir, exist_ok=True)
+        timescan_dir = track_dir.joinpath('Timescan')
+        timescan_dir.mkdir(parents=True, exist_ok=True)
 
         # loop thorugh each polarization
         for polar in ['VV', 'VH', 'HH', 'HV']:
 
-            if os.path.isfile(opj(timescan_dir, '.{}.processed'.format(polar))):
-                print(' INFO: Timescans for track {} already'
-                      ' processed.'.format(track))
+            if timescan_dir.joinpath(f'.bs.{polar}.processed').exists():
+                logger.info(f'Timescans for track {track} already processed.')
                 continue
 
-            #get timeseries vrt
-            timeseries = opj(track_dir,
-                             'Timeseries',
-                             'Timeseries.bs.{}.vrt'.format(polar)
+            # get timeseries vrt
+            time_series = track_dir.joinpath(
+                f'Timeseries/Timeseries.bs.{polar}.vrt'
             )
 
-            if not os.path.isfile(timeseries):
+            if not time_series.exists():
                 continue
 
-            print(' INFO: Processing Timescans of {} for track {}.'.format(polar, track))
             # create a datelist for harmonics
-            scenelist = glob.glob(
-                opj(track_dir, '*bs.{}.tif'.format(polar))
-            )
+            scene_list = [
+                str(file) for file in list(track_dir.glob(f'*bs.{polar}.tif'))
+            ]
 
             # create a datelist for harmonics calculation
             datelist = []
-            for file in sorted(scenelist):
+            for file in sorted(scene_list):
                 datelist.append(os.path.basename(file).split('.')[1])
 
             # define timescan prefix
-            timescan_prefix = opj(timescan_dir, 'bs.{}'.format(polar))
+            timescan_prefix = timescan_dir.joinpath(f'bs.{polar}')
 
-            # placeholder for parallel execution
-            if exec_file:
-                print(' Write command to a text file')
-                continue
+            iter_list.append([
+                time_series, timescan_prefix, ard_tscan['metrics'],
+                dtype_conversion, to_db, ard_tscan['remove_outliers'],
+                datelist
+            ])
 
-            # run timescan
-            timescan.mt_metrics(
-                timeseries,
-                timescan_prefix,
-                ard_tscan['metrics'],
-                rescale_to_datatype=dtype_conversion,
-                to_power=to_db,
-                outlier_removal=ard_tscan['remove outliers'],
-                datelist=datelist
-            )
+        vrt_iter_list.append(timescan_dir)
 
-        if not exec_file:
-            # create vrt file (and rename )
-            ras.create_tscan_vrt(timescan_dir, proc_file)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run timescan creation
+    out_dict = {'track': [], 'prefix': [], 'metrics': [], 'error': []}
+    for task in executor.as_completed(
+            func=timescan.gd_mt_metrics,
+            iterable=iter_list
+    ):
+        burst, prefix, metrics, error = task.result()
+        out_dict['track'].append(burst)
+        out_dict['prefix'].append(prefix)
+        out_dict['metrics'].append(metrics)
+        out_dict['error'].append(error)
+
+    timescan_df = pd.DataFrame.from_dict(out_dict)
+
+    # run vrt creation
+    for task in executor.as_completed(
+            func=ras.create_tscan_vrt,
+            iterable=vrt_iter_list,
+            fargs=([str(config_file), ])
+    ):
+        task.result()
+
+    return timescan_df
 
 
-def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
-                      exec_file=None):
+def mosaic_timeseries(inventory_df, config_file):
 
     print(' -----------------------------------')
-    print(' INFO: Mosaicking Time-series layers')
+    logger.info('Mosaicking Time-series layers')
     print(' -----------------------------------')
+
+    # -------------------------------------
+    # 1 load project config
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
 
     # create output folder
-    ts_dir = opj(processing_dir, 'Mosaic', 'Timeseries')
-    os.makedirs(ts_dir, exist_ok=True)
+    ts_dir = processing_dir.joinpath('Mosaic/Timeseries')
+    ts_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through polarisations
+    iter_list, vrt_iter_list = [], []
     for p in ['VV', 'VH', 'HH', 'HV']:
 
         tracks = inventory_df.relativeorbit.unique()
-        nr_of_ts = len(glob.glob(opj(
-            processing_dir, tracks[0], 'Timeseries', '*.{}.tif'.format(p))))
+        nr_of_ts = len(list(
+            processing_dir.joinpath(
+                f'{tracks[0]}/Timeseries'
+            ).glob(f'*.{p}.tif')
+        ))
 
         if not nr_of_ts >= 1:
             continue
@@ -322,104 +529,121 @@ def mosaic_timeseries(inventory_df, processing_dir, temp_dir, cut_to_aoi=False,
         outfiles = []
         for i in range(1, nr_of_ts + 1):
 
-            filelist = glob.glob(opj(
-                processing_dir, '*', 'Timeseries',
-                '{}.*.{}.tif'.format(i, p)))
-            filelist = [file for file in filelist if 'Mosaic' not in file]
+            filelist = list(
+                processing_dir.glob(f'*/Timeseries/{i:02d}.*.{p}.tif')
+            )
+            filelist = [
+                str(file) for file in filelist if 'Mosaic' not in str(file)
+            ]
 
             # create
             datelist = []
             for file in filelist:
-                datelist.append(os.path.basename(file).split('.')[1])
+                datelist.append(Path(file).name.split('.')[1])
 
             filelist = ' '.join(filelist)
             start, end = sorted(datelist)[0], sorted(datelist)[-1]
 
             if start == end:
-                outfile = opj(ts_dir, '{}.{}.bs.{}.tif'.format(i, start, p))
+                outfile = ts_dir.joinpath(f'{i:02d}.{start}.bs.{p}.tif')
             else:
-                outfile = opj(ts_dir, '{}.{}-{}.bs.{}.tif'.format(i, start, end, p))
+                outfile = ts_dir.joinpath(f'{i:02d}.{start}-{end}.bs.{p}.tif')
 
-            check_file = opj(
-                os.path.dirname(outfile),
-                '.{}.processed'.format(os.path.basename(outfile)[:-4])
+            check_file = outfile.parent.joinpath(
+                f'.{outfile.stem}.processed'
             )
-               # logfile = opj(ts_dir, '{}.{}-{}.bs.{}.errLog'.format(i, start, end, p))
 
             outfiles.append(outfile)
 
-            if os.path.isfile(check_file):
-                print(' INFO: Mosaic layer {} already'
-                      ' processed.'.format(os.path.basename(outfile)))
+            if check_file.exists():
+                logger.info(
+                    f'Mosaic layer {outfile.name} already processed.'
+                )
                 continue
 
-            print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
-            mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
+            logger.info(f'Mosaicking layer {outfile.name}.')
+            iter_list.append([filelist, outfile, config_file])
 
-        if exec_file:
-            print(' gdalbuildvrt ....command, outfiles')
-            continue
+        vrt_iter_list.append([ts_dir, p, outfiles])
 
-        # create vrt
-        vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-        gdal.BuildVRT(opj(ts_dir, 'Timeseries.{}.vrt'.format(p)),
-                      outfiles,
-                      options=vrt_options
-        )
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    # run mosaicking vrts
+    for task in executor.as_completed(
+            func=mosaic.create_timeseries_mosaic_vrt,
+            iterable=vrt_iter_list
+    ):
+        task.result()
 
 
-def mosaic_timescan(inventory_df, processing_dir, temp_dir, proc_file,
-                    cut_to_aoi=False, exec_file=None):
+def mosaic_timescan(config_file):
 
     # load ard parameters
-    with open(proc_file, 'r') as ard_file:
-        ard_params = json.load(ard_file)['processing parameters']
-        metrics = ard_params['time-scan ARD']['metrics']
+    with open(config_file, 'r') as ard_file:
+        config_dict = json.load(ard_file)
+        processing_dir = Path(config_dict['processing_dir'])
+        metrics = config_dict['processing']['time-scan_ARD']['metrics']
 
     if 'harmonics' in metrics:
         metrics.remove('harmonics')
         metrics.extend(['amplitude', 'phase', 'residuals'])
 
     if 'percentiles' in metrics:
-            metrics.remove('percentiles')
-            metrics.extend(['p95', 'p5'])
+        metrics.remove('percentiles')
+        metrics.extend(['p95', 'p5'])
 
     # create out directory of not existent
-    tscan_dir = opj(processing_dir, 'Mosaic', 'Timescan')
-    os.makedirs(tscan_dir, exist_ok=True)
-    outfiles = []
+    tscan_dir = processing_dir.joinpath('Mosaic/Timescan')
+    tscan_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through all pontial proucts
+    iter_list = []
     for polar, metric in itertools.product(['VV', 'HH', 'VH', 'HV'], metrics):
 
         # create a list of files based on polarisation and metric
-        filelist = glob.glob(opj(processing_dir, '*', 'Timescan',
-                                 '*bs.{}.{}.tif'.format(polar, metric)
-                            )
-                   )
+        filelist = list(processing_dir.glob(
+            f'*/Timescan/*bs.{polar}.{metric}.tif'
+        ))
 
         # break loop if there are no files
         if not len(filelist) >= 2:
             continue
 
         # get number
-        filelist = ' '.join(filelist)
-        outfile = opj(tscan_dir, 'bs.{}.{}.tif'.format(polar, metric))
-        check_file = opj(
-                os.path.dirname(outfile),
-                '.{}.processed'.format(os.path.basename(outfile)[:-4])
-        )
+        filelist = ' '.join([str(file) for file in filelist])
+        outfile = tscan_dir.joinpath(f'bs.{polar}.{metric}.tif')
+        check_file = outfile.parent.joinpath(f'.{outfile.stem}.processed')
 
-        if os.path.isfile(check_file):
-            print(' INFO: Mosaic layer {} already '
-                  ' processed.'.format(os.path.basename(outfile)))
+        if check_file.exists():
+            logger.info(
+                f'Mosaic layer {outfile.name} already processed.'
+            )
             continue
 
-        print(' INFO: Mosaicking layer {}.'.format(os.path.basename(outfile)))
-        mosaic.mosaic(filelist, outfile, temp_dir, cut_to_aoi)
-        outfiles.append(outfile)
+        iter_list.append([filelist, outfile, config_file])
 
-    if exec_file:
-        print(' gdalbuildvrt ....command, outfiles')
-    else:
-        ras.create_tscan_vrt(tscan_dir, proc_file)
+    # now we run with godale, which works also with 1 worker
+    executor = Executor(
+        executor=config_dict['executor_type'],
+        max_workers=config_dict['max_workers']
+    )
+
+    # run mosaicking
+    for task in executor.as_completed(
+            func=mosaic.gd_mosaic,
+            iterable=iter_list
+    ):
+        task.result()
+
+    ras.create_tscan_vrt(tscan_dir, config_file)

@@ -1,3 +1,3 @@
 recursive-include ost/graphs *.xml
 recursive-include ost/graphs *.json
-recursive-include ost/bin *sh
+recursive-include ost/aux *.gpkg

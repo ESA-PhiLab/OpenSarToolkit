@@ -1,0 +1,70 @@
+{
+    "processing": {
+        "single_ARD": {
+            "image_type": "GRD",
+            "ard_type": "OST-RTC",
+            "resolution": 20,
+            "remove_border_noise": true,
+            "product_type": "RTC-gamma0",
+            "polarisation": "VV, VH, HH, HV",
+            "to_db": false,
+            "to_tif": false,
+            "geocoding": "terrain",
+            "remove_speckle": false,
+            "speckle_filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate_ENL": true,
+                "sigma": 0.9,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+                "window_size": "7x7",
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "damping": 2,
+                "pan_size": 50
+            },
+            "create_ls_mask": true,
+            "apply_ls_mask": false,
+            "dem": {
+                "dem_name": "SRTM 1Sec HGT",
+                "dem_file": "",
+                "dem_nodata": 0,
+                "dem_resampling": "BILINEAR_INTERPOLATION",
+                "image_resampling": "BICUBIC_INTERPOLATION",
+                "egm_correction": false,
+                "out_projection": 4326
+            }
+        },
+        "time-series_ARD": {
+            "to_db": true,
+            "remove_mt_speckle": true,
+            "apply_ls_mask": false,
+            "mt_speckle_filter": {
+                "filter": "Refined Lee",
+                "ENL": 1,
+                "estimate_ENL": true,
+                "sigma": 0.9,
+                "filter_x_size": 3,
+                "filter_y_size": 3,
+                "window_size": "7x7",
+                "target_window_size": "3x3",
+                "num_of_looks": 1,
+                "damping": 2,
+                "pan_size": 50
+            },
+            "deseasonalize": false,
+            "dtype_output": "float32"
+        },
+        "time-scan_ARD": {
+            "metrics": ["avg", "max", "min", "std", "cov"],
+            "remove_outliers": true,
+            "apply_ls_mask": false
+        },
+        "mosaic": {
+            "harmonization": true,
+            "production": false,
+            "cut_to_aoi": true
+        }
+    }
+}

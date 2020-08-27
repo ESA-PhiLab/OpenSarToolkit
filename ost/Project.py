@@ -1,257 +1,285 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# import standard libs
-import os
-import importlib
 import json
-import glob
+import urllib.request
+import urllib.parse
 import logging
-import geopandas as gpd
-import multiprocessing
-# create the opj alias to handle independent os paths
-from os.path import join as opj
+from pathlib import Path
 from datetime import datetime
+from multiprocessing import cpu_count
+
+import rasterio
+import geopandas as gpd
 from shapely.wkt import loads
-from joblib import Parallel, delayed
+
 from ost.helpers import vector as vec, raster as ras
-from ost.s1 import search, refine, download, burst, grd_batch
-from ost.helpers import scihub, helpers as h
-from ost.multitemporal import ard_to_ts, common_extent, common_ls_mask, \
-    timescan as tscan
-from ost.mosaic import mosaic as mos
-import sys
+from ost.helpers import scihub, helpers as h, srtm
+from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
+from ost.helpers.settings import check_ard_parameters
 
-# set logging
-logging.basicConfig(stream=sys.stdout,
-                    format='%(levelname)s:%(message)s',
-                    level=logging.INFO)
+from ost.s1 import search, refine_inventory, download
+from ost.s1 import burst_inventory, burst_batch
+from ost.s1 import grd_batch
 
+# get the logger
+logger = logging.getLogger(__name__)
 
-class DevNull(object):
-    def write(self, arg):
-        pass
+# global variables
+OST_DATEFORMAT = "%Y-%m-%d"
+OST_INVENTORY_FILE = 'full.inventory.gpkg'
 
 
-class Generic():
+class Generic:
 
-    def __init__(self, project_dir, aoi,
-                 start='1978-06-28',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount=None,
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None):
+    def __init__(
+            self,
+            project_dir,
+            aoi,
+            start='1978-06-28',
+            end=datetime.today().strftime(OST_DATEFORMAT),
+            data_mount=None,
+            log_level=logging.INFO
+    ):
 
-        self.project_dir = os.path.abspath(project_dir)
-        self.start = start
-        self.end = end
-        self.data_mount = data_mount
-        self.download_dir = download_dir
-        self.inventory_dir = inventory_dir
-        self.processing_dir = processing_dir
-        self.temp_dir = temp_dir
+        # ------------------------------------------
+        # 1 Start logger
+        # set log level to logging.INFO as standard
+        set_log_level(log_level)
 
-        # handle the import of different aoi formats and transform
-        # to a WKT string
-        if aoi.split('.')[-1] != 'shp' and len(aoi) == 3:
+        # ------------------------------------------
+        # 2 Handle directories
 
-            # get lowres data
-            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-            country = world.name[world.iso_a3 == aoi].values[0]
-            print(' INFO: Getting the country boundaries from Geopandas low'
-                  ' resolution data for {}'.format(country))
+        # get absolute path to project directory
+        self.project_dir = Path(project_dir).resolve()
 
-            self.aoi = (world['geometry']
-                        [world['iso_a3'] == aoi].values[0].to_wkt())
-        elif aoi.split('.')[-1] == 'shp':
-            self.aoi = str(vec.shp_to_wkt(aoi))
-            print(' INFO: Using {} shapefile as Area of Interest definition.')
-        else:
-            try:
-                loads(str(aoi))
-            except:
-                print(' ERROR: No valid OST AOI defintion.')
-                sys.exit()
+        # create project directory if not existent
+        try:
+            self.project_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f'Created project directory at {self.project_dir}')
+        except FileExistsError:
+            logger.info('Project directory already exists. '
+                        'No data has been deleted at this point but '
+                        'make sure you really want to use this folder.')
+            
+        # define project sub-directories if not set, and create folders
+        self.download_dir = self.project_dir.joinpath('download')
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            f'Downloaded data will be stored in: {self.download_dir}.'
+        )
+
+        self.inventory_dir = self.project_dir.joinpath('inventory')
+        self.inventory_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            f'Inventory files will be stored in: {self.inventory_dir}.'
+        )
+
+        self.processing_dir = self.project_dir.joinpath('processing')
+        self.processing_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            f'Processed data will be stored in: {self.processing_dir}.'
+        )
+
+        self.temp_dir = self.project_dir.joinpath('temp')
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            f'Using {self.temp_dir} as directory for temporary files.'
+        )
+
+        # ------------------------------------------
+        # 3 create a standard logfile
+        setup_logfile(self.project_dir.joinpath('.processing.log'))
+
+        # ------------------------------------------
+        # 4 handle AOI (read and get back WKT)
+        self.aoi = vec.aoi_to_wkt(aoi)
+
+        # ------------------------------------------
+        # 5 Handle Period of Interest
+        try:
+            datetime.strptime(start, OST_DATEFORMAT)
+            self.start = start
+        except ValueError:
+            raise ValueError("Incorrect date format for start date. "
+                             "It should be YYYY-MM-DD")
+
+        try:
+            datetime.strptime(end, OST_DATEFORMAT)
+            self.end = end
+        except ValueError:
+            raise ValueError("Incorrect date format for end date. "
+                             "It should be YYYY-MM-DD")
+
+        # ------------------------------------------
+        # 6 Check data mount
+        if data_mount:
+            if Path(data_mount).exists():
+                self.data_mount = Path(data_mount)
             else:
-                self.aoi = aoi
-
-        if not self.download_dir:
-            self.download_dir = opj(project_dir, 'download')
-        if not self.inventory_dir:
-            self.inventory_dir = opj(project_dir, 'inventory')
-        if not self.processing_dir:
-            self.processing_dir = opj(project_dir, 'processing')
-        if not self.temp_dir:
-            self.temp_dir = opj(project_dir, 'temp')
-
-        self._create_project_dir()
-        self._create_download_dir(self.download_dir)
-        self._create_inventory_dir(self.inventory_dir)
-        self._create_processing_dir(self.processing_dir)
-        self._create_temp_dir(self.temp_dir)
-
-    def _create_project_dir(self, if_not_empty=True):
-        '''Creates the high-lvel project directory
-
-        :param instance attribute project_dir
-
-        :return None
-        '''
-
-        if os.path.isdir(self.project_dir):
-            logging.warning(' Project directory already exists.'
-                            ' No data has been deleted at this point but'
-                            ' make sure you really want to use this folder.')
+                raise NotADirectoryError(f'{data_mount} is not a directory.')
         else:
+            self.data_mount = None
 
-            os.makedirs(self.project_dir, exist_ok=True)
-            logging.info(' Created project directory at {}'
-                         .format(self.project_dir))
-
-    def _create_download_dir(self, download_dir=None):
-        '''Creates the high-level download directory
-
-        :param instance attribute download_dir or
-               default value (i.e. /path/to/project_dir/download)
-
-        :return None
-        '''
-
-        if download_dir is None:
-            self.download_dir = opj(self.project_dir, 'download')
-        else:
-            self.download_dir = download_dir
-
-        os.makedirs(self.download_dir, exist_ok=True)
-        logging.info(' Downloaded data will be stored in:{}'
-                     .format(self.download_dir))
-
-    def _create_processing_dir(self, processing_dir=None):
-        '''Creates the high-level processing directory
-
-        :param instance attribute processing_dir or
-               default value (i.e. /path/to/project_dir/processing)
-
-        :return None
-        '''
-
-        if processing_dir is None:
-            self.processing_dir = opj(self.project_dir, 'processing')
-        else:
-            self.processing_dir = processing_dir
-
-        os.makedirs(self.processing_dir, exist_ok=True)
-        logging.info(' Processed data will be stored in: {}'
-                     .format(self.processing_dir))
-
-    def _create_inventory_dir(self, inventory_dir=None):
-        '''Creates the high-level inventory directory
-
-        :param instance attribute inventory_dir or
-               default value (i.e. /path/to/project_dir/inventory)
-
-        :return None
-        '''
-
-        if inventory_dir is None:
-            self.inventory_dir = opj(self.project_dir, 'inventory')
-        else:
-            self.inventory_dir = inventory_dir
-
-        os.makedirs(self.inventory_dir, exist_ok=True)
-        logging.info(' Inventory files will be stored in: {}'
-                     .format(self.inventory_dir))
-
-    def _create_temp_dir(self, temp_dir=None):
-        '''Creates the high-level temporary directory
-
-        :param instance attribute temp_dir or
-               default value (i.e. /path/to/project_dir/temp)
-
-        :return None
-        '''
-        if temp_dir is None:
-            self.temp_dir = opj(self.project_dir, 'temp')
-        else:
-            self.temp_dir = temp_dir
-
-        os.makedirs(self.temp_dir, exist_ok=True)
-        logging.info(' Using {} as  directory for temporary files.'
-                     .format(self.temp_dir))
+        # ------------------------------------------
+        # 7 put all parameters in a dictionary
+        self.config_dict = {
+            'project_dir': str(self.project_dir),
+            'download_dir': str(self.download_dir),
+            'inventory_dir': str(self.inventory_dir),
+            'processing_dir': str(self.processing_dir),
+            'temp_dir': str(self.temp_dir),
+            'data_mount': str(self.data_mount),
+            'aoi': self.aoi,
+            'start_date': self.start,
+            'end_date': self.end
+        }
 
 
 class Sentinel1(Generic):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
-
+    """ A Sentinel-1 specific subclass of the Generic OST class
     This subclass creates a Sentinel-1 specific
-    '''
+    """
 
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount='/eodata',
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 product_type='*',
-                 beam_mode='*',
-                 polarisation='*'
-                 ):
+    def __init__(
+            self,
+            project_dir,
+            aoi,
+            start='2014-10-01',
+            end=datetime.today().strftime(OST_DATEFORMAT),
+            data_mount=None,
+            product_type='*',
+            beam_mode='*',
+            polarisation='*',
+            log_level=logging.INFO
+    ):
 
-        super().__init__(project_dir, aoi, start, end, data_mount,
-                         download_dir, inventory_dir, processing_dir, temp_dir)
+        # ------------------------------------------
+        # 1 Get Generic class attributes
+        super().__init__(project_dir, aoi, start, end, data_mount, log_level)
 
-        self.product_type = product_type
-        self.beam_mode = beam_mode
-        self.polarisation = polarisation
+        # ------------------------------------------
+        # 2 Check and set product type
+        if product_type in ['*', 'RAW', 'SLC', 'GRD']:
+            self.product_type = product_type
+        else:
+            raise ValueError(
+                "Product type must be one out of '*', 'RAW', 'SLC', 'GRD'"
+            )
 
-        self.inventory = None
-        self.inventory_file = None
+        # ------------------------------------------
+        # 3 Check and set beam mode
+        if beam_mode in ['*', 'IW', 'EW', 'SM']:
+            self.beam_mode = beam_mode
+        else:
+            raise ValueError("Beam mode must be one out of 'IW', 'EW', 'SM'")
+
+        # ------------------------------------------
+        # 4 Check and set polarisations
+        possible_pols = ['*', 'VV', 'VH', 'HV', 'HH', 'VV VH', 'HH HV']
+        if polarisation in possible_pols:
+            self.polarisation = polarisation
+        else:
+            raise ValueError(
+                f"Polarisation must be one out of {possible_pols}"
+            )
+
+        # ------------------------------------------
+        # 5 Initialize the inventory file
+        inventory_file = self.inventory_dir.joinpath(OST_INVENTORY_FILE)
+        if inventory_file.exists():
+            self.inventory_file = inventory_file
+            logging.info(
+                'Found an existing inventory file. This can be overwritten '
+                'by re-executing the search.'
+            )
+            self.read_inventory()
+        else:
+            self.inventory = None
+            self.inventory_file = None
+
+        # ------------------------------------------
+        # 6 Initialize refinements
         self.refined_inventory_dict = None
         self.coverages = None
 
-    def search(self, outfile='full.inventory.shp', append=False,
-               uname=None, pword=None):
+        # ------------------------------------------
+        # 7 Initialize burst inventories
+        self.burst_inventory = None
+        self.burst_inventory_file = None
+
+        # ------------------------------------------
+        # 7 Initialize uname and pword to None
+        self.scihub_uname = None
+        self.scihub_pword = None
+
+        self.asf_uname = None
+        self.asf_pword = None
+
+        self.peps_uname = None
+        self.peps_pword = None
+
+        self.onda_uname = None
+        self.onda_pword = None
+
+    # ------------------------------------------
+    # methods
+    def search(self, outfile=OST_INVENTORY_FILE, append=False,
+               base_url='https://scihub.copernicus.eu/apihub'):
+        """High Level search function
+
+        :param outfile:
+        :param append:
+        :param base_url:
+        :return:
+        """
 
         # create scihub conform aoi string
-        aoi_str = scihub.create_aoi_str(self.aoi)
+        aoi = scihub.create_aoi_str(self.aoi)
 
         # create scihub conform TOI
-        toi_str = scihub.create_toi_str(self.start, self.end)
+        toi = scihub.create_toi_str(self.start, self.end)
 
         # create scihub conform product specification
-        product_specs_str = scihub.create_s1_product_specs(
-            self.product_type, self.polarisation, self.beam_mode)
+        product_specs = scihub.create_s1_product_specs(
+            self.product_type, self.polarisation, self.beam_mode
+        )
 
-        # join the query
-        query = scihub.create_query('Sentinel-1', aoi_str, toi_str,
-                                    product_specs_str)
+        # construct the final query
+        query = urllib.parse.quote(
+            f'Sentinel-1 AND {product_specs} AND {aoi} AND {toi}'
+        )
 
-        if not uname or not pword:
+        if not self.scihub_uname or not self.scihub_pword:
             # ask for username and password
-            uname, pword = scihub.ask_credentials()
+            self.scihub_uname, self.scihub_pword = scihub.ask_credentials()
 
         # do the search
-        self.inventory_file = opj(self.inventory_dir, outfile)
-        search.scihub_catalogue(query, self.inventory_file, append,
-                                uname, pword)
+        if outfile == OST_INVENTORY_FILE:
+            self.inventory_file = self.inventory_dir.joinpath(
+                OST_INVENTORY_FILE
+            )
+        else:
+            Path(outfile)
 
-        if os.path.exists(self.inventory_file):
+        search.scihub_catalogue(
+            query, self.inventory_file, append,
+            self.scihub_uname, self.scihub_pword, base_url
+        )
+
+        if self.inventory_file.exists():
             # read inventory into the inventory attribute
             self.read_inventory()
         else:
-            print('No images found in the AOI for this date range')
+            logger.info('No images found in the AOI for this date range')
 
     def read_inventory(self):
-        '''Read the Sentinel-1 data inventory from a OST invetory shapefile
-
+        """Read the Sentinel-1 data inventory from a OST invetory shapefile
         :param
+        """
 
-        '''
-
-        #       define column names of inventory file (since in shp they are truncated)
+        # define column names of inventory file (since in shp they are
+        # truncated)
         column_names = ['id', 'identifier', 'polarisationmode',
                         'orbitdirection', 'acquisitiondate', 'relativeorbit',
                         'orbitnumber', 'product_type', 'slicenumber', 'size',
@@ -264,41 +292,48 @@ class Sentinel1(Generic):
         geodataframe = gpd.read_file(self.inventory_file)
         geodataframe.columns = column_names
 
-        # add download_path to inventory, so we can check if data needs to be 
+        # add download_path to inventory, so we can check if data needs to be
         # downloaded
         self.inventory = search.check_availability(
-            geodataframe, self.download_dir, self.data_mount)
-
-        # return geodataframe
+            geodataframe, self.download_dir, self.data_mount
+        )
 
     def download_size(self, inventory_df=None):
+        """Function to get the total size of all products when extracted in GB
 
-        if inventory_df:
-            download_size = inventory_df[
-                'size'].str.replace(' GB', '').astype('float32').sum()
-        else:
+        :param inventory_df:
+        :return:
+        """
+        if inventory_df is None:
             download_size = self.inventory[
                 'size'].str.replace(' GB', '').astype('float32').sum()
+        else:
+            download_size = inventory_df[
+                'size'].str.replace(' GB', '').astype('float32').sum()
 
-        print(' INFO: There are about {} GB need to be downloaded.'.format(
-            download_size))
+        logger.info(
+            f'There are about {download_size} GB need to be downloaded.'
+        )
 
-    def refine(self,
-               exclude_marginal=True,
-               full_aoi_crossing=True,
-               mosaic_refine=True,
-               area_reduce=0.05,
-               complete_coverage=True):
+    def refine_inventory(self,
+                         exclude_marginal=True,
+                         full_aoi_crossing=True,
+                         mosaic_refine=True,
+                         area_reduce=0.05,
+                         complete_coverage=True):
 
-        self.refined_inventory_dict, self.coverages = refine.search_refinement(
-            self.aoi,
-            self.inventory,
-            self.inventory_dir,
-            exclude_marginal=exclude_marginal,
-            full_aoi_crossing=full_aoi_crossing,
-            mosaic_refine=mosaic_refine,
-            area_reduce=area_reduce,
-            complete_coverage=complete_coverage)
+        self.refined_inventory_dict, self.coverages = (
+            refine_inventory.search_refinement(
+                self.aoi,
+                self.inventory,
+                self.inventory_dir,
+                exclude_marginal=exclude_marginal,
+                full_aoi_crossing=full_aoi_crossing,
+                mosaic_refine=mosaic_refine,
+                area_reduce=area_reduce,
+                complete_coverage=complete_coverage
+            )
+        )
 
         # summing up information
         print('--------------------------------------------')
@@ -306,13 +341,12 @@ class Sentinel1(Generic):
         print('--------------------------------------------')
         for key in self.refined_inventory_dict:
             print('')
-            print(' {} mosaics for mosaic key {}'.format(self.coverages[key],
-                                                         key))
+            print(f' {self.coverages[key]} mosaics for mosaic key {key}')
 
     def download(self, inventory_df, mirror=None, concurrent=2,
                  uname=None, pword=None):
 
-        # if an old inventory exists dorp download_path
+        # if an old inventory exists drop download_path
         if 'download_path' in inventory_df:
             inventory_df.drop('download_path', axis=1)
 
@@ -321,894 +355,508 @@ class Sentinel1(Generic):
             inventory_df, self.download_dir, self.data_mount)
 
         # extract only those scenes that need to be downloaded
-        download_df = inventory_df[inventory_df.download_path.isnull()]
+        download_df = inventory_df[inventory_df.download_path == 'None']
 
         # to download or not ot download - that is here the question
         if not download_df.any().any():
-            print(' INFO: All scenes are ready for being processed.')
+            logger.info('All scenes are ready for being processed.')
         else:
-            print(' INFO: One or more of your scenes need to be downloaded.')
-            download.download_sentinel1(download_df,
-                                        self.download_dir,
-                                        mirror=mirror,
-                                        concurrent=concurrent,
-                                        uname=uname,
-                                        pword=pword)
-
-    def plot_inventory(self, inventory_df=None, transparency=0.05,
-                       annotate=False):
-
-        if inventory_df is None:
-            vec.plot_inventory(self.aoi, self.inventory, transparency,
-                               annotate)
-        else:
-            vec.plot_inventory(self.aoi, inventory_df, transparency, annotate)
-
-
-class Sentinel1_SLCBatch(Sentinel1):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
-
-    This subclass creates a Sentinel-1 specific
-    '''
-
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount='/eodata',
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 product_type='SLC',
-                 beam_mode='IW',
-                 polarisation='*',
-                 ard_type='OST Standard',
-                 multiprocess=None
-                 ):
-
-        super().__init__(project_dir, aoi, start, end, data_mount,
-                         download_dir, inventory_dir, processing_dir, temp_dir,
-                         product_type, beam_mode, polarisation)
-
-        self.ard_type = ard_type
-        self.proc_file = opj(self.project_dir, 'processing.json')
-        self.get_ard_parameters(self.ard_type)
-        self.burst_inventory = None
-        self.burst_inventory_file = None
-
-    def create_burst_inventory(self, key=None, refine=True,
-                               uname=None, pword=None):
-
-        if key:
-            coverages = self.coverages[key]
-            outfile = opj(self.inventory_dir,
-                          'bursts.{}.shp').format(key)
-            self.burst_inventory = burst.burst_inventory(
-                self.refined_inventory_dict[key],
-                outfile,
-                download_dir=self.download_dir,
-                data_mount=self.data_mount,
-                uname=uname, pword=pword)
-        else:
-            coverages = None
-            outfile = opj(self.inventory_dir,
-                          'bursts.full.shp')
-
-            self.burst_inventory = burst.burst_inventory(
-                self.inventory,
-                outfile,
-                download_dir=self.download_dir,
-                data_mount=self.data_mount,
-                uname=uname, pword=pword)
-
-        if refine:
-            # print('{}.refined.shp'.format(outfile[:-4]))
-            self.burst_inventory = burst.refine_burst_inventory(
-                self.aoi, self.burst_inventory,
-                '{}.refined.shp'.format(outfile[:-4]),
-                coverages
+            logger.info('One or more scene(s) need(s) to be downloaded.')
+            download.download_sentinel1(
+                download_df,
+                self.download_dir,
+                mirror=mirror,
+                concurrent=concurrent,
+                uname=uname,
+                pword=pword
             )
 
-    def read_burst_inventory(self, key):
-        '''Read the Sentinel-1 data inventory from a OST inventory shapefile
+    def create_burst_inventory(
+            self,
+            inventory_df=None,
+            refine=True,
+            outfile=None,
+            uname=None,
+            pword=None
+    ):
 
-        :param
+        # assert SLC product type
+        if not self.product_type == 'SLC':
+            raise ValueError(
+                'Burst inventory is only possible for the SLC product type'
+            )
 
-        '''
-
-        if key:
-            file = opj(self.inventory_dir, 'burst_inventory.{}.shp').format(
-                key)
+        # in case a custom inventory is given (e.g. a refined inventory)
+        if inventory_df is None:
+            inventory_df = self.inventory
         else:
-            file = opj(self.inventory_dir, 'burst_inventory.shp')
+            # assert that all products are SLCs
+            if not inventory_df.product_type.unique() == 'SLC':
+                raise ValueError(
+                    'The inventory dataframe can only contain SLC products '
+                    'for the burst inventory '
+                )
 
+        if not outfile:
+            outfile = self.inventory_dir.joinpath('burst_inventory.gpkg')
+
+        # run the burst inventory
+        self.burst_inventory = burst_inventory.burst_inventory(
+            inventory_df,
+            outfile,
+            download_dir=self.download_dir,
+            data_mount=self.data_mount,
+            uname=uname, pword=pword
+        )
+
+        # refine the burst inventory
+        if refine:
+            self.burst_inventory = burst_inventory.refine_burst_inventory(
+                self.aoi, self.burst_inventory,
+                f'{str(outfile)[:-5]}.refined.gpkg'
+            )
+
+    def read_burst_inventory(self, burst_file=None):
+        """
+        :param burst_file: a GeoPackage file created by OST holding a burst
+                           inventory
+        :return: geodataframe
+        """
+        if not burst_file:
+
+            non_ref = self.inventory_dir.joinpath('burst_inventory.gpkg')
+            refined = self.inventory_dir.joinpath(
+                'burst_inventory.refined.gpkg'
+            )
+
+            if refined.exists():
+                logger.info(
+                    f'Importing refined burst inventory file {str(refined)}.')
+                burst_file = refined
+            elif non_ref.exists():
+                logger.info(
+                    f'Importing refined burst inventory file {str(non_ref)}.')
+                burst_file = non_ref
+            else:
+                raise FileNotFoundError(
+                    'No previously created burst inventory file '
+                    'has been found.'
+                )
         # define column names of file (since in shp they are truncated)
         # create column names for empty data frame
         column_names = ['SceneID', 'Track', 'Direction', 'Date', 'SwathID',
                         'AnxTime', 'BurstNr', 'geometry']
 
-        geodataframe = gpd.read_file(file)
-        geodataframe.columns = column_names
-        geodataframe['Date'] = geodataframe['Date'].astype(int)
-        geodataframe['BurstNr'] = geodataframe['BurstNr'].astype(int)
-        geodataframe['AnxTime'] = geodataframe['AnxTime'].astype(int)
-        geodataframe['Track'] = geodataframe['Track'].astype(int)
+        geodataframe = gpd.read_file(burst_file)
+        geodataframe = geodataframe[column_names]
         self.burst_inventory = geodataframe
 
         return geodataframe
 
-    def get_ard_parameters(self, ard_type=None):
+    def plot_inventory(self, inventory_df=None, transparency=0.05,
+                       annotate=False):
 
-        # we read the existent processing file
-        if not ard_type:
-            with open(self.proc_file, 'r') as ard_file:
-                self.ard_parameters = json.load(ard_file)[
-                    'processing parameters']
-        # when ard_type is defined we read from template
+        if inventory_df is None:
+            vec.plot_inventory(
+                self.aoi, self.inventory, transparency, annotate
+            )
         else:
-            # get path to graph
-            # get path to ost package
-            rootpath = \
-            importlib.util.find_spec('ost').submodule_search_locations[0]
-            rootpath = opj(rootpath, 'graphs', 'ard_json')
+            vec.plot_inventory(self.aoi, inventory_df, transparency, annotate)
 
-            template_file = opj(rootpath, '{}.{}.json'.format(
-                self.product_type.lower(),
-                ard_type.replace(' ', '_').lower()))
 
-            with open(template_file, 'r') as ard_file:
-                self.ard_parameters = json.load(ard_file)[
-                    'processing parameters']
+class Sentinel1Batch(Sentinel1):
+    """ A Sentinel-1 specific subclass of the Generic OST class
+    This subclass creates a Sentinel-1 specific
+    """
 
-        with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
-                      outfile,
-                      indent=4)
+    def __init__(
+            self,
+            project_dir,
+            aoi,
+            start='2014-10-01',
+            end=datetime.today().strftime(OST_DATEFORMAT),
+            data_mount=None,
+            product_type='SLC',
+            beam_mode='IW',
+            polarisation='*',
+            ard_type='OST-GTC',
+            snap_cpu_parallelism=cpu_count(),
+            max_workers=1,
+            log_level=logging.INFO
+    ):
+        # ------------------------------------------
+        # 1 Initialize super class
+        super().__init__(
+            project_dir, aoi, start, end, data_mount,
+            product_type, beam_mode, polarisation, log_level
+        )
 
-    def update_ard_parameters(self):
+        # ---------------------------------------
+        # 1 Check and set ARD type
 
-        with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
-                      outfile,
-                      indent=4)
+        # possible ard types to select from for GRD
+        if product_type == 'GRD':
+            ard_types_grd = ['CEOS', 'Earth-Engine', 'OST-GTC', 'OST-RTC']
+            if ard_type in ard_types_grd:
+                self.ard_type = ard_type
+            else:
+                raise ValueError('No valid ARD type for product type GRD.'
+                                 f'Select from {ard_types_grd}')
 
-    def set_external_dem(self, dem_file):
+        # possible ard types to select from for GRD
+        elif product_type == 'SLC':
 
-        import rasterio
+            ard_types_slc = ['OST-GTC', 'OST-RTC', 'OST-COH', 'OST-RTCCOH',
+                             'OST-POL', 'OST-ALL']
+
+            if ard_type in ard_types_slc:
+                self.ard_type = ard_type
+            else:
+                raise ValueError('No valid ARD type for product type GRD.'
+                                 f'Select from {ard_types_slc}')
+
+        # otherwise the product type is not supported
+        else:
+            raise ValueError(f'Product type {self.product_type} not '
+                             f'supported for processing. Only GRD and SLC '
+                             f'are supported.')
+
+        # ---------------------------------------
+        # 2 Check beam mode
+        if not beam_mode == 'IW':
+            raise ValueError("Only 'IW' beam mode supported for processing.")
+
+        # ---------------------------------------
+        # 3 Add snap_cpu_parallelism
+        self.config_dict['snap_cpu_parallelism'] = snap_cpu_parallelism
+        self.config_dict['max_workers'] = max_workers
+        self.config_dict['executor_type'] = 'billiard'
+
+        # ---------------------------------------
+        # 4 Set up project JSON
+        self.config_file = self.project_dir.joinpath('config.json')
+        self.ard_parameters = self.get_ard_parameters(ard_type)
+
+        # re-create config dict with update ard parameters
+        self.config_dict.update(
+            processing=self.ard_parameters
+        )
+
+    # ---------------------------------------
+    # methods
+    def get_ard_parameters(self, ard_type):
+
+        # find respective template for selected ARD type
+        template_file = OST_ROOT.joinpath(
+            f"graphs/ard_json/{self.product_type.lower()}"
+            f".{ard_type.replace('-', '_').lower()}.json"
+        )
+        # open and load parameters
+        with open(template_file, 'r') as ard_file:
+            self.ard_parameters = json.load(ard_file)['processing']
+
+        # return ard_parameters
+
+    def update_ard_parameters(self, ard_type=None):
+
+        # if a ard type is selected, load
+        if ard_type:
+            self.get_ard_parameters(ard_type)
+
+        # check for correctness of ard parameters
+        check_ard_parameters(self.ard_parameters)
+
+        # re-create project dict with update ard parameters
+        self.config_dict.update(
+            processing=self.ard_parameters
+        )
+
+        # dump to json file
+        with open(self.config_file, 'w') as outfile:
+            json.dump(self.config_dict, outfile, indent=4)
+
+    def set_external_dem(self, dem_file, ellipsoid_correction=True):
 
         # check if file exists
-        if not os.path.isfile(dem_file):
-            print(' ERROR: No dem file found at location {}.'.format(dem_file))
-            return
+        if not Path(dem_file).exists():
+            raise FileNotFoundError(f'No file found at {dem_file}.')
 
         # get no data value
         with rasterio.open(dem_file) as file:
-            dem_nodata = file.nodata
+            dem_nodata = int(file.nodata)
 
-        # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
+        # get resampling adn projection‚
+        img_res = self.ard_parameters['single_ARD']['dem']['image_resampling']
+        dem_res = self.ard_parameters['single_ARD']['dem']['dem_resampling']
+        projection = self.ard_parameters['single_ARD']['dem']['out_projection']
 
         # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM',
-                         'dem file': dem_file,
-                         'dem nodata': dem_nodata,
-                         'dem resampling': dem_res,
-                         'image resampling': img_res})
-        self.ard_parameters['single ARD']['dem'] = dem_dict
+        dem_dict = dict({'dem_name': 'External DEM',
+                         'dem_file': dem_file,
+                         'dem_nodata': dem_nodata,
+                         'dem_resampling': dem_res,
+                         'image_resampling': img_res,
+                         'egm_correction': ellipsoid_correction,
+                         'out_projection': projection
+                         })
 
-    def bursts_to_ard(self, timeseries=False, timescan=False, mosaic=False,
-                      overwrite=False, exec_file=None, cut_to_aoi=False,
-                      ncores=os.cpu_count()):
-        # check for previous exec files and remove them
-        if exec_file:
-            [os.remove(n) for n in glob.glob(exec_file + '*') if
-             os.path.isfile(n)]
+        # update ard_parameters
+        self.ard_parameters['single_ARD']['dem'] = dem_dict
 
-        # in case ard parameters have been updated, write them to json file
+    def pre_download_srtm(self):
+
+        logger.info('Pre-downloading SRTM tiles')
+        srtm.download_srtm(self.aoi)
+
+
+    def bursts_to_ards(
+            self,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False
+    ):
+        """Batch processing function for full burst pre-processing workflow
+
+        This function allows for the generation of the
+
+        :param timeseries: if True, Time-series will be generated for
+        each burst id
+        :type timeseries: bool, optional
+        :param timescan: if True, Timescans will be generated for each burst id
+        type: timescan: bool, optional
+        :param mosaic: if True, Mosaics will be generated from the
+                       Time-Series/Timescans of each burst id
+        :type mosaic: bool, optional
+        :param overwrite: (if True, the processing folder will be
+        emptied
+        :type overwrite: bool, optional
+        :param max_workers: number of parallel burst
+        :type max_workers: int, default=1
+        processing jobs
+        :return:
+        """
+
+        # --------------------------------------------
+        # 2 Check if within SRTM coverage
+        # set ellipsoid correction and force GTC production
+        # when outside SRTM
+        center_lat = loads(self.aoi).centroid.y
+        if float(center_lat) > 59 or float(center_lat) < -59:
+            logger.info('Scene is outside SRTM coverage. Snap will therefore '
+                        'use the Earth\'s geoid model.')
+            self.ard_parameters['single_ARD']['dem'][
+                'dem_name'] = 'Aster 1sec GDEM'
+
+        # --------------------------------------------
+        # 3 subset determination
+        # we need a check function that checks
+        self.config_dict['subset'] = False
+        # This does not work at the moment, and maybe does not even make sense,
+        # since for the co-registration we would need a sufficient
+        # part of the image
+        # self.config_dict['subset'] = vec.set_subset(
+        #     self.aoi, self.burst_inventory
+        # )
+
+        # --------------------------------------------
+        # 4 Check ard parameters in case they have been updated,
+        #   and write them to json file
         self.update_ard_parameters()
 
+        # --------------------------------------------
+        # 1 delete data from previous runnings
+        # delete data in temporary directory in case there is
+        # something left from previous runs
+        h.remove_folder_content(self.config_dict['temp_dir'])
+
+        # in case we strat from scratch, delete all data
+        # within processing folder
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
-            h.remove_folder_content(self.processing_dir)
-
-        # set resolution in degree
-        self.center_lat = loads(self.aoi).centroid.y
-        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-                  ' DEM instead.')
-            self.ard_parameters['single ARD']['dem'] = 'ASTER 1sec GDEM'
-
-        # set resolution to degree
+            logger.info('Deleting processing folder to start from scratch')
+            h.remove_folder_content(self.config_dict['processing_dir'])
+            
+        # --------------------------------------------
+        # 5 set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
+        if self.config_dict['max_workers'] > 1:
+            self.pre_download_srtm()
 
-        # check and retry function
-        if exec_file:
-            [os.remove(n) for n in glob.glob(exec_file + '*') if
-             os.path.isfile(n)]
-            burst.burst_to_ard_batch(self.burst_inventory,
-                                     self.download_dir,
-                                     self.processing_dir,
-                                     self.temp_dir,
-                                     self.proc_file,
-                                     self.data_mount,
-                                     exec_file,
-                                     ncores)
+        # --------------------------------------------
+        # 6 run the burst to ard batch routine (up to 3 times if needed)
+        i = 1
+        while i < 4:
+            processed_bursts_df = burst_batch.bursts_to_ards(
+                self.burst_inventory,
+                self.config_file
+            )
 
-        else:
-            i = 0
-            while len(self.burst_inventory) > nr_of_processed:
-
-                burst.burst_to_ard_batch(self.burst_inventory,
-                                         self.download_dir,
-                                         self.processing_dir,
-                                         self.temp_dir,
-                                         self.proc_file,
-                                         self.data_mount,
-                                         exec_file,
-                                         ncores)
-
-                nr_of_processed = len(
-                    glob.glob(
-                        opj(self.processing_dir, '*', '*', '.processed')))
-
+            if False in processed_bursts_df.error.isnull().tolist():
                 i += 1
+            else:
+                i = 5
 
-                # not more than 5 trys
-                if i == 5:
-                    break
+        # write processed df to file
+        processing_dir = Path(self.config_dict['processing_dir'])
+        processed_bursts_df.to_pickle(
+            processing_dir.joinpath('processed_bursts.pickle')
+        )
 
-        # do we delete the downloads here?
+        # if not all have been processed, raise an error to avoid
+        # false time-series processing
+        if i == 4:
+            raise RuntimeError(
+                'Not all all bursts have been successfully processed'
+            )
+
+        # --------------------------------------------
+        # 6 run the timeseries creation
         if timeseries or timescan:
-            burst.burst_ards_to_timeseries(self.burst_inventory,
-                                           self.processing_dir,
-                                           self.temp_dir,
-                                           self.proc_file,
-                                           exec_file,
-                                           ncores)
+            tseries_df = burst_batch.ards_to_timeseries(
+                self.burst_inventory, self.config_file
+            )
 
-            # do we deleete the single ARDs here?
-            if timescan:
-                burst.timeseries_to_timescan(self.burst_inventory,
-                                             self.processing_dir,
-                                             self.temp_dir,
-                                             self.proc_file,
-                                             exec_file)
+        # --------------------------------------------
+        # 7 run the timescan creation
+        if timescan:
+            burst_batch.timeseries_to_timescan(
+                self.burst_inventory, self.config_file
+            )
 
-        if cut_to_aoi:
-            cut_to_aoi = self.aoi
-
+        # --------------------------------------------
+        # 8 mosaic the time-series
         if mosaic and timeseries:
-            burst.mosaic_timeseries(self.burst_inventory,
-                                    self.processing_dir,
-                                    self.temp_dir,
-                                    cut_to_aoi,
-                                    exec_file,
-                                    ncores
-                                    )
+            burst_batch.mosaic_timeseries(
+                self.burst_inventory, self.config_file
+            )
 
+        # --------------------------------------------
+        # 9 mosaic the timescans
         if mosaic and timescan:
-            burst.mosaic_timescan(self.burst_inventory,
-                                  self.processing_dir,
-                                  self.temp_dir,
-                                  self.proc_file,
-                                  cut_to_aoi,
-                                  exec_file,
-                                  ncores
-                                  )
+            burst_batch.mosaic_timescan(
+                self.burst_inventory, self.config_file
+            )
 
-    def create_timeseries_animation(self, timeseries_dir, product_list,
-                                    outfile,
-                                    shrink_factor=1, resampling_factor=5,
-                                    duration=1,
-                                    add_dates=False, prefix=False):
+        # return tseries_df
 
+    @staticmethod
+    def create_timeseries_animation(
+            timeseries_dir,
+            product_list,
+            outfile,
+            shrink_factor=1,
+            resampling_factor=5,
+            duration=1,
+            add_dates=False,
+            prefix=False
+    ):
         ras.create_timeseries_animation(timeseries_dir, product_list, outfile,
                                         shrink_factor=shrink_factor,
                                         duration=duration,
                                         resampling_factor=resampling_factor,
                                         add_dates=add_dates, prefix=prefix)
 
-    def multiprocess(self, timeseries=False, timescan=False, mosaic=False,
-                     overwrite=False, exec_file=None, cut_to_aoi=False,
-                     ncores=os.cpu_count(), multiproc=os.cpu_count()):
-        '''
-        Function to read previously generated exec text files and run them using
-        a specified number of cores in parallel (or the number of available cpus)
-        Some thought should be given to how many cores are available and the optimal number of cpus
-        required to process a single burst
-        Exec files should be recreated at each step to add parameters such as filenames, extents, that have been
-        generated at previous steps
-        '''
-        # list exec files
-        exec_burst_to_ard = exec_file + '_burst_to_ard.txt'
-        exec_timeseries = exec_file + '_timeseries.txt'
-        exec_tscan = exec_file + '_tscan.txt'
-        exec_tscan_vrt = exec_file + '_tscan_vrt.txt'
-        exec_mosaic_timeseries = exec_file + '_mosaic_timeseries.txt'
-        exec_mosaic_ts_vrt = exec_file + '_mosaic_ts_vrt.txt'
-        exec_mosaic_timescan = exec_file + '_mosaic_tscan.txt'
-        exec_mosaic_tscan_vrt = exec_file + '_mosaic_tscan_vrt.txt'
-        exec_mt_extent = exec_file + '_mt_extent.txt'
-        exec_mt_ls = exec_file + '_mt_ls.txt'
-
-        # test existence of burst to ard exec files and run them in parallel
-        if os.path.isfile(exec_burst_to_ard):
-            print("Running Burst to ARD in parallel mode")
-            from ost.s1 import burst_to_ard
-            burst_ard_params = []
-            with open(exec_burst_to_ard, "r") as fp:
-                burst_ard_params = [line.strip() for line in fp]
-            fp.close()
-
-            ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-            # def run_burst_ard_multiprocess(params):
-            #    from ost.s1 import burst_to_ard
-            #    burst_to_ard.burst_to_ard(*params.split(','))
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*', '*', '.processed')))
-
-            i = 0
-            if self.ard_parameters['single ARD'][
-                'product type'] == 'Coherence_only':
-                i = 0
-
-                while (len(self.burst_inventory) - len(self.burst_inventory[
-                                                           'bid'].unique())) > nr_of_processed:
-                    Parallel(n_jobs=multiproc, verbose=53,
-                             backend=multiprocessing)(
-                        delayed(burst_to_ard.burst_to_ard)(*params.split(';'))
-                        for params in burst_ard_params)
-
-                    nr_of_processed = len(
-                        glob.glob(
-                            opj(self.processing_dir, '*', '*', '.processed')))
-
-                    i += 1
-
-                    # not more than 5 trys
-                    if i == 5:
-                        break
-            else:
-                i = 0
-
-                while len(self.burst_inventory) > nr_of_processed:
-
-                    Parallel(n_jobs=multiproc, verbose=53,
-                             backend=multiprocessing)(
-                        delayed(burst_to_ard.burst_to_ard)(*params.split(';'))
-                        for params in burst_ard_params)
-
-                    nr_of_processed = len(
-                        glob.glob(
-                            opj(self.processing_dir, '*', '*', '.processed')))
-
-                    i += 1
-
-                    # not more than 5 trys
-                    if i == 5:
-                        break
-
-            # pool = multiprocessing.Pool(processes=multiproc)
-            # pool.map(run_burst_ard_multiprocess, burst_ard_params)
-
-        # test existence of multitemporal extent exec files and run them
-        # in parallel
-        if timeseries:
-            print("Rerunning exec file generation and "
-                  "Calculating ARD extents in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-            if os.path.isfile(exec_mt_extent):
-                mt_extent_params = []
-                with open(exec_mt_extent, "r") as fp:
-                    mt_extent_params = [line.strip() for line in fp]
-                fp.close()
-
-                ## replaced multiprocessing pools with joblib (only prints
-                # when run in ipython or command line though)
-                # def run_mt_extent_multiprocess(params):
-                #    from ost.multitemporal import common_extent
-                #    common_extent.mt_extent(*params.split(','))
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(common_extent.mt_extent)(*params.split(';')) for
-                    params in mt_extent_params)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mt_extent_multiprocess, mt_extent_params)
-
-        # test existence of multitemporal layover shadow generation exec
-        # files and run them in parallel
-        if os.path.isfile(exec_mt_ls):
-            print("Rerunning exec file generation and Calculating ARD "
-                  "layover in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(
-                timeseries=timeseries,
-                timescan=timescan,
-                mosaic=mosaic,
-                overwrite=overwrite,
-                exec_file=exec_file,
-                cut_to_aoi=cut_to_aoi,
-                ncores=ncores
-            )
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mt_ls):
-                mt_ls_params = []
-                with open(exec_mt_ls, "r") as fp:
-                    mt_ls_params = [line.strip() for line in fp]
-                fp.close()
-
-                ## replaced multiprocessing pools with joblib (only
-                # prints when run in ipython or command line though)
-                # def run_mt_ls_multiprocess(params):
-                #    from ost.multitemporal import common_ls_mask
-                #    common_ls_mask.mt_layover(*params.split(','))
-                Parallel(
-                    n_jobs=multiproc,
-                    verbose=53,
-                    backend=multiprocessing
-                )(
-                    delayed(common_ls_mask.mt_layover)(*params.split(';'))
-                    for params in mt_ls_params
-                )
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mt_ls_multiprocess, mt_ls_params)
-
-        # test existence of ard to timeseries exec files and run them in parallel
-        if timeseries:
-            print("Rerunning exec file generation and processing ARD to "
-                  "timeseries in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            timeseries_params = []
-            if os.path.isfile(exec_timeseries):
-                with open(exec_timeseries, "r") as fp:
-                    timeseries_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                # def run_timeseries_multiprocess(params):
-                #   from ost.multitemporal import ard_to_ts
-                #   ard_to_ts.ard_to_ts(*params.split(','))
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ard_to_ts.ard_to_ts)(*params.split(';')) for params
-                    in timeseries_params)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_timeseries_multiprocess, timeseries_params)
-
-        # test existence of timescan exec files and run them in parallel
-        if timeseries and timescan:
-            print(
-                "Rerunning exec file generation and processing timeseries to timescan in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_tscan):
-                tscan_params = []
-                with open(exec_tscan, "r") as fp:
-                    tscan_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(tscan.mt_metrics)(*params.split(';')) for params in
-                    tscan_params)
-
-            # def run_tscan_multiprocess(params):
-            #     from ost.multitemporal import timescan
-            #     timescan.mt_metrics(*params.split(','))
-            # pool = multiprocessing.Pool(processes=multiproc)
-            # pool.map(run_tscan_multiprocess, tscan_params)
-
-        # test existence of timescan vrt exec files and run them in parallel
-        if timeseries and timescan:
-            print(
-                "Rerunning exec file generation and generating timescan vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_tscan_vrt):
-                tscan_vrt_params = []
-                with open(exec_tscan_vrt, "r") as fp:
-                    tscan_vrt_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ras.create_tscan_vrt)(*params.split(';')) for
-                    params in tscan_vrt_params)
-                # def run_tscan_vrt_multiprocess(params):
-                #    from ost.helpers import raster as ras
-                #    ras.create_tscan_vrt(*params.split(','))
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_tscan_vrt_multiprocess, tscan_vrt_params)
-
-        # test existence of mosaic timeseries exec files and run them in parallel
-        if mosaic and timeseries:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaics in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_timeseries):
-                mosaic_timeseries_params = []
-                with open(exec_mosaic_timeseries, "r") as fp:
-                    mosaic_timeseries_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=1, verbose=53, backend=multiprocessing)(
-                    delayed(mos.mosaic)(*params.split(';')) for params in
-                    mosaic_timeseries_params)
-                # def run_mosaic_timeseries_multiprocess(params):
-                #    from ost.mosaic import mosaic
-                #    mos.mosaic(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_timeseries_multiprocess, mosaic_timeseries_params)
-
-        # test existence of mosaic timeseries vrt exec files and run them in parallel
-        if mosaic and timeseries:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaic vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_ts_vrt):
-                mosaic_ts_vrt_params = []
-                with open(exec_mosaic_ts_vrt, "r") as fp:
-                    mosaic_ts_vrt_params = [line.strip() for line in fp]
-                fp.close()
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(mos.mosaic_to_vrt)(*params.split(';')) for params
-                    in mosaic_ts_vrt_params)
-
-                # def run_mosaic_ts_vrt_multiprocess(params):
-                #    vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-                #    ts_dir, product, outfiles = params.split(',')
-                #    gdal.BuildVRT(opj(ts_dir, '{}.Timeseries.vrt'.format(product)),
-                #                  outfiles,
-                #                  options=vrt_options)
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_ts_vrt_multiprocess, mosaic_ts_vrt_params)
-
-        # test existence of mosaic timescan exec files and run them in parallel
-        if mosaic and timescan:
-            print(
-                "Rerunning exec file generation and generating timescan mosaics in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_timescan):
-                mosaic_timescan_params = []
-                with open(exec_mosaic_timescan, "r") as fp:
-                    mosaic_timescan_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=1, verbose=53, backend=multiprocessing)(
-                    delayed(mos.mosaic)(*params.split(';')) for params in
-                    mosaic_timescan_params)
-                # def run_mosaic_timescan_multiprocess(params):
-                #    from ost.mosaic import mosaic
-                #    mos.mosaic(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_timescan_multiprocess, mosaic_timescan_params)
-
-        # test existence of mosaic timescan vrt exec files and run them in parallel
-        if mosaic and timescan:
-            print(
-                "Rerunning exec file generation and generating timeseries mosaic vrt files in parallel mode")
-
-            _stdout = sys.stdout
-            sys.stdout = DevNull()
-
-            self.bursts_to_ard(timeseries=timeseries, timescan=timescan,
-                               mosaic=mosaic,
-                               overwrite=overwrite, exec_file=exec_file,
-                               cut_to_aoi=cut_to_aoi, ncores=ncores)
-            sys.stdout = _stdout
-
-            if os.path.isfile(exec_mosaic_tscan_vrt):
-                mosaic_tscan_vrt_params = []
-                with open(exec_mosaic_tscan_vrt, "r") as fp:
-                    mosaic_tscan_vrt_params = [line.strip() for line in fp]
-                fp.close()
-
-                ##replaced multiprocessing pools with joblib (only prints when run in ipython or command line though)
-                Parallel(n_jobs=multiproc, verbose=53,
-                         backend=multiprocessing)(
-                    delayed(ras.create_tscan_vrt)(*params.split(';')) for
-                    params in mosaic_tscan_vrt_params)
-                # def run_mosaic_tscan_vrt_multiprocess(params):
-                #    from ost.helpers import raster as ras
-                #    ras.create_tscan_vrt(*params.split(','))
-
-                # pool = multiprocessing.Pool(processes=multiproc)
-                # pool.map(run_mosaic_tscan_vrt_multiprocess, mosaic_tscan_vrt_params)
-
-
-class Sentinel1_GRDBatch(Sentinel1):
-    ''' A Sentinel-1 specific subclass of the Generic OST class
-
-    This subclass creates a Sentinel-1 specific
-    '''
-
-    def __init__(self, project_dir, aoi,
-                 start='2014-10-01',
-                 end=datetime.today().strftime("%Y-%m-%d"),
-                 data_mount=None,
-                 download_dir=None,
-                 inventory_dir=None,
-                 processing_dir=None,
-                 temp_dir=None,
-                 product_type='GRD',
-                 beam_mode='IW',
-                 polarisation='*',
-                 ard_type='OST Standard'
-                 ):
-
-        super().__init__(project_dir, aoi, start, end, data_mount,
-                         download_dir, inventory_dir, processing_dir, temp_dir,
-                         product_type, beam_mode, polarisation)
-
-        self.ard_type = ard_type
-        self.proc_file = opj(self.project_dir, 'processing.json')
-        self.get_ard_parameters(self.ard_type)
-
-    # processing related functions
-    def get_ard_parameters(self, ard_type='OST Standard'):
-
-        # get path to graph
-        # get path to ost package
-        rootpath = importlib.util.find_spec('ost').submodule_search_locations[
-            0]
-        rootpath = opj(rootpath, 'graphs', 'ard_json')
-
-        template_file = opj(rootpath, '{}.{}.json'.format(
-            self.product_type.lower(),
-            ard_type.replace(' ', '_').lower()))
-
-        with open(template_file, 'r') as ard_file:
-            self.ard_parameters = json.load(ard_file)['processing parameters']
-
-    def update_ard_parameters(self):
-
-        with open(self.proc_file, 'w') as outfile:
-            json.dump(dict({'processing parameters': self.ard_parameters}),
-                      outfile,
-                      indent=4)
-
-    def set_external_dem(self, dem_file):
-
-        import rasterio
-
-        # check if file exists
-        if not os.path.isfile(dem_file):
-            print(' ERROR: No dem file found at location {}.'.format(dem_file))
-            return
-
-        # get no data value
-        with rasterio.open(dem_file) as file:
-            dem_nodata = file.nodata
-
-        # get resapmpling
-        img_res = self.ard_parameters['single ARD']['dem']['image resampling']
-        dem_res = self.ard_parameters['single ARD']['dem']['dem resampling']
-
-        # update ard parameters
-        dem_dict = dict({'dem name': 'External DEM',
-                         'dem file': dem_file,
-                         'dem nodata': dem_nodata,
-                         'dem resampling': dem_res,
-                         'image resampling': img_res})
-        self.ard_parameters['single ARD']['dem'] = dem_dict
-
-    def grds_to_ard(self, inventory_df=None, subset=None, timeseries=False,
-                    timescan=False, mosaic=False, overwrite=False,
-                    exec_file=None, cut_to_aoi=False):
-
-        self.update_ard_parameters()
-
+    def grds_to_ards(
+            self,
+            inventory_df,
+            timeseries=False,
+            timescan=False,
+            mosaic=False,
+            overwrite=False,
+            max_workers=1,
+            executor_type='billiard'
+    ):
+
+        self.config_dict['max_workers'] = max_workers
+        self.config_dict['executor_type'] = executor_type
+
+        # in case we start from scratch, delete all data
+        # within processing folder
         if overwrite:
-            print(' INFO: Deleting processing folder to start from scratch')
+            logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.processing_dir)
 
-        # set resolution in degree
-        #        self.center_lat = loads(self.aoi).centroid.y
-        #        if float(self.center_lat) > 59 or float(self.center_lat) < -59:
-        #            print(' INFO: Scene is outside SRTM coverage. Will use 30m ASTER'
-        #                  ' DEM instead.')
-        #            self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+        # --------------------------------------------
+        # 2 Check if within SRTM coverage
+        # set ellipsoid correction and force GTC production
+        # when outside SRTM
+        center_lat = loads(self.aoi).centroid.y
+        if float(center_lat) > 59 or float(center_lat) < -59:
+            logger.info(
+                'Scene is outside SRTM coverage. Snap will therefore use '
+                'the GETASSE30 DEM. Also consider to use a stereographic '
+                'projection. and project to NSIDC Sea Ice Polar '
+                'Stereographic North projection (EPSG 3413).'
+            )
+            epsg = input(
+                'Please type the EPSG you want to project the output data or '
+                'just press enter for keeping Lat/Lon coordinate system '
+                '(e.g. 3413 for NSIDC Sea Ice Polar Stereographic North '
+                'projection, or 3976 for NSIDC Sea Ice Polar Stereographic '
+                'South projection'
+            )
+            if not epsg:
+                epsg = 4326
 
-        if subset:
-            if subset.split('.')[-1] == '.shp':
-                subset = str(vec.shp_to_wkt(subset, buffer=0.1, envelope=True))
-            elif subset.startswith('POLYGON (('):
-                subset = loads(subset).buffer(0.1).to_wkt()
-            else:
-                print(' ERROR: No valid subset given.'
-                      ' Should be either path to a shapefile or a WKT Polygon.')
-                sys.exit()
+            self.ard_parameters['single_ARD']['dem'][
+                'dem_name'] = 'GETASSE30'
+            self.ard_parameters['single_ARD']['dem'][
+                'out_projection'] = int(epsg)
 
-        # check number of already prcessed acquisitions
-        nr_of_processed = len(
-            glob.glob(opj(self.processing_dir, '*', '20*', '.processed'))
+        # --------------------------------------------
+        # 3 subset determination
+        # we need a check function that checks
+        self.config_dict.update(
+            subset=vec.set_subset(self.aoi, inventory_df)
         )
 
-        # number of acquisitions to process
-        nr_of_acq = len(
-            inventory_df.groupby(['relativeorbit', 'acquisitiondate'])
+        # dump to json file
+        with open(self.config_file, 'w') as outfile:
+            json.dump(self.config_dict, outfile, indent=4)
+
+        # --------------------------------------------
+        # 4 Check ard parameters in case they have been updated,
+        #   and write them to json file
+        self.update_ard_parameters()
+
+        # --------------------------------------------
+        # 1 delete data in case of previous runs
+        # delete data in temporary directory in case there is
+        # something left from aborted previous runs
+        h.remove_folder_content(self.config_dict['temp_dir'])
+
+        # --------------------------------------------
+        # 5 set resolution in degree
+        # self.center_lat = loads(self.aoi).centroid.y
+        # if float(self.center_lat) > 59 or float(self.center_lat) < -59:
+        #   logger.info(
+        #       'Scene is outside SRTM coverage. Will use 30m #
+        #       'ASTER DEM instead.'
+        #   )
+        #   self.ard_parameters['dem'] = 'ASTER 1sec GDEM'
+
+        # --------------------------------------------
+        # 5 set resolution in degree
+        # the grd to ard batch routine
+        processing_df = grd_batch.grd_to_ard_batch(
+            inventory_df, self.config_file
         )
-
-        # check and retry function
-        i = 0
-        while nr_of_acq > nr_of_processed:
-
-            # the grd to ard batch routine
-            grd_batch.grd_to_ard_batch(
-                inventory_df,
-                self.download_dir,
-                self.processing_dir,
-                self.temp_dir,
-                self.proc_file,
-                subset,
-                self.data_mount,
-                exec_file)
-
-            # reset number of already processed acquisitions
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*', '20*', '.processed')))
-            i += 1
-
-            # not more than 5 trys
-            if i == 5:
-                break
 
         # time-series part
         if timeseries or timescan:
-
-            nr_of_processed = len(
-                glob.glob(opj(self.processing_dir, '*',
-                              'Timeseries', '.*processed')))
-
-            nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
-            nr_of_ts = nr_of_polar * nr_of_tracks
-
-            # check and retry function
-            i = 0
-            while nr_of_ts > nr_of_processed:
-
-                grd_batch.ards_to_timeseries(inventory_df,
-                                             self.processing_dir,
-                                             self.temp_dir,
-                                             self.proc_file,
-                                             exec_file)
-
-                nr_of_processed = len(
-                    glob.glob(opj(self.processing_dir, '*',
-                                  'Timeseries', '.*processed')))
-                i += 1
-
-                # not more than 5 trys
-                if i == 5:
-                    break
+            grd_batch.ards_to_timeseries(inventory_df, self.config_file)
 
         if timescan:
+            grd_batch.timeseries_to_timescan(inventory_df, self.config_file)
 
-            # number of already processed timescans
-            nr_of_processed = len(glob.glob(opj(
-                self.processing_dir, '*', 'Timescan', '.*processed')))
+        if mosaic and timeseries:
+            grd_batch.mosaic_timeseries(inventory_df, self.config_file)
 
-            # number of expected timescans
-            nr_of_polar = len(
-                inventory_df.polarisationmode.unique()[0].split(' '))
-            nr_of_tracks = len(inventory_df.relativeorbit.unique())
-            nr_of_ts = nr_of_polar * nr_of_tracks
+        # --------------------------------------------
+        # 9 mosaic the timescans
+        if mosaic and timescan:
+            grd_batch.mosaic_timescan(self.config_file)
 
-            i = 0
-            while nr_of_ts > nr_of_processed:
-
-                grd_batch.timeseries_to_timescan(
-                    inventory_df,
-                    self.processing_dir,
-                    self.proc_file)
-
-                nr_of_processed = len(glob.glob(opj(
-                    self.processing_dir, '*', 'Timescan', '.*processed')))
-
-                i += 1
-
-                # not more than 5 trys
-                if i == 5:
-                    break
-
-            if i < 5 and exec_file:
-                print(' create vrt command')
-
-        if cut_to_aoi:
-            cut_to_aoi = self.aoi
-
-        if mosaic and timeseries and not subset:
-            grd_batch.mosaic_timeseries(
-                inventory_df,
-                self.processing_dir,
-                self.temp_dir,
-                cut_to_aoi
-            )
-
-        if mosaic and timescan and not subset:
-            grd_batch.mosaic_timescan(inventory_df,
-                                      self.processing_dir,
-                                      self.temp_dir,
-                                      self.proc_file,
-                                      cut_to_aoi
-                                      )
+        return processing_df

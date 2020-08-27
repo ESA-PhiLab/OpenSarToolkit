@@ -35,16 +35,16 @@
   <node id="DEM-Assisted-Coregistration">
     <operator>DEM-Assisted-Coregistration</operator>
     <sources>
-      <sourceProduct refid="TOPSAR-DerampDemod(2)"/>
-      <sourceProduct.1 refid="TOPSAR-DerampDemod"/>
+      <sourceProduct refid="TOPSAR-DerampDemod"/>
+      <sourceProduct.1 refid="TOPSAR-DerampDemod(2)"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <demName>${dem}</demName>
+      <demName>${dem_name}</demName>
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
-      <resamplingType>BISINC_5_POINT_INTERPOLATION</resamplingType>
-      <tileExtensionPercent>50</tileExtensionPercent>
+      <resamplingType>BILINEAR_INTERPOLATION</resamplingType>
+      <tileExtensionPercent>300</tileExtensionPercent>
       <maskOutAreaWithoutElevation>false</maskOutAreaWithoutElevation>
       <outputRangeAzimuthOffset>false</outputRangeAzimuthOffset>
     </parameters>

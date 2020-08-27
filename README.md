@@ -1,4 +1,5 @@
 # Open SAR Toolkit (OST)
+[![Build Status](https://travis-ci.org/ESA-PhiLab/OpenSarToolkit.svg?branch=master)](https://travis-ci.org/ESA-PhiLab/OpenSarToolkit)
 
 ## Objective
 
@@ -89,7 +90,7 @@ Before installation of OST, run the following line on the terminal to
 install further dependencies:
 
 ```
-sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev
+sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm
 ```
 
 then install OST as a global package (for all users, admin rights needed):
@@ -104,6 +105,13 @@ or as local package within your home folder (no admin rights needed):
 pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
 ```
 
+run those commands to enable the correct display of progress bars
+```
+sudo pip3 install jupyterlab
+# this is needed for the progress bar when downloading
+sudo jupyter-labextension install @jupyter-widgets/jupyterlab-manager
+sudo jupyter nbextension enable --py widgetsnbextension
+```
 
 ##### Mac OS (using homebrew/pip)
 
@@ -119,8 +127,11 @@ brew install python3 gdal2 gdal2-python git
 then install OST with python pip:
 ```
 pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
-```
 
+# this is needed for the progress bar when downloading data
+jupyter labextension install @jupyter-widgets/jupyterlab-manager
+jupyter nbextension enable --py widgetsnbextension
+```
 
 ##### Conda Installation (Windows, Mac, Linux)
 
@@ -129,7 +140,11 @@ https://docs.conda.io/projects/conda/en/latest/user-guide/install/
 
 Then run the conda command to install OST's dependencies:
 ```
-conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy
+conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy joblib retrying pytest pytest-cov nodejs
+
+# this is needed for the progress bar when downloading
+jupyter labextension install @jupyter-widgets/jupyterlab-manager
+jupyter nbextension enable --py widgetsnbextension
 ```
 
 Finally get the OST by using pip 
@@ -191,4 +206,5 @@ that are developed in parallel to this core package and should help to get start
 
 ## Author
 
-- Andreas Vollrath, ESA
+* Andreas Vollrath, ESA
+* Petr Sevcik, EOX
