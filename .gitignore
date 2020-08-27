@@ -5,3 +5,5 @@ __pycache__
 .pytest_cache
 htmlcov
 .empty
+.DS_Store
+ost/.DS_Store
