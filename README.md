@@ -18,7 +18,7 @@ but also customised. OST does include advanced types of ARD such as combined
 production of calibrated backscatter, interferometric coherence and the dual-
 polarimetric H-A-Alpha decomposition. Time-series and multi-temporal statistics
 (i.e. timescans) can be produced for each of these layers and the generation of 
-sptaially-seamless large-scale mosaic over time is possible a well.
+spatially-seamless large-scale mosaic over time is possible a well.
 
 The Open SAR Toolkit realises this by using an object-oriented approach, 
 providing classes for single scene processing, GRD and SLC batch processing 
