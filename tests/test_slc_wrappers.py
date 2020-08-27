@@ -28,7 +28,7 @@ def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
         return_code = sw.burst_import(
             infile=s1_slc_master,
             outfile=slc_project_class.processing_dir.joinpath(
-                f'{scene_id}{burst.bid}_import'
+                f'{scene_id}_{burst.bid}_import'
             ),
             logfile=logger,
             swath=burst.SwathID,
@@ -37,12 +37,12 @@ def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
         )
         assert return_code == str(
             slc_project_class.processing_dir.joinpath(
-                f'{scene_id}{burst.bid}_import.dim'
+                f'{scene_id}_{burst.bid}_import.dim'
             )
         )
 
 
-@pytest.mark.skip(reason="Some GPT Error, but does not happen in production!")
+#@pytest.mark.skip(reason="Some GPT Error, but does not happen in production!")
 def test_burst_calibration(s1_slc_ost_master, slc_project_class):
 
     scene_id, master = s1_slc_ost_master
