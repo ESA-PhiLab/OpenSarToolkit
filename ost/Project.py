@@ -555,7 +555,8 @@ class Sentinel1Batch(Sentinel1):
         with open(template_file, 'r') as ard_file:
             self.ard_parameters = json.load(ard_file)['processing']
 
-        # return ard_parameters
+        # returning ard_parameters
+        return self.ard_parameters
 
     def update_ard_parameters(self, ard_type=None):
 

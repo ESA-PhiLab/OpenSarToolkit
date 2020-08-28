@@ -16,8 +16,8 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from shapely.errors import WKTReadingError
 from fiona import collection
 from fiona.crs import from_epsg
-from pyproj.exceptions import CRSError as projCRSError
-#from fiona.errors import DriverError, CRSError
+# from pyproj.exceptions import CRSError as projCRSError
+# from fiona.errors import DriverError, CRSError
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def aoi_to_wkt(aoi):
                     if gdf.crs != {'init': 'epsg:4326'}:
                         try:
                             gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
-                        except projCRSError:
+                        except:
                             raise ValueError('No valid OST AOI definition.')
                     # return AOI as single vector object
                     aoi_wkt = str(gdf.geometry.unary_union)
