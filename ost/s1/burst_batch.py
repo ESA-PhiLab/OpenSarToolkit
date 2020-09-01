@@ -286,7 +286,9 @@ def _create_mt_ls_mask_old(burst_gdf, config_file):
 
 def _create_timeseries(burst_gdf, config_file):
     # we need a
-    dict_of_product_types = {'bs': 'Gamma0', 'coh': 'coh', 'pol': 'pol'}
+    # dict_of_product_types = {'bs': 'Gamma0', 'coh': 'coh', 'pol': 'pol'}
+    list_of_product_types = {('bs', 'Gamma0'), ('bs', 'Sigma0'),
+                             ('coh', 'coh'), ('pol', 'pol')}
     pols = ['VV', 'VH', 'HH', 'HV', 'Alpha', 'Entropy', 'Anisotropy']
 
     # read config file
@@ -300,7 +302,8 @@ def _create_timeseries(burst_gdf, config_file):
 
         burst_dir = Path(processing_dir).joinpath(burst)
 
-        for pr, pol in itertools.product(dict_of_product_types.items(), pols):
+        # for pr, pol in itertools.product(dict_of_product_types.items(), pols):
+        for pr, pol in itertools.product(list_of_product_types, pols):
 
             # unpack items
             product, product_name = list(pr)
@@ -556,7 +559,7 @@ def mosaic_timeseries(burst_inventory, config_file):
         outfiles = []
         for i in range(len(dates)):
 
-            list_of_files = list(temp_mosaic.glob(f'{i}*{product}.tif'))
+            list_of_files = list(temp_mosaic.glob(f'{i}.*{product}.tif'))
 
             if not list_of_files:
                 continue
