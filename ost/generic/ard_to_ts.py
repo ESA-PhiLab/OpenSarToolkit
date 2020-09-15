@@ -7,7 +7,6 @@ from pathlib import Path
 from datetime import datetime as dt
 from tempfile import TemporaryDirectory
 
-import rasterio
 from retrying import retry
 
 from ost.generic.common_wrappers import create_stack, mt_speckle_filter

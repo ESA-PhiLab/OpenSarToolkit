@@ -418,9 +418,18 @@ def create_tscan_vrt(timescan_dir, config_file):
     product_list = ['bs.HH', 'bs.VV', 'bs.HV', 'bs.VH',
                     'coh.VV', 'coh.VH', 'coh.HH', 'coh.HV', 
                     'pol.Entropy', 'pol.Anisotropy', 'pol.Alpha']
-    
+
+    metrics = ard_tscan['metrics']
+    if 'percentiles' in metrics:
+        metrics.remove('percentiles')
+        metrics.extend(['p95', 'p5'])
+
+    if 'harmonics' in metrics:
+        metrics.remove('harmonics')
+        metrics.extend(['amplitude', 'phase', 'residuals'])
+
     i, outfiles = 0, []
-    iteration = itertools.product(product_list, ard_tscan['metrics'])
+    iteration = itertools.product(product_list, metrics)
     for product, metric in iteration:
 
         # get file and add number for outfile
