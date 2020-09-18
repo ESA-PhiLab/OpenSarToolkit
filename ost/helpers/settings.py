@@ -206,7 +206,7 @@ config_check = dict({
         ['GTC-sigma0', 'GTC-gamma0', 'RTC-gamma0']
                      },
     'polarisation': {'type': str, 'choices':
-        ['VV, VH, HH, HV', 'VV', 'VH', 'VV VH', 'HH HV', 'VV, HH']
+        ['VV, VH, HH, HV', 'VV', 'VH', 'VV, VH', 'HH, HV', 'VV, HH']
                      },
     'to_db': {'type': bool},
     'to_tif': {'type': bool},

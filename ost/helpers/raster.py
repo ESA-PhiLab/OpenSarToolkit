@@ -15,6 +15,7 @@ from godale._concurrent import Executor
 import gdal
 import fiona
 import imageio
+import pyproj
 import rasterio as rio
 import rasterio.mask
 from rasterio.features import shapes
@@ -46,7 +47,7 @@ def polygonize_ls(infile, outfile, driver='GeoJSON'):
     with fiona.open(
             outfile, 'w',
             driver=driver,
-            crs=src.crs,
+            crs=pyproj.Proj(src.crs).srs,
             schema={
                 'properties': [('raster_val', 'int')],
                 'geometry': 'Polygon'
@@ -118,7 +119,7 @@ def polygonize_bounds(infile, outfile, mask_value=1, driver='GeoJSON'):
         with fiona.open(
                 outfile, 'w',
                 driver=driver,
-                crs=src.crs,
+                crs=pyproj.Proj(src.crs).srs,
                 schema={
                     'properties': [('raster_val', 'int')],
                     'geometry': 'MultiPolygon'

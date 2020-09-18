@@ -260,7 +260,7 @@ class Sentinel1(Generic):
                 OST_INVENTORY_FILE
             )
         else:
-            Path(outfile)
+            self.inventory_file = outfile
 
         search.scihub_catalogue(
             query, self.inventory_file, append,

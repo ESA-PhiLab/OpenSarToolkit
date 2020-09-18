@@ -40,8 +40,8 @@ def burst_import(
 
     # get polarisations to import
     ard = config_dict['processing']['single_ARD']
-    bs_polar = ard['polarisation'].replace(' ', '')
-    coh_polar = ard['coherence_bands'].replace(' ', '')
+    bs_polar = ard['polarisation'].replace(' ', ',')
+    coh_polar = ard['coherence_bands'].replace(' ', ',')
     subset = config_dict['subset']
 
     region = config_dict['aoi'] if subset else ''

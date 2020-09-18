@@ -251,22 +251,30 @@ def mt_metrics(
                 stack = remove_outliers(stack)
 
             # get stats
-            arr = {'p95': (nan_percentile(stack, [95, 5])
-                           if 'p95' in metrics else (False, False))[0],
-                   'p5': (nan_percentile(stack, [95, 5])
-                          if 'p95' in metrics else (False, False))[1],
-                   'median': (np.nanmedian(stack, axis=0)
-                              if 'median' in metrics else False),
-                   'avg': (np.nanmean(stack, axis=0)
-                           if 'avg' in metrics else False),
-                   'max': (np.nanmax(stack, axis=0)
-                           if 'max' in metrics else False),
-                   'min': (np.nanmin(stack, axis=0)
-                           if 'min' in metrics else False),
-                   'std': (np.nanstd(stack, axis=0)
-                           if 'std' in metrics else False),
-                   'cov': (stats.variation(stack, axis=0, nan_policy='omit')
-                           if 'cov' in metrics else False)}
+            arr = {
+                'p95': (nan_percentile(stack, [95, 5])
+                        if 'p95' in metrics else (False, False))[0],
+                'p5': (nan_percentile(stack, [95, 5])
+                       if 'p95' in metrics else (False, False))[1],
+                'median': (np.nanmedian(stack, axis=0)
+                          if 'median' in metrics else False),
+                'avg': (np.nanmean(stack, axis=0)
+                       if 'avg' in metrics else False),
+                'max': (np.nanmax(stack, axis=0)
+                       if 'max' in metrics else False),
+                'min': (np.nanmin(stack, axis=0)
+                       if 'min' in metrics else False),
+                'std': (np.nanstd(stack, axis=0)
+                       if 'std' in metrics else False),
+                #'cov': (stats.variation(stack, axis=0, nan_policy='omit')
+                'cov': (
+                   np.divide(
+                        np.nanstd(stack, axis=0),
+                        np.nanmean(stack, axis=0)
+                   )
+                   if 'cov' in metrics else False
+                )
+            }
 
             if harmonics:
 
