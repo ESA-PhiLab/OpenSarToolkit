@@ -1,9 +1,9 @@
-import itertools
 
-# some more libs for plotting and DB connection
+import itertools
 import fiona.crs
 import geopandas as gpd
 import logging
+import warnings
 
 from shapely.ops import unary_union
 
@@ -158,6 +158,9 @@ def _exclude_marginal_tracks(aoi_gdf, inventory_df, area_reduce=0.1):
 
     """
 
+    warnings.filterwarnings(
+        'ignore', 'Geometry is in a geographic CRS', UserWarning
+    )
     # get Area of AOI
     aoi_area = aoi_gdf.area.sum()
 

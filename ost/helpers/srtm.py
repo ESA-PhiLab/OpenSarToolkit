@@ -6,7 +6,7 @@
 
 import logging
 from pathlib import Path
-
+import warnings
 import requests
 import tqdm
 import geopandas as gpd
@@ -88,6 +88,9 @@ def download_srtm_tile(url):
 
 def download_srtm(aoi):
 
+    warnings.filterwarnings(
+        'ignore', 'Geometry is in a geographic CRS', UserWarning
+    )
     srtm = gpd.read_file(
         OST_ROOT.joinpath('aux/srtm1sectiles.gpkg')
     )

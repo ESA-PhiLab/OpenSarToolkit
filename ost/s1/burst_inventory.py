@@ -4,6 +4,7 @@
 import os
 import json
 import logging
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -229,6 +230,10 @@ def refine_burst_inventory(aoi, burst_gdf, outfile, coverages=None):
     Args:
     Returns:
     """
+
+    warnings.filterwarnings(
+        'ignore', 'Geometry is in a geographic CRS', UserWarning
+    )
 
     # turn aoi into a geodataframe
     aoi_gdf = gpd.GeoDataFrame(vec.wkt_to_gdf(aoi).buffer(0.05))
