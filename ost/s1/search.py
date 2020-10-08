@@ -158,11 +158,11 @@ def _query_scihub(opener, query):
         'endposition', 'lastrelativeorbitnumber', 'lastorbitnumber',
         'uuid', 'platformidentifier', 'missiondatatakeid',
         'swathidentifier', 'ingestiondate', 'sensoroperationalmode',
-        'footprint'
+        'geometry'
     ]
 
     crs = {'init': 'epsg:4326'}
-    geo_df = gpd.GeoDataFrame(columns=columns, crs=crs, geometry='footprint')
+    geo_df = gpd.GeoDataFrame(columns=columns, crs=crs)
 
     # we need this for the paging
     index, rows, next_page = 0, 99, 1
@@ -191,9 +191,7 @@ def _query_scihub(opener, query):
 
             acq_list = _read_xml(dom)
 
-            gdf = gpd.GeoDataFrame(
-                acq_list, columns=columns, crs=crs, geometry='footprint'
-            )
+            gdf = gpd.GeoDataFrame(acq_list, columns=columns, crs=crs)
 
             # append the gdf to the full gdf
             geo_df = geo_df.append(gdf)

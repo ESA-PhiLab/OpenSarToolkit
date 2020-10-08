@@ -553,6 +553,7 @@ def search_refinement(
 
             inventory_refined = _handle_non_continous_swath(inventory_refined)
 
+            datelist = None
             if mosaic_refine is True:
                 datelist, inventory_refined = _forward_search(
                     aoi_gdf, inventory_refined, area_reduce
@@ -566,8 +567,13 @@ def search_refinement(
 
             if len(inventory_refined) != 0:
                 pols = ''.join(pol.split())
-                out = inventory_dir.joinpath(
-                    f'{len(datelist)}_{orb}_{pols}.gpkg')
+
+                if datelist:
+                    out = inventory_dir.joinpath(
+                        f'{len(datelist)}_{orb}_{pols}.gpkg'
+                    )
+                else:
+                    out = inventory_dir.joinpath(f'{orb}_{pols}.gpkg')
 
                 inventory_refined.to_file(out, driver='GPKG')
 
