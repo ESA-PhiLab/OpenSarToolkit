@@ -445,14 +445,12 @@ def timeseries_to_timescan(inventory_df, config_file):
                 continue
 
             # create a datelist for harmonics
-            scene_list = [
-                str(file) for file in list(track_dir.glob(f'*bs.{polar}.tif'))
-            ]
+            scene_list = list(track_dir.glob(f'Timeseries/*bs.{polar}.tif'))
 
             # create a datelist for harmonics calculation
             datelist = []
             for file in sorted(scene_list):
-                datelist.append(os.path.basename(file).split('.')[1])
+                datelist.append(file.name.split('.')[1])
 
             # define timescan prefix
             timescan_prefix = timescan_dir.joinpath(f'bs.{polar}')
