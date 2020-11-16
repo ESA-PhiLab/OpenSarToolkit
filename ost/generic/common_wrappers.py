@@ -4,6 +4,8 @@
 import logging
 from retrying import retry
 
+from rasterio.crs import CRS
+
 from ost.helpers import helpers as h
 from ost.helpers.settings import GPT_FILE, OST_ROOT
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
@@ -187,12 +189,14 @@ def terrain_correction(infile, outfile, logfile, config_dict):
     cpus = config_dict['snap_cpu_parallelism']
 
     # auto projections of snap
-    if 42001 <= dem_dict['out_projection'] <= 97002:
-        projection = f"AUTO:{dem_dict['out_projection']}"
+    # if 42001 <= dem_dict['out_projection'] <= 97002:
+    #    projection = f"AUTO:{dem_dict['out_projection']}"
     # epsg codes
-    else:
-        projection = f"EPSG:{dem_dict['out_projection']}"
+    # else:
+    #    projection = f"EPSG:{dem_dict['out_projection']}"
 
+    projection = CRS.from_epsg(dem_dict['out_projection']).to_wkt()
+    #projection = 'GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["unknown"],AREA["World"],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
     logger.debug('Geocoding product.')
 
     if ard['geocoding'] == 'terrain':
@@ -207,7 +211,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
             f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
             f"-PpixelSpacingInMeter={ard['resolution']} "
             f"-PalignToStandardGrid=true "
-            f"-PmapProjection=\'{projection}\' "
+            #f"-PmapProjection=\'{projection}\' "
             f"-t \'{str(outfile)}\' \'{str(infile)}\' "
         )
     elif ard['geocoding'] == 'ellipsoid':
@@ -222,7 +226,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
             f"-PimgResamplingMethod=\'{dem_dict['image_resampling']}\' "
             f"-PpixelSpacingInMeter={ard['resolution']} "
             f"-PalignToStandardGrid=true "
-            f"-PmapProjection=\'{projection}\' "
+            #f"-PmapProjection=\'{projection}\' "
             f"-t \'{str(outfile)}\' \'{str(infile)}\' "
         )
     else:

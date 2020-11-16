@@ -129,6 +129,7 @@ def get_gpt():
             Path.home().joinpath('.ost/gpt'),
             Path.home().joinpath('snap/bin/gpt'),
             Path.home().joinpath('programs/snap/bin/gpt'),
+            Path('/home/ost/programs/snap/bin/gpt'),
             Path('/usr/bin/gpt'),
             Path('/opt/snap/bin/gpt'),
             Path('/usr/local/snap/bin/gpt'),

@@ -119,7 +119,7 @@ def grd_to_ard(filelist, config_file):
                 # create namespace for import log
                 logfile = out_dir.joinpath(f'{file.stem}.Import.errLog')
 
-                # set subset tempraoally to false for import routine
+                # set subset temporally to false for import routine
                 config_dict['subset'] = False
                 # frame import
                 try:
