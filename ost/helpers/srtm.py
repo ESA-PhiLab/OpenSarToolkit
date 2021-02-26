@@ -22,8 +22,12 @@ logger = logging.getLogger(__name__)
 
 def download_srtm_tile(url):
     snap_aux = Path.home().joinpath('.snap/auxdata/dem/SRTM 1Sec HGT/')
+
     if not snap_aux.exists():
-        raise RuntimeError(' Snap aux folder not found')
+        try:
+            snap_aux.mkdir(parents=True, exist_ok=True)
+        except:
+            raise RuntimeError(' Snap aux folder not found')
 
     filename = snap_aux.joinpath(url.split('/')[-1])
 
