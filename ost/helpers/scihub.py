@@ -36,7 +36,7 @@ def ask_credentials():
 
 
 def connect(uname=None, pword=None,
-            base_url='https://scihub.copernicus.eu/apihub'):
+            base_url='https://apihub.copernicus.eu/apihub'):
     """Generates an opener for the Copernicus apihub/dhus
     
 
@@ -187,7 +187,7 @@ def create_s1_product_specs(product_type='*', polarisation='*', beam='*'):
 
 
 def check_connection(uname, pword,
-                     base_url='https://scihub.copernicus.eu/apihub'):
+                     base_url='https://apihub.copernicus.eu/apihub'):
     """Check if a connection with scihub can be established
 
     :param uname:
@@ -215,7 +215,7 @@ def s1_download_parallel(argument_list):
 
 
 def s1_download(uuid, filename, uname, pword,
-                base_url='https://scihub.copernicus.eu/apihub'):
+                base_url='https://apihub.copernicus.eu/apihub'):
     """Single scene download function for Copernicus scihub/apihub
     
     :param uuid: product's uuid
@@ -310,7 +310,7 @@ def s1_download(uuid, filename, uname, pword,
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
-                   base_url='https://scihub.copernicus.eu/apihub'):
+                   base_url='https://apihub.copernicus.eu/apihub'):
     """Batch download Sentinel-1 on the basis of an OST inventory GeoDataFrame
 
     :param inventory_df:

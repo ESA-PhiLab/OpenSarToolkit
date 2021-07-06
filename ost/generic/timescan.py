@@ -197,7 +197,6 @@ def mt_metrics(
         metrics.remove('percentiles')
         metrics.extend(['p95', 'p5'])
 
-
     with rasterio.open(stack) as src:
 
         # get metadata

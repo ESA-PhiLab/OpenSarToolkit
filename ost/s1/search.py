@@ -396,7 +396,7 @@ def check_availability(inventory_gdf, download_dir, data_mount):
 
 def scihub_catalogue(query_string, output, append=False,
                      uname=None, pword=None,
-                     base_url='https://scihub.copernicus.eu/apihub'):
+                     base_url='https://apihub.copernicus.eu/apihub'):
     """This is the main search function on scihub
 
     :param query_string:
