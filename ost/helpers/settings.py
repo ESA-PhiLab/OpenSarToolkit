@@ -184,7 +184,7 @@ GPT_FILE = get_gpt()
 OST_ROOT = Path(importlib.util.find_spec('ost').submodule_search_locations[0])
 
 # set global variable for APIHUB product
-APIHUB_BASEURL = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+APIHUB_BASEURL = 'https://apihub.copernicus.eu/apihub/odata/v1/Products'
 # ---------------------------------------------------------------
 
 # ---------------------------------------------------------------

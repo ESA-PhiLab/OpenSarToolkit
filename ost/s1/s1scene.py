@@ -286,7 +286,7 @@ class Sentinel1Scene:
 
         # construct the basic the url
         base_url = (
-            'https://scihub.copernicus.eu/apihub/odata/v1/Products?$filter='
+            'https://apihub.copernicus.eu/apihub/odata/v1/Products?$filter='
         )
 
         # request
@@ -399,7 +399,7 @@ class Sentinel1Scene:
             f'Retrieving URLs of annotation files for S1 product: '
             f'{self.scene_id}.'
         )
-        scihub_url = 'https://scihub.copernicus.eu/apihub/odata/v1/Products'
+        scihub_url = 'https://apihub.copernicus.eu/apihub/odata/v1/Products'
         anno_path = (
             f'(\'{uuid}\')/Nodes(\'{self.scene_id}.SAFE\')'
             f'/Nodes(\'annotation\')/Nodes'
