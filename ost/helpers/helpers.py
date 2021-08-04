@@ -16,7 +16,12 @@ import logging
 from pathlib import Path
 from datetime import timedelta
 
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise e
 
 
 logger = logging.getLogger(__name__)

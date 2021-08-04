@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise e
 import rasterio
 import numpy as np
 import geopandas as gpd

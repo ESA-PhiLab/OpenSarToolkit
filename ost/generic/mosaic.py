@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise e
 import json
 import shutil
 import logging

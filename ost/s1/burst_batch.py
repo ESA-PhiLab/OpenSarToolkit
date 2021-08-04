@@ -309,7 +309,7 @@ def _create_timeseries(burst_gdf, config_file):
             product, product_name = list(pr)
 
             # take care of H-A-Alpha naming for file search
-            if pol in ['Alpha', 'Entropy', 'Anisotropy'] and product is 'pol':
+            if pol in ['Alpha', 'Entropy', 'Anisotropy'] and product == 'pol':
                 list_of_files = sorted(
                     list(burst_dir.glob(f'20*/*data*/*{pol}*img')))
             else:

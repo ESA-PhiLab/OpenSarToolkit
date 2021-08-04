@@ -2,7 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import json
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise e
 import shutil
 import logging
 from pathlib import Path

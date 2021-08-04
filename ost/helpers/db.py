@@ -11,7 +11,12 @@ sqlite, or PostGreSQL database.
 import getpass
 import os
 import logging
-import ogr
+try:
+    import ogr
+except ModuleNotFoundError as e:
+    from osgeo import ogr
+except ModuleNotFoundError:
+    raise e
 import psycopg2 as pg
 
 from ost.helpers.vector import get_proj4, reproject_geometry
@@ -144,7 +149,7 @@ class pgConnect:
             feature = layer.GetFeature(i)
             wkt = feature.GetGeometryRef().ExportToWkt()
 
-            if inProj4 is not '+proj=longlat +datum=WGS84 +no_defs':
+            if inProj4 != '+proj=longlat +datum=WGS84 +no_defs':
                 wkt = reproject_geometry(wkt, inProj4, 4326)
 
             wkt = 'St_GeomFromText(\'{}\', 4326)'.format(wkt)

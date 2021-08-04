@@ -2,7 +2,12 @@
 # -*- coding: utf-8 -*-
 import time
 import numpy as np
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise e
 import logging
 from retrying import retry
 from pathlib import Path
