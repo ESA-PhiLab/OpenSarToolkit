@@ -240,7 +240,7 @@ config_check = dict({
                            'choices': [i for i in range(3, 27, 2)]},
     'scale_size': {'type': int, 'choices': range(0, 2)},
     'create_ls_mask': {'type': bool},
-    'dem_name': {'type': str, 'choices': ['SRTM 1Sec HGT', 'SRTM 3Sec', 'Aster 1sec GDEM', 'GETASSE30', 'External DEM']},
+    'dem_name': {'type': str, 'choices': ['Copernicus 30m Global DEM', 'Copernicus 90m Global DEM', 'SRTM 1Sec HGT', 'SRTM 3Sec', 'Aster 1sec GDEM', 'GETASSE30', 'External DEM']},
     'dem_file': {'type': str},
     'dem_nodata': {'type': int, 'choices': range(0, 66000)},
     'dem_resampling': {'type': str,
