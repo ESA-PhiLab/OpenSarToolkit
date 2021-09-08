@@ -135,9 +135,9 @@ def download_sentinel1(
     #    error_code = asf_wget.check_connection(uname, pword)
     # hidden option for downloading from czech mirror
     elif int(mirror) == 321:
-       error_code = scihub.check_connection(
+        error_code = scihub.check_connection(
            uname, pword, base_url='https://dhr1.cesnet.cz/'
-       )
+        )
     else:
         raise ValueError('No valid mirror selected')
 
