@@ -300,14 +300,12 @@ def ls_mask(infile, outfile, logfile, config_dict):
         f'-Poutput=\'{str(outfile)}\''
     )
 
-    print(command)
-
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug('Succesfully created a Layover/Shadow mask')
+        logger.debug('Successfully created a Layover/Shadow mask')
     else:
         raise GPTRuntimeError(
             f'Layover/Shadow mask creation exited with error {return_code}. '

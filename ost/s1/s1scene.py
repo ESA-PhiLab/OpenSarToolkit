@@ -90,7 +90,7 @@ class Sentinel1Scene:
         # get acquisition mode
         if self.mode_beam == 'IW':
             self.acq_mode = "Interferometric Wide Swath"
-        elif self.mode_beam == 'SM':
+        elif self.mode_beam.startswith("S"):
             self.acq_mode = "Stripmap"
         elif self.mode_beam == 'EW':
             self.acq_mode = "Extra-Wide swath"
