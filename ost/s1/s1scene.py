@@ -509,7 +509,7 @@ class Sentinel1Scene:
                         'BurstNr', 'geometry']
 
         # crs for empty dataframe
-        crs = {'init': 'epsg:4326'}
+        crs = 'epsg:4326'
         gdf_final = gpd.GeoDataFrame(columns=column_names, crs=crs)
 
         file = self.get_path(download_dir, data_mount)

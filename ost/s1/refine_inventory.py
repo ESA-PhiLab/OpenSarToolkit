@@ -455,10 +455,7 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
             if intersect_area >= aoi_area - area_reduce:
                 break
 
-    return gpd.GeoDataFrame(
-        out_frame, geometry='geometry',
-        crs={'init': 'epsg:4326', 'no_defs': True}
-    )
+    return gpd.GeoDataFrame(out_frame, geometry='geometry', crs='epsg:4326')
 
 
 def search_refinement(

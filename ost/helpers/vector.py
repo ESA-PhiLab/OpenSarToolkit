@@ -61,9 +61,9 @@ def aoi_to_wkt(aoi):
             if Path(aoi).exists():
                 try:
                     gdf = gpd.GeoDataFrame.from_file(aoi)
-                    if gdf.crs != {'init': 'epsg:4326'}:
+                    if gdf.crs != {'epsg:4326'}:
                         try:
-                            gdf = gdf.geometry.to_crs({'init': 'epsg:4326'})
+                            gdf = gdf.geometry.to_crs({'epsg:4326'})
                         except:
                             raise ValueError('No valid OST AOI definition.')
                     # return AOI as single vector object
@@ -174,7 +174,7 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     """
 
     # get WGS 84 proj
-    proj_wgs84 = pyproj.Proj(init='epsg:4326')
+    proj_wgs84 = pyproj.Proj('epsg:4326')
 
     # Azimuthal equidistant projection
     aeqd_proj = '+proj=aeqd +lat_0={lat} +lon_0={lon} +x_0=0 +y_0=0'
@@ -352,9 +352,7 @@ def wkt_to_gdf(wkt):
     # polygon wkt
     elif geometry.geom_type == 'Polygon':
         data = {'id': ['1'], 'geometry': loads(wkt)}
-        gdf = gpd.GeoDataFrame(
-            data, crs={'init': 'epsg:4326',  'no_defs': True}
-        )
+        gdf = gpd.GeoDataFrame(data, crs='epsg:4326')
 
     # geometry collection of single multiploygon
     elif (
@@ -363,9 +361,7 @@ def wkt_to_gdf(wkt):
     ):
 
         data = {'id': ['1'], 'geometry': geometry}
-        gdf = gpd.GeoDataFrame(
-            data, crs={'init': 'epsg:4326',  'no_defs': True}
-        )
+        gdf = gpd.GeoDataFrame(data, crs='epsg:4326')
         
         ids, feats = [], []
         for i, feat in enumerate(gdf.geometry.values[0]):
@@ -383,9 +379,7 @@ def wkt_to_gdf(wkt):
         
         data = {'id': ['1'],
                 'geometry': geometry}
-        gdf = gpd.GeoDataFrame(
-            data, crs={'init': 'epsg:4326',  'no_defs': True}
-        )
+        gdf = gpd.GeoDataFrame(data, crs='epsg:4326')
 
     # everything else
     else:
@@ -396,10 +390,7 @@ def wkt_to_gdf(wkt):
             geoms.append(geom)
             i += 1
 
-        gdf = gpd.GeoDataFrame(
-            {'id': ids, 'geometry': geoms},
-            crs={'init': 'epsg:4326',  'no_defs': True}
-        )
+        gdf = gpd.GeoDataFrame({'id': ids, 'geometry': geoms}, crs='epsg:4326')
     
     return gdf
 
@@ -421,7 +412,7 @@ def exterior(infile, outfile, buffer=None):
     :param buffer:
     :return:
     """
-    gdf = gpd.read_file(infile, crs={'init': 'EPSG:4326'})
+    gdf = gpd.read_file(infile, crs='epsg:4326')
     gdf.geometry = gdf.geometry.apply(lambda row: Polygon(row.exterior))
     gdf_clean = gdf[gdf.geometry.area >= 1.0e-6]
 

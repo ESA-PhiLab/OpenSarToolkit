@@ -161,7 +161,7 @@ def _query_scihub(opener, query):
         'geometry'
     ]
 
-    crs = {'init': 'epsg:4326'}
+    crs = 'epsg:4326'
     geo_df = gpd.GeoDataFrame(columns=columns, crs=crs)
 
     # we need this for the paging

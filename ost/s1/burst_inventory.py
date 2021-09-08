@@ -144,7 +144,7 @@ def burst_inventory(inventory_df, outfile, download_dir=os.getenv('HOME'),
                     'AnxTime', 'BurstNr', 'geometry']
 
     # crs for empty dataframe
-    crs = {'init': 'epsg:4326', 'no_defs': True}
+    crs = 'epsg:4326'
     # create empty dataframe
     gdf_full = gpd.GeoDataFrame(columns=column_names, crs=crs)
 
@@ -238,7 +238,7 @@ def refine_burst_inventory(aoi, burst_gdf, outfile, coverages=None):
     # turn aoi into a geodataframe
     aoi_gdf = gpd.GeoDataFrame(vec.wkt_to_gdf(aoi).buffer(0.05))
     aoi_gdf.columns = ['geometry']
-    aoi_gdf.crs = {'init': 'epsg:4326', 'no_defs': True}
+    aoi_gdf.crs = 'epsg:4326'
 
     # get columns of input dataframe for later return function
     cols = burst_gdf.columns
@@ -282,10 +282,7 @@ def prepare_burst_inventory(burst_gdf, config_file):
     ]
 
     # create empty geodataframe
-    proc_burst_gdf = gpd.GeoDataFrame(
-        columns=cols, geometry='geometry',
-        crs={'init': 'epsg:4326', 'no_defs': True}
-    )
+    proc_burst_gdf = gpd.GeoDataFrame(columns=cols, geometry='geometry', crs='epsg:4326')
 
     # load relevant config parameters
     with open(config_file, 'r') as file:
