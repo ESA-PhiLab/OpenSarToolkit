@@ -7,12 +7,18 @@ import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import gdal
 import rasterio
 import numpy as np
 import geopandas as gpd
 from shapely.ops import unary_union
 from retrying import retry
+
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError as e:
+    raise e
 
 from ost.helpers import raster as ras, vector as vec
 

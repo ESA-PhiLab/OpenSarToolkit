@@ -11,8 +11,14 @@ sqlite, or PostGreSQL database.
 import getpass
 import os
 import logging
-import ogr
 import psycopg2 as pg
+
+try:
+    import ogr
+except ModuleNotFoundError as e:
+    from osgeo import ogr
+except ModuleNotFoundError as e:
+    raise e
 
 from ost.helpers.vector import get_proj4, reproject_geometry
 

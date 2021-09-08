@@ -2,10 +2,16 @@
 # -*- coding: utf-8 -*-
 import time
 import numpy as np
-import gdal
 import logging
 from retrying import retry
 from pathlib import Path
+
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError as e:
+    raise e
 
 from ost.helpers import helpers as h
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError

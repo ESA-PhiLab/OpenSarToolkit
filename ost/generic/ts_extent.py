@@ -2,11 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import json
-import gdal
 import shutil
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError as e:
+    raise e
 
 import geopandas as gpd
 from retrying import retry

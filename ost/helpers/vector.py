@@ -4,11 +4,17 @@ from functools import partial
 from pathlib import Path
 
 import osr
-import ogr
 import warnings
 import pyproj
 import geopandas as gpd
 import logging
+
+try:
+    import ogr
+except ModuleNotFoundError as e:
+    from osgeo import ogr
+except ModuleNotFoundError as e:
+    raise e
 
 from shapely.ops import transform
 from shapely.wkt import loads

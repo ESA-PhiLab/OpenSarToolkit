@@ -12,7 +12,13 @@ from datetime import datetime
 
 from godale._concurrent import Executor
 
-import gdal
+try:
+    import gdal
+except ModuleNotFoundError as e:
+    from osgeo import gdal
+except ModuleNotFoundError as e:
+    raise e
+
 import fiona
 import imageio
 import pyproj
