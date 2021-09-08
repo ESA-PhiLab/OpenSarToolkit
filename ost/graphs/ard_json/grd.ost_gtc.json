@@ -27,7 +27,7 @@
             "create_ls_mask": false,
             "apply_ls_mask": false,
             "dem": {
-                "dem_name": "SRTM 1Sec HGT",
+                "dem_name": "Copernicus 30m Global DEM",
                 "dem_file": "",
                 "dem_nodata": 0,
                 "dem_resampling": "BILINEAR_INTERPOLATION",

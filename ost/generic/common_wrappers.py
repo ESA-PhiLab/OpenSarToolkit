@@ -300,6 +300,8 @@ def ls_mask(infile, outfile, logfile, config_dict):
         f'-Poutput=\'{str(outfile)}\''
     )
 
+    print(command)
+
     # run command and get return code
     return_code = h.run_command(command, logfile)
 
