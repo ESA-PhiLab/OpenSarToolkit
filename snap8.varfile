@@ -1,4 +1,4 @@
-# install4j response file for ESA SNAP 7.0
+# install4j response file for ESA SNAP 8.0
 # headless S1TBX
 deleteAllSnapEngineDir$Boolean=false
 deleteOnlySnapDesktopDir$Boolean=true

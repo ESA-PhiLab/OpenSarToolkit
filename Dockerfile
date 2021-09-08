@@ -7,7 +7,7 @@ LABEL OpenSARToolkit='0.10.1'
 WORKDIR /home/ost
 
 # copy the snap installation config file into the container
-COPY snap7.varfile $HOME
+COPY snap8.varfile $HOME
 
 # update variables
 ENV OTB_VERSION="7.1.0" \
