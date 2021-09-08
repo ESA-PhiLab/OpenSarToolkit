@@ -788,6 +788,7 @@ class Sentinel1Scene:
         # when outside SRTM
         center_lat = self._get_center_lat(infile)
         if float(center_lat) > 59 or float(center_lat) < -59:
+
             if 'SRTM' in self.ard_parameters['single_ARD']['dem']['dem_name']:
 
                 logger.info(
@@ -798,24 +799,26 @@ class Sentinel1Scene:
                 self.ard_parameters['single_ARD']['dem'][
                     'dem_name'] = 'Copernicus 30m Global DEM'
 
-            logger.info(
-                'The scene\'s location is towards the poles. '
-                'Consider to use a stereographic projection.'
-            )
+            if self.ard_parameters['dem']['out_projection'] == 4326:
 
-            epsg = input(
-                'Type an alternative EPSG code for the projection of the '
-                'output data or just press enter for keeping Lat/Lon '
-                'coordinate system (e.g. 3413 for NSIDC Sea Ice Polar '
-                'Stereographic North projection, or 3976 for NSIDC Sea Ice '
-                'Polar Stereographic South projection'
-            )
+                logger.info(
+                    'The scene\'s location is towards the poles. '
+                    'Consider to use a stereographic projection.'
+                )
 
-            if not epsg:
-                epsg = 4326
+                epsg = input(
+                    'Type an alternative EPSG code for the projection of the '
+                    'output data or just press enter for keeping Lat/Lon '
+                    'coordinate system (e.g. 3413 for NSIDC Sea Ice Polar '
+                    'Stereographic North projection, or 3976 for '
+                    'NSIDC Sea Ice Polar Stereographic South projection'
+                )
 
-            self.ard_parameters['single_ARD']['dem'][
-                'out_projection'] = int(epsg)
+                if not epsg:
+                    epsg = 4326
+
+                self.ard_parameters['single_ARD']['dem'][
+                    'out_projection'] = int(epsg)
 
         # --------------------------------------------
         # 3 Check ard parameters in case they have been updated,
