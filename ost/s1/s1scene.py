@@ -717,7 +717,7 @@ class Sentinel1Scene:
         import rasterio
 
         # check if file exists
-        if not Path(dem_file).eixtst():
+        if not Path(dem_file).exists():
             raise FileNotFoundError(f'No file found at {dem_file}.')
 
         # get no data value
@@ -799,7 +799,9 @@ class Sentinel1Scene:
                 self.ard_parameters['single_ARD']['dem'][
                     'dem_name'] = 'Copernicus 30m Global DEM'
 
-            if self.ard_parameters['dem']['out_projection'] == 4326:
+            if self.ard_parameters['single_ARD']['dem'][
+                'out_projection'
+            ] == 4326:
 
                 logger.info(
                     'The scene\'s location is towards the poles. '

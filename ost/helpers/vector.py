@@ -12,9 +12,10 @@ import logging
 try:
     import ogr
 except ModuleNotFoundError as e:
-    from osgeo import ogr
-except ModuleNotFoundError as e:
-    raise e
+    try:
+        from osgeo import ogr
+    except ModuleNotFoundError:
+        raise e
 
 from shapely.ops import transform
 from shapely.wkt import loads
@@ -61,9 +62,9 @@ def aoi_to_wkt(aoi):
             if Path(aoi).exists():
                 try:
                     gdf = gpd.GeoDataFrame.from_file(aoi)
-                    if gdf.crs != {'epsg:4326'}:
+                    if gdf.crs != 'epsg:4326':
                         try:
-                            gdf = gdf.geometry.to_crs({'epsg:4326'})
+                            gdf = gdf.geometry.to_crs('epsg:4326')
                         except:
                             raise ValueError('No valid OST AOI definition.')
                     # return AOI as single vector object
@@ -339,8 +340,6 @@ def wkt_to_gdf(wkt):
     :return:
     """
 
-    warnings.filterwarnings('ignore', r'syntax is deprecated', FutureWarning)
-
     # load wkt
     geometry = loads(wkt)
 
@@ -426,6 +425,11 @@ def exterior(infile, outfile, buffer=None):
 
 
 def difference(infile1, infile2, outfile):
+
+    import warnings
+    warnings.filterwarnings(
+        'ignore', 'Geometry is in a geographic CRS', UserWarning
+    )
 
     gdf1 = gpd.read_file(infile1)
     gdf2 = gpd.read_file(infile2)

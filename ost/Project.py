@@ -662,7 +662,9 @@ class Sentinel1Batch(Sentinel1):
                 self.ard_parameters['single_ARD']['dem'][
                     'dem_name'] = 'Copernicus 30m Global DEM'
 
-            if self.ard_parameters['dem']['out_projection'] == 4326:
+            if self.ard_parameters['single_ARD']['dem'][
+                'out_projection'
+            ] == 4326:
 
                 logger.info(
                     'The scene\'s location is towards the poles. '
@@ -819,26 +821,38 @@ class Sentinel1Batch(Sentinel1):
         # when outside SRTM
         center_lat = loads(self.aoi).centroid.y
         if float(center_lat) > 59 or float(center_lat) < -59:
-            logger.info(
-                'Scene is outside SRTM coverage. Snap will therefore use '
-                'the GETASSE30 DEM. Also consider to use a stereographic '
-                'projection. and project to NSIDC Sea Ice Polar '
-                'Stereographic North projection (EPSG 3413).'
-            )
-            epsg = input(
-                'Please type the EPSG you want to project the output data or '
-                'just press enter for keeping Lat/Lon coordinate system '
-                '(e.g. 3413 for NSIDC Sea Ice Polar Stereographic North '
-                'projection, or 3976 for NSIDC Sea Ice Polar Stereographic '
-                'South projection'
-            )
-            if not epsg:
-                epsg = 4326
 
-            self.ard_parameters['single_ARD']['dem'][
-                'dem_name'] = 'GETASSE30'
-            self.ard_parameters['single_ARD']['dem'][
-                'out_projection'] = int(epsg)
+            if 'SRTM' in self.ard_parameters['single_ARD']['dem']['dem_name']:
+                logger.info(
+                    'Scene is outside SRTM coverage. Snap will therefore use '
+                    'the Copernicus 30m Global DEM. '
+                )
+
+                self.ard_parameters['single_ARD']['dem'][
+                    'dem_name'] = 'Copernicus 30m Global DEM'
+
+            if self.ard_parameters['single_ARD']['dem'][
+                'out_projection'
+            ] == 4326:
+
+                logger.info(
+                    'The scene\'s location is towards the poles. '
+                    'Consider to use a stereographic projection.'
+                )
+
+                epsg = input(
+                    'Type an alternative EPSG code for the projection of the '
+                    'output data or just press enter for keeping Lat/Lon '
+                    'coordinate system (e.g. 3413 for NSIDC Sea Ice Polar '
+                    'Stereographic North projection, or 3976 for '
+                    'NSIDC Sea Ice Polar Stereographic South projection'
+                )
+
+                if not epsg:
+                    epsg = 4326
+
+                self.ard_parameters['single_ARD']['dem'][
+                    'out_projection'] = int(epsg)
 
         # --------------------------------------------
         # 3 subset determination

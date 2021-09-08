@@ -490,9 +490,14 @@ def search_refinement(
 
     """
 
-    # creat AOI GeoDataframe and calulate area
+    warnings.filterwarnings(
+        'ignore', 'Geometry is in a geographic CRS', UserWarning
+    )
+
+    # create AOI GeoDataframe and calulate area
     aoi_gdf = vec.wkt_to_gdf(aoi)
     aoi_area = aoi_gdf.area.sum()
+
     # get all polarisations apparent in the inventory
     pols = inventory_df['polarisationmode'].unique()
 
