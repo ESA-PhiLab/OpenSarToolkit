@@ -283,7 +283,7 @@ def create_coherence_layers(
 
         # run co-registration
         try:
-            slc.coreg2(
+            slc.coreg(
                 master_import, slave_import, out_coreg, coreg_log, config_dict
             )
         except (GPTRuntimeError, NotValidFileError) as error:

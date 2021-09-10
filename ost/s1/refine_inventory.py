@@ -37,8 +37,10 @@ def _remove_double_entries(inventory_df):
     )['ingestiondate'].transform(max) == inventory_df['ingestiondate']
 
     # re-initialize GDF geometry due to groupby function
-    crs = fiona.crs.from_epsg(4326)
-    gdf = gpd.GeoDataFrame(inventory_df[idx], geometry='geometry', crs=crs)
+    gdf = gpd.GeoDataFrame(
+        inventory_df[idx], geometry='geometry', crs='epsg:4326'
+    )
+
     logger.info(
         f'{len(inventory_df[idx])} frames remain after double entry removal'
     )
@@ -91,7 +93,7 @@ def _handle_equator_crossing(inventory_df):
     crossing the equator the relative orbit will increase by 1.
 
     This routine checks for the appearance of such kind and unifies the
-    relativeorbitnumbers so that the inventory is complinat with the
+    relativeorbit numbers so that the inventory is compliant with the
     subsequent batch processing routines of OST
 
     Args:
@@ -247,7 +249,8 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
                 out_frame = out_frame.append(gdf_date)
 
     logger.info(
-        f'{len(out_frame)} frames remain after removal of non-full AOI crossing'
+        f' {len(out_frame)} frames remain after'
+        f' removal of non-full AOI crossing'
     )
     return out_frame
 
@@ -279,9 +282,10 @@ def _handle_non_continous_swath(inventory_df):
 
         for date in dates:
 
-            subdf = inventory_df[(inventory_df['acquisitiondate'] == date) &
-                                 (inventory_df['relativeorbit'] == track)
-                                 ].sort_values('slicenumber')
+            subdf = inventory_df[
+                (inventory_df['acquisitiondate'] == date) &
+                (inventory_df['relativeorbit'] == track)
+            ].sort_values('slicenumber')
 
             if (len(subdf) <= int(subdf.slicenumber.max()) -
                     int(subdf.slicenumber.min())):
@@ -320,8 +324,9 @@ def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
     out_frame = gpd.GeoDataFrame(columns=inventory_df.columns)
 
     # loop through dates
-    for date in sorted(inventory_df['acquisitiondate'].unique(),
-                       reverse=False):
+    for date in sorted(
+            inventory_df['acquisitiondate'].unique(), reverse=False
+    ):
 
         # set starting date for curent mosaic
         if start_date is None:
@@ -391,8 +396,10 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
     for dates in datelist:
 
         # extract scenes for single mosaics
-        gdf = inventory_df[(inventory_df['acquisitiondate'] <= dates[1]) &
-                           (inventory_df['acquisitiondate'] >= dates[0])]
+        gdf = inventory_df[
+            (inventory_df['acquisitiondate'] <= dates[1]) &
+            (inventory_df['acquisitiondate'] >= dates[0])
+        ]
 
         # we create an emtpy list and fill with tracks used for the mosaic,
         # so they are not used twice
@@ -413,12 +420,15 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                     included_tracks.append(track)
 
                     # get all footprints for each date and track
-                    track_gdf = gdf[(gdf['acquisitiondate'] == date) &
-                                    (gdf['relativeorbit'] == track)]
+                    track_gdf = gdf[
+                        (gdf['acquisitiondate'] == date) &
+                        (gdf['relativeorbit'] == track)
+                    ]
 
                     # re-initialize GDF due to groupby fucntion
-                    track_gdf = gpd.GeoDataFrame(track_gdf,
-                                                 geometry='geometry')
+                    track_gdf = gpd.GeoDataFrame(
+                        track_gdf, geometry='geometry'
+                    )
 
                     # get a unified geometry for date/track combination
                     union = track_gdf.geometry.unary_union
@@ -520,7 +530,8 @@ def search_refinement(
             (inventory_df['orbitdirection'] == orb)]
 
         logger.info('{} frames for {} tracks in {} polarisation.'.format(
-            len(inv_df_sorted), orb, pol))
+            len(inv_df_sorted), orb, pol)
+        )
 
         # calculate intersected area
         inter = aoi_gdf.geometry.intersection(inv_df_sorted.unary_union)

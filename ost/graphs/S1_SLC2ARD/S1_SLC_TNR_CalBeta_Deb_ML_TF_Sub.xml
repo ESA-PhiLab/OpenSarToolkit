@@ -70,9 +70,10 @@
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
+      <externalDEMApplyEGM>${egm_correction}</externalDEMApplyEGM>
+      <outputSimulatedImage>false</outputSimulatedImage>
       <additionalOverlap>0.15</additionalOverlap>
       <oversamplingMultiple>1.5</oversamplingMultiple>
-      <outputSimulatedImage>false</outputSimulatedImage>
     </parameters>
   </node>
   <node id="Subset">
