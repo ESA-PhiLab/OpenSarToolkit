@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 LABEL maintainer="Petr Sevcik, EOX"
-LABEL OpenSARToolkit='0.10.1'
+LABEL OpenSARToolkit='0.11.1'
 
 # set work directory to home and download snap
 WORKDIR /home/ost
@@ -10,8 +10,8 @@ WORKDIR /home/ost
 COPY snap8.varfile $HOME
 
 # update variables
-ENV OTB_VERSION="7.1.0" \
-    TBX_VERSION="7" \
+ENV OTB_VERSION="7.3.0" \
+    TBX_VERSION="8" \
     TBX_SUBVERSION="0"
 ENV TBX="esa-snap_sentinel_unix_${TBX_VERSION}_${TBX_SUBVERSION}.sh" \
     SNAP_URL="http://step.esa.int/downloads/${TBX_VERSION}.${TBX_SUBVERSION}/installers" \

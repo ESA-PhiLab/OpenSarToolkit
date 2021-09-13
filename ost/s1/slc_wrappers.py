@@ -189,7 +189,6 @@ def calibration(
     :param outfile:
     :param logfile:
     :param config_dict:
-    :param region:
     :return:
     """
 
@@ -198,9 +197,10 @@ def calibration(
     cpus = config_dict['snap_cpu_parallelism']
     dem_dict = ard['dem']
     region = ''
+
     # calculate Multi-Look factors
     azimuth_looks = 1  # int(np.floor(ard['resolution'] / 10 ))
-    range_looks = 5  # int(azimuth_looks * 5)
+    range_looks = 6  # int(azimuth_looks * 5)
 
     # construct command dependent on selected product type
     if ard['product_type'] == 'RTC-gamma0':
@@ -220,6 +220,7 @@ def calibration(
             f"-Pdem_file=\'{dem_dict['dem_file']}\' "
             f"-Pdem_nodata={dem_dict['dem_nodata']} "
             f"-Pdem_resampling={dem_dict['dem_resampling']} "
+            f"-Pegm_correction={dem_dict['egm_correction']} "
             f"-Pregion=\'{region}\' "
             f"-Pinput={str(infile)} "
             f"-Poutput={str(outfile)}"
@@ -311,7 +312,6 @@ def coreg(master, slave, outfile, logfile, config_dict):
     command = (
         f'{GPT_FILE} Back-Geocoding -x -q {2*cpus} '
         f'-PdemName=\'{dem_dict["dem_name"]}\' '
-        #f'-PdemName=\'SRTM 3Sec\' '
         f'-PdemResamplingMethod=\'{dem_dict["dem_resampling"]}\' '
         f'-PexternalDEMFile=\'{dem_dict["dem_file"]}\' '
         f'-PexternalDEMNoDataValue=\'{dem_dict["dem_nodata"]}\' '
