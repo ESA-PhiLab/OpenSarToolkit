@@ -1,6 +1,6 @@
 descartes
 fiona>=1.8
-gdal>=3
+gdal>=2
 godale
 geopandas>=0.8
 jupyterlab>=1.2
