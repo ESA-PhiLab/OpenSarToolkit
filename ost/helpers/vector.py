@@ -3,11 +3,18 @@ import json
 from functools import partial
 from pathlib import Path
 
-import osr
-import warnings
 import pyproj
 import geopandas as gpd
 import logging
+
+# osgeo safe imports
+try:
+    import osr
+except ModuleNotFoundError as e:
+    try:
+        from osgeo import osr
+    except ModuleNotFoundError:
+        raise e
 
 try:
     import ogr

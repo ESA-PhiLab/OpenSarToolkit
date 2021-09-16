@@ -13,9 +13,10 @@ from retrying import retry
 try:
     import gdal
 except ModuleNotFoundError as e:
-    from osgeo import gdal
-except ModuleNotFoundError as e:
-    raise e
+    try:
+        from osgeo import gdal
+    except ModuleNotFoundError:
+        raise e
 
 from ost.helpers import vector as vec
 from ost.helpers import helpers as h

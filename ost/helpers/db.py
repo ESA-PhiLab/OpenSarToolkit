@@ -16,9 +16,10 @@ import psycopg2 as pg
 try:
     import ogr
 except ModuleNotFoundError as e:
-    from osgeo import ogr
-except ModuleNotFoundError as e:
-    raise e
+    try:
+        from osgeo import ogr
+    except ModuleNotFoundError:
+        raise e
 
 from ost.helpers.vector import get_proj4, reproject_geometry
 

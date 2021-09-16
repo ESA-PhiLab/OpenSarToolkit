@@ -11,9 +11,10 @@ from retrying import retry
 try:
     import gdal
 except ModuleNotFoundError as e:
-    from osgeo import gdal
-except ModuleNotFoundError as e:
-    raise e
+    try:
+        from osgeo import gdal
+    except ModuleNotFoundError:
+        raise e
 
 from ost.generic.common_wrappers import create_stack, mt_speckle_filter
 from ost.helpers import raster as ras, helpers as h

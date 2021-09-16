@@ -15,9 +15,10 @@ from godale._concurrent import Executor
 try:
     import gdal
 except ModuleNotFoundError as e:
-    from osgeo import gdal
-except ModuleNotFoundError as e:
-    raise e
+    try:
+        from osgeo import gdal
+    except ModuleNotFoundError:
+        raise e
 
 import fiona
 import imageio
