@@ -151,7 +151,7 @@ class pgConnect:
             feature = layer.GetFeature(i)
             wkt = feature.GetGeometryRef().ExportToWkt()
 
-            if inProj4 is not '+proj=longlat +datum=WGS84 +no_defs':
+            if inProj4 != '+proj=longlat +datum=WGS84 +no_defs':
                 wkt = reproject_geometry(wkt, inProj4, 4326)
 
             wkt = 'St_GeomFromText(\'{}\', 4326)'.format(wkt)

@@ -1,4 +1,3 @@
-import os
 import pathlib
 from setuptools import setup, find_packages
 
@@ -8,23 +7,33 @@ HERE = pathlib.Path(__file__).parent
 # The text of the README file
 README = (HERE / "README.md").read_text()
 
-def parse_requirements(file):
-    return sorted(set(
-        line.partition('#')[0].strip()
-        for line in open(os.path.join(os.path.dirname(__file__), file))
-    )
-                  -set('')
-                  )
-
-
 setup(
     name='opensartoolkit',
     packages=find_packages(),
     include_package_data=True,
-    version='0.12.1',
+    version='0.12.2',
     description='High-level functionality for the inventory, download '
                 'and pre-processing of Sentinel-1 data',
-    install_requires=parse_requirements('requirements.txt'),
+    install_requires=[
+        'descartes',
+        'fiona',
+        'gdal>=2',
+        'godale',
+        'geopandas>=0.8',
+        'jupyterlab',
+        'matplotlib',
+        'numpy',
+        'pandas',
+        'psycopg2-binary',
+        'rasterio',
+        'requests',
+        'scipy',
+        'shapely',
+        'tqdm',
+        'imageio',
+        'rtree',
+        'retrying'
+    ],
     url='https://github.com/ESA-PhiLab/OpenSarToolkit',
     author='Andreas Vollrath',
     author_email="opensarkit@gmail.com",
