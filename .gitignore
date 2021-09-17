@@ -8,3 +8,4 @@ htmlcov
 .DS_Store
 ost/.DS_Store
 build
+dist
