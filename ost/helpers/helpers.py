@@ -19,10 +19,10 @@ from datetime import timedelta
 try:
     import gdal
 except ModuleNotFoundError as e:
-    from osgeo import gdal
-except ModuleNotFoundError as e:
-    raise e
-
+    try:
+        from osgeo import gdal
+    except ModuleNotFoundError:
+        raise e
 
 logger = logging.getLogger(__name__)
 

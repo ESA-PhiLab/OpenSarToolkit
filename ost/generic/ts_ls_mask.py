@@ -18,7 +18,7 @@ except ModuleNotFoundError as e:
     except ModuleNotFoundError:
         raise e
 
-from ost.helpers import raster as ras, vector as vec
+from ost.helpers import vector as vec
 
 logger = logging.getLogger(__name__)
 
