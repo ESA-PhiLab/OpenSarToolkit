@@ -366,7 +366,7 @@ class Sentinel1(Generic):
         download_df = inventory_df[inventory_df.download_path == 'None']
 
         # to download or not ot download - that is here the question
-        if not download_df.any().any():
+        if download_df.empty:
             logger.info('All scenes are ready for being processed.')
         else:
             logger.info('One or more scene(s) need(s) to be downloaded.')
