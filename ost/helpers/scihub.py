@@ -198,8 +198,8 @@ def check_connection(uname, pword,
 
     # we use some random url for checking (also for czech mirror)
     url = (
-        f'{base_url}/odata/v1/Products?'
-        '$select=Id&$filter=substringof(%27_20200714T165921_%27,Name)'
+        f'{base_url}/odata/v1/Products('
+        '\'8f30a536-c01c-4ef4-ac74-be3378dc44c4\')/$value'
     )
 
     response = requests.get(url, auth=(uname, pword), stream=True)

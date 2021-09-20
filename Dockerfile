@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 LABEL maintainer="Andreas Vollrath, FAO"
 LABEL OpenSARToolkit='0.12.3'
