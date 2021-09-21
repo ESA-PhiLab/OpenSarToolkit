@@ -654,7 +654,7 @@ def mosaic_timescan(burst_inventory, config_file):
 
     if 'harmonics' in metrics:
         metrics.remove('harmonics')
-        metrics.extend(['amplitude', 'phase', 'residuals'])
+        metrics.extend(['amplitude', 'phase', 'residuals', 'model_mean'])
 
     if 'percentiles' in metrics:
         metrics.remove('percentiles')
