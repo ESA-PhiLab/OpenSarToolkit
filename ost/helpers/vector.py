@@ -1,9 +1,10 @@
 import os
 import json
-from functools import partial
 from pathlib import Path
 
 import pyproj
+from pyproj.crs import ProjectedCRS
+from pyproj.crs.coordinate_operation import AzumuthalEquidistantConversion
 import geopandas as gpd
 import logging
 
