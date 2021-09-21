@@ -20,6 +20,7 @@ setup(
         'gdal>=2',
         'godale',
         'geopandas>=0.8',
+        'pyproj>=2.1',
         'jupyterlab',
         'matplotlib',
         'numpy',
