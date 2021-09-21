@@ -2,6 +2,7 @@ descartes
 fiona
 gdal>=2
 godale
+pyproj>=2.1
 geopandas>=0.8
 jupyterlab
 matplotlib
