@@ -3,6 +3,7 @@
 
 # ------ bug of rasterio --------
 import os
+
 if "GDAL_DATA" in list(os.environ.keys()):
     del os.environ["GDAL_DATA"]
 if "PROJ_LIB" in list(os.environ.keys()):
@@ -69,7 +70,7 @@ class Generic:
             logger.info('Project directory already exists. '
                         'No data has been deleted at this point but '
                         'make sure you really want to use this folder.')
-            
+
         # define project sub-directories if not set, and create folders
         self.download_dir = self.project_dir.joinpath('download')
         self.download_dir.mkdir(parents=True, exist_ok=True)
@@ -617,7 +618,6 @@ class Sentinel1Batch(Sentinel1):
         logger.info('Pre-downloading SRTM tiles')
         srtm.download_srtm(self.aoi)
 
-
     def bursts_to_ards(
             self,
             timeseries=False,
@@ -712,13 +712,13 @@ class Sentinel1Batch(Sentinel1):
         if overwrite:
             logger.info('Deleting processing folder to start from scratch')
             h.remove_folder_content(self.config_dict['processing_dir'])
-            
+
         # --------------------------------------------
         # 5 set resolution to degree
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        if self.config_dict['max_workers'] > 1:
+        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
             self.pre_download_srtm()
 
         # --------------------------------------------

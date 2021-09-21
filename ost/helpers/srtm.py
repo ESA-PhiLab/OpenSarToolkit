@@ -95,13 +95,13 @@ def download_srtm(aoi):
     warnings.filterwarnings(
         'ignore', 'Geometry is in a geographic CRS', UserWarning
     )
-    srtm = gpd.read_file(
-        OST_ROOT.joinpath('aux/srtm1sectiles.gpkg')
-    )
+
+    srtm = gpd.read_file(OST_ROOT.joinpath('aux/srtm1sectiles.gpkg'))
 
     aoi_gdf = vec.wkt_to_gdf(aoi)
     aoi_gdf['geometry'] = aoi_gdf.geometry.buffer(1)
     overlap_df = gpd.overlay(srtm, aoi_gdf, how='intersection')
+
     iter_list = []
     for file in overlap_df.url.values:
         iter_list.append(file)
