@@ -7,3 +7,5 @@ htmlcov
 .empty
 .DS_Store
 ost/.DS_Store
+build
+dist

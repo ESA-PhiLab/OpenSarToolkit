@@ -1,9 +1,10 @@
 import os
 import json
-from functools import partial
 from pathlib import Path
 
 import pyproj
+from pyproj.crs import ProjectedCRS
+from pyproj.crs.coordinate_operation import AzumuthalEquidistantConversion
 import geopandas as gpd
 import logging
 
@@ -171,7 +172,7 @@ def reproject_geometry(geom, inproj4, out_epsg):
     return geom
 
 
-def geodesic_point_buffer(lat, lon, meters, envelope=False):
+def geodesic_point_buffer(lon, lat, meters, envelope=False):
     """
 
     :param lat:
@@ -181,23 +182,24 @@ def geodesic_point_buffer(lat, lon, meters, envelope=False):
     :return:
     """
 
-    # get WGS 84 proj
-    proj_wgs84 = pyproj.Proj('epsg:4326')
-
-    # Azimuthal equidistant projection
-    aeqd_proj = '+proj=aeqd +lat_0={lat} +lon_0={lon} +x_0=0 +y_0=0'
-    project = partial(
-        pyproj.transform,
-        pyproj.Proj(aeqd_proj.format(lat=lat, lon=lon)),
-        proj_wgs84
+    proj_crs = ProjectedCRS(
+        conversion=AzumuthalEquidistantConversion(float(lat), float(lon))
     )
+
+    proj_wgs84 = pyproj.Proj('EPSG:4326')
+
+    Trans = pyproj.Transformer.from_proj(
+        proj_crs,
+        proj_wgs84,
+        always_xy=True
+    ).transform
 
     buf = Point(0, 0).buffer(meters)  # distance in metres
 
     if envelope is True:
-        geom = Polygon(transform(project, buf).exterior.coords[:]).envelope
+        geom = Polygon(transform(Trans, buf).exterior.coords[:]).envelope
     else:
-        geom = Polygon(transform(project, buf).exterior.coords[:])
+        geom = Polygon(transform(Trans, buf).exterior.coords[:])
 
     return geom.wkt
 
@@ -240,7 +242,7 @@ def latlon_to_wkt(
         aoi_wkt = aoi_geom.to_wkt()
 
     elif buffer_meter:
-        aoi_wkt = geodesic_point_buffer(lat, lon, buffer_meter, envelope)
+        aoi_wkt = geodesic_point_buffer(lon, lat, buffer_meter, envelope)
 
     return aoi_wkt
 

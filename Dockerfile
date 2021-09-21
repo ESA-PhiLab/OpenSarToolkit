@@ -1,13 +1,13 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
-LABEL maintainer="Petr Sevcik, EOX"
-LABEL OpenSARToolkit='0.11.1'
+LABEL maintainer="Andreas Vollrath, FAO"
+LABEL OpenSARToolkit='0.12.3'
 
 # set work directory to home and download snap
 WORKDIR /home/ost
 
 # copy the snap installation config file into the container
-COPY snap8.varfile $HOME
+COPY snap.varfile $HOME
 
 # update variables
 ENV OTB_VERSION="7.3.0" \
@@ -42,9 +42,9 @@ RUN alias python=python3 && \
     mkdir /home/ost/programs && \
     wget $SNAP_URL/$TBX && \    
     chmod +x $TBX && \
-    ./$TBX -q -varfile snap7.varfile && \
+    ./$TBX -q -varfile snap.varfile && \
     rm $TBX && \
-    rm snap7.varfile && \
+    rm snap.varfile && \
     cd /home/ost/programs && \
     wget https://www.orfeo-toolbox.org/packages/${OTB} && \ 
     chmod +x $OTB && \

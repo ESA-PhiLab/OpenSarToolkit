@@ -192,7 +192,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
         projection = f"AUTO:{dem_dict['out_projection']}"
     # epsg codes
     elif int(dem_dict['out_projection']) == 4326:
-        projection = CRS.from_epsg(4326).to_wkt()
+        projection = 'WGS84(DD)'
     else:
         projection = f"EPSG:{dem_dict['out_projection']}"
 
@@ -277,7 +277,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
         projection = f"AUTO:{dem_dict['out_projection']}"
     # epsg codes
     elif int(dem_dict['out_projection']) == 4326:
-        projection = CRS.from_epsg(4326).to_wkt()
+        projection = 'WGS84(DD)'
     else:
         projection = f"EPSG:{dem_dict['out_projection']}"
 

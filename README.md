@@ -32,19 +32,23 @@ https://github.com/ESA-PhiLab/OST_Notebooks for getting started.
 
 ### Docker 
 
-A docker image is available from docker hub that contains the full package, 
+**Update!**
+
+Dockerhub is not permitting automatic builds. Therefore you need to
+build your own docker image using the DOCKERFIlE https://raw.githubusercontent.com/ESA-PhiLab/OpenSarToolkit/main/Dockerfile
+
+The resulting docker image contains the full package, 
 including ESA's Sentinel-1 Toolbox, Orfeo Toolbox, Jupyter Lab as well
-as the Open SAR Toolkit the tutorial notebooks.
+as the Open SAR Toolkit tutorial notebooks.
 
 Docker installation is possible on various OS. Installation instructions can be 
 found at https://docs.docker.com/install/
 
 After docker is installed and running, launch the container with 
-(adapt the path to the shared host folder):
+(adapt the path to the shared host folder and the name of the docke rimage at the very end):
 
 ```
-docker pull buddyvolly/opensartoolkit
-docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared buddyvolly/opensartoolkit
+docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared docker/image
 ```
 
 The docker image automatically executes the jupyter lab and runs it on 
@@ -68,6 +72,8 @@ If you install SNAP into the standard directory, OST should have no problems
 to find the SNAP command line executable. Otherwise you need to define the path 
 to the gpt file on your own during processing.
 
+**Make sure to use SNAP 8 with the latest updates installed.**
+
 ##### Orfeo Toolbox
 
 If you want to create mosaics between different swaths, OST will rely on the 
@@ -78,79 +84,25 @@ https://www.orfeo-toolbox.org/download/
 Make sure that the Orfeo bin folder is within your PATH variable to allow 
 execution from command line.
 
-#### OST installation
+##### Further dependencies (libs etc)
 
-OST is developed under Ubuntu 18.04 OS in python 3.6. It has not been tested 
-much on other OS and python versions, but should in principle work on any OS 
-and any python version >= 3.5.
-
-##### Ubuntu/Debian Linux (using pip)
-
-Before installation of OST, run the following line on the terminal to 
-install further dependencies:
-
+Ubuntu 18.04 and later:
 ```
-sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm
+sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm libgfortran5
 ```
 
-then install OST as a global package (for all users, admin rights needed):
+Any Operating system using (mini)conda https://www.anaconda.com/:
 
-```
-sudo pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
-```
-
-or as local package within your home folder (no admin rights needed):
-
-```
-pip3 install --user git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
-```
-
-run those commands to enable the correct display of progress bars
-```
-sudo pip3 install jupyterlab
-# this is needed for the progress bar when downloading
-sudo jupyter-labextension install @jupyter-widgets/jupyterlab-manager
-sudo jupyter nbextension enable --py widgetsnbextension
-```
-
-##### Mac OS (using homebrew/pip)
-
-If not already installed, install homebrew as explained on https://brew.sh
-
-After installation of homebrew, open the terminal and install 
-further dependecies:
-
-```
-brew install python3 gdal2 gdal2-python git
-```
-
-then install OST with python pip:
-```
-pip3 install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
-
-# this is needed for the progress bar when downloading data
-jupyter labextension install @jupyter-widgets/jupyterlab-manager
-jupyter nbextension enable --py widgetsnbextension
-```
-
-##### Conda Installation (Windows, Mac, Linux)
-
-Follow the installation instructions for conda (Miniconda is sufficient) at:
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/
-
-Then run the conda command to install OST's dependencies:
 ```
 conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy joblib retrying pytest pytest-cov nodejs
-
-# this is needed for the progress bar when downloading
-jupyter labextension install @jupyter-widgets/jupyterlab-manager
-jupyter nbextension enable --py widgetsnbextension
 ```
 
-Finally get the OST by using pip 
-(we will work in future on a dedicated conda package for OST).
+#### OST installation
+
+You can use then use pip to install Open SAR Toolkit: 
+
 ```
-pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git
+pip install opensartoolkit
 ```
 
 
@@ -206,5 +158,6 @@ that are developed in parallel to this core package and should help to get start
 
 ## Author
 
-* Andreas Vollrath, ESA
+* Andreas Vollrath, FAO (ex-ESA philab)
 * Petr Sevcik, EOX
+* James Wheeler, ESA philab
