@@ -52,8 +52,9 @@ def mt_layover(list_of_ls):
 
             df2 = gpd.read_file(file)
             df2 = df2[~(df2.geometry.is_empty | df2.geometry.isna())]
-            geom2 = df2.geometry.buffer(0).unary_union
-            geom = unary_union([geom, geom2])
+            if not df2.empty:
+                geom2 = df2.geometry.buffer(0).unary_union
+                geom = unary_union([geom, geom2])
 
     if y > 0:
         # make geometry valid in case it isn't
