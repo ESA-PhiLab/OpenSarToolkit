@@ -718,8 +718,8 @@ class Sentinel1Batch(Sentinel1):
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
-            self.pre_download_srtm()
+        #if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
+        #    self.pre_download_srtm()
 
         # --------------------------------------------
         # 6 run the burst to ard batch routine (up to 3 times if needed)

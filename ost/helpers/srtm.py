@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def download_srtm_tile(url):
+
     snap_aux = Path.home().joinpath('.snap/auxdata/dem/SRTM 1Sec HGT/')
 
     if not snap_aux.exists():
@@ -96,7 +97,7 @@ def download_srtm(aoi):
         'ignore', 'Geometry is in a geographic CRS', UserWarning
     )
 
-    srtm = gpd.read_file(OST_ROOT.joinpath('aux/srtm1sectiles.gpkg'))
+    srtm = gpd.read_file(OST_ROOT.joinpath('auxdata/srtm1sectiles.gpkg'))
 
     aoi_gdf = vec.wkt_to_gdf(aoi)
     aoi_gdf['geometry'] = aoi_gdf.geometry.buffer(1)
