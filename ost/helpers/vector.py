@@ -63,8 +63,8 @@ def aoi_to_wkt(aoi):
         try:
             # let's check if it is a shapely readable WKT
             world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
-            aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].to_wkt()
-
+            aoi_wkt = world['geometry'][world['iso_a3'] == aoi].values[0].wkt
+            
         except IndexError:
             # see if it is a Geovector file
             if Path(aoi).exists():
@@ -239,7 +239,7 @@ def latlon_to_wkt(
         if envelope:
             aoi_geom = aoi_geom.envelope
 
-        aoi_wkt = aoi_geom.to_wkt()
+        aoi_wkt = aoi_geom.wkt
 
     elif buffer_meter:
         aoi_wkt = geodesic_point_buffer(lon, lat, buffer_meter, envelope)
