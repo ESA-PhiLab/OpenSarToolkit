@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pyproj
 from pyproj.crs import ProjectedCRS
-from pyproj.crs.coordinate_operation import AzumuthalEquidistantConversion
+from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
 import geopandas as gpd
 import logging
 
@@ -183,7 +183,7 @@ def geodesic_point_buffer(lon, lat, meters, envelope=False):
     """
 
     proj_crs = ProjectedCRS(
-        conversion=AzumuthalEquidistantConversion(float(lat), float(lon))
+        conversion=AzimuthalEquidistantConversion(float(lat), float(lon))
     )
 
     proj_wgs84 = pyproj.Proj('EPSG:4326')
