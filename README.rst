@@ -140,3 +140,4 @@ Authors
 * Andreas Vollrath, FAO (ex-ESA philab)
 * Petr Sevcik, EOX
 * James Wheeler, ESA philab
+* Pierrick Rambaud, FAO OpenForis
