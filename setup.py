@@ -3,6 +3,17 @@ from setuptools import setup, find_packages
 from setuptools.command.develop import develop
 from subprocess import check_call
 
+# check that gdal has already been installed prior to ost
+try:
+    from osgeo import gdal
+except ModuleNotFoundError:
+    raise ImportError(
+        "please install a GDAL distribution>=1.7 prior to install OpenSarTollkit"
+    )
+
+# to make flake8 happy
+gdal.__version__
+
 # the version number
 version = "0.12.5"
 
@@ -44,30 +55,22 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
+        "GDAL>=2",
         "descartes",
-        "fiona",
-        "gdal>=2",
         "godale",
         "geopandas>=0.8",
-        "pyproj>=2.1",
         "jupyterlab",
-        "matplotlib",
-        "numpy",
-        "pandas",
         "psycopg2-binary",
         "rasterio",
         "requests",
         "scipy",
-        "shapely",
         "tqdm",
         "imageio",
         "rtree",
         "retrying",
     ],
     extras_require={"dev": ["pre-commit", "pytest", "coverage"]},
-    cmdclass={
-        "develop": DevelopCmd,
-    },
+    cmdclass={"develop": DevelopCmd},
     zip_safe=False,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
