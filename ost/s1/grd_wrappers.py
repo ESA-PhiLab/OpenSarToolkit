@@ -8,10 +8,11 @@ from pathlib import Path
 
 try:
     import gdal
-except ModuleNotFoundError as e:
-    from osgeo import gdal
-except ModuleNotFoundError as e:
-    raise e
+except ModuleNotFoundError:
+    try:
+        from osgeo import gdal
+    except ModuleNotFoundError as e:
+        raise e
 
 from ost.helpers import helpers as h
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
@@ -44,41 +45,41 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
         infile = Path(infile)
 
     # get relevant config parameters
-    ard = config_dict['processing']['single_ARD']
-    polars = ard['polarisation'].replace(' ', '')
-    cpus = config_dict['snap_cpu_parallelism']
-    subset = config_dict['subset']
+    ard = config_dict["processing"]["single_ARD"]
+    polars = ard["polarisation"].replace(" ", "")
+    cpus = config_dict["snap_cpu_parallelism"]
+    subset = config_dict["subset"]
 
     try:
-        aoi = config_dict['aoi']
+        aoi = config_dict["aoi"]
     except KeyError:
-        aoi = ''
+        aoi = ""
 
     logger.debug(
-        f'Importing {infile.name} by applying precise orbit file and '
-        f'removing thermal noise'
+        f"Importing {infile.name} by applying precise orbit file and "
+        f"removing thermal noise"
     )
 
     # get path to graph
     if subset:
-        graph = OST_ROOT.joinpath('graphs/S1_GRD2ARD/1_AO_TNR_SUB.xml')
+        graph = OST_ROOT.joinpath("graphs/S1_GRD2ARD/1_AO_TNR_SUB.xml")
         # construct command
         command = (
-            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
-            f'-Pinput=\'{str(infile)}\' '
-            f'-Pregion=\'{aoi}\' '
-            f'-Ppolarisation={polars} '
-            f'-Poutput=\'{str(outfile)}\''
+            f"{GPT_FILE} {graph} -x -q {2 * cpus} "
+            f"-Pinput='{str(infile)}' "
+            f"-Pregion='{aoi}' "
+            f"-Ppolarisation={polars} "
+            f"-Poutput='{str(outfile)}'"
         )
     else:
         # construct path ot graph
-        graph = OST_ROOT.joinpath('graphs/S1_GRD2ARD/1_AO_TNR.xml')
+        graph = OST_ROOT.joinpath("graphs/S1_GRD2ARD/1_AO_TNR.xml")
         # construct command
         command = (
-            f'{GPT_FILE} {graph} -x -q {2 * cpus} '
-            f'-Pinput=\'{str(infile)}\' '
-            f'-Ppolarisation={polars} '
-            f'-Poutput=\'{str(outfile)}\''
+            f"{GPT_FILE} {graph} -x -q {2 * cpus} "
+            f"-Pinput='{str(infile)}' "
+            f"-Ppolarisation={polars} "
+            f"-Poutput='{str(outfile)}'"
         )
 
     # run command
@@ -86,22 +87,20 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug('Succesfully imported GRD product')
+        logger.debug("Succesfully imported GRD product")
     else:
         # read logfile
         raise GPTRuntimeError(
-            f'GRD frame import exited with error {return_code}. '
-            f'See {logfile} for Snap\'s error output.'
+            f"GRD frame import exited with error {return_code}. "
+            f"See {logfile} for Snap's error output."
         )
 
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('.dim'))
+        return str(outfile.with_suffix(".dim"))
     else:
-        raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
-        )
+        raise NotValidFileError(f"Product did not pass file check: {return_code}")
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -117,7 +116,7 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
     :return:
     """
 
-    '''A wrapper of SNAP's slice assembly routine
+    """A wrapper of SNAP's slice assembly routine
 
     This function assembles consecutive frames acquired at the same date.
     Can be either GRD or SLC products
@@ -129,20 +128,20 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
                  file written in BEAM-Dimap format
         logfile: string or os.path object for the file
                  where SNAP'S STDOUT/STDERR is written to
-    '''
+    """
 
     # get relevant config parameters
-    ard = config_dict['processing']['single_ARD']
-    polars = ard['polarisation'].replace(' ', '')
-    cpus = config_dict['snap_cpu_parallelism']
+    ard = config_dict["processing"]["single_ARD"]
+    polars = ard["polarisation"].replace(" ", "")
+    cpus = config_dict["snap_cpu_parallelism"]
 
-    logger.debug('Assembling consecutive frames:')
+    logger.debug("Assembling consecutive frames:")
 
     # construct command
     command = (
-        f'{GPT_FILE} SliceAssembly -x -q {2*cpus} '
-        f'-PselectedPolarisations={polars} '
-        f'-t \'{str(outfile)}\' {filelist}'
+        f"{GPT_FILE} SliceAssembly -x -q {2*cpus} "
+        f"-PselectedPolarisations={polars} "
+        f"-t '{str(outfile)}' {filelist}"
     )
 
     # run command and get return code
@@ -150,21 +149,19 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug('Succesfully assembled products')
+        logger.debug("Succesfully assembled products")
     else:
         raise GPTRuntimeError(
-            f'ERROR: Slice Assembly exited with error {return_code}. '
-            f'See {logfile} for Snap Error output'
+            f"ERROR: Slice Assembly exited with error {return_code}. "
+            f"See {logfile} for Snap Error output"
         )
 
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('.dim'))
+        return str(outfile.with_suffix(".dim"))
     else:
-        raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
-        )
+        raise NotValidFileError(f"Product did not pass file check: {return_code}")
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -182,22 +179,22 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    cpus = config_dict['snap_cpu_parallelism']
+    cpus = config_dict["snap_cpu_parallelism"]
 
     try:
-        aoi = config_dict['aoi']
+        aoi = config_dict["aoi"]
     except KeyError:
-        aoi = ''
+        aoi = ""
 
-    logger.debug('Subsetting imported imagery.')
+    logger.debug("Subsetting imported imagery.")
 
     # extract window from scene
     command = (
-        f'{GPT_FILE} Subset -x -q {2*cpus} '
-        f'-PcopyMetadata=true '
-        f'-PgeoRegion=\'{aoi}\' '
-        f'-Ssource=\'{str(infile)}\' '
-        f'-t \'{str(outfile)}\''
+        f"{GPT_FILE} Subset -x -q {2*cpus} "
+        f"-PcopyMetadata=true "
+        f"-PgeoRegion='{aoi}' "
+        f"-Ssource='{str(infile)}' "
+        f"-t '{str(outfile)}'"
     )
 
     # run command and get return code
@@ -205,21 +202,19 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug('Succesfully subsetted product.')
+        logger.debug("Succesfully subsetted product.")
     else:
         raise GPTRuntimeError(
-            f'Subsetting exited with error {return_code}. '
-            f'See {logfile} for Snap\'s error message.'
+            f"Subsetting exited with error {return_code}. "
+            f"See {logfile} for Snap's error message."
         )
 
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('.dim'))
+        return str(outfile.with_suffix(".dim"))
     else:
-        raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
-        )
+        raise NotValidFileError(f"Product did not pass file check: {return_code}")
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -244,7 +239,7 @@ def grd_remove_border(infile):
     :return:
     """
 
-    logger.debug(f'Removing the GRD Border Noise for {infile.name}.')
+    logger.debug(f"Removing the GRD Border Noise for {infile.name}.")
     currtime = time.time()
 
     # read raster file and get number of columns adn rows
@@ -253,9 +248,7 @@ def grd_remove_border(infile):
     rows = raster.RasterYSize
 
     # create 3000xrows array for the left part of the image
-    array_left = np.array(
-        raster.GetRasterBand(1).ReadAsArray(0, 0, 3000, rows)
-    )
+    array_left = np.array(raster.GetRasterBand(1).ReadAsArray(0, 0, 3000, rows))
 
     cols_left = 3000
     for x in range(3000):
@@ -272,7 +265,7 @@ def grd_remove_border(infile):
             break
 
     # write array_left to disk
-    logger.debug(f'Number of colums set to 0 on the left side: {cols_left}.')
+    logger.debug(f"Number of colums set to 0 on the left side: {cols_left}.")
 
     raster.GetRasterBand(1).WriteArray(array_left[:, :+cols_left], 0, 0)
     del array_left
@@ -299,13 +292,9 @@ def grd_remove_border(infile):
             break
 
     col_right_start = cols - 3000 + cols_right
-    logger.debug(
-        f'Number of columns set to 0 on the right side: {3000 - cols_right}.'
-    )
-    logger.debug(f'Amount of columns kept: {col_right_start}.')
-    raster.GetRasterBand(1).WriteArray(
-        array_right[:, cols_right:], col_right_start, 0
-    )
+    logger.debug(f"Number of columns set to 0 on the right side: {3000 - cols_right}.")
+    logger.debug(f"Amount of columns kept: {col_right_start}.")
+    raster.GetRasterBand(1).WriteArray(array_right[:, cols_right:], col_right_start, 0)
 
     logger.debug(h.timer(currtime))
 
@@ -322,30 +311,30 @@ def calibration(infile, outfile, logfile, config_dict):
     """
 
     # get relevant config parameters
-    product_type = config_dict['processing']['single_ARD']['product_type']
-    cpus = config_dict['snap_cpu_parallelism']
+    product_type = config_dict["processing"]["single_ARD"]["product_type"]
+    cpus = config_dict["snap_cpu_parallelism"]
 
     # transform calibration parameter to snap readable
-    sigma0, beta0, gamma0 = 'false', 'false', 'false'
+    sigma0, beta0, gamma0 = "false", "false", "false"
 
-    if product_type == 'GTC-sigma0':
-        sigma0 = 'true'
-    elif product_type == 'GTC-gamma0':
-        gamma0 = 'true'
-    elif product_type == 'RTC-gamma0':
-        beta0 = 'true'
+    if product_type == "GTC-sigma0":
+        sigma0 = "true"
+    elif product_type == "GTC-gamma0":
+        gamma0 = "true"
+    elif product_type == "RTC-gamma0":
+        beta0 = "true"
     else:
-        raise TypeError('Wrong product type selected.')
+        raise TypeError("Wrong product type selected.")
 
-    logger.debug(f'Calibrating the product to {product_type}.')
+    logger.debug(f"Calibrating the product to {product_type}.")
 
     # construct command string
     command = (
-        f'{GPT_FILE} Calibration -x -q {2*cpus} '
-        f' -PoutputBetaBand=\'{beta0}\' '
-        f' -PoutputGammaBand=\'{gamma0}\' '
-        f' -PoutputSigmaBand=\'{sigma0}\' '
-        f' -t \'{str(outfile)}\' \'{str(infile)}\''
+        f"{GPT_FILE} Calibration -x -q {2*cpus} "
+        f" -PoutputBetaBand='{beta0}' "
+        f" -PoutputGammaBand='{gamma0}' "
+        f" -PoutputSigmaBand='{sigma0}' "
+        f" -t '{str(outfile)}' '{str(infile)}'"
     )
 
     # run command and get return code
@@ -353,21 +342,19 @@ def calibration(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug(f'Calibration to {product_type} successful.')
+        logger.debug(f"Calibration to {product_type} successful.")
     else:
         raise GPTRuntimeError(
-            f'Calibration exited with error {return_code}. '
-            f'See {logfile} for Snap\'s error message.'
+            f"Calibration exited with error {return_code}. "
+            f"See {logfile} for Snap's error message."
         )
 
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('.dim'))
+        return str(outfile.with_suffix(".dim"))
     else:
-        raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
-        )
+        raise NotValidFileError(f"Product did not pass file check: {return_code}")
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
@@ -381,21 +368,21 @@ def multi_look(infile, outfile, logfile, config_dict):
     :return:
     """
 
-    ard = config_dict['processing']['single_ARD']
-    cpus = config_dict['snap_cpu_parallelism']
-    ml_factor = int(int(ard['resolution']) / 10)
+    ard = config_dict["processing"]["single_ARD"]
+    cpus = config_dict["snap_cpu_parallelism"]
+    ml_factor = int(int(ard["resolution"]) / 10)
 
     logger.debug(
-        'Multi-looking the image with {az_looks} looks in '
-        'azimuth and {rg_looks} looks in range.'
+        "Multi-looking the image with {az_looks} looks in "
+        "azimuth and {rg_looks} looks in range."
     )
 
     # construct command string
     command = (
-        f'{GPT_FILE} Multilook -x -q {2*cpus} '
-        f'-PnAzLooks={ml_factor} '
-        f'-PnRgLooks={ml_factor} '
-        f'-t \'{str(outfile)}\' {str(infile)}'
+        f"{GPT_FILE} Multilook -x -q {2*cpus} "
+        f"-PnAzLooks={ml_factor} "
+        f"-PnRgLooks={ml_factor} "
+        f"-t '{str(outfile)}' {str(infile)}"
     )
 
     # run command and get return code
@@ -403,18 +390,16 @@ def multi_look(infile, outfile, logfile, config_dict):
 
     # handle errors and logs
     if return_code == 0:
-        logger.debug('Succesfully multi-looked product.')
+        logger.debug("Succesfully multi-looked product.")
     else:
         raise GPTRuntimeError(
-            f' ERROR: Multi-look exited with error {return_code}. '
-            f'See {logfile} for Snap\'s error message.'
+            f" ERROR: Multi-look exited with error {return_code}. "
+            f"See {logfile} for Snap's error message."
         )
 
     # do check routine
     return_code = h.check_out_dimap(outfile)
     if return_code == 0:
-        return str(outfile.with_suffix('.dim'))
+        return str(outfile.with_suffix(".dim"))
     else:
-        raise NotValidFileError(
-            f'Product did not pass file check: {return_code}'
-        )
+        raise NotValidFileError(f"Product did not pass file check: {return_code}")

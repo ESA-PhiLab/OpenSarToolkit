@@ -1,13 +1,13 @@
 repos:
--   repo: https://github.com/psf/black
+  - repo: https://github.com/psf/black
     rev: 8a59528c2d8ae1ef5f366039c728614aaf1a470b
     hooks:
-    -   id: black
-    -   id: black-jupyter
--   repo: https://github.com/kynan/nbstripout
+      - id: black
+      - id: black-jupyter
+  - repo: https://github.com/kynan/nbstripout
     rev: 0.5.0
     hooks:
-    -   id: nbstripout
+      - id: nbstripout
   - repo: https://gitlab.com/pycqa/flake8
     rev: 3.9.2
     hooks:

@@ -22,21 +22,21 @@ logger = logging.getLogger(__name__)
 
 def download_srtm_tile(url):
 
-    snap_aux = Path.home().joinpath('.snap/auxdata/dem/SRTM 1Sec HGT/')
+    snap_aux = Path.home().joinpath(".snap/auxdata/dem/SRTM 1Sec HGT/")
 
     if not snap_aux.exists():
         try:
             snap_aux.mkdir(parents=True, exist_ok=True)
-        except:
-            raise RuntimeError(' Snap aux folder not found')
+        except Exception:
+            raise RuntimeError(" Snap aux folder not found")
 
-    filename = snap_aux.joinpath(url.split('/')[-1])
+    filename = snap_aux.joinpath(url.split("/")[-1])
 
     # get first response for file Size
     response = requests.get(url, stream=True)
 
     # get download size
-    total_length = int(response.headers.get('content-length', 0))
+    total_length = int(response.headers.get("content-length", 0))
 
     # define chunk_size
     chunk_size = 1024
@@ -56,16 +56,17 @@ def download_srtm_tile(url):
             header = {"Range": f"bytes={first_byte}-{total_length}"}
 
             # logger.info(f'Downloading scene to: {filename.name}')
-            response = requests.get(
-                url, headers=header, stream=True
-            )
+            response = requests.get(url, headers=header, stream=True)
 
             # actual download
             with open(filename, "ab") as file:
 
                 pbar = tqdm.tqdm(
-                    total=total_length, initial=first_byte, unit='B',
-                    unit_scale=True, desc=' INFO: Downloading: '
+                    total=total_length,
+                    initial=first_byte,
+                    unit="B",
+                    unit_scale=True,
+                    desc=" INFO: Downloading: ",
                 )
                 for chunk in response.iter_content(chunk_size):
                     if chunk:
@@ -77,44 +78,36 @@ def download_srtm_tile(url):
             first_byte = filename.stat().st_size
 
         # zipFile check
-        logger.info(f'Checking zip archive {filename.name} for inconsistency')
+        logger.info(f"Checking zip archive {filename.name} for inconsistency")
         zip_test = h.check_zipfile(filename)
         if zip_test is not None:
             logger.info(
-                f'{filename.name} did not pass the zip test. Re-downloading '
-                f'the full scene.'
+                f"{filename.name} did not pass the zip test. Re-downloading "
+                f"the full scene."
             )
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
         else:
-            logger.info(f'{filename.name} passed the zip test.')
+            logger.info(f"{filename.name} passed the zip test.")
 
 
 def download_srtm(aoi):
 
-    warnings.filterwarnings(
-        'ignore', 'Geometry is in a geographic CRS', UserWarning
-    )
+    warnings.filterwarnings("ignore", "Geometry is in a geographic CRS", UserWarning)
 
-    srtm = gpd.read_file(OST_ROOT.joinpath('auxdata/srtm1sectiles.gpkg'))
+    srtm = gpd.read_file(OST_ROOT.joinpath("auxdata/srtm1sectiles.gpkg"))
 
     aoi_gdf = vec.wkt_to_gdf(aoi)
-    aoi_gdf['geometry'] = aoi_gdf.geometry.buffer(1)
-    overlap_df = gpd.overlay(srtm, aoi_gdf, how='intersection')
+    aoi_gdf["geometry"] = aoi_gdf.geometry.buffer(1)
+    overlap_df = gpd.overlay(srtm, aoi_gdf, how="intersection")
 
     iter_list = []
     for file in overlap_df.url.values:
         iter_list.append(file)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor='concurrent_processes',
-        max_workers=10
-    )
+    executor = Executor(executor="concurrent_processes", max_workers=10)
 
-    for task in executor.as_completed(
-            func=download_srtm_tile,
-            iterable=iter_list
-    ):
+    for task in executor.as_completed(func=download_srtm_tile, iterable=iter_list):
         task.result()
