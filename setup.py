@@ -28,7 +28,17 @@ class DevelopCmd(develop):
     """overwrite normal develop pip command to install the pre-commit"""
 
     def run(self):
-        check_call(["pre-commit", "install"])
+        check_call(
+            [
+                "pre-commit",
+                "install",
+                "--install-hooks",
+                "-t",
+                "pre-commit",
+                "-t",
+                "commit-msg",
+            ]
+        )
         super(DevelopCmd, self).run()
 
 
