@@ -11,7 +11,15 @@ Open SAR Toolkit (OST)
     
 .. image:: https://img.shields.io/pypi/dm/opensartoolkit?color=307CC2&logo=python&logoColor=gainsboro  
     :target: https://pypi.org/project/opensartoolkit/
-    :alt: PyPI - Downloads
+    :alt: PyPI - Download
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+   :alt: Black badge
+   
+.. image:: https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg
+   :target: https://conventionalcommits.org
+   :alt: conventional commit
 
 Objective
 ---------
