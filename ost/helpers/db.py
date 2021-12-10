@@ -12,14 +12,7 @@ import getpass
 import os
 import logging
 import psycopg2 as pg
-
-try:
-    import ogr
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import ogr
-    except ModuleNotFoundError:
-        raise e
+from osgeo import ogr
 
 from ost.helpers.vector import get_proj4, reproject_geometry
 

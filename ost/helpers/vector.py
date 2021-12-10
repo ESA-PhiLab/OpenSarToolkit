@@ -7,23 +7,8 @@ from pyproj.crs import ProjectedCRS
 from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
 import geopandas as gpd
 import logging
-
-# osgeo safe imports
-try:
-    import osr
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import osr
-    except ModuleNotFoundError:
-        raise e
-
-try:
-    import ogr
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import ogr
-    except ModuleNotFoundError:
-        raise e
+from osgeo import osr
+from osgeo import ogr
 
 from shapely.ops import transform
 from shapely.wkt import loads
@@ -31,9 +16,6 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from shapely.errors import WKTReadingError
 from fiona import collection
 from fiona.crs import from_epsg
-
-# from pyproj.exceptions import CRSError as projCRSError
-# from fiona.errors import DriverError, CRSError
 
 logger = logging.getLogger(__name__)
 

@@ -15,14 +15,7 @@ import zipfile
 import logging
 from pathlib import Path
 from datetime import timedelta
-
-try:
-    import gdal
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import gdal
-    except ModuleNotFoundError:
-        raise e
+from osgeo import gdal
 
 logger = logging.getLogger(__name__)
 

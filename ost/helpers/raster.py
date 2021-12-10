@@ -11,14 +11,7 @@ import shutil
 from datetime import datetime
 
 from godale._concurrent import Executor
-
-try:
-    import gdal
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import gdal
-    except ModuleNotFoundError:
-        raise e
+from osgeo import gdal
 
 import fiona
 import imageio
