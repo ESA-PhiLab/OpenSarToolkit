@@ -153,3 +153,8 @@ Authors
 * Petr Sevcik, EOX
 * James Wheeler, ESA philab
 * Pierrick Rambaud, FAO OpenForis
+
+.. toctree::
+    :maxdepth: 2
+    
+    setup/index
