@@ -31,7 +31,12 @@ release = "0.12.5"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autosummary", "sphinx.ext.viewcode", "nbsphinx"]
+extensions = [
+    "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
+    "nbsphinx",
+    "sphinx_copybutton",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -49,13 +54,6 @@ exclude_patterns = ["**.ipynb_checkpoints"]
 #
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
-    "icon_links": [
-        {
-            "name": "GitHub",
-            "url": "https://github.com/ESA-PhiLab/OpenSarToolkit",
-            "icon": "fab fa-github-square",
-        }
-    ],
     "github_url": "https://github.com/ESA-PhiLab/OpenSarToolkit",
     "show_nav_level": 2,
     "show_prev_next": False,

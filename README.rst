@@ -26,8 +26,8 @@ Open SAR Toolkit (OST)
     :alt: Test Coverage
 
 .. image:: https://readthedocs.org/projects/opensartoolkit/badge/?version=latest
-:target: https://opensartoolkit.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
+    :target: https://opensartoolkit.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 Objective
 ---------
@@ -59,9 +59,9 @@ Docker installation is possible on various OS. Installation instructions can be 
 After docker is installed and running, launch the container with 
 (adapt the path to the shared host folder and the name of the docke rimage at the very end):
 
-```
-docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared docker/image
-```
+.. code-block:: console
+
+    docker run -it -p 8888:8888 -v /shared/folder/on/host:/home/ost/shared docker/image
 
 The docker image automatically executes the jupyter lab and runs it on port 8888. You can find the address to the notebook on the command line where docker is running. Copy it into your favorites browser and replace 127.0.0.1 with localhost.
 
@@ -91,24 +91,25 @@ Further dependencies (libs etc)
 ###############################
 
 Ubuntu 18.04 and later:
-```
-sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm libgfortran5
-```
+
+.. code-block:: console
+
+    sudo apt install python3-pip git libgdal-dev python3-gdal libspatialindex-dev nodejs npm libgfortran5
 
 Any Operating system using (mini)conda https://www.anaconda.com/:
 
-```
-conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy joblib retrying pytest pytest-cov nodejs
-```
+.. code-block:: console
+
+    conda install pip gdal jupyter jupyterlab git matplotlib numpy rasterio imageio rtree geopandas fiona shapely matplotlib descartes tqdm scipy joblib retrying pytest pytest-cov nodejs
 
 OST installation
 """"""""""""""""
 
 You can then use pip to install Open SAR Toolkit: 
 
-```
-pip install opensartoolkit
-```
+.. code-block:: console
+
+    pip install opensartoolkit
 
 Examples
 --------

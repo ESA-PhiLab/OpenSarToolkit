@@ -80,7 +80,14 @@ setup(
         "retrying",
     ],
     extras_require={
-        "dev": ["pre-commit", "pytest", "coverage", "nbsphinx", "pydata-sphinx-theme"]
+        "dev": [
+            "pre-commit",
+            "pytest",
+            "coverage",
+            "nbsphinx",
+            "pydata-sphinx-theme",
+            "sphinx-copybutton",
+        ]
     },
     cmdclass={"develop": DevelopCmd},
     zip_safe=False,
