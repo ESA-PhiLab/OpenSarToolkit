@@ -158,4 +158,5 @@ Authors
     :maxdepth: 3
     
     setup/index
-    modules/ost.rst
+    modules/ost
+    example/index
