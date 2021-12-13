@@ -3,12 +3,14 @@ import urllib.request
 import urllib.parse
 import geopandas as gpd
 from tempfile import TemporaryDirectory
+import pytest
 
 from ost.s1.search import scihub_catalogue
 from ost.helpers.scihub import create_aoi_str, create_toi_str, create_s1_product_specs
 from ost.helpers.settings import HERBERT_USER
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_default_scihub_catalogue():
 
     aoi = "POLYGON ((16.875 45, 16.875 50.625, 11.25 50.625," " 11.25 45, 16.875 45))"

@@ -1,6 +1,9 @@
+import pytest
+
 from ost.helpers.settings import config_check
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_update_ard_param(slc_project_class):
 
     slc_project_class.update_ard_parameters(ard_type="OST-GTC")
@@ -11,6 +14,7 @@ def test_update_ard_param(slc_project_class):
 
 
 # Test GRDs to ARD kind of batch
+@pytest.mark.skip(reason="not running in pip build")
 def test_grds_to_ards(grd_project_class):
     for ard_type in config_check["ard_type"]["choices"]:
         grd_project_class.update_ard_parameters(ard_type)
@@ -28,27 +32,32 @@ def test_grds_to_ards(grd_project_class):
 # split into more so that TRAVIS, wont get crazy
 # # [OST-GTC, OST-RTC, OST-minimal]
 
-# def test_burst_batch_ost_gtc(slc_project_class):
-#     slc_project_class.ard_parameters["single_ARD"]["type"] = 'OST-GTC'
-#     slc_project_class.update_ard_parameters()
-#     slc_project_class.ard_parameters['single_ARD']['resolution'] = 50
-#     slc_project_class.bursts_to_ard(
-#         timeseries=False,
-#         timescan=False,
-#         mosaic=False,
-#         overwrite=True,
-#         cut_to_aoi=False,
-#         ncores=2
-#     )
-# def test_burst_batch_ost_rtc(slc_project_class):
-#     slc_project_class.ard_parameters["single_ARD"]["type"] = 'OST-RTC'
-#     slc_project_class.update_ard_parameters()
-#     slc_project_class.ard_parameters['single_ARD']['resolution'] = 50
-#     slc_project_class.bursts_to_ard(
-#         timeseries=False,
-#         timescan=False,
-#         mosaic=False,
-#         overwrite=True,
-#         cut_to_aoi=False,
-#         ncores=2
-#     )
+
+@pytest.mark.skip(reason="not running in pip build")
+def test_burst_batch_ost_gtc(slc_project_class):
+    slc_project_class.ard_parameters["single_ARD"]["type"] = "OST-GTC"
+    slc_project_class.update_ard_parameters()
+    slc_project_class.ard_parameters["single_ARD"]["resolution"] = 50
+    slc_project_class.bursts_to_ard(
+        timeseries=False,
+        timescan=False,
+        mosaic=False,
+        overwrite=True,
+        cut_to_aoi=False,
+        ncores=2,
+    )
+
+
+@pytest.mark.skip(reason="not running in pip build")
+def test_burst_batch_ost_rtc(slc_project_class):
+    slc_project_class.ard_parameters["single_ARD"]["type"] = "OST-RTC"
+    slc_project_class.update_ard_parameters()
+    slc_project_class.ard_parameters["single_ARD"]["resolution"] = 50
+    slc_project_class.bursts_to_ard(
+        timeseries=False,
+        timescan=False,
+        mosaic=False,
+        overwrite=True,
+        cut_to_aoi=False,
+        ncores=2,
+    )

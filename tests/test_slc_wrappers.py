@@ -19,6 +19,7 @@ with open(config_file, "r") as file:
     CONFIG_DICT["executor_type"] = "billiard"
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
 
     scene_id, master = s1_slc_ost_master
@@ -42,7 +43,7 @@ def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
         )
 
 
-# @pytest.mark.skip(reason="Some GPT Error, but does not happen in production!")
+@pytest.mark.skip(reason="not running in pip build")
 def test_burst_calibration(s1_slc_ost_master, slc_project_class):
 
     scene_id, master = s1_slc_ost_master
@@ -62,7 +63,7 @@ def test_burst_calibration(s1_slc_ost_master, slc_project_class):
         )
 
 
-@pytest.mark.skip(reason="Takes too long skip for now!")
+@pytest.mark.skip(reason="not running in pip build")
 def test_burst_ha_alpha(
     s1_slc_master,
     s1_slc_ost_master,

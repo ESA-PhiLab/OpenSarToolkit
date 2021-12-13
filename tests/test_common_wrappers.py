@@ -1,5 +1,6 @@
 import json
 import logging
+import pytest
 
 from multiprocessing import cpu_count
 
@@ -18,6 +19,7 @@ with open(config_file, "r") as file:
     CONFIG_DICT["executor_type"] = "billiard"
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_grd_import_subset(s1_grd_notnr, s1_grd_notnr_ost_product, grd_project_class):
 
     # set subset
@@ -36,6 +38,7 @@ def test_grd_import_subset(s1_grd_notnr, s1_grd_notnr_ost_product, grd_project_c
     )
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_grd_remove_border(s1_grd_notnr_ost_product, grd_project_class):
 
     scene_id, product = s1_grd_notnr_ost_product
@@ -52,6 +55,7 @@ def test_grd_remove_border(s1_grd_notnr_ost_product, grd_project_class):
             gw.grd_remove_border(infile[0])
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_grd_calibration(s1_grd_notnr_ost_product, grd_project_class):
 
     scene_id, product = s1_grd_notnr_ost_product
@@ -74,6 +78,7 @@ def test_grd_calibration(s1_grd_notnr_ost_product, grd_project_class):
         )
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_grd_speckle_filter(s1_grd_notnr_ost_product, grd_project_class):
 
     CONFIG_DICT["processing"]["single_ARD"]["remove_speckle"] = True
@@ -89,6 +94,7 @@ def test_grd_speckle_filter(s1_grd_notnr_ost_product, grd_project_class):
     )
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_grd_tc(s1_grd_notnr_ost_product, grd_project_class):
 
     scene_id, product = s1_grd_notnr_ost_product

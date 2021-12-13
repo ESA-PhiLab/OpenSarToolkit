@@ -1,6 +1,9 @@
+import pytest
+
 from ost import Sentinel1Scene
 
 
+@pytest.mark.skip(reason="not running in pip build")
 def test_s1scene_metadata(s1_id):
     s1 = Sentinel1Scene(s1_id)
     control_id = (
