@@ -41,6 +41,7 @@ class DevelopCmd(develop):
         )
         super(DevelopCmd, self).run()
 
+
 setup(
     name="opensartoolkit",
     version=version,
