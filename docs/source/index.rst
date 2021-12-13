@@ -155,6 +155,7 @@ Authors
 * Pierrick Rambaud, FAO OpenForis
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
     
     setup/index
+    modules/ost.rst
