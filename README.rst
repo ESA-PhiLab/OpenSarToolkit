@@ -21,6 +21,10 @@ Open SAR Toolkit (OST)
    :target: https://conventionalcommits.org
    :alt: conventional commit
 
+.. image:: https://github.com/ESA-PhiLab/OpenSarToolkit/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/ESA-PhiLab/OpenSarToolkit
+    :alt: Test Coverage
+
 Objective
 ---------
 
