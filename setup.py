@@ -79,7 +79,9 @@ setup(
         "rtree",
         "retrying",
     ],
-    extras_require={"dev": ["pre-commit", "pytest", "coverage"]},
+    extras_require={
+        "dev": ["pre-commit", "pytest", "coverage", "nbsphinx", "pydata-sphinx-theme"]
+    },
     cmdclass={"develop": DevelopCmd},
     zip_safe=False,
     classifiers=[

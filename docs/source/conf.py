@@ -46,7 +46,27 @@ exclude_patterns = ["**.ipynb_checkpoints"]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "furo"
+html_theme = "pydata_sphinx_theme"
+html_theme_options = {
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/ESA-PhiLab/OpenSarToolkit",
+            "icon": "fab fa-github-square",
+        }
+    ],
+    "github_url": "https://github.com/ESA-PhiLab/OpenSarToolkit",
+    "show_nav_level": 2,
+    "show_prev_next": False,
+    "use_edit_page_button": True,
+    "navigation_with_keys": False,
+}
+html_context = {
+    "github_user": "ESA-PhiLab",
+    "github_repo": "OpenSarToolkit",
+    "github_version": "main",
+    "doc_path": "docs/source",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
