@@ -25,6 +25,10 @@ Open SAR Toolkit (OST)
     :target: https://codecov.io/gh/ESA-PhiLab/OpenSarToolkit
     :alt: Test Coverage
 
+.. image:: https://readthedocs.org/projects/opensartoolkit/badge/?version=latest
+:target: https://opensartoolkit.readthedocs.io/en/latest/?badge=latest
+:alt: Documentation Status
+
 Objective
 ---------
 
