@@ -4,6 +4,9 @@ on:
   - push
   - workflow_dispatch
 
+env:
+  GPT_PATH: /usr/bin/gpt
+
 jobs:
   build:
     runs-on: ubuntu-latest
