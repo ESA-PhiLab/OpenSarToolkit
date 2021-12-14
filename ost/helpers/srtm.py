@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def download_srtm_tile(url):
 
-    snap_aux = Path.home().joinpath(".snap/auxdata/dem/SRTM 1Sec HGT/")
+    snap_aux = Path.home() / ".snap" / "auxdata" / "dem" / "SRTM 1Sec HGT"
 
     if not snap_aux.exists():
         try:
@@ -30,7 +30,7 @@ def download_srtm_tile(url):
         except Exception:
             raise RuntimeError(" Snap aux folder not found")
 
-    filename = snap_aux.joinpath(url.split("/")[-1])
+    filename = snap_aux / url.split("/")[-1]
 
     # get first response for file Size
     response = requests.get(url, stream=True)
@@ -96,7 +96,7 @@ def download_srtm(aoi):
 
     warnings.filterwarnings("ignore", "Geometry is in a geographic CRS", UserWarning)
 
-    srtm = gpd.read_file(OST_ROOT.joinpath("auxdata/srtm1sectiles.gpkg"))
+    srtm = gpd.read_file(OST_ROOT / "auxdata" / "srtm1sectiles.gpkg")
 
     aoi_gdf = vec.wkt_to_gdf(aoi)
     aoi_gdf["geometry"] = aoi_gdf.geometry.buffer(1)

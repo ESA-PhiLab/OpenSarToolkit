@@ -362,7 +362,7 @@ def mt_metrics(
 
     # write out that it's been processed
     dirname = out_prefix.parent
-    check_file = dirname.joinpath(f".{out_prefix.name}.processed")
+    check_file = dirname / f".{out_prefix.name}.processed"
     with open(str(check_file), "w") as file:
         file.write("passed all tests \n")
 

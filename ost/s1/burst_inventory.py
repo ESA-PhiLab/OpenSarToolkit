@@ -339,7 +339,7 @@ def prepare_burst_inventory(burst_gdf, config_file):
             master_scene = S1Scene(burst_row.SceneID.values[0])
             burst_row["file_location"] = master_scene.get_path(download_dir, data_mount)
             burst_row["master_prefix"] = f"{date}_{burst_row.bid.values[0]}"
-            burst_row["out_directory"] = processing_dir.joinpath(burst, date)
+            burst_row["out_directory"] = processing_dir / burst / date
 
             # try to get slave date
             try:

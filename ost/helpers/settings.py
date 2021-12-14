@@ -129,9 +129,9 @@ def get_gpt():
     else:
         # possible UNIX paths
         paths = [
-            Path.home().joinpath(".ost/gpt"),
-            Path.home().joinpath("snap/bin/gpt"),
-            Path.home().joinpath("programs/snap/bin/gpt"),
+            Path.home() / ".ost" / "gpt",
+            Path.home() / "snap" / "bin" / "gpt",
+            Path.home() / "programs" / "snap" / "bin" / "gpt",
             Path("/home/ost/programs/snap/bin/gpt"),
             Path("/usr/bin/gpt"),
             Path("/opt/snap/bin/gpt"),
@@ -173,12 +173,12 @@ def get_gpt():
         elif not Path(gpt_file).exists():
             raise FileNotFoundError("Given path to gpt does not exist.")
         else:
-            # if file exists we copy to one of th epossible paths, so next time
+            # if file exists we copy to one of the possible paths, so next time
             # we will find it right away
-            Path.home().joinpath(".ost").mkdir(exist_ok=True)
-            if not (Path.home().joinpath(".ost/gpt")).exists():
-                os.symlink(gpt_file, Path.home().joinpath(".ost/gpt"))
-            gpt_file = Path.home().joinpath(".ost/gpt")
+            (Path.home() / ".ost").mkdir(exist_ok=True)
+            if not (Path.home() / ".ost" / "gpt").exists():
+                os.symlink(gpt_file, Path.home() / ".ost" / "gpt")
+            gpt_file = Path.home() / ".ost" / "gpt"
 
     return str(gpt_file)
 

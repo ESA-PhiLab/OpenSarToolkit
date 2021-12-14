@@ -48,7 +48,7 @@ def burst_import(infile, outfile, logfile, swath, burst, config_dict):
     cpus = config_dict["snap_cpu_parallelism"]
 
     # get path to graph
-    graph = OST_ROOT.joinpath("graphs/S1_SLC2ARD/S1_SLC_BurstSplit_AO.xml")
+    graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_BurstSplit_AO.xml"
 
     logger.debug(f"Importing Burst {burst} from Swath {swath} from scene {infile.name}")
 
@@ -103,7 +103,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
     cpus = config_dict["snap_cpu_parallelism"]
 
     if remove_pol_speckle:
-        graph = OST_ROOT.joinpath("graphs/S1_SLC2ARD/S1_SLC_Deb_Spk_Halpha.xml")
+        graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_Deb_Spk_Halpha.xml"
         logger.debug(
             "Applying the polarimetric speckle filter and"
             " calculating the H-alpha dual-pol decomposition"
@@ -122,7 +122,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
             f'-Psigma={pol_speckle_dict["sigma"]}'
         )
     else:
-        graph = OST_ROOT.joinpath("graphs/S1_SLC2ARD/S1_SLC_Deb_Halpha.xml")
+        graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_Deb_Halpha.xml"
 
         logger.debug("Calculating the H-alpha dual polarisation")
         command = (
@@ -185,8 +185,8 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a RTC product.")
 
         # get graph for RTC generation
-        graph = OST_ROOT.joinpath(
-            "graphs/S1_SLC2ARD/S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml"
+        graph = (
+            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml"
         )
 
         # construct command
@@ -208,8 +208,8 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a GTC product (Gamma0).")
 
         # get graph for GTC-gammao0 generation
-        graph = OST_ROOT.joinpath(
-            "graphs/S1_SLC2ARD/S1_SLC_TNR_CalGamma_Deb_ML_Sub.xml"
+        graph = (
+            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalGamma_Deb_ML_Sub.xml"
         )
 
         # construct command
@@ -226,8 +226,8 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a GTC product (Sigma0).")
 
         # get graph for GTC-sigma0 generation
-        graph = OST_ROOT.joinpath(
-            "graphs/S1_SLC2ARD/S1_SLC_TNR_CalSigma_Deb_ML_Sub.xml"
+        graph = (
+            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalSigma_Deb_ML_Sub.xml"
         )
 
         # construct command
@@ -338,7 +338,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
     dem_dict = config_dict["processing"]["single_ARD"]["dem"]
 
     # get path to graph
-    graph = OST_ROOT.joinpath("graphs/S1_SLC2ARD/S1_SLC_Coreg.xml")
+    graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_Coreg.xml"
 
     logger.debug(f"Co-registering {master} and {slave}")
     command = (
@@ -390,7 +390,7 @@ def coherence(infile, outfile, logfile, config_dict):
     cpus = config_dict["snap_cpu_parallelism"]
 
     # get path to graph
-    graph = OST_ROOT.joinpath("graphs/S1_SLC2ARD/S1_SLC_Coh_Deb.xml")
+    graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_Coh_Deb.xml"
 
     logger.debug("Coherence estimation")
 

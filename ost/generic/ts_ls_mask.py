@@ -23,9 +23,9 @@ def mt_layover(list_of_ls):
     warnings.filterwarnings("ignore", "GeoSeries.isna", UserWarning)
 
     target_dir = Path(list_of_ls[0]).parent.parent.parent
-    bounds = target_dir.joinpath(f"{target_dir.name}.min_bounds.json")
-    outfile = target_dir.joinpath(f"{target_dir.name}.ls_mask.json")
-    valid_file = target_dir.joinpath(f"{target_dir.name}.valid.json")
+    bounds = target_dir / f"{target_dir.name}.min_bounds.json"
+    outfile = target_dir / f"{target_dir.name}.ls_mask.json"
+    valid_file = target_dir / f"{target_dir.name}.valid.json"
 
     logger.info(f"Creating common Layover/Shadow mask for track {target_dir.name}.")
 

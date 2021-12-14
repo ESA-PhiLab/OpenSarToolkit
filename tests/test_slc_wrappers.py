@@ -10,7 +10,7 @@ from ost.helpers.settings import OST_ROOT
 logger = logging.getLogger(__name__)
 
 # load standard config parameters
-config_file = OST_ROOT.joinpath("graphs", "ard_json", "slc.ost_gtc.json")
+config_file = OST_ROOT / "graphs" / "ard_json" / "slc.ost_gtc.json"
 with open(config_file, "r") as file:
     CONFIG_DICT = json.load(file)
     CONFIG_DICT["subset"] = False
@@ -28,18 +28,14 @@ def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
             continue
         return_code = sw.burst_import(
             infile=s1_slc_master,
-            outfile=slc_project_class.processing_dir.joinpath(
-                f"{scene_id}_{burst.bid}_import"
-            ),
+            outfile=slc_project_class.processing_dir / f"{scene_id}_{burst.bid}_import",
             logfile=logger,
             swath=burst.SwathID,
             burst=burst.BurstNr,
             config_dict=CONFIG_DICT,
         )
         assert return_code == str(
-            slc_project_class.processing_dir.joinpath(
-                f"{scene_id}_{burst.bid}_import.dim"
-            )
+            slc_project_class.processing_dir / f"{scene_id}_{burst.bid}_import.dim"
         )
 
 
@@ -51,15 +47,14 @@ def test_burst_calibration(s1_slc_ost_master, slc_project_class):
         if idx > 2 or burst.SwathID != "IW1":
             continue
         return_code = sw.calibration(
-            infile=slc_project_class.processing_dir.joinpath(
-                f"{scene_id}_{burst.bid}_import.dim"
-            ),
-            outfile=slc_project_class.processing_dir.joinpath(f"{scene_id}_BS"),
+            infile=slc_project_class.processing_dir
+            / f"{scene_id}_{burst.bid}_import.dim",
+            outfile=slc_project_class.processing_dir / f"{scene_id}_BS",
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
         assert return_code == str(
-            slc_project_class.processing_dir.joinpath(f"{scene_id}_BS.dim")
+            slc_project_class.processing_dir / f"{scene_id}_BS.dim"
         )
 
 
@@ -75,10 +70,10 @@ def test_burst_ha_alpha(
             continue
         return_code = sw.ha_alpha(
             infile=s1_slc_master,
-            outfile=slc_project_class.processing_dir.joinpath(f"{scene_id}_ha_alpha"),
+            outfile=slc_project_class.processing_dir / f"{scene_id}_ha_alpha",
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
         assert return_code == str(
-            slc_project_class.processing_dir.joinpath(f"{scene_id}_ha_alpha.dim")
+            slc_project_class.processing_dir / f"{scene_id}_ha_alpha.dim"
         )

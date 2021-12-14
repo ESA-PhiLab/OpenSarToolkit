@@ -37,14 +37,14 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
     # -------------------------------------------
     # 3 get namespace of directories and check if already processed
     # get the burst directory
-    burst_dir = processing_dir.joinpath(burst)
+    burst_dir = processing_dir / burst
 
     # get timeseries directory and create if non existent
-    out_dir = burst_dir.joinpath("Timeseries")
+    out_dir = burst_dir / "Timeseries"
     Path.mkdir(out_dir, parents=True, exist_ok=True)
 
     # in case some processing has been done before, check if already processed
-    check_file = out_dir.joinpath(f".{product}.{pol}.processed")
+    check_file = out_dir / f".{product}.{pol}.processed"
     if Path.exists(check_file):
         logger.info(
             f"Timeseries of {burst} for {product} in {pol} "
@@ -68,9 +68,9 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
         logger.debug(f"Converting to dB for {product}")
 
     if ard_mt["apply_ls_mask"]:
-        extent = burst_dir.joinpath(f"{burst}.valid.json")
+        extent = burst_dir / f"{burst}.valid.json"
     else:
-        extent = burst_dir.joinpath(f"{burst}.min_bounds.json")
+        extent = burst_dir / f"{burst}.min_bounds.json"
 
     # -------------------------------------------
     # 5 SNAP processing
@@ -80,9 +80,9 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
         temp = Path(temp)
 
         # create namespaces
-        temp_stack = temp.joinpath(f"{burst}_{product}_{pol}")
-        out_stack = temp.joinpath(f"{burst}_{product}_{pol}_mt")
-        stack_log = out_dir.joinpath(f"{burst}_{product}_{pol}_stack.err_log")
+        temp_stack = temp / f"{burst}_{product}_{pol}"
+        out_stack = temp / f"{burst}_{product}_{pol}_mt"
+        stack_log = out_dir / f"{burst}_{product}_{pol}_stack.err_log"
 
         # run stacking routine
         if pol in ["Alpha", "Anisotropy", "Entropy"]:
@@ -114,9 +114,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
         # run mt speckle filter
         if ard_mt["remove_mt_speckle"] is True:
 
-            speckle_log = out_dir.joinpath(
-                f"{burst}_{product}_{pol}_mt_speckle.err_log"
-            )
+            speckle_log = out_dir / f"{burst}_{product}_{pol}_mt_speckle.err_log"
 
             logger.debug("Applying multi-temporal speckle filter")
             try:
@@ -179,7 +177,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 slv = dt.strftime(dt.strptime(slv, SNAP_DATEFORMAT), "%y%m%d")
 
                 # create namespace for output file with renamed dates
-                outfile = out_dir.joinpath(f"{i+1:02d}.{mst}.{slv}.{product}.{pol}.tif")
+                outfile = out_dir / f"{i+1:02d}.{mst}.{slv}.{product}.{pol}.tif"
 
                 # fill internal values if any
                 # with rasterio.open(str(infile), 'r') as src:
@@ -231,7 +229,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 date = dt.strftime(dt.strptime(date, SNAP_DATEFORMAT), "%y%m%d")
 
                 # create namespace for output file
-                outfile = out_dir.joinpath(f"{i+1:02d}.{date}.{product}.{pol}.tif")
+                outfile = out_dir / f"{i+1:02d}.{date}.{product}.{pol}.tif"
 
                 # fill internal nodata
                 # if ard['image_type'] == 'SLC':
@@ -277,7 +275,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
     # -----------------------------------------------
     # 8 Create vrts
     vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-    out_vrt = str(out_dir.joinpath(f"Timeseries.{product}.{pol}.vrt"))
+    out_vrt = str(out_dir / f"Timeseries.{product}.{pol}.vrt")
     gdal.BuildVRT(out_vrt, out_files, options=vrt_options)
 
     return burst, list_of_files, out_files, out_vrt, f"{product}.{pol}", None

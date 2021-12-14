@@ -180,7 +180,7 @@ def image_bounds(data_dir):
     for file in data_dir.glob("*img"):
         filelist.append(str(file))
 
-        temp_extent = data_dir.joinpath(f"{data_dir.name}_bounds.vrt")
+        temp_extent = data_dir / f"{data_dir.name}_bounds.vrt"
         # build vrt stack from all scenes
         gdal.BuildVRT(
             str(temp_extent),
@@ -189,8 +189,8 @@ def image_bounds(data_dir):
         )
 
         file_id = "_".join(data_dir.name.split("_")[:2])
-        outline(temp_extent, data_dir.joinpath(f"{file_id}_bounds.json"))
-        data_dir.joinpath(f"{data_dir.name}_bounds.vrt").unlink()
+        outline(temp_extent, data_dir / f"{file_id}_bounds.json")
+        (data_dir / f"{data_dir.name}_bounds.vrt").unlink()
 
 
 # convert power to dB
@@ -435,7 +435,7 @@ def create_tscan_vrt(timescan_dir, config_file):
     for product, metric in iteration:
 
         # get file and add number for outfile
-        infile = timescan_dir.joinpath(f"{product}.{metric}.tif")
+        infile = timescan_dir / f"{product}.{metric}.tif"
 
         # if there is no file sto the iteration
         if not infile.exists():
@@ -443,7 +443,7 @@ def create_tscan_vrt(timescan_dir, config_file):
 
         i += 1
         # create namespace for output file and add to list for vrt creation
-        outfile = timescan_dir.joinpath(f"{i:02d}.{product}.{metric}.tif")
+        outfile = timescan_dir / f"{i:02d}.{product}.{metric}.tif"
         outfiles.append(str(outfile))
 
         # otherwise rename the file
@@ -451,7 +451,7 @@ def create_tscan_vrt(timescan_dir, config_file):
 
     # build vrt
     gdal.BuildVRT(
-        str(timescan_dir.joinpath("Timescan.vrt")),
+        str(timescan_dir / "Timescan.vrt"),
         outfiles,
         options=gdal.BuildVRTOptions(srcNodata=0, separate=True),
     )
@@ -627,11 +627,11 @@ def stretch_to_8bit(file, layer, dtype, aut_stretch=False):
 def combine_timeseries(processing_dir, config_dict, timescan=True):
 
     # namespaces for folder
-    comb_dir = processing_dir.joinpath("combined")
+    comb_dir = processing_dir / "combined"
     if comb_dir.exists():
         h.remove_folder_content(comb_dir)
 
-    tseries_dir = comb_dir.joinpath("Timeseries")
+    tseries_dir = comb_dir / "Timeseries"
     tseries_dir.mkdir(parents=True, exist_ok=True)
 
     PRODUCT_LIST = [
@@ -660,13 +660,13 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
                 file = list(
                     processing_dir.glob(f"*/Timeseries/*{date}*{product_type}.tif")
                 )
-                outfile = tseries_dir.joinpath(f"{i+1:02d}.{date}.{product_type}.tif")
+                outfile = tseries_dir / f"{i+1:02d}.{date}.{product_type}.tif"
 
                 shutil.copy(file[0], str(outfile))
                 out_files.append(str(outfile))
 
             vrt_options = gdal.BuildVRTOptions(srcNodata=0, separate=True)
-            out_vrt = str(tseries_dir.joinpath(f"Timeseries.{product_type}.vrt"))
+            out_vrt = str(tseries_dir / f"Timeseries.{product_type}.vrt")
             gdal.BuildVRT(str(out_vrt), out_files, options=vrt_options)
 
             if timescan:
@@ -685,11 +685,11 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
                     True if ard_mt["dtype_output"] != "float32" else False
                 )
 
-                tscan_dir = comb_dir.joinpath("Timescan")
+                tscan_dir = comb_dir / "Timescan"
                 tscan_dir.mkdir(parents=True, exist_ok=True)
 
                 # get timeseries vrt
-                time_series = tseries_dir.joinpath(f"Timeseries.{product_type}.vrt")
+                time_series = tseries_dir / f"Timeseries.{product_type}.vrt"
 
                 if not time_series.exists():
                     continue
@@ -705,7 +705,7 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
                     datelist.append(os.path.basename(file).split(".")[1])
 
                 # define timescan prefix
-                timescan_prefix = tscan_dir.joinpath(f"{product_type}")
+                timescan_prefix = tscan_dir / f"{product_type}"
 
                 iter_list.append(
                     [
@@ -915,13 +915,13 @@ def create_timeseries_animation(
 
         create_rgb_jpeg(
             filelist,
-            out_folder.joinpath(f"{i+1:02d}.{dates}.jpeg"),
+            out_folder / f"{i+1:02d}.{dates}.jpeg",
             shrink_factor,
             resampling_factor,
             date=date,
         )
 
-        outfiles.append(out_folder.joinpath(f"{i+1:02d}.{dates}.jpeg"))
+        outfiles.append(out_folder / f"{i+1:02d}.{dates}.jpeg")
 
     # create gif
     if prefix:
@@ -929,7 +929,7 @@ def create_timeseries_animation(
     else:
         gif_name = f"{product_list[0]}_ts_animation.gif"
     with imageio.get_writer(
-        out_folder.joinpath(gif_name), mode="I", duration=duration
+        out_folder / gif_name, mode="I", duration=duration
     ) as writer:
 
         for file in outfiles:

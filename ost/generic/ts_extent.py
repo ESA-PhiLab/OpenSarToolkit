@@ -24,7 +24,7 @@ def mt_extent(list_of_extents, config_file):
 
     # get track/burst dir from first scene
     target_dir = list_of_extents[0].parent.parent.parent
-    out_file = target_dir.joinpath(f"{target_dir.name}.min_bounds.json")
+    out_file = target_dir / f"{target_dir.name}.min_bounds.json"
 
     logger.info(f"Creating common image bounds for track {target_dir.name}.")
 

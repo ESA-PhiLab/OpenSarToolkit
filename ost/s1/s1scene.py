@@ -217,15 +217,21 @@ class Sentinel1Scene:
         if isinstance(download_dir, str):
             download_dir = Path(download_dir)
 
-        download_path = Path(download_dir).joinpath(
-            f"SAR/{self.product_type}/{self.year}/{self.month}/{self.day}"
+        download_path = (
+            Path(download_dir)
+            / "SAR"
+            / f"{self.product_type}"
+            / f"{self.year}"
+            / f"{self.month}"
+            / f"{self.day}"
         )
+
         # make dir if not existent
         if mkdir:
             download_path.mkdir(parents=True, exist_ok=True)
 
         # get file_path
-        file_path = download_path.joinpath(f"{self.scene_id}.zip")
+        file_path = download_path / f"{self.scene_id}.zip"
 
         self.product_dl_path = file_path
 
@@ -236,18 +242,31 @@ class Sentinel1Scene:
         if isinstance(data_mount, str):
             data_mount = Path(data_mount)
 
-        path = Path(data_mount).joinpath(
-            f"Sentinel-1/SAR/{self.product_type}/{self.year}/"
-            f"{self.month}/{self.day}/{self.scene_id}.SAFE"
+        path = (
+            Path(data_mount)
+            / "Sentinel-1"
+            / "SAR"
+            / f"{self.product_type}"
+            / f"{self.year}"
+            / f"{self.month}"
+            / f"{self.day}"
+            / f"{self.scene_id}.SAFE"
         )
 
         return path
 
     def _onda_path(self, data_mount):
 
-        path = Path(data_mount).joinpath(
-            f"S1/LEVEL-1/{self.onda_class}/{self.year}/{self.month}/"
-            f"{self.day}/{self.scene_id}.zip/{self.scene_id}.SAFE"
+        path = (
+            Path(data_mount)
+            / "S1"
+            / "LEVEL-1"
+            / f"{self.onda_class}"
+            / f"{self.year}"
+            / f"{self.month}"
+            / f"{self.day}"
+            / f"{self.scene_id}.zip"
+            / f"{self.scene_id}.SAFE"
         )
 
         return path
@@ -275,7 +294,7 @@ class Sentinel1Scene:
                 data_mount = Path(data_mount)
 
             # check creodias folder structure
-            if self._creodias_path(data_mount).joinpath("manifest.safe").exists():
+            if (self._creodias_path(data_mount) / "manifest.safe").exists():
                 path = self._creodias_path(data_mount)
             # check for ondadias folder structure
             elif self._onda_path(data_mount).exists():
@@ -670,11 +689,13 @@ class Sentinel1Scene:
     def get_ard_parameters(self, ard_type):
 
         # find respective template for selected ARD type
-        template_file = OST_ROOT.joinpath(
-            f"graphs/ard_json/"
-            f"{self.product_type.lower()}."
-            f"{ard_type.replace('-', '_').lower()}.json"
+        template_file = (
+            OST_ROOT
+            / "graphs"
+            / "ard_json"
+            / f"{self.product_type.lower()}.{ard_type.replace('-', '_').lower()}.json"
         )
+
         # open and load parameters
         with open(template_file, "r") as ard_file:
             self.ard_parameters = json.load(ard_file)["processing"]
@@ -762,7 +783,7 @@ class Sentinel1Scene:
 
         # set config param necessary for processing
         self.config_dict["processing_dir"] = str(out_dir)
-        self.config_dict["temp_dir"] = str(out_dir.joinpath("temp"))
+        self.config_dict["temp_dir"] = str(out_dir / "temp")
         self.config_dict["snap_cpu_parallelism"] = os.cpu_count()
         self.config_dict["subset"] = False
 
@@ -772,12 +793,12 @@ class Sentinel1Scene:
 
         # create directories
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_dir.joinpath("temp").mkdir(parents=True, exist_ok=True)
+        (out_dir / "temp").mkdir(parents=True, exist_ok=True)
 
         if overwrite:
-            file_dir = out_dir.joinpath(f"{self.rel_orbit}/{self.start_date}")
-            if file_dir.joinpath(".processed").exists():
-                file_dir.joinpath(".processed").unlink()
+            file_dir = out_dir / f"{self.rel_orbit}" / f"{self.start_date}"
+            if (file_dir / ".processed").exists():
+                (file_dir / ".processed").unlink()
 
         # --------------------------------------------
         # 2 Check if within SRTM coverage
@@ -822,7 +843,7 @@ class Sentinel1Scene:
         #   and write them to json file
 
         # set config file to output directory
-        self.config_file = out_dir.joinpath("processing.json")
+        self.config_file = out_dir / "processing.json"
 
         # write ard parameters, and check if they are correct
         self.update_ard_parameters()
@@ -844,8 +865,9 @@ class Sentinel1Scene:
             logger.info(error)
         else:
             # remove temp folder
-            h.remove_folder_content(out_dir.joinpath("temp"))
-            out_dir.joinpath("temp").rmdir()
+            tmp_folder = out_dir / "temp"
+            h.remove_folder_content(tmp_folder)
+            tmp_folder.rmdir()
             self.ard_dimap = out_bs
 
     def create_rgb(self, outfile, driver="GTiff"):
@@ -884,7 +906,7 @@ class Sentinel1Scene:
             zip_archive = zipfile.ZipFile(str(scene_path))
             manifest = zip_archive.read(f"{self.scene_id}.SAFE/manifest.safe")
         elif scene_path.suffix == ".SAFE":
-            with open(scene_path.joinpath("manifest.safe"), "rb") as file:
+            with (scene_path / "manifest.safe").open("rb") as file:
                 manifest = file.read()
         else:
             raise ValueError("Invalid file.")

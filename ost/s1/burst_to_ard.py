@@ -35,10 +35,10 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix, config_dict):
         # 1 Polarimetric Decomposition
 
         # create namespace for temporary decomposed product
-        out_haa = temp.joinpath(f"{burst_prefix}_h")
+        out_haa = temp / f"{burst_prefix}_h"
 
         # create namespace for decompose log
-        haa_log = out_dir.joinpath(f"{burst_prefix}_haa.err_log")
+        haa_log = out_dir / f"{burst_prefix}_haa.err_log"
 
         # run polarimetric decomposition
         try:
@@ -50,10 +50,10 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix, config_dict):
         # 2 Geocoding
 
         # create namespace for temporary geocoded product
-        out_htc = temp.joinpath(f"{burst_prefix}_pol")
+        out_htc = temp / f"{burst_prefix}_pol"
 
         # create namespace for geocoding log
-        haa_tc_log = out_dir.joinpath(f"{burst_prefix}_haa_tc.err_log")
+        haa_tc_log = out_dir / f"{burst_prefix}_haa_tc.err_log"
 
         # run geocoding
         try:
@@ -81,13 +81,15 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix, config_dict):
 
         # move to final destination
         ard = config_dict["processing"]["single_ARD"]
-        h.move_dimap(out_htc, out_dir.joinpath(f"{burst_prefix}_pol"), ard["to_tif"])
+        h.move_dimap(out_htc, out_dir / f"{burst_prefix}_pol", ard["to_tif"])
 
         # write out check file for tracking that it is processed
-        with open(out_dir.joinpath(".pol.processed"), "w+") as file:
+        with (out_dir / ".pol.processed").open("w+") as file:
             file.write("passed all tests \n")
 
-        return (str(out_dir.joinpath(f"{burst_prefix}_pol").with_suffix(".dim")), None)
+        dim_file = (out_dir / f"{burst_prefix}_pol").with_suffix(".dim")
+
+        return (str(dim_file), None)
 
 
 def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
@@ -111,10 +113,10 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         # 1 Calibration
 
         # create namespace for temporary calibrated product
-        out_cal = temp.joinpath(f"{burst_prefix}_cal")
+        out_cal = temp / f"{burst_prefix}_cal"
 
         # create namespace for calibrate log
-        cal_log = out_dir.joinpath(f"{burst_prefix}_cal.err_log")
+        cal_log = out_dir / f"{burst_prefix}_cal.err_log"
 
         # run calibration on imported scene
         try:
@@ -128,10 +130,10 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         if ard["remove_speckle"]:
 
             # create namespace for temporary speckle filtered product
-            speckle_import = temp.joinpath(f"{burst_prefix}_speckle_import")
+            speckle_import = temp / f"{burst_prefix}_speckle_import"
 
             # create namespace for speckle filter log
-            speckle_log = out_dir.joinpath(f"{burst_prefix}_speckle.err_log")
+            speckle_log = out_dir / f"{burst_prefix}_speckle.err_log"
 
             # run speckle filter on calibrated input
             try:
@@ -156,10 +158,10 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         if ard["to_db"]:
 
             # create namespace for temporary db scaled product
-            out_db = temp.joinpath(f"{burst_prefix}_cal_db")
+            out_db = temp / f"{burst_prefix}_cal_db"
 
             # create namespace for db scaling log
-            db_log = out_dir.joinpath(f"{burst_prefix}_cal_db.err_log")
+            db_log = out_dir / f"{burst_prefix}_cal_db.err_log"
 
             # run db scaling on calibrated/speckle filtered input
             try:
@@ -180,10 +182,10 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         # 4 Geocoding
 
         # create namespace for temporary geocoded product
-        out_tc = temp.joinpath(f"{burst_prefix}_bs")
+        out_tc = temp / f"{burst_prefix}_bs"
 
         # create namespace for geocoding log
-        tc_log = out_dir.joinpath(f"{burst_prefix}_bs_tc.err_log")
+        tc_log = out_dir / f"{burst_prefix}_bs_tc.err_log"
 
         # run terrain correction on calibrated/speckle filtered/db  input
         try:
@@ -204,10 +206,10 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         if ard["create_ls_mask"] is True:
 
             # create namespace for temporary ls mask product
-            ls_mask = temp.joinpath(f"{burst_prefix}_ls_mask")
+            ls_mask = temp / f"{burst_prefix}_ls_mask"
 
             # create namespace for ls mask log
-            logfile = out_dir.joinpath(f"{burst_prefix}.ls_mask.errLog")
+            logfile = out_dir / f"{burst_prefix}.ls_mask.errLog"
 
             # run ls mask routine
             try:
@@ -230,14 +232,14 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
             ls_mask.with_suffix(".json").rename(out_ls)
 
         # move final backscatter product to actual output directory
-        h.move_dimap(out_tc, out_dir.joinpath(f"{burst_prefix}_bs"), ard["to_tif"])
+        h.move_dimap(out_tc, out_dir / f"{burst_prefix}_bs", ard["to_tif"])
 
         # write out check file for tracking that it is processed
-        with open(out_dir.joinpath(".bs.processed"), "w+") as file:
+        with (out_dir / ".bs.processed").open("w+") as file:
             file.write("passed all tests \n")
 
         return (
-            str(out_dir.joinpath(f"{burst_prefix}_bs").with_suffix(".dim")),
+            str((out_dir / f"{burst_prefix}_bs").with_suffix(".dim")),
             str(out_ls),
             None,
         )
@@ -265,10 +267,10 @@ def create_coherence_layers(
         # ---------------------------------------------------------------
         # 1 Co-registration
         # create namespace for temporary co-registered stack
-        out_coreg = temp.joinpath(f"{master_prefix}_coreg")
+        out_coreg = temp / f"{master_prefix}_coreg"
 
         # create namespace for co-registration log
-        coreg_log = out_dir.joinpath(f"{master_prefix}_coreg.err_log")
+        coreg_log = out_dir / f"{master_prefix}_coreg.err_log"
 
         # run co-registration
         try:
@@ -289,10 +291,10 @@ def create_coherence_layers(
         # 2 Coherence calculation
 
         # create namespace for temporary coherence product
-        out_coh = temp.joinpath(f"{master_prefix}_coherence")
+        out_coh = temp / f"{master_prefix}_coherence"
 
         # create namespace for coherence log
-        coh_log = out_dir.joinpath(f"{master_prefix}_coh.err_log")
+        coh_log = out_dir / f"{master_prefix}_coh.err_log"
 
         # run coherence estimation
         try:
@@ -308,10 +310,10 @@ def create_coherence_layers(
         # 3 Geocoding
 
         # create namespace for temporary geocoded roduct
-        out_tc = temp.joinpath(f"{master_prefix}_coh")
+        out_tc = temp / f"{master_prefix}_coh"
 
         # create namespace for geocoded log
-        tc_log = out_dir.joinpath(f"{master_prefix}_coh_tc.err_log")
+        tc_log = out_dir / f"{master_prefix}_coh_tc.err_log"
 
         # run geocoding
         try:
@@ -333,13 +335,14 @@ def create_coherence_layers(
         ras.image_bounds(out_tc.with_suffix(".data"))
 
         # move to final destination
-        h.move_dimap(out_tc, out_dir.joinpath(f"{master_prefix}_coh"), ard["to_tif"])
+        h.move_dimap(out_tc, out_dir / f"{master_prefix}_coh", ard["to_tif"])
 
         # write out check file for tracking that it is processed
-        with open(out_dir.joinpath(".coh.processed"), "w+") as file:
+        with (out_dir / ".coh.processed").open("w+") as file:
             file.write("passed all tests \n")
 
-        return (str(out_dir.joinpath(f"{master_prefix}_coh").with_suffix(".dim")), None)
+        dim_file = out_dir / f"{master_prefix}_coh.dim"
+        return (str(dim_file), None)
 
 
 def burst_to_ard(burst, config_file):
@@ -359,9 +362,9 @@ def burst_to_ard(burst, config_file):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # existence of processed files
-    pol_file = out_dir.joinpath(".pol.processed").exists()
-    bs_file = out_dir.joinpath(".bs.processed").exists()
-    coh_file = out_dir.joinpath(".coh.processed").exists()
+    pol_file = (out_dir / ".pol.processed").exists()
+    bs_file = (out_dir / ".bs.processed").exists()
+    coh_file = (out_dir / ".coh.processed").exists()
 
     # set all return values initially to None
     out_bs, out_ls, out_pol, out_coh = None, None, None, None
@@ -391,12 +394,12 @@ def burst_to_ard(burst, config_file):
         # ---------------------------------------------------------------------
         # 1 Master import
         # create namespace for master import
-        master_import = temp_dir.joinpath(f"{master_prefix}_import")
+        master_import = temp_dir / f"{master_prefix}_import"
 
         if not master_import.with_suffix(".dim").exists():
 
             # create namespace for log file
-            import_log = out_dir.joinpath(f"{master_prefix}_import.err_log")
+            import_log = out_dir / f"{master_prefix}_import.err_log"
 
             # run import
             try:
@@ -423,19 +426,17 @@ def burst_to_ard(burst, config_file):
             )
         elif ard["H-A-Alpha"] and pol_file:
             # construct namespace for existing pol layer
-            out_pol = str(out_dir.joinpath(f"{master_prefix}_pol").with_suffix(".dim"))
+            out_pol = str((out_dir / f"{master_prefix}_pol").with_suffix(".dim"))
 
         if ard["backscatter"] and not bs_file:
             out_bs, out_ls, error = create_backscatter_layers(
                 master_import.with_suffix(".dim"), out_dir, master_prefix, config_dict
             )
         elif ard["backscatter"] and bs_file:
-            out_bs = str(out_dir.joinpath(f"{master_prefix}_bs").with_suffix(".dim"))
+            out_bs = str((out_dir / f"{master_prefix}_bs").with_suffix(".dim"))
 
             if ard["create_ls_mask"] and bs_file:
-                out_ls = str(
-                    out_dir.joinpath(f"{master_prefix}_LS").with_suffix(".dim")
-                )
+                out_ls = str((out_dir / f"{master_prefix}_LS").with_suffix(".dim"))
 
         if coherence and not coh_file:
 
@@ -450,8 +451,8 @@ def burst_to_ard(burst, config_file):
                 temp = Path(temp)
 
                 # import slave burst
-                slave_import = temp.joinpath(f"{slave_prefix}_import")
-                import_log = out_dir.joinpath(f"{slave_prefix}_import.err_log")
+                slave_import = temp / f"{slave_prefix}_import"
+                import_log = out_dir / f"{slave_prefix}_import.err_log"
 
                 try:
                     slc.burst_import(
@@ -481,7 +482,7 @@ def burst_to_ard(burst, config_file):
                 h.delete_dimap(master_import)
 
         elif coherence and coh_file:
-            out_coh = str(out_dir.joinpath(f"{master_prefix}_coh").with_suffix(".dim"))
+            out_coh = str((out_dir / f"{master_prefix}_coh").with_suffix(".dim"))
 
             # remove master import
             h.delete_dimap(master_import)
@@ -493,16 +494,16 @@ def burst_to_ard(burst, config_file):
     # we re-construct the out names for proper return value
     else:
         if ard["H-A-Alpha"] and pol_file:
-            out_pol = str(out_dir.joinpath(f"{master_prefix}_pol").with_suffix(".dim"))
+            out_pol = str((out_dir / f"{master_prefix}_pol").with_suffix(".dim"))
 
         if ard["backscatter"] and bs_file:
-            out_bs = str(out_dir.joinpath(f"{master_prefix}_bs").with_suffix(".dim"))
+            out_bs = str((out_dir / f"{master_prefix}_bs").with_suffix(".dim"))
 
         if ard["create_ls_mask"] and bs_file:
-            out_ls = str(out_dir.joinpath(f"{master_prefix}_LS").with_suffix(".dim"))
+            out_ls = str((out_dir / f"{master_prefix}_LS").with_suffix(".dim"))
 
         if coherence and coh_file:
-            out_coh = str(out_dir.joinpath(f"{master_prefix}_coh").with_suffix(".dim"))
+            out_coh = str((out_dir / f"{master_prefix}_coh").with_suffix(".dim"))
 
     return burst.bid, burst.Date, out_bs, out_ls, out_pol, out_coh, None
 

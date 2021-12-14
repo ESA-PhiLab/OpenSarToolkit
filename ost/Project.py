@@ -73,25 +73,25 @@ class Generic:
             )
 
         # define project sub-directories if not set, and create folders
-        self.download_dir = self.project_dir.joinpath("download")
+        self.download_dir = self.project_dir / "download"
         self.download_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Downloaded data will be stored in: {self.download_dir}.")
 
-        self.inventory_dir = self.project_dir.joinpath("inventory")
+        self.inventory_dir = self.project_dir / "inventory"
         self.inventory_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Inventory files will be stored in: {self.inventory_dir}.")
 
-        self.processing_dir = self.project_dir.joinpath("processing")
+        self.processing_dir = self.project_dir / "processing"
         self.processing_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Processed data will be stored in: {self.processing_dir}.")
 
-        self.temp_dir = self.project_dir.joinpath("temp")
+        self.temp_dir = self.project_dir / "temp"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Using {self.temp_dir} as directory for temporary files.")
 
         # ------------------------------------------
         # 3 create a standard logfile
-        setup_logfile(self.project_dir.joinpath(".processing.log"))
+        setup_logfile(self.project_dir / ".processing.log")
 
         # ------------------------------------------
         # 4 handle AOI (read and get back WKT)
@@ -186,7 +186,7 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 5 Initialize the inventory file
-        inventory_file = self.inventory_dir.joinpath(OST_INVENTORY_FILE)
+        inventory_file = self.inventory_dir / OST_INVENTORY_FILE
         if inventory_file.exists():
             self.inventory_file = inventory_file
             logging.info(
@@ -260,7 +260,7 @@ class Sentinel1(Generic):
 
         # do the search
         if outfile == OST_INVENTORY_FILE:
-            self.inventory_file = self.inventory_dir.joinpath(OST_INVENTORY_FILE)
+            self.inventory_file = self.inventory_dir / OST_INVENTORY_FILE
         else:
             self.inventory_file = outfile
 
@@ -417,7 +417,7 @@ class Sentinel1(Generic):
                 )
 
         if not outfile:
-            outfile = self.inventory_dir.joinpath("burst_inventory.gpkg")
+            outfile = self.inventory_dir / "burst_inventory.gpkg"
 
         # run the burst inventory
         self.burst_inventory = burst_inventory.burst_inventory(
@@ -443,8 +443,8 @@ class Sentinel1(Generic):
         """
         if not burst_file:
 
-            non_ref = self.inventory_dir.joinpath("burst_inventory.gpkg")
-            refined = self.inventory_dir.joinpath("burst_inventory.refined.gpkg")
+            non_ref = self.inventory_dir / "burst_inventory.gpkg"
+            refined = self.inventory_dir / "burst_inventory.refined.gpkg"
 
             if refined.exists():
                 logger.info(f"Importing refined burst inventory file {str(refined)}.")
@@ -572,7 +572,7 @@ class Sentinel1Batch(Sentinel1):
 
         # ---------------------------------------
         # 4 Set up project JSON
-        self.config_file = self.project_dir.joinpath("config.json")
+        self.config_file = self.project_dir / "config.json"
         self.ard_parameters = self.get_ard_parameters(ard_type)
 
         # re-create config dict with update ard parameters
@@ -583,10 +583,13 @@ class Sentinel1Batch(Sentinel1):
     def get_ard_parameters(self, ard_type):
 
         # find respective template for selected ARD type
-        template_file = OST_ROOT.joinpath(
-            f"graphs/ard_json/{self.product_type.lower()}"
-            f".{ard_type.replace('-', '_').lower()}.json"
+        template_file = (
+            OST_ROOT
+            / "graphs"
+            / "ard_json"
+            / f"{self.product_type.lower()}.{ard_type.replace('-', '_').lower()}.json"
         )
+
         # open and load parameters
         with open(template_file, "r") as ard_file:
             self.ard_parameters = json.load(ard_file)["processing"]
@@ -758,9 +761,7 @@ class Sentinel1Batch(Sentinel1):
 
         # write processed df to file
         processing_dir = Path(self.config_dict["processing_dir"])
-        processed_bursts_df.to_pickle(
-            processing_dir.joinpath("processed_bursts.pickle")
-        )
+        processed_bursts_df.to_pickle(processing_dir / "processed_bursts.pickle")
 
         # if not all have been processed, raise an error to avoid
         # false time-series processing

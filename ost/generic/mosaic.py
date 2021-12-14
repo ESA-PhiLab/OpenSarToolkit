@@ -21,7 +21,7 @@ def create_timeseries_mosaic_vrt(list_of_args):
     ts_dir, product, outfiles = list_of_args
 
     gdal.BuildVRT(
-        str(ts_dir.joinpath(f"{product}.Timeseries.vrt")),
+        str(ts_dir / f"{product}.Timeseries.vrt"),
         [str(outfile) for outfile in outfiles],
         options=gdal.BuildVRTOptions(srcNodata=0, separate=True),
     )
@@ -30,7 +30,7 @@ def create_timeseries_mosaic_vrt(list_of_args):
 @retry(stop_max_attempt_number=3, wait_fixed=1)
 def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
 
-    if outfile.parent.joinpath(f".{outfile.name[:-4]}.processed").exists():
+    if (outfile.parent / f".{outfile.name[:-4]}.processed").exists():
         logger.info(f"{outfile} already exists.")
         return
 
@@ -47,7 +47,7 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
         if not cut_to_aoi:
             cut_to_aoi = config_dict["processing"]["mosaic"]["cut_to_aoi"]
 
-    logfile = outfile.parent.joinpath(f"{str(outfile)[:-4]}.errLog")
+    logfile = outfile.parent / f"{str(outfile)[:-4]}.errLog"
 
     with TemporaryDirectory(prefix=f"{temp_dir}/") as temp:
 
@@ -59,7 +59,7 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
             dtype = "float" if dtype == "float32" else dtype
 
         if cut_to_aoi:
-            tempfile = temp.joinpath(outfile.name)
+            tempfile = (temp / outfile).name
         else:
             tempfile = outfile
 
@@ -121,7 +121,7 @@ def mosaic(filelist, outfile, config_file, cut_to_aoi=None, harm=None):
             if outfile.exists():
                 outfile.unlink()
         else:
-            check_file = outfile.parent.joinpath(f".{outfile.name[:-4]}.processed")
+            check_file = outfile.parent / f".{outfile.name[:-4]}.processed"
             with open(str(check_file), "w") as file:
                 file.write("passed all tests \n")
 
@@ -211,7 +211,7 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
             f"Pre-mosaicking {product} acquisition's IW1 and IW2 subswaths "
             f"from {track} taken at {date}."
         )
-        temp_iw12 = temp_dir.joinpath(f"{date}_{track}_{product}_IW1_2.tif")
+        temp_iw12 = temp_dir / f"{date}_{track}_{product}_IW1_2.tif"
         mosaic(list_of_iw12, temp_iw12, config_file, harm=False)
 
     if list_of_iw3:
@@ -219,7 +219,7 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
             f"Pre-mosaicking {product} acquisition's IW3 subswath "
             f"from {track} taken at {date}."
         )
-        temp_iw3 = temp_dir.joinpath(f"{date}_{track}_{product}_IW3.tif")
+        temp_iw3 = temp_dir / f"{date}_{track}_{product}_IW3.tif"
         mosaic(list_of_iw3, temp_iw3, config_file, harm=False)
 
     if list_of_iw12 and list_of_iw3:

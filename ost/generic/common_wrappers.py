@@ -273,7 +273,7 @@ def ls_mask(infile, outfile, logfile, config_dict):
     logger.debug("Creating the Layover/Shadow mask")
 
     # get path to workflow xml
-    graph = OST_ROOT.joinpath("graphs/S1_GRD2ARD/3_LSmap.xml")
+    graph = OST_ROOT / "graphs/S1_GRD2ARD/3_LSmap.xml"
 
     command = (
         f"{GPT_FILE} {graph} -x -q {2 * cpus} "
@@ -335,7 +335,7 @@ def create_stack(
     logger.debug("Creating multi-temporal stack.")
 
     if pattern:
-        graph = OST_ROOT.joinpath("graphs/S1_TS/1_BS_Stacking_HAalpha.xml")
+        graph = OST_ROOT / "graphs/S1_TS/1_BS_Stacking_HAalpha.xml"
 
         command = (
             f"{GPT_FILE} {graph} -x -q {2*cpus} "
@@ -345,7 +345,7 @@ def create_stack(
         )
 
     else:
-        graph = OST_ROOT.joinpath("graphs/S1_TS/1_BS_Stacking.xml")
+        graph = OST_ROOT / "graphs/S1_TS/1_BS_Stacking.xml"
 
         command = (
             f"{GPT_FILE} {graph} -x -q {2*cpus} "

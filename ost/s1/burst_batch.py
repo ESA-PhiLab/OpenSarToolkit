@@ -128,12 +128,12 @@ def _create_extents(burst_gdf, config_file):
     for burst in burst_gdf.bid.unique():
 
         # get the burst directory
-        burst_dir = processing_dir.joinpath(burst)
+        burst_dir = processing_dir / burst
 
         list_of_extents = list(burst_dir.glob("*/*/*bounds.json"))
 
         # if extent does not already exist, add to iterable
-        if not burst_dir.joinpath(f"{burst}.min_bounds.json").exists():
+        if not (burst_dir / f"{burst}.min_bounds.json").exists():
             iter_list.append(list_of_extents)
 
     # now we run with godale, which works also with 1 worker
@@ -176,14 +176,14 @@ def _create_extents_old(burst_gdf, config_file):
     for burst in burst_gdf.bid.unique():
 
         # get the burst directory
-        burst_dir = processing_dir.joinpath(burst)
+        burst_dir = processing_dir / burst
 
         # get common burst extent
         list_of_bursts = list(burst_dir.glob("**/*img"))
         list_of_bursts = [str(x) for x in list_of_bursts if "layover" not in str(x)]
 
         # if the file does not already exist, add to iterable
-        extent = burst_dir.joinpath(f"{burst}.extent.gpkg")
+        extent = burst_dir / f"{burst}.extent.gpkg"
         if not extent.exists():
             iter_list.append(list_of_bursts)
 
@@ -223,11 +223,11 @@ def _create_mt_ls_mask(burst_gdf, config_file):
     for burst in burst_gdf.bid.unique():  # ***
 
         # get the burst directory
-        burst_dir = Path(processing_dir).joinpath(burst)
+        burst_dir = Path(processing_dir) / burst
 
         # get common burst extent
         list_of_masks = list(burst_dir.glob("*/*/*_ls_mask.json"))
-        if not burst_dir.joinpath(f"{burst}.ls_mask.json").exists():
+        if not (burst_dir / f"{burst}.ls_mask.json").exists():
             iter_list.append(list_of_masks)
 
     # now we run with godale, which works also with 1 worker
@@ -259,19 +259,19 @@ def _create_mt_ls_mask_old(burst_gdf, config_file):
     for burst in burst_gdf.bid.unique():  # ***
 
         # get the burst directory
-        burst_dir = Path(processing_dir).joinpath(burst)
+        burst_dir = Path(processing_dir) / burst
 
         # get layover scenes
         list_of_scenes = list(burst_dir.glob("20*/*data*/*img"))
         list_of_layover = [str(x) for x in list_of_scenes if "layover" in str(x)]
 
         # we need to redefine the namespace of the already created extents
-        extent = burst_dir.joinpath(f"{burst}.extent.gpkg")
+        extent = burst_dir / f"{burst}.extent.gpkg"
         if not extent.exists():
             raise FileNotFoundError(f"Extent file for burst {burst} not found.")
 
         # layover/shadow mask
-        out_ls = burst_dir.joinpath(f"{burst}.ls_mask.tif")
+        out_ls = burst_dir / f"{burst}.ls_mask.tif"
 
         # if the file does not already exists, then put into list to process
         if not out_ls.exists():
@@ -314,7 +314,7 @@ def _create_timeseries(burst_gdf, config_file):
     iter_list = []
     for burst in burst_gdf.bid.unique():
 
-        burst_dir = Path(processing_dir).joinpath(burst)
+        burst_dir = Path(processing_dir) / burst
 
         # for pr, pol in itertools.product(dict_of_product_types.items(), pols):
         for pr, pol in itertools.product(list_of_product_types, pols):
@@ -429,19 +429,19 @@ def timeseries_to_timescan(burst_gdf, config_file):
     for burst in burst_gdf.bid.unique():
 
         # get relevant directories
-        burst_dir = Path(processing_dir).joinpath(burst)
-        timescan_dir = burst_dir.joinpath("Timescan")
+        burst_dir = Path(processing_dir) / burst
+        timescan_dir = burst_dir / "Timescan"
         timescan_dir.mkdir(parents=True, exist_ok=True)
 
         for product in PRODUCT_LIST:
 
             # check if already processed
-            if timescan_dir.joinpath(f".{product}.processed").exists():
+            if (timescan_dir / f".{product}.processed").exists():
                 logger.debug(f"Timescans for burst {burst} already processed.")
                 continue
 
             # get respective timeseries
-            timeseries = burst_dir.joinpath(f"Timeseries/Timeseries.{product}.vrt")
+            timeseries = burst_dir / "Timeseries" / f"Timeseries.{product}.vrt"
 
             # che if this timsereis exists ( since we go through all products
             if not timeseries.exists():
@@ -452,7 +452,7 @@ def timeseries_to_timescan(burst_gdf, config_file):
             datelist = [file.name.split(".")[1][:6] for file in sorted(scenelist)]
 
             # define timescan prefix
-            timescan_prefix = timescan_dir.joinpath(product)
+            timescan_prefix = timescan_dir / product
 
             # get rescaling and db right (backscatter vs. coh/pol)
             if "bs." in str(timescan_prefix):
@@ -517,10 +517,10 @@ def mosaic_timeseries(burst_inventory, config_file):
         processing_dir = Path(config_dict["processing_dir"])
 
     # create output folder
-    ts_dir = processing_dir.joinpath("Mosaic/Timeseries")
+    ts_dir = processing_dir / "Mosaic" / "Timeseries"
     ts_dir.mkdir(parents=True, exist_ok=True)
 
-    temp_mosaic = processing_dir.joinpath("Mosaic/temp")
+    temp_mosaic = processing_dir / "Mosaic" / "temp"
     temp_mosaic.mkdir(parents=True, exist_ok=True)
     # -------------------------------------
     # 2 create iterable
@@ -543,13 +543,14 @@ def mosaic_timeseries(burst_inventory, config_file):
                     # we do the try, since for the last date
                     # there is no dates[i+1] for coherence
                     try:
-                        temp_acq = temp_mosaic.joinpath(
-                            f"{i}.{date}.{dates[i + 1]}.{track}.{product}.tif"
+                        temp_acq = (
+                            temp_mosaic
+                            / f"{i}.{date}.{dates[i + 1]}.{track}.{product}.tif"
                         )
                     except IndexError:
                         temp_acq = None
                 else:
-                    temp_acq = temp_mosaic.joinpath(f"{i}.{date}.{track}.{product}.tif")
+                    temp_acq = temp_mosaic / f"{i}.{date}.{track}.{product}.tif"
 
                 if temp_acq:
                     iter_list.append([track, date, product, temp_acq, config_file])
@@ -592,7 +593,7 @@ def mosaic_timeseries(burst_inventory, config_file):
 
             # create namespace for output file
             if start == end:
-                outfile = ts_dir.joinpath(f"{i + 1:02d}.{start}.{product}.tif")
+                outfile = ts_dir / f"{i + 1:02d}.{start}.{product}.tif"
 
                 # with the above operation, the list automatically
                 # turns into string, so we can call directly list_of_files
@@ -601,10 +602,10 @@ def mosaic_timeseries(burst_inventory, config_file):
                 continue
 
             else:
-                outfile = ts_dir.joinpath(f"{i + 1:02d}.{start}-{end}.{product}.tif")
+                outfile = ts_dir / f"{i + 1:02d}.{start}-{end}.{product}.tif"
 
             # create namespace for check_file
-            check_file = outfile.parent.joinpath(f".{outfile.name[:-4]}.processed")
+            check_file = outfile.parent / f".{outfile.name[:-4]}.processed"
 
             if check_file.exists():
                 logger.info(f"Mosaic layer {outfile} already processed.")
@@ -663,10 +664,10 @@ def mosaic_timescan(burst_inventory, config_file):
         metrics.extend(["p95", "p5"])
 
     # create output folder
-    ts_dir = processing_dir.joinpath("Mosaic/Timescan")
+    ts_dir = processing_dir / "Mosaic" / "Timescan"
     ts_dir.mkdir(parents=True, exist_ok=True)
 
-    temp_mosaic = processing_dir.joinpath("Mosaic/temp")
+    temp_mosaic = processing_dir / "Mosaic" / "temp"
     temp_mosaic.mkdir(parents=True, exist_ok=True)
     # -------------------------------------
     # 2 create iterable
@@ -685,7 +686,7 @@ def mosaic_timescan(burst_inventory, config_file):
             if not len(filelist) >= 1:
                 continue
 
-            temp_acq = temp_mosaic.joinpath(f"{track}.{product}.{metric}.tif")
+            temp_acq = temp_mosaic / f"{track}.{product}.{metric}.tif"
 
             if temp_acq:
                 iter_list.append([track, metric, product, temp_acq, config_file])
@@ -713,8 +714,8 @@ def mosaic_timescan(burst_inventory, config_file):
         list_of_files = " ".join([str(file) for file in list_of_files])
 
         # create namespace for outfile
-        outfile = ts_dir.joinpath(f"{product}.{metric}.tif")
-        check_file = outfile.parent.joinpath(f".{outfile.name[:-4]}.processed")
+        outfile = ts_dir / f"{product}.{metric}.tif"
+        check_file = outfile.parent / f".{outfile.name[:-4]}.processed"
 
         if check_file.exists():
             logger.info(f"Mosaic layer {outfile.name} already processed.")
@@ -757,7 +758,7 @@ def mosaic_timescan_old(config_file):
         metrics.remove("percentiles")
         metrics.extend(["p95", "p5"])
 
-    tscan_dir = processing_dir.joinpath("Mosaic/Timescan")
+    tscan_dir = processing_dir / "Mosaic" / "Timescan"
     tscan_dir.mkdir(parents=True, exist_ok=True)
 
     iter_list = []
@@ -770,8 +771,8 @@ def mosaic_timescan_old(config_file):
 
         filelist = " ".join([str(file) for file in filelist])
 
-        outfile = tscan_dir.joinpath(f"{product}.{metric}.tif")
-        check_file = outfile.parent.joinpath(f".{outfile.name[:-4]}.processed")
+        outfile = tscan_dir / f"{product}.{metric}.tif"
+        check_file = outfile.parent / f".{outfile.name[:-4]}.processed"
 
         if check_file.exists():
             logger.info(f"Mosaic layer {outfile.name} already processed.")

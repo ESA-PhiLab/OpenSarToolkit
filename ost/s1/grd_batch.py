@@ -167,12 +167,12 @@ def _create_extents(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
 
         list_of_extents = list(track_dir.glob("*/*/*bounds.json"))
 
         # if extent does not already exist, add to iterable
-        if not track_dir.joinpath(f"{track}.min_bounds.json").exists():
+        if not (track_dir / f"{track}.min_bounds.json").exists():
             iter_list.append(list_of_extents)
 
     # now we run with godale, which works also with 1 worker
@@ -208,7 +208,7 @@ def _create_extents_old(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
 
         # get common burst extent
         list_of_scenes = list(track_dir.glob("**/*img"))
@@ -216,7 +216,7 @@ def _create_extents_old(inventory_df, config_file):
         list_of_scenes = [str(x) for x in list_of_scenes if "layover" not in str(x)]
 
         # if extent does not already exist, add to iterable
-        if not track_dir.joinpath(f"{track}.extent.gpkg").exists():
+        if not (track_dir / f"{track}.extent.gpkg").exists():
             iter_list.append(list_of_scenes)
 
     # now we run with godale, which works also with 1 worker
@@ -259,13 +259,13 @@ def _create_mt_ls_mask(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
 
         # get common burst extent
         list_of_masks = list(track_dir.glob("*/*/*_ls_mask.json"))
 
         # if extent does not already exist, add to iterable
-        if not track_dir.joinpath(f"{track}.ls_mask.json").exists():
+        if not (track_dir / f"{track}.ls_mask.json").exists():
             iter_list.append(list_of_masks)
 
     # now we run with godale, which works also with 1 worker
@@ -287,7 +287,7 @@ def _create_mt_ls_mask_old(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
 
         # get common burst extent
         list_of_scenes = list(track_dir.glob("**/*img"))
@@ -358,7 +358,7 @@ def _create_timeseries(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get the burst directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
 
         for pol in ["VV", "VH", "HH", "HV"]:
 
@@ -430,20 +430,20 @@ def timeseries_to_timescan(inventory_df, config_file):
     for track in inventory_df.relativeorbit.unique():
 
         # get track directory
-        track_dir = processing_dir.joinpath(track)
+        track_dir = processing_dir / track
         # define and create Timescan directory
-        timescan_dir = track_dir.joinpath("Timescan")
+        timescan_dir = track_dir / "Timescan"
         timescan_dir.mkdir(parents=True, exist_ok=True)
 
         # loop thorugh each polarization
         for polar in ["VV", "VH", "HH", "HV"]:
 
-            if timescan_dir.joinpath(f".bs.{polar}.processed").exists():
+            if (timescan_dir / f".bs.{polar}.processed").exists():
                 logger.info(f"Timescans for track {track} already processed.")
                 continue
 
             # get timeseries vrt
-            time_series = track_dir.joinpath(f"Timeseries/Timeseries.bs.{polar}.vrt")
+            time_series = track_dir / "Timeseries" / f"Timeseries.bs.{polar}.vrt"
 
             if not time_series.exists():
                 continue
@@ -457,7 +457,7 @@ def timeseries_to_timescan(inventory_df, config_file):
                 datelist.append(file.name.split(".")[1])
 
             # define timescan prefix
-            timescan_prefix = timescan_dir.joinpath(f"bs.{polar}")
+            timescan_prefix = timescan_dir / f"bs.{polar}"
 
             iter_list.append(
                 [
@@ -517,7 +517,7 @@ def mosaic_timeseries(inventory_df, config_file):
         processing_dir = Path(config_dict["processing_dir"])
 
     # create output folder
-    ts_dir = processing_dir.joinpath("Mosaic/Timeseries")
+    ts_dir = processing_dir / "Mosaic" / "Timeseries"
     ts_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through polarisations
@@ -526,7 +526,7 @@ def mosaic_timeseries(inventory_df, config_file):
 
         tracks = inventory_df.relativeorbit.unique()
         nr_of_ts = len(
-            list(processing_dir.joinpath(f"{tracks[0]}/Timeseries").glob(f"*.{p}.tif"))
+            list((processing_dir / f"{tracks[0]}" / "Timeseries").glob(f"*.{p}.tif"))
         )
 
         if not nr_of_ts >= 1:
@@ -547,11 +547,11 @@ def mosaic_timeseries(inventory_df, config_file):
             start, end = sorted(datelist)[0], sorted(datelist)[-1]
 
             if start == end:
-                outfile = ts_dir.joinpath(f"{i:02d}.{start}.bs.{p}.tif")
+                outfile = ts_dir / f"{i:02d}.{start}.bs.{p}.tif"
             else:
-                outfile = ts_dir.joinpath(f"{i:02d}.{start}-{end}.bs.{p}.tif")
+                outfile = ts_dir / f"{i:02d}.{start}-{end}.bs.{p}.tif"
 
-            check_file = outfile.parent.joinpath(f".{outfile.stem}.processed")
+            check_file = outfile.parent / f".{outfile.stem}.processed"
 
             outfiles.append(outfile)
 
@@ -597,7 +597,7 @@ def mosaic_timescan(config_file):
         metrics.extend(["p95", "p5"])
 
     # create out directory of not existent
-    tscan_dir = processing_dir.joinpath("Mosaic/Timescan")
+    tscan_dir = processing_dir / "Mosaic" / "Timescan"
     tscan_dir.mkdir(parents=True, exist_ok=True)
 
     # loop through all pontial proucts
@@ -613,8 +613,8 @@ def mosaic_timescan(config_file):
 
         # get number
         filelist = " ".join([str(file) for file in filelist])
-        outfile = tscan_dir.joinpath(f"bs.{polar}.{metric}.tif")
-        check_file = outfile.parent.joinpath(f".{outfile.stem}.processed")
+        outfile = tscan_dir / f"bs.{polar}.{metric}.tif"
+        check_file = outfile.parent / f".{outfile.stem}.processed"
 
         if check_file.exists():
             logger.info(f"Mosaic layer {outfile.name} already processed.")

@@ -11,7 +11,7 @@ from ost.s1 import grd_wrappers as gw
 logger = logging.getLogger(__name__)
 
 # load standard config parameters
-config_file = OST_ROOT.joinpath("graphs", "ard_json", "grd.ost_gtc.json")
+config_file = OST_ROOT / "graphs" / "ard_json" / "grd.ost_gtc.json"
 with open(config_file, "r") as file:
     CONFIG_DICT = json.load(file)
     CONFIG_DICT["snap_cpu_parallelism"] = cpu_count()
@@ -29,12 +29,12 @@ def test_grd_import_subset(s1_grd_notnr, s1_grd_notnr_ost_product, grd_project_c
     scene_id, product = s1_grd_notnr_ost_product
     return_code = gw.grd_frame_import(
         infile=s1_grd_notnr,
-        outfile=grd_project_class.processing_dir.joinpath(f"{scene_id}_import"),
+        outfile=grd_project_class.processing_dir / f"{scene_id}_import",
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
     assert return_code == str(
-        grd_project_class.processing_dir.joinpath(f"{scene_id}_import.dim")
+        grd_project_class.processing_dir / f"{scene_id}_import.dim"
     )
 
 
@@ -44,7 +44,7 @@ def test_grd_remove_border(s1_grd_notnr_ost_product, grd_project_class):
     scene_id, product = s1_grd_notnr_ost_product
     for polarisation in ["VV", "VH", "HH", "HV"]:
         infile = list(
-            grd_project_class.processing_dir.joinpath(f"{scene_id}_imported*data").glob(
+            (grd_project_class.processing_dir / f"{scene_id}_imported*data").glob(
                 f"Intensity_{polarisation}.img"
             )
         )
@@ -68,13 +68,13 @@ def test_grd_calibration(s1_grd_notnr_ost_product, grd_project_class):
 
         # run command
         return_code = gw.calibration(
-            infile=grd_project_class.processing_dir.joinpath(f"{scene_id}_import.dim"),
-            outfile=grd_project_class.processing_dir.joinpath(f"{scene_id}_BS"),
+            infile=grd_project_class.processing_dir / f"{scene_id}_import.dim",
+            outfile=grd_project_class.processing_dir / f"{scene_id}_BS",
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
         assert return_code == str(
-            grd_project_class.processing_dir.joinpath(f"{scene_id}_BS.dim")
+            grd_project_class.processing_dir / f"{scene_id}_BS.dim"
         )
 
 
@@ -84,13 +84,13 @@ def test_grd_speckle_filter(s1_grd_notnr_ost_product, grd_project_class):
     CONFIG_DICT["processing"]["single_ARD"]["remove_speckle"] = True
     scene_id, product = s1_grd_notnr_ost_product
     return_code = cw.speckle_filter(
-        infile=grd_project_class.processing_dir.joinpath(f"{scene_id}_BS.dim"),
-        outfile=grd_project_class.processing_dir.joinpath(f"{scene_id}_BS_Spk"),
+        infile=grd_project_class.processing_dir / f"{scene_id}_BS.dim",
+        outfile=grd_project_class.processing_dir / f"{scene_id}_BS_Spk",
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
     assert return_code == str(
-        grd_project_class.processing_dir.joinpath(f"{scene_id}_BS_Spk.dim")
+        grd_project_class.processing_dir / f"{scene_id}_BS_Spk.dim"
     )
 
 
@@ -99,11 +99,11 @@ def test_grd_tc(s1_grd_notnr_ost_product, grd_project_class):
 
     scene_id, product = s1_grd_notnr_ost_product
     return_code = cw.terrain_correction(
-        infile=grd_project_class.processing_dir.joinpath(f"{scene_id}_BS_Spk.dim"),
-        outfile=grd_project_class.processing_dir.joinpath(f"{scene_id}_BS_Spk_TC"),
+        infile=grd_project_class.processing_dir / f"{scene_id}_BS_Spk.dim",
+        outfile=grd_project_class.processing_dir / f"{scene_id}_BS_Spk_TC",
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
     assert return_code == str(
-        grd_project_class.processing_dir.joinpath(f"{scene_id}_BS_Spk_TC.dim")
+        grd_project_class.processing_dir / f"{scene_id}_BS_Spk_TC.dim"
     )

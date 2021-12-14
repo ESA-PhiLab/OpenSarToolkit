@@ -55,17 +55,17 @@ def grd_to_ard(filelist, config_file):
     logger.info(f"Processing acquisition from {acquisition_date} over track {track}.")
 
     # construct namespace for out directory etc.
-    out_dir = processing_dir.joinpath(f"{track}/{acquisition_date}")
+    out_dir = processing_dir / f"{track}/{acquisition_date}"
     out_dir.mkdir(parents=True, exist_ok=True)
     file_id = f"{acquisition_date}_{track}"
-    out_final = out_dir.joinpath(f"{file_id}_bs")
-    out_ls_mask = out_dir.joinpath(f"{file_id}_LS")
+    out_final = out_dir / f"{file_id}_bs"
+    out_ls_mask = out_dir / f"{file_id}_LS"
 
     suf = ".tif" if ard["to_tif"] else ".dim"
 
     # ----------------------------------------------------
     # 3 check if already processed
-    if out_dir.joinpath(".processed").exists() and out_final.with_suffix(suf).exists():
+    if (out_dir / ".processed").exists() and out_final.with_suffix(suf).exists():
         logger.info(
             f"Acquisition from {acquisition_date} of track {track} "
             f"already processed"
@@ -83,7 +83,7 @@ def grd_to_ard(filelist, config_file):
 
     # this might happen in the create_ard from s1scene class
     if not config_dict["temp_dir"]:
-        temp_dir = processing_dir.joinpath("temp")
+        temp_dir = processing_dir / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
     else:
         temp_dir = config_dict["temp_dir"]
@@ -107,14 +107,14 @@ def grd_to_ard(filelist, config_file):
                     with zipfile.ZipFile(file, "r") as zip_ref:
                         zip_ref.extractall(temp)
 
-                    file = temp.joinpath(f"{file.stem}.SAFE")
+                    file = temp / f"{file.stem}.SAFE"
                     unpack = True
 
                 # create namespace for temporary imported product
-                grd_import = temp.joinpath(f"{file.stem}_imported")
+                grd_import = temp / f"{file.stem}_imported"
 
                 # create namespace for import log
-                logfile = out_dir.joinpath(f"{file.stem}.Import.errLog")
+                logfile = out_dir / f"{file.stem}.Import.errLog"
 
                 # set subset temporally to false for import routine
                 config_dict["subset"] = False
@@ -138,10 +138,10 @@ def grd_to_ard(filelist, config_file):
             )
 
             # create namespace for temporary slice assembled import product
-            grd_import = temp.joinpath(f"{file_id}_imported")
+            grd_import = temp / f"{file_id}_imported"
 
             # create namespace for slice assembled log
-            logfile = out_dir.joinpath(f"{file_id}._slice_assembly.errLog")
+            logfile = out_dir / f"{file_id}._slice_assembly.errLog"
 
             # run slice assembly
             try:
@@ -152,16 +152,16 @@ def grd_to_ard(filelist, config_file):
 
             # delete imported frames
             for file in filelist:
-                h.delete_dimap(temp.joinpath(f"{file.stem}_imported"))
+                h.delete_dimap(temp / f"{file.stem}_imported")
 
             # subset mode after slice assembly
             if subset:
 
                 # create namespace for temporary subset product
-                grd_subset = temp.joinpath(f"{file_id}_imported_subset")
+                grd_subset = temp / f"{file_id}_imported_subset"
 
                 # create namespace for subset log
-                logfile = out_dir.joinpath(f"{file_id}._slice_assembly.errLog")
+                logfile = out_dir / f"{file_id}._slice_assembly.errLog"
 
                 # run subset routine
                 try:
@@ -189,14 +189,14 @@ def grd_to_ard(filelist, config_file):
                 with zipfile.ZipFile(file, "r") as zip_ref:
                     zip_ref.extractall(temp)
 
-                file = temp.joinpath(f"{file.stem}.SAFE")
+                file = temp / f"{file.stem}.SAFE"
                 unpack = True
 
             # create namespace for temporary imported product
-            grd_import = temp.joinpath(f"{file_id}_imported")
+            grd_import = temp / f"{file_id}_imported"
 
             # create namespace for import log
-            logfile = out_dir.joinpath(f"{file_id}.Import.errLog")
+            logfile = out_dir / f"{file_id}.Import.errLog"
 
             # run frame import
             try:
@@ -233,10 +233,10 @@ def grd_to_ard(filelist, config_file):
         # 4.3 Calibration
 
         # create namespace for temporary calibrated product
-        calibrated = temp.joinpath(f"{file_id}_cal")
+        calibrated = temp / f"{file_id}_cal"
 
         # create namespace for calibration log
-        logfile = out_dir.joinpath(f"{file_id}.calibration.errLog")
+        logfile = out_dir / f"{file_id}.calibration.errLog"
 
         # run calibration
         try:
@@ -256,10 +256,10 @@ def grd_to_ard(filelist, config_file):
         if int(ard["resolution"]) >= 20:
 
             # create namespace for temporary multi-looked product
-            multi_looked = temp.joinpath(f"{file_id}_ml")
+            multi_looked = temp / f"{file_id}_ml"
 
             # create namespace for multi-loook log
-            logfile = out_dir.joinpath(f"{file_id}.multilook.errLog")
+            logfile = out_dir / f"{file_id}.multilook.errLog"
 
             # run multi-looking
             try:
@@ -280,10 +280,10 @@ def grd_to_ard(filelist, config_file):
         if ard["create_ls_mask"] is True:
 
             # create namespace for temporary ls mask product
-            ls_mask = temp.joinpath(f"{file_id}_ls_mask")
+            ls_mask = temp / f"{file_id}_ls_mask"
 
             # create namespace for ls mask log
-            logfile = out_dir.joinpath(f"{file_id}.ls_mask.errLog")
+            logfile = out_dir / f"{file_id}.ls_mask.errLog"
 
             # run ls mask routine
             try:
@@ -302,10 +302,10 @@ def grd_to_ard(filelist, config_file):
         if ard["remove_speckle"]:
 
             # create namespace for temporary speckle filtered product
-            filtered = temp.joinpath(f"{file_id}_spk")
+            filtered = temp / f"{file_id}_spk"
 
             # create namespace for speckle filter log
-            logfile = out_dir.joinpath(f"{file_id}.Speckle.errLog")
+            logfile = out_dir / f"{file_id}.Speckle.errLog"
 
             # run speckle filter
             try:
@@ -325,10 +325,10 @@ def grd_to_ard(filelist, config_file):
         if ard["product_type"] == "RTC-gamma0":
 
             # create namespace for temporary terrain flattened product
-            flattened = temp.joinpath(f"{file_id}_flat")
+            flattened = temp / f"{file_id}_flat"
 
             # create namespace for terrain flattening log
-            logfile = out_dir.joinpath(f"{file_id}.tf.errLog")
+            logfile = out_dir / f"{file_id}.tf.errLog"
 
             # run terrain flattening
             try:
@@ -348,10 +348,10 @@ def grd_to_ard(filelist, config_file):
         if ard["to_db"]:
 
             # create namespace for temporary db scaled product
-            db_scaled = temp.joinpath(f"{file_id}_db")
+            db_scaled = temp / f"{file_id}_db"
 
             # create namespace for db scaled log
-            logfile = out_dir.joinpath(f"{file_id}.db.errLog")
+            logfile = out_dir / f"{file_id}.db.errLog"
 
             # run db scaling routine
             try:
@@ -370,10 +370,10 @@ def grd_to_ard(filelist, config_file):
         # 4.9 Geocoding
 
         # create namespace for temporary geocoded product
-        geocoded = temp.joinpath(f"{file_id}_bs")
+        geocoded = temp / f"{file_id}_bs"
 
         # create namespace for geocoding log
-        logfile = out_dir.joinpath(f"{file_id}_bs.errLog")
+        logfile = out_dir / f"{file_id}_bs.errLog"
 
         # run geocoding
         try:
@@ -386,7 +386,7 @@ def grd_to_ard(filelist, config_file):
         h.delete_dimap(infile.with_suffix(""))
 
         # define final destination
-        out_final = out_dir.joinpath(f"{file_id}_bs")
+        out_final = out_dir / f"{file_id}_bs"
 
         # ---------------------------------------------------------------------
         # 4.11 Create an outline
@@ -407,7 +407,7 @@ def grd_to_ard(filelist, config_file):
 
     # ---------------------------------------------------------------------
     # 5 write processed file to keep track of files already processed
-    with open(out_dir.joinpath(".processed"), "w") as file:
+    with (out_dir / ".processed").open("w") as file:
         file.write("passed all tests \n")
 
     return filelist, out_final.with_suffix(".dim"), out_ls, None

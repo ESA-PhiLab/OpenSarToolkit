@@ -55,7 +55,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
 
     # get path to graph
     if subset:
-        graph = OST_ROOT.joinpath("graphs/S1_GRD2ARD/1_AO_TNR_SUB.xml")
+        graph = OST_ROOT / "graphs" / "S1_GRD2ARD" / "1_AO_TNR_SUB.xml"
         # construct command
         command = (
             f"{GPT_FILE} {graph} -x -q {2 * cpus} "
@@ -66,7 +66,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
         )
     else:
         # construct path ot graph
-        graph = OST_ROOT.joinpath("graphs/S1_GRD2ARD/1_AO_TNR.xml")
+        graph = OST_ROOT / "graphs" / "S1_GRD2ARD" / "1_AO_TNR.xml"
         # construct command
         command = (
             f"{GPT_FILE} {graph} -x -q {2 * cpus} "

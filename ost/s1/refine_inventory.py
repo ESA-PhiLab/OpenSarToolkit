@@ -579,9 +579,9 @@ def search_refinement(
                 pols = "".join(pol.split())
 
                 if datelist:
-                    out = inventory_dir.joinpath(f"{len(datelist)}_{orb}_{pols}.gpkg")
+                    out = inventory_dir / f"{len(datelist)}_{orb}_{pols}.gpkg"
                 else:
-                    out = inventory_dir.joinpath(f"{orb}_{pols}.gpkg")
+                    out = inventory_dir / f"{orb}_{pols}.gpkg"
 
                 inventory_refined.to_file(out, driver="GPKG")
 
