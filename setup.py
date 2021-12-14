@@ -65,7 +65,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "GDAL>=2",
+        "pyproj",
         "descartes",
         "godale",
         "geopandas>=0.8",
