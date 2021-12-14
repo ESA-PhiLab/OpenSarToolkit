@@ -87,7 +87,7 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix, config_dict):
         with (out_dir / ".pol.processed").open("w+") as file:
             file.write("passed all tests \n")
 
-        dim_file = (out_dir / f"{burst_prefix}_pol").with_suffix(".dim")
+        dim_file = out_dir / f"{burst_prefix}_pol.dim"
 
         return (str(dim_file), None)
 
@@ -426,17 +426,17 @@ def burst_to_ard(burst, config_file):
             )
         elif ard["H-A-Alpha"] and pol_file:
             # construct namespace for existing pol layer
-            out_pol = str((out_dir / f"{master_prefix}_pol").with_suffix(".dim"))
+            out_pol = str(out_dir / f"{master_prefix}_pol.dim")
 
         if ard["backscatter"] and not bs_file:
             out_bs, out_ls, error = create_backscatter_layers(
                 master_import.with_suffix(".dim"), out_dir, master_prefix, config_dict
             )
         elif ard["backscatter"] and bs_file:
-            out_bs = str((out_dir / f"{master_prefix}_bs").with_suffix(".dim"))
+            out_bs = str(out_dir / f"{master_prefix}_bs.dim")
 
             if ard["create_ls_mask"] and bs_file:
-                out_ls = str((out_dir / f"{master_prefix}_LS").with_suffix(".dim"))
+                out_ls = str(out_dir / f"{master_prefix}_LS.dim")
 
         if coherence and not coh_file:
 
@@ -482,7 +482,7 @@ def burst_to_ard(burst, config_file):
                 h.delete_dimap(master_import)
 
         elif coherence and coh_file:
-            out_coh = str((out_dir / f"{master_prefix}_coh").with_suffix(".dim"))
+            out_coh = str(out_dir / f"{master_prefix}_coh.dim")
 
             # remove master import
             h.delete_dimap(master_import)
@@ -494,16 +494,16 @@ def burst_to_ard(burst, config_file):
     # we re-construct the out names for proper return value
     else:
         if ard["H-A-Alpha"] and pol_file:
-            out_pol = str((out_dir / f"{master_prefix}_pol").with_suffix(".dim"))
+            out_pol = str(out_dir / f"{master_prefix}_pol.dim")
 
         if ard["backscatter"] and bs_file:
-            out_bs = str((out_dir / f"{master_prefix}_bs").with_suffix(".dim"))
+            out_bs = str(out_dir / f"{master_prefix}_bs.dim")
 
         if ard["create_ls_mask"] and bs_file:
-            out_ls = str((out_dir / f"{master_prefix}_LS").with_suffix(".dim"))
+            out_ls = str(out_dir / f"{master_prefix}_LS.dim")
 
         if coherence and coh_file:
-            out_coh = str((out_dir / f"{master_prefix}_coh").with_suffix(".dim"))
+            out_coh = str(out_dir / f"{master_prefix}_coh.dim")
 
     return burst.bid, burst.Date, out_bs, out_ls, out_pol, out_coh, None
 
