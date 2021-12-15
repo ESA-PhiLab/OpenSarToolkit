@@ -93,4 +93,4 @@ Instead of using R-Shiny as a GUI, the main interface are now `Jupyter notebooks
 Authors
 -------
 
-meet our `contributors <https://opensartoolkit.readthedocs.io/en/build/setup/contributors.html>`__.
+meet our `contributors <https://opensartoolkit.readthedocs.io/en/latest/setup/contributors.html>`__.
