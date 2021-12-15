@@ -87,6 +87,7 @@ setup(
             "nbsphinx",
             "pydata-sphinx-theme",
             "sphinx-copybutton",
+            "Commitizen",
         ]
     },
     cmdclass={"develop": DevelopCmd},
