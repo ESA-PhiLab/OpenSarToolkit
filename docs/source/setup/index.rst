@@ -12,7 +12,8 @@ Getting started
 .. toctree::
     :maxdepth: 2
     
-    readme <readme>
+    readme <README>
     installation
     contribute
     contributors
+    Code of conduct <code_of_conduct>
