@@ -12,19 +12,22 @@
 #
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath("../.."))  # to have access to import ost
+
+import ost
 
 
 # -- Project information -----------------------------------------------------
 
 project = "OpenSarToolkit"
-copyright = "2021, Andreas Vollrath"
-author = "Andreas Vollrath"
+copyright = f"2016-{datetime.now().year}, {ost.__author__}"
+author = ost.__author__
 
 # The full version, including alpha/beta/rc tags
-release = "0.12.5"
+release = ost.__version__
 
 
 # -- General configuration ---------------------------------------------------
