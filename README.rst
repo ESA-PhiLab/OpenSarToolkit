@@ -31,6 +31,10 @@ Open SAR Toolkit (OST)
 .. image:: https://readthedocs.org/projects/opensartoolkit/badge/?version=latest
     :target: https://opensartoolkit.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
+    
+.. image:: https://img.shields.io/badge/all_contributors-5-orange.svg
+    :target: https://opensartoolkit.readthedocs.io/en/latest/setup/contributors.html
+    :alt: all-contributor
 
 Objective
 ---------
