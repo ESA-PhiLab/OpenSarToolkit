@@ -14,14 +14,8 @@ formats: all
 # Optionally build specific environment libs
 build:
   apt_packages:
-    - libssl-dev
-    - libcurl4-openssl-dev
-    - python3-dev
-    - gdal-bin
-    - python3-gdal
-    - python-gdal 
+    - gdal-bin 
     - libgdal-dev 
-    - g++
     
 # Optionally set the version of Python and requirements required to build your docs
 python:
