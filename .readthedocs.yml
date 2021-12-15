@@ -22,5 +22,5 @@ python:
    version: 3.7
    install:
    - method: pip
-      path: setuptools<58
+     path: setuptools<58
    - requirements: docs/requirements.txt
