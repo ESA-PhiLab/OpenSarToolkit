@@ -1,5 +1,4 @@
-setuptools<58.0
-GDAL==2.2.3
+pygdal==2.2.3.10
 pyproj
 descartes
 godale
