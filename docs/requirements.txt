@@ -1,4 +1,4 @@
-GDAL==3.4.0
+GDAL==2.2.3
 pyproj
 descartes
 godale
