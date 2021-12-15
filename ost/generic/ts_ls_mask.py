@@ -10,14 +10,6 @@ import geopandas as gpd
 from shapely.ops import unary_union
 from retrying import retry
 
-try:
-    import gdal
-except ModuleNotFoundError as e:
-    try:
-        from osgeo import gdal
-    except ModuleNotFoundError:
-        raise e
-
 from ost.helpers import vector as vec
 
 logger = logging.getLogger(__name__)
@@ -27,16 +19,15 @@ logger = logging.getLogger(__name__)
 def mt_layover(list_of_ls):
 
     import warnings
-    warnings.filterwarnings('ignore', 'GeoSeries.isna', UserWarning)
+
+    warnings.filterwarnings("ignore", "GeoSeries.isna", UserWarning)
 
     target_dir = Path(list_of_ls[0]).parent.parent.parent
-    bounds = target_dir.joinpath(f'{target_dir.name}.min_bounds.json')
-    outfile = target_dir.joinpath(f'{target_dir.name}.ls_mask.json')
-    valid_file = target_dir.joinpath(f'{target_dir.name}.valid.json')
+    bounds = target_dir / f"{target_dir.name}.min_bounds.json"
+    outfile = target_dir / f"{target_dir.name}.ls_mask.json"
+    valid_file = target_dir / f"{target_dir.name}.valid.json"
 
-    logger.info(
-        f'Creating common Layover/Shadow mask for track {target_dir.name}.'
-    )
+    logger.info(f"Creating common Layover/Shadow mask for track {target_dir.name}.")
 
     y = 0
     for i, file in enumerate(list_of_ls):
@@ -62,14 +53,14 @@ def mt_layover(list_of_ls):
 
         # remove slivers
         buffer = 0.00001
-        geom = geom.buffer(
-                -buffer, 1, join_style=2
-            ).buffer(
-                buffer, 1, cap_style=1, join_style=2
-            ).__geo_interface__
+        geom = (
+            geom.buffer(-buffer, 1, join_style=2)
+            .buffer(buffer, 1, cap_style=1, join_style=2)
+            .__geo_interface__
+        )
 
         # write to output
-        with open(outfile, 'w') as file:
+        with open(outfile, "w") as file:
             json.dump(geom, file)
 
         # create difference file for valid data shape

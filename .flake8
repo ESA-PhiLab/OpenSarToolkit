@@ -1,0 +1,4 @@
+[flake8]
+# E501: line too long | Black take care of it
+# W503: line break before binary operator | Black take care of it
+ignore = E501, W503

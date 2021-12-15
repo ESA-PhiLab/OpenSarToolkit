@@ -27,18 +27,19 @@ def ask_credentials():
     :rtype: tuple
     """
 
-    print(' If you do not have a Copernicus Scihub user account'
-          ' go to: https://scihub.copernicus.eu and register')
-    uname = input(' Your Copernicus Scihub Username:')
-    pword = getpass.getpass(' Your Copernicus Scihub Password:')
+    print(
+        " If you do not have a Copernicus Scihub user account"
+        " go to: https://scihub.copernicus.eu and register"
+    )
+    uname = input(" Your Copernicus Scihub Username:")
+    pword = getpass.getpass(" Your Copernicus Scihub Password:")
 
     return uname, pword
 
 
-def connect(uname=None, pword=None,
-            base_url='https://apihub.copernicus.eu/apihub'):
+def connect(uname=None, pword=None, base_url="https://apihub.copernicus.eu/apihub"):
     """Generates an opener for the Copernicus apihub/dhus
-    
+
 
     :param uname: username of Copernicus' scihub
     :type uname: str
@@ -50,12 +51,14 @@ def connect(uname=None, pword=None,
     """
 
     if not uname:
-        print(' If you do not have a Copernicus Scihub user'
-              ' account go to: https://scihub.copernicus.eu')
-        uname = input(' Your Copernicus Scihub Username:')
+        print(
+            " If you do not have a Copernicus Scihub user"
+            " account go to: https://scihub.copernicus.eu"
+        )
+        uname = input(" Your Copernicus Scihub Username:")
 
     if not pword:
-        pword = getpass.getpass(' Your Copernicus Scihub Password:')
+        pword = getpass.getpass(" Your Copernicus Scihub Password:")
 
     # create opener
     manager = urllib.request.HTTPPasswordMgrWithDefaultRealm()
@@ -75,16 +78,16 @@ def next_page(dom):
     :rtype: str
     """
 
-    links = dom.getElementsByTagName('link')
+    links = dom.getElementsByTagName("link")
     next_page_, this_page, last = None, None, None
 
     for link in links:
-        if link.getAttribute('rel') == 'next':
-            next_page_ = link.getAttribute('href')
-        elif link.getAttribute('rel') == 'self':
-            this_page = link.getAttribute('href')
-        elif link.getAttribute('rel') == 'last':
-            last = link.getAttribute('href')
+        if link.getAttribute("rel") == "next":
+            next_page_ = link.getAttribute("href")
+        elif link.getAttribute("rel") == "self":
+            this_page = link.getAttribute("href")
+        elif link.getAttribute("rel") == "last":
+            last = link.getAttribute("href")
 
     if last == this_page:  # we are not at the end
         next_page_ = None
@@ -101,15 +104,15 @@ def create_satellite_string(mission_id):
     """
 
     if str(1) in mission_id:
-        return f'platformname:Sentinel-1'
+        return "platformname:Sentinel-1"
     elif str(2) in mission_id:
-        return f'platformname:Sentinel-2'
+        return "platformname:Sentinel-2"
     elif str(3) in mission_id:
-        return f'platformname:Sentinel-3'
+        return "platformname:Sentinel-3"
     elif str(5) in mission_id:
-        return f'platformname:Sentinel-5'
+        return "platformname:Sentinel-5"
     else:
-        raise ValueError('No satellite with mission_id')
+        raise ValueError("No satellite with mission_id")
 
 
 def create_aoi_str(aoi):
@@ -125,20 +128,19 @@ def create_aoi_str(aoi):
     geom = loads(aoi)
 
     # dependent on the type construct the query string
-    if geom.geom_type == 'Point':
-        return f'( footprint:\"Intersects({geom.y}, {geom.x})\")'
+    if geom.geom_type == "Point":
+        return f'( footprint:"Intersects({geom.y}, {geom.x})")'
 
     else:
         # simplify geometry
         aoi_convex = geom.convex_hull
 
         # create scihub-confrom aoi string
-        return f'( footprint:\"Intersects({aoi_convex})\")'
+        return f'( footprint:"Intersects({aoi_convex})")'
 
 
 def create_toi_str(
-        start='2014-10-01',
-        end=datetime.datetime.now().strftime("%Y-%m-%d")
+    start="2014-10-01", end=datetime.datetime.now().strftime("%Y-%m-%d")
 ):
     """Convert start and end date to scihub's search url time period attribute
 
@@ -153,14 +155,12 @@ def create_toi_str(
     """
 
     # bring start and end date to query format
-    start = f'{start}T00:00:00.000Z'
-    end = f'{end}T23:59:59.999Z'
-    return (
-        f'beginPosition:[{start} TO {end}] AND endPosition:[{start} TO {end}]'
-    )
+    start = f"{start}T00:00:00.000Z"
+    end = f"{end}T23:59:59.999Z"
+    return f"beginPosition:[{start} TO {end}] AND endPosition:[{start} TO {end}]"
 
 
-def create_s1_product_specs(product_type='*', polarisation='*', beam='*'):
+def create_s1_product_specs(product_type="*", polarisation="*", beam="*"):
     """Convert Sentinel-1's product metadata to scihub's product attributes
 
     Default values for all product specifications is the wildcard
@@ -180,14 +180,13 @@ def create_s1_product_specs(product_type='*', polarisation='*', beam='*'):
 
     # bring product type, polarisation and beam to query format
     return (
-        f'producttype:{product_type} AND '
-        f'polarisationMode:{polarisation} AND '
-        f'sensoroperationalmode:{beam}'
+        f"producttype:{product_type} AND "
+        f"polarisationMode:{polarisation} AND "
+        f"sensoroperationalmode:{beam}"
     )
 
 
-def check_connection(uname, pword,
-                     base_url='https://apihub.copernicus.eu/apihub'):
+def check_connection(uname, pword, base_url="https://apihub.copernicus.eu/apihub"):
     """Check if a connection with scihub can be established
 
     :param uname:
@@ -198,8 +197,8 @@ def check_connection(uname, pword,
 
     # we use some random url for checking (also for czech mirror)
     url = (
-        f'{base_url}/odata/v1/Products('
-        '\'8f30a536-c01c-4ef4-ac74-be3378dc44c4\')/$value'
+        f"{base_url}/odata/v1/Products("
+        "'8f30a536-c01c-4ef4-ac74-be3378dc44c4')/$value"
     )
 
     response = requests.get(url, auth=(uname, pword), stream=True)
@@ -207,24 +206,24 @@ def check_connection(uname, pword,
 
 
 def s1_download_parallel(argument_list):
-    """Helper function for parallel download from scihub
-    """
+    """Helper function for parallel download from scihub"""
 
     uuid, filename, uname, pword, base_url = argument_list
     s1_download(uuid, filename, uname, pword, base_url)
 
 
-def s1_download(uuid, filename, uname, pword,
-                base_url='https://apihub.copernicus.eu/apihub'):
+def s1_download(
+    uuid, filename, uname, pword, base_url="https://apihub.copernicus.eu/apihub"
+):
     """Single scene download function for Copernicus scihub/apihub
-    
+
     :param uuid: product's uuid
     :param filename: local path for the download
     :param uname: username of Copernicus' scihub
     :param pword: password of Copernicus' scihub
     :param base_url:
 
-    :return: 
+    :return:
     """
 
     # get out the arguments
@@ -236,20 +235,20 @@ def s1_download(uuid, filename, uname, pword,
         ask_credentials()
 
     # define url
-    url = f'{base_url}/odata/v1/Products(\'{uuid}\')/$value'
+    url = f"{base_url}/odata/v1/Products('{uuid}')/$value"
 
     # get first response for file Size
     response = requests.get(url, stream=True, auth=(uname, pword))
 
     # check response
     if response.status_code == 401:
-        raise ValueError(' ERROR: Username/Password are incorrect.')
+        raise ValueError(" ERROR: Username/Password are incorrect.")
     elif response.status_code != 200:
-        print(' ERROR: Something went wrong, will try again in 30 seconds.')
+        print(" ERROR: Something went wrong, will try again in 30 seconds.")
         response.raise_for_status()
 
     # get download size
-    total_length = int(response.headers.get('content-length', 0))
+    total_length = int(response.headers.get("content-length", 0))
 
     # define chunk_size
     chunk_size = 1024
@@ -268,7 +267,7 @@ def s1_download(uuid, filename, uname, pword,
             # get byte offset for already downloaded file
             header = {"Range": f"bytes={first_byte}-{total_length}"}
 
-            logger.info(f'Downloading scene to: {filename.name}')
+            logger.info(f"Downloading scene to: {filename.name}")
             response = requests.get(
                 url, headers=header, stream=True, auth=(uname, pword)
             )
@@ -277,8 +276,11 @@ def s1_download(uuid, filename, uname, pword,
             with open(filename, "ab") as file:
 
                 pbar = tqdm.tqdm(
-                    total=total_length, initial=first_byte, unit='B',
-                    unit_scale=True, desc=' INFO: Downloading: '
+                    total=total_length,
+                    initial=first_byte,
+                    unit="B",
+                    unit_scale=True,
+                    desc=" INFO: Downloading: ",
                 )
                 for chunk in response.iter_content(chunk_size):
                     if chunk:
@@ -290,27 +292,33 @@ def s1_download(uuid, filename, uname, pword,
             first_byte = filename.stat().st_size
 
         # zipFile check
-        logger.info(f'Checking zip archive {filename.name} for inconsistency')
+        logger.info(f"Checking zip archive {filename.name} for inconsistency")
         zip_test = h.check_zipfile(filename)
 
         # if it did not pass the test, remove the file
         # in the while loop it will be downloaded again
         if zip_test is not None:
             logger.info(
-                f'{filename.name} did not pass the zip test. Re-downloading '
-                f'the full scene.'
+                f"{filename.name} did not pass the zip test. Re-downloading "
+                f"the full scene."
             )
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
         else:
-            logger.info(f'{filename.name} passed the zip test.')
-            with open(filename.with_suffix('.downloaded'), 'w') as file:
-                file.write('successfully downloaded \n')
+            logger.info(f"{filename.name} passed the zip test.")
+            with open(filename.with_suffix(".downloaded"), "w") as file:
+                file.write("successfully downloaded \n")
 
 
-def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
-                   base_url='https://apihub.copernicus.eu/apihub'):
+def batch_download(
+    inventory_df,
+    download_dir,
+    uname,
+    pword,
+    concurrent=2,
+    base_url="https://apihub.copernicus.eu/apihub",
+):
     """Batch download Sentinel-1 on the basis of an OST inventory GeoDataFrame
 
     :param inventory_df:
@@ -323,13 +331,12 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
     :return:
     """
     from ost import Sentinel1Scene as S1Scene
-    from ost.helpers import scihub
 
     if isinstance(download_dir, str):
         download_dir = Path(download_dir)
 
     # create list of scenes
-    scenes = inventory_df['identifier'].tolist()
+    scenes = inventory_df["identifier"].tolist()
 
     check, i = False, 1
     while check is False and i <= 10:
@@ -340,31 +347,30 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
             filepath = scene.download_path(download_dir, True)
 
             try:
-                uuid = (
-                    inventory_df['uuid']
-                    [inventory_df['identifier'] == scene_id].tolist()
-                )
+                uuid = inventory_df["uuid"][
+                    inventory_df["identifier"] == scene_id
+                ].tolist()
             except KeyError:
-                uuid = [scene.scihub_uuid(
-                    connect(uname=uname, pword=pword, base_url=base_url)
-                )]
+                uuid = [
+                    scene.scihub_uuid(
+                        connect(uname=uname, pword=pword, base_url=base_url)
+                    )
+                ]
 
-            if Path(f'{filepath}.downloaded').exists():
-                logger.debug(f'{scene.scene_id} is already downloaded.')
+            if Path(f"{filepath}.downloaded").exists():
+                logger.debug(f"{scene.scene_id} is already downloaded.")
             else:
                 # create list objects for download
-                download_list.append(
-                    [uuid[0], filepath, uname, pword, base_url]
-                )
+                download_list.append([uuid[0], filepath, uname, pword, base_url])
 
         if download_list:
             pool = multiprocessing.Pool(processes=concurrent)
             pool.map(s1_download_parallel, download_list)
 
-        downloaded_scenes = list(download_dir.glob('**/*.downloaded'))
+        downloaded_scenes = list(download_dir.glob("**/*.downloaded"))
 
-        if len(inventory_df['identifier'].tolist()) == len(downloaded_scenes):
-            logger.info('All products are downloaded.')
+        if len(inventory_df["identifier"].tolist()) == len(downloaded_scenes):
+            logger.info("All products are downloaded.")
             check = True
         else:
             check = False
@@ -373,7 +379,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2,
                 scene = S1Scene(scene)
                 file_path = scene.download_path(download_dir)
 
-                if file_path.with_suffix('.downloaded').exists():
+                if file_path.with_suffix(".downloaded").exists():
                     scenes.remove(scene.scene_id)
 
         i += 1

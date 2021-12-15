@@ -1,0 +1,46 @@
+name: Build
+
+on: 
+  - push
+  - workflow_dispatch
+
+env:
+  GPT_PATH: /usr/bin/gpt
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.7, 3.8]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install GDAL
+        run: |
+          sudo add-apt-repository ppa:ubuntugis/ppa && sudo apt-get update
+          sudo apt-get update
+          sudo apt-get install gdal-bin
+          sudo apt-get install libgdal-dev
+          export CPLUS_INCLUDE_PATH=/usr/include/gdal
+          export C_INCLUDE_PATH=/usr/include/gdal
+          pip install GDAL==3.2.3
+      - name: Install dependencies
+        run: pip install .[dev]
+      - name: Test formatting
+        uses: psf/black@stable
+      - name: PEP8 rules
+        uses: tonybajan/flake8-check-action@v1.0.0
+        with:
+            repotoken: ${{ secrets.GITHUB_TOKEN }}
+      - name: test with pytest
+        run: coverage run -m pytest --color=yes tests
+      - name: coverage
+        run: coverage report -m
+      - name: codecov
+        run: bash <(curl -s https://codecov.io/bash)

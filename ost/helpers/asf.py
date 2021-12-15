@@ -7,7 +7,6 @@
 import getpass
 import logging
 import requests
-import multiprocessing
 from pathlib import Path
 
 import tqdm
@@ -28,10 +27,12 @@ def ask_credentials():
     """
 
     # SciHub account details (will be asked by execution)
-    print(' If you do not have a ASF/NASA Earthdata user account'
-          ' go to: https://search.asf.alaska.edu/ and register')
-    uname = input(' Your ASF/NASA Earthdata Username:')
-    pword = getpass.getpass(' Your ASF/NASA Earthdata Password:')
+    print(
+        " If you do not have a ASF/NASA Earthdata user account"
+        " go to: https://search.asf.alaska.edu/ and register"
+    )
+    uname = input(" Your ASF/NASA Earthdata Username:")
+    pword = getpass.getpass(" Your ASF/NASA Earthdata Password:")
 
     return uname, pword
 
@@ -46,13 +47,13 @@ def check_connection(uname, pword):
 
     # random url to check
     url = (
-        'https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_'
-        '20160801T234454_20160801T234520_012413_0135F9_B926.zip'
+        "https://datapool.asf.alaska.edu/SLC/SA/S1A_IW_SLC__1SSV_"
+        "20160801T234454_20160801T234520_012413_0135F9_B926.zip"
     )
 
     with requests.Session() as session:
         session.auth = (uname, pword)
-        request = session.request('get', url)
+        request = session.request("get", url)
         response = session.get(request.url, auth=(uname, pword), stream=True)
         return response.status_code
 
@@ -82,15 +83,15 @@ def asf_download(url, filename, uname, pword):
     with requests.Session() as session:
 
         session.auth = (uname, pword)
-        request = session.request('get', url)
+        request = session.request("get", url)
         response = session.get(request.url, auth=(uname, pword), stream=True)
 
         # raise an exception in case of http errors
         response.raise_for_status()
 
-        logger.info(f'Downloading scene to: {filename}')
+        logger.info(f"Downloading scene to: {filename}")
         # get download size
-        total_length = int(response.headers.get('content-length', 0))
+        total_length = int(response.headers.get("content-length", 0))
 
         # define chunk_size
         chunk_size = 1024
@@ -113,9 +114,13 @@ def asf_download(url, filename, uname, pword):
                 if total_length is None:
                     file.write(response.content)
                 else:
-                    pbar = tqdm.tqdm(total=total_length, initial=first_byte,
-                                     unit='B', unit_scale=True,
-                                     desc=' INFO: Downloading ')
+                    pbar = tqdm.tqdm(
+                        total=total_length,
+                        initial=first_byte,
+                        unit="B",
+                        unit_scale=True,
+                        desc=" INFO: Downloading ",
+                    )
 
                     for chunk in response.iter_content(chunk_size):
                         if chunk:
@@ -134,13 +139,13 @@ def asf_download(url, filename, uname, pword):
         if filename.exists():
             filename.unlink()
         raise DownloadError(
-            f'{filename.name} did not pass the zip test. '
-            f'Re-downloading the full scene.'
+            f"{filename.name} did not pass the zip test. "
+            f"Re-downloading the full scene."
         )
     else:
-        logger.info(f'{filename.name} passed the zip test.')
-        with open(filename.with_suffix('.downloaded'), 'w+') as file:
-            file.write('successfully downloaded \n')
+        logger.info(f"{filename.name} passed the zip test.")
+        with open(filename.with_suffix(".downloaded"), "w+") as file:
+            file.write("successfully downloaded \n")
 
 
 def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
@@ -148,7 +153,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
     from ost import Sentinel1Scene as S1Scene
 
     # create list with scene ids to download
-    scenes = inventory_df['identifier'].tolist()
+    scenes = inventory_df["identifier"].tolist()
 
     asf_list = []
     for scene_id in scenes:
@@ -158,8 +163,8 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
         file_path = scene.download_path(download_dir, True)
 
         # check if already downloaded
-        if file_path.with_suffix('.downloaded').exists():
-            logger.info(f'{scene.scene_id} has been already downloaded.')
+        if file_path.with_suffix(".downloaded").exists():
+            logger.info(f"{scene.scene_id} has been already downloaded.")
             continue
 
         # append to list
@@ -168,30 +173,27 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
     # if list is not empty, do parallel download
     check_counter = 0
     if asf_list:
-        executor = Executor(max_workers=concurrent,
-                            executor='concurrent_processes')
+        executor = Executor(max_workers=concurrent, executor="concurrent_processes")
 
         for task in executor.as_completed(
-                func=asf_download_parallel,
-                iterable=asf_list,
-                fargs=[]
+            func=asf_download_parallel, iterable=asf_list, fargs=[]
         ):
             task.result()
             check_counter += 1
 
     # if all have been downloaded then we are through
-    if len(inventory_df['identifier'].tolist()) == check_counter:
-        logger.info('All products are downloaded.')
+    if len(inventory_df["identifier"].tolist()) == check_counter:
+        logger.info("All products are downloaded.")
     # else we
     else:
         for scene in scenes:
             # we check if outputfile exists...
             scene = S1Scene(scene)
             file_path = scene.download_path(download_dir)
-            if file_path.with_suffix('.downloaded').exists():
+            if file_path.with_suffix(".downloaded").exists():
                 # ...and remove from list of scenes to download
                 scenes.remove(scene.scene_id)
             else:
                 raise DownloadError(
-                    'ASF download is incomplete or has failed. Try to re-run.'
+                    "ASF download is incomplete or has failed. Try to re-run."
                 )
