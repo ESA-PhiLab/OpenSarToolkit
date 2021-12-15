@@ -1,3 +1,6 @@
+.. image:: https://raw.githubusercontent.com/ESA-PhiLab/OpenSarToolkit/main/docs/source/_images/header_image.PNG
+    :alt: cool ost image
+
 Open SAR Toolkit (OST)
 ======================
 
@@ -41,7 +44,7 @@ The Open SAR Toolkit (OST) bundles the full workflow for the generation of Analy
 
 The Open SAR Toolkit realises this by using an object-oriented approach, providing classes for single scene processing, GRD and SLC batch processing routines. The SAR processing itself relies on ESA's Sentinel-1 Toolbox as well as some geospatial python libraries and the Orfeo Toolbox for mosaicking.
 
-Please refer to our `examplatory notebooks <https://github.com/ESA-PhiLab/OST_Notebooks>`__ to get started.
+Please refer to our `examplatory notebooks <https://opensartoolkit.readthedocs.io/en/latest/example/index.html>`__ to get started.
 
 Installation
 ------------
@@ -126,7 +129,7 @@ Ecuador VV-polarised Timescan Composite
     -   Green: VV-minimum
     -   Blue: VV-Standard deviation
 
-.. image:: https://github.com/openforis/opensarkit/raw/master/shiny/www/ecuador_VV_max_min_std.png
+.. image:: https://raw.githubusercontent.com/ESA-PhiLab/OpenSarToolkit/main/docs/source/_images/ecuador_VV_max_min_std.png
     :alt: Ecuador VV-polarised Timescan Composite
 
 Ethiopia VV-VH polarised Timescan Composite
@@ -141,7 +144,7 @@ Ethiopia VV-VH polarised Timescan Composite
     -    Green: VH-minimum
     -    Blue: VV-Standard deviation
 
-.. image:: https://github.com/openforis/opensarkit/raw/master/shiny/www/eth_vvvh_ts.jpeg
+.. image:: https://raw.githubusercontent.com/ESA-PhiLab/OpenSarToolkit/main/docs/source/_images/eth_vvvh_ts.jpeg
     :alt: Ethiopia VV-VH polarised Timescan Composite
 
 
