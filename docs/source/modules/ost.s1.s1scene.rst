@@ -6,6 +6,7 @@ ost.s1.s1scene
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:
       :nosignatures:
       :recursive:
    

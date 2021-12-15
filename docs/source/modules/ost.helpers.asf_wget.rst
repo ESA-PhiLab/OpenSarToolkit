@@ -15,6 +15,7 @@ ost.helpers.asf\_wget
    .. rubric:: Classes
 
    .. autosummary:: 
+      :toctree:
       :nosignatures:
 
       SessionWithHeaderRedirection

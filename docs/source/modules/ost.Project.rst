@@ -6,6 +6,7 @@
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:
       :recursive:
       :nosignatures:
    

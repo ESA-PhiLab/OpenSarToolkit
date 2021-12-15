@@ -89,7 +89,4 @@ Instead of using R-Shiny as a GUI, the main interface are now `Jupyter notebooks
 Authors
 -------
 
-* Andreas Vollrath, FAO (ex-ESA philab)
-* Petr Sevcik, EOX
-* James Wheeler, ESA philab
-* Pierrick Rambaud, FAO OpenForis
+meet our `contributors <https://opensartoolkit.readthedocs.io/en/build/setup/contributors.html>`__.

@@ -13,6 +13,7 @@ ost.helpers.db
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree:
       :nosignatures:
 
       pgConnect

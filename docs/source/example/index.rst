@@ -8,7 +8,7 @@ examples on how to run OST.
     
     first_S1_scene
     data_search_&_access
-    latest_S1_scenes
+    latest_S1_scene
     S1_GRD_batch_subset
     S1_GRD_batch_TS
     S1_GRD_batch_tscan
