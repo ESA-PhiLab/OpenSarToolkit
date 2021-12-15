@@ -1,4 +1,4 @@
-gdal==3.2.3
+gdal==3.4.0
 pyproj==3.3.0
 descartes==1.1.0
 godale==0.3
