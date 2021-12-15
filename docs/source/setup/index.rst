@@ -11,8 +11,8 @@ Getting started
 
 .. toctree::
     :maxdepth: 2
+    :hidden: 
     
-    readme <README>
     installation
     contribute
     contributors
