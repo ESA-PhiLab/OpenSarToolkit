@@ -14,6 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, os.path.abspath("../.."))  # to have access to import ost
 
 
 # -- Project information -----------------------------------------------------
@@ -72,7 +73,7 @@ html_context = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# -- Options for autosummary output -------------------------------------------------
+# -- Options for autosummary output -----------------------------------------------
 autosummary_generate = False
 
 # -- Options for nb-sphinx output -------------------------------------------------
