@@ -103,30 +103,7 @@ To publish an OST new version:
         tag to create: 0.12.6
         increment detected: PATCH
 
--   update the changelog replacing :code:`*.*.*` by the new version number
-
-    .. code-block:: console
-
-        cz changelog --unreleased-version="v*.*.*"
-
-
-    And add the changelog to the commit:
-
-    .. code-block:: console 
-
-        git commit --amend
-
--   Create a tag with the new version name:
-
-    .. code-block:: console
-
-        git tag v*.*.*
-
 -   Push to :code:`main` (the commit is already created by the :code:`cz bump` command)
 -   Monitor the Github actions
 
 ✨ Happy contribuing ! ✨
-
-.. note:: 
-
-    we are working on way to includee all the previous steps in the :code:`cz bump` command
