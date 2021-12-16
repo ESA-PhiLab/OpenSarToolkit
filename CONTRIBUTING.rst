@@ -8,18 +8,19 @@ Following these guidelines helps to communicate that you respect the time of the
 
 .. warning:: 
 
-  Please, don't use the issue tracker for **support questions**. Instead, check if `discussion channels <https://github.com/ESA-PhiLab/OpenSarToolkit/discussions>`__ can help with your issue. 
+    Please, don't use the issue tracker for **support questions**. Instead, check if `discussion channels <https://github.com/ESA-PhiLab/OpenSarToolkit/discussions>`__ can help with your issue. 
 
 Ground Rules
 ------------
 
-**Responsibilities**
-#. Ensure cross-platform compatibility for every change that's accepted. Windows, Mac, Debian & Ubuntu Linux.
-#. Ensure that code that goes into core meets all requirements in the commitizen checklist
-#. Create issues for any major changes and enhancements that you wish to make. Discuss things transparently and get community feedback.
-#. Don't add any classes to the codebase unless absolutely needed. Err on the side of using functions.
-#. Keep feature versions as small as possible, preferably one new feature per version.
-#. Be welcoming to newcomers and encourage diverse new contributors from all backgrounds. See our `Code of Conduct <https://github.com/ESA-PhiLab/OpenSarToolkit/blob/main/CODE_OF_CONDUCT.md>`__.
+**Responsibilities**:
+
+#.  Ensure cross-platform compatibility for every change that's accepted. Windows, Mac, Debian & Ubuntu Linux.
+#.  Ensure that code that goes into core meets all requirements in the commitizen checklist
+#.  Create issues for any major changes and enhancements that you wish to make. Discuss things transparently and get community feedback.
+#.  Don't add any classes to the codebase unless absolutely needed. Err on the side of using functions.
+#.  Keep feature versions as small as possible, preferably one new feature per version.
+#.  Be welcoming to newcomers and encourage diverse new contributors from all backgrounds. See our `Code of Conduct <https://github.com/ESA-PhiLab/OpenSarToolkit/blob/main/CODE_OF_CONDUCT.md>`__.
 
 Your First Contribution
 -----------------------
@@ -35,8 +36,7 @@ Report a bug
 ^^^^^^^^^^^^
 .. danger:: 
 
-  If you find a security vulnerability, do NOT open an issue. Email opensarkit@gmail.com instead.
-
+    If you find a security vulnerability, do NOT open an issue. Email opensarkit@gmail.com instead.
 
 When filing an issue, make sure to answer the questions predifined in the issue template, it will help us reproduce the bug and elp you debuging it.
 
@@ -49,37 +49,70 @@ To install the development environment of the :code:`OpenSarToolkit` lib, create
 
 .. code-block:: console
 
-  $ cd OpenSarToolkit
-  $ python -m venv venv
-  (venv)$ source venv/bin/activate
+    $ cd OpenSarToolkit
+    $ python -m venv venv
+    (venv)$ source venv/bin/activate
   
 Once in the venv, you can install :code:`GDAL` (https://pypi.org/project/GDAL/) :code:`SNAP` (http://step.esa.int/main/download/) and :code:`ORFEO` (https://www.orfeo-toolbox.org/download/). then install the lib in development mode:
 
 .. code-block:: console
 
-  $ pip install -e .[dev]
+    $ pip install -e .[dev]
   
 This will install the :code:`pre-commit` hooks that will be run each time you commit to the repository.
 
 .. note:: 
 
-  You are not force to use en :code:`venv` to run :code:`ost` but make sure that your dependencies are compatible
+    You are not force to use en :code:`venv` to run :code:`ost` but make sure that your dependencies are compatible
 
 pull request
 ^^^^^^^^^^^^
+
 For something that is bigger than a one or two line fix
 
-#. Create your own fork of the code
-#. Do the changes in your fork
-#. If you like the change and think the project could use it:
+#.  Create your own fork of the code
+#.  Do the changes in your fork
+#.  If you like the change and think the project could use it:
 
-   * Be sure you have followed the code style for the project.
-   * run the test suit by running in the root folder of the lib:
+    *   Be sure you have followed the code style for the project.
+    *   run the test suit by running in the root folder of the lib:
     
-     .. code-block:: 
+        .. code-block:: 
     
-         python -m pytest
+            python -m pytest
          
-   * Send a pull request using the provided template
+    *   Send a pull request using the provided template
+
+Release
+^^^^^^^
+
+.. danger:: 
+
+    This section is intended for maintainer only, if a PR contains commit starting with "bump:" they will be refused.
+
+
+To publish an OST new version: 
+
+-   Wait for the test to run and complete on :code:`main`
+-   run the commitizen command locally 
+  
+    .. code-block::
+
+        cz bump
+  
+    You will see on your screen something like: 
+
+    .. code-block:: console
+
+        bump: version 0.12.5 → 0.12.6
+        tag to create: 0.12.6
+        increment detected: PATCH
+
+-   Push to main (the commit is already created by the :code:`cz bump` command)
+-   Monitor the Github actions
+    
+    #.   create a changelog 
+    #.   create a release with the new version name and corresponding changelog body
+    #.   publish to pipy
    
 ✨ Happy contribuing ! ✨
