@@ -86,17 +86,12 @@ For something that is bigger than a one or two line fix
 Release
 ^^^^^^^
 
-.. danger:: 
-
-    This section is intended for maintainer only, if a PR contains commit starting with "bump:" they will be refused.
-
-
 To publish an OST new version: 
 
 -   Wait for the test to run and complete on :code:`main`
 -   run the commitizen command locally 
   
-    .. code-block::
+    .. code-block:: console
 
         cz bump
   
@@ -108,11 +103,30 @@ To publish an OST new version:
         tag to create: 0.12.6
         increment detected: PATCH
 
--   Push to main (the commit is already created by the :code:`cz bump` command)
+-   update the changelog replacing :code:`*.*.*` by the new version number
+
+    .. code-block:: console
+
+        cz changelog --unreleased-version="v*.*.*"
+
+
+    And add the changelog to the commit:
+
+    .. code-block:: console 
+
+        git commit --amend
+
+-   Create a tag with the new version name:
+
+    .. code-block:: console
+
+        git tag v*.*.*
+
+-   Push to :code:`main` (the commit is already created by the :code:`cz bump` command)
 -   Monitor the Github actions
-    
-    #.   create a changelog 
-    #.   create a release with the new version name and corresponding changelog body
-    #.   publish to pipy
-   
+
 ✨ Happy contribuing ! ✨
+
+.. note:: 
+
+    we are working on way to includee all the previous steps in the :code:`cz bump` command

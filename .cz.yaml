@@ -1,5 +1,6 @@
 commitizen:
   changelog_file: CHANGELOG.md
+  update_changelog_on_bump: false
   name: cz_conventional_commits
   tag_format: v$major.$minor.$patch$prerelease
   version: 0.12.6
