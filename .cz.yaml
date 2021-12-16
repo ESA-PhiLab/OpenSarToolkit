@@ -1,9 +1,8 @@
 commitizen:
-  name: cz_conventional_commits
   changelog_file: CHANGELOG.md
+  name: cz_conventional_commits
   tag_format: $major.$minor.$patch$prerelease
-  version: 0.12.5
+  version: 0.12.6
   version_files:
   - setup.py:version
   - ost/__init__.py:__version__
-  
