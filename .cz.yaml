@@ -1,9 +1,9 @@
 commitizen:
   changelog_file: CHANGELOG.md
-  update_changelog_on_bump: false
   name: cz_conventional_commits
   tag_format: v$major.$minor.$patch$prerelease
-  version: 0.12.6
+  update_changelog_on_bump: false
+  version: 0.12.7
   version_files:
   - setup.py:version
   - ost/__init__.py:__version__
