@@ -1,7 +1,8 @@
-## v0.12.8 (2021-12-16)
+## v0.12.9 (2021-12-16)
 
 ### Fix
 
+- branch name in github actions
 - create a fix to trigger the bump
 
 ### Refactor
