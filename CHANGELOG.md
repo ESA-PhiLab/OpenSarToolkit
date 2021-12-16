@@ -1,4 +1,8 @@
-## 0.12.7 (2021-12-16)
+## v0.12.8 (2021-12-16)
+
+### Fix
+
+- create a fix to trigger the bump
 
 ### Refactor
 

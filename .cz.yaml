@@ -3,7 +3,7 @@ commitizen:
   name: cz_conventional_commits
   tag_format: v$major.$minor.$patch$prerelease
   update_changelog_on_bump: true
-  version: 0.12.7
+  version: 0.12.8
   version_files:
   - setup.py:version
   - ost/__init__.py:__version__
