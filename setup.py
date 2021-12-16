@@ -8,7 +8,7 @@ try:
     from osgeo import gdal
 except ModuleNotFoundError:
     raise ImportError(
-        "please install a GDAL distribution>=1.7 prior to install OpenSarTollkit"
+        "please install a GDAL distribution>=1.7 prior to install OpenSarTollkit, we recommand using the pygdal packages"
     )
 
 # to make flake8 happy
