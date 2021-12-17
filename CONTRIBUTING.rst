@@ -104,6 +104,6 @@ To publish an OST new version:
         increment detected: PATCH
 
 -   Push to :code:`main` (the commit is already created by the :code:`cz bump` command)
--   Monitor the Github actions
+-   create a new release using the new tag name and the autogenerate report. It will trigger the publication on pipy.
 
 ✨ Happy contribuing ! ✨
