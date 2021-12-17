@@ -5,8 +5,8 @@ on:
   - workflow_dispatch
 
 jobs:
-  if: "startsWith(github.event.head_commit.message, 'bump:')"
   deploy:
+    if: "startsWith(github.event.head_commit.message, 'bump:')"
     runs-on: ubuntu-latest
 
     steps:
