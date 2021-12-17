@@ -1,11 +1,11 @@
 name: Upload Python Package
 
-on:
-  push:
-    tags:
-      - "v*.*.*"
+on: 
+  - push
+  - workflow_dispatch
 
 jobs:
+  if: "startsWith(github.event.head_commit.message, 'bump:')"
   deploy:
     runs-on: ubuntu-latest
 
