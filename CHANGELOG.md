@@ -1,4 +1,10 @@
 
+## 0.12.12 (2021-12-17)
+
+### Fix
+
+- the if need to be set after job name
+
 ## 0.12.11 (2021-12-17)
 
 ### Fix

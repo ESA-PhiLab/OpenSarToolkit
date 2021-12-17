@@ -5,4 +5,4 @@ __all__ = ["Sentinel1Scene", "Sentinel1Batch", "Sentinel1", "Generic"]
 
 __author__ = "Andreas Vollrath"
 __email__ = "opensarkit@gmail.com"
-__version__ = "0.12.11"
+__version__ = "0.12.12"
