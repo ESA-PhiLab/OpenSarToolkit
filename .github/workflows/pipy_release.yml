@@ -1,12 +1,12 @@
 name: Upload Python Package
 
-on: 
-  - push
-  - workflow_dispatch
+on:
+  push:
+    tags:
+      - '*'
 
 jobs:
   deploy:
-    if: "startsWith(github.event.head_commit.message, 'bump:')"
     runs-on: ubuntu-latest
 
     steps:
@@ -34,10 +34,3 @@ jobs:
       run: |
         python setup.py sdist bdist_wheel
         twine upload dist/*
-    - name: Github release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.ref }}
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
