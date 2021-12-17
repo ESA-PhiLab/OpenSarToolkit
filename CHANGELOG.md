@@ -1,4 +1,11 @@
 
+## 0.12.13 (2021-12-17)
+
+### Fix
+
+- typo in yaml format
+- install gdal before publishing
+
 ## 0.12.12 (2021-12-17)
 
 ### Fix

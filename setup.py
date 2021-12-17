@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 gdal.__version__
 
 # the version number
-version = "0.12.12"
+version = "0.12.13"
 
 # The directory containing this file
 HERE = Path(__file__).parent
