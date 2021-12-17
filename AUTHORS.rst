@@ -61,6 +61,17 @@ Thanks goes to these wonderful people (`emoji key <https://allcontributors.org/d
                 <a href="#issue" title="Bug reports">🐛</a> 
                 <a href="#test" title="Test">⚠️</a>
             </td>
+            <td align="center">
+                <a href="https://github.com/Scartography">
+                    <img src="https://avatars.githubusercontent.com/u/24966632?v=4" width="70px;" alt="Scartography"/><br/>
+                    <sub><b>Scartography</b></sub>
+                </a>
+                <br/>
+                <a href="#code" title="Code">💻</a> 
+                <a href="#ideas" title="Ideas, Planning, & Feedback">🤔</a> 
+                <a href="#issue" title="Bug reports">🐛</a> 
+                <a href="#test" title="Test">⚠️</a>
+            </td>
         </tr>
     </table>
     </br>
