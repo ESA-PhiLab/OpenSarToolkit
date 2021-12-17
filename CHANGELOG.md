@@ -1,4 +1,10 @@
 
+## 0.12.11 (2021-12-17)
+
+### Fix
+
+- only push to pipy if the commit message is a bumping message
+
 ## 0.12.10 (2021-12-17)
 
 ### Fix
