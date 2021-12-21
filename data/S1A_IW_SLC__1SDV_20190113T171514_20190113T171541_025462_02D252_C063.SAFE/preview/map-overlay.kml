@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml" xmlns:xfdu="urn:ccsds:schema:xfdu:1" xmlns:safe="http://www.esa.int/safe/sentinel-1.0" xmlns:s1="http://www.esa.int/safe/sentinel-1.0/sentinel-1" xmlns:s1sar="http://www.esa.int/safe/sentinel-1.0/sentinel-1/sar" xmlns:s1sarl1="http://www.esa.int/safe/sentinel-1.0/sentinel-1/sar/level-1" xmlns:s1sarl2="http://www.esa.int/safe/sentinel-1.0/sentinel-1/sar/level-2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <name>Sentinel-1 Map Overlay</name>
+    <Folder>
+      <name>Sentinel-1 Scene Overlay</name>
+      <GroundOverlay>
+        <name>Sentinel-1 Image Overlay</name>
+        <Icon>
+          <href>quick-look.png</href>
+        </Icon>
+        <gx:LatLonQuad>
+          <coordinates>7.296180,47.421883 10.656781,47.817818 11.021577,46.201649 7.763069,45.806538</coordinates>
+        </gx:LatLonQuad>
+      </GroundOverlay>
+    </Folder>
+  </Document>
+</kml>
