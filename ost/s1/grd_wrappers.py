@@ -65,7 +65,6 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
             f"-Poutput='{str(outfile)}'"
         )
 
-        print(command)
     else:
         # construct path ot graph
         graph = OST_ROOT / "graphs" / "S1_GRD2ARD" / "1_AO_TNR.xml"
