@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pyproj
 from pyproj.crs import ProjectedCRS
-from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
+
+# temporary, we need to set minimum version of pyproj
+try:
+    from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
+except ImportError:
+    from pyproj.crs.coordinate_operation import AzumuthalEquidistantConversion as AzimuthalEquidistantConversion
+
 import geopandas as gpd
 import logging
 from osgeo import osr
