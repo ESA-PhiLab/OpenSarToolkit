@@ -10,7 +10,7 @@ try:
     from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
 except ImportError:
     from pyproj.crs.coordinate_operation import (
-        AzumuthalEquidistantConversion as AzimuthalEquidistantConversion
+        AzumuthalEquidistantConversion as AzimuthalEquidistantConversion,
     )
 
 import geopandas as gpd
