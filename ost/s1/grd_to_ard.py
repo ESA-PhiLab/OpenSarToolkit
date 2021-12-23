@@ -4,7 +4,7 @@
 import json
 import logging
 import rasterio
-import zipfile
+# import zipfile
 import numpy as np
 from pathlib import Path
 from tempfile import TemporaryDirectory
