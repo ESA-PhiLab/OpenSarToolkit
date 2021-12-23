@@ -9,7 +9,9 @@ from pyproj.crs import ProjectedCRS
 try:
     from pyproj.crs.coordinate_operation import AzimuthalEquidistantConversion
 except ImportError:
-    from pyproj.crs.coordinate_operation import AzumuthalEquidistantConversion as AzimuthalEquidistantConversion
+    from pyproj.crs.coordinate_operation import (
+        AzumuthalEquidistantConversion as AzimuthalEquidistantConversion
+    )
 
 import geopandas as gpd
 import logging

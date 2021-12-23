@@ -102,13 +102,13 @@ def grd_to_ard(filelist, config_file):
             for file in filelist:
 
                 # unzip for faster import?
-                unpack = None
-                if Path(file).suffix == ".zip":
-                    with zipfile.ZipFile(file, "r") as zip_ref:
-                        zip_ref.extractall(temp)
+                #unpack = None
+                #if Path(file).suffix == ".zip":
+                #    with zipfile.ZipFile(file, "r") as zip_ref:
+                #        zip_ref.extractall(temp)
 
-                    file = temp / f"{file.stem}.SAFE"
-                    unpack = True
+                #    file = temp / f"{file.stem}.SAFE"
+                #    unpack = True
 
                 # create namespace for temporary imported product
                 grd_import = temp / f"{file.stem}_imported"
@@ -127,9 +127,9 @@ def grd_to_ard(filelist, config_file):
 
                 config_dict["subset"] = subset
 
-                if unpack:
-                    h.remove_folder_content(file)
-                    file.rmdir()
+                #if unpack:
+                #    h.remove_folder_content(file)
+                #    file.rmdir()
 
             # create list of scenes for full acquisition in
             # preparation of slice assembly
@@ -184,13 +184,13 @@ def grd_to_ard(filelist, config_file):
             file = filelist[0]
 
             # unzip for faster import
-            unpack = None
-            if Path(file).suffix == ".zip":
-                with zipfile.ZipFile(file, "r") as zip_ref:
-                    zip_ref.extractall(temp)
+            #unpack = None
+            #if Path(file).suffix == ".zip":
+            #    with zipfile.ZipFile(file, "r") as zip_ref:
+            #        zip_ref.extractall(temp)
 
-                file = temp / f"{file.stem}.SAFE"
-                unpack = True
+            #    file = temp / f"{file.stem}.SAFE"
+            #    unpack = True
 
             # create namespace for temporary imported product
             grd_import = temp / f"{file_id}_imported"
@@ -205,9 +205,9 @@ def grd_to_ard(filelist, config_file):
                 logger.info(error)
                 return filelist, None, None, error
 
-            if unpack:
-                h.remove_folder_content(file)
-                file.rmdir()
+            #if unpack:
+            #    h.remove_folder_content(file)
+            #    file.rmdir()
 
         # set input for next step
         infile = grd_import.with_suffix(".dim")
