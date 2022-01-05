@@ -14,15 +14,15 @@ ost.helpers.asf
       batch_download
       check_connection
 
-.. automethod:: ost.helpers.asf.asf_download
+.. autofunction:: ost.helpers.asf.asf_download
 
-.. automethod:: ost.helpers.asf.asf_download_parallel
+.. autofunction:: ost.helpers.asf.asf_download_parallel
 
-.. automethod:: ost.helpers.asf.ask_credentials
+.. autofunction:: ost.helpers.asf.ask_credentials
 
-.. automethod:: ost.helpers.asf.batch_download
+.. autofunction:: ost.helpers.asf.batch_download
 
-.. automethod:: ost.helpers.asf.check_connection
+.. autofunction:: ost.helpers.asf.check_connection
    
    
 

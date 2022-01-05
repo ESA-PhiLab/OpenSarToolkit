@@ -14,15 +14,15 @@ ost.helpers.peps
       connect
       peps_download
 
-.. automethod:: ost.helpers.peps.ask_credentials
+.. autofunction:: ost.helpers.peps.ask_credentials
 
-.. automethod:: ost.helpers.peps.batch_download
+.. autofunction:: ost.helpers.peps.batch_download
 
-.. automethod:: ost.helpers.peps.check_connection
+.. autofunction:: ost.helpers.peps.check_connection
 
-.. automethod:: ost.helpers.peps.connect
+.. autofunction:: ost.helpers.peps.connect
 
-.. automethod:: ost.helpers.peps.peps_download
+.. autofunction:: ost.helpers.peps.peps_download
    
    
 

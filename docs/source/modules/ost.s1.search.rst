@@ -11,9 +11,9 @@ ost.s1.search
       check_availability
       scihub_catalogue
 
-.. automethod:: ost.s1.search.check_availability
+.. autofunction:: ost.s1.search.check_availability
 
-.. automethod:: ost.s1.search.scihub_catalogue
+.. autofunction:: ost.s1.search.scihub_catalogue
    
    
 

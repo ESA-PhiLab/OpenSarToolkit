@@ -12,11 +12,11 @@ ost.helpers.errors
       GPTRuntimeError
       NotValidFileError
 
-.. automethod:: ost.helpers.errors.DownloadError
+.. autofunction:: ost.helpers.errors.DownloadError
 
-.. automethod:: ost.helpers.errors.GPTRuntimeError
+.. autofunction:: ost.helpers.errors.GPTRuntimeError
 
-.. automethod:: ost.helpers.errors.NotValidFileError
+.. autofunction:: ost.helpers.errors.NotValidFileError
 
 
    

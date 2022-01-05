@@ -15,17 +15,17 @@ ost.s1.grd\_batch
       mosaic_timeseries
       timeseries_to_timescan
 
-.. automethod:: ost.s1.grd_batch.ards_to_timeseries
+.. autofunction:: ost.s1.grd_batch.ards_to_timeseries
 
-.. automethod:: ost.s1.grd_batch.create_processed_df
+.. autofunction:: ost.s1.grd_batch.create_processed_df
 
-.. automethod:: ost.s1.grd_batch.grd_to_ard_batch
+.. autofunction:: ost.s1.grd_batch.grd_to_ard_batch
 
-.. automethod:: ost.s1.grd_batch.mosaic_timescan
+.. autofunction:: ost.s1.grd_batch.mosaic_timescan
 
-.. automethod:: ost.s1.grd_batch.mosaic_timeseries
+.. autofunction:: ost.s1.grd_batch.mosaic_timeseries
 
-.. automethod:: ost.s1.grd_batch.timeseries_to_timescan
+.. autofunction:: ost.s1.grd_batch.timeseries_to_timescan
 
 
    

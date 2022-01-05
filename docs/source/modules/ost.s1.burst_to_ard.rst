@@ -13,13 +13,13 @@ ost.s1.burst\_to\_ard
       create_coherence_layers
       create_polarimetric_layers
 
-.. automethod:: ost.s1.burst_to_ard.burst_to_ard
+.. autofunction:: ost.s1.burst_to_ard.burst_to_ard
 
-.. automethod:: ost.s1.burst_to_ard.create_backscatter_layers
+.. autofunction:: ost.s1.burst_to_ard.create_backscatter_layers
 
-.. automethod:: ost.s1.burst_to_ard.create_coherence_layers
+.. autofunction:: ost.s1.burst_to_ard.create_coherence_layers
 
-.. automethod:: ost.s1.burst_to_ard.create_polarimetric_layers
+.. autofunction:: ost.s1.burst_to_ard.create_polarimetric_layers
    
    
 

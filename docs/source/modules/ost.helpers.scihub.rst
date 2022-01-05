@@ -20,27 +20,27 @@ ost.helpers.scihub
       s1_download
       s1_download_parallel
 
-.. automethod:: ost.helpers.scihub.ask_credentials
+.. autofunction:: ost.helpers.scihub.ask_credentials
 
-.. automethod:: ost.helpers.scihub.batch_download
+.. autofunction:: ost.helpers.scihub.batch_download
 
-.. automethod:: ost.helpers.scihub.check_connection
+.. autofunction:: ost.helpers.scihub.check_connection
 
-.. automethod:: ost.helpers.scihub.connect
+.. autofunction:: ost.helpers.scihub.connect
 
-.. automethod:: ost.helpers.scihub.create_aoi_str
+.. autofunction:: ost.helpers.scihub.create_aoi_str
 
-.. automethod:: ost.helpers.scihub.create_s1_product_specs
+.. autofunction:: ost.helpers.scihub.create_s1_product_specs
 
-.. automethod:: ost.helpers.scihub.create_satellite_string
+.. autofunction:: ost.helpers.scihub.create_satellite_string
 
-.. automethod:: ost.helpers.scihub.create_toi_str
+.. autofunction:: ost.helpers.scihub.create_toi_str
 
-.. automethod:: ost.helpers.scihub.next_page
+.. autofunction:: ost.helpers.scihub.next_page
 
-.. automethod:: ost.helpers.scihub.s1_download
+.. autofunction:: ost.helpers.scihub.s1_download
 
-.. automethod:: ost.helpers.scihub.s1_download_parallel
+.. autofunction:: ost.helpers.scihub.s1_download_parallel
 
    
    

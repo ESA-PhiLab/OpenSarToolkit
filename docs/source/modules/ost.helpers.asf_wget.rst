@@ -20,11 +20,11 @@ ost.helpers.asf\_wget
 
       SessionWithHeaderRedirection
 
-.. automethod:: ost.helpers.asf_wget.batch_download
+.. autofunction:: ost.helpers.asf_wget.batch_download
 
-.. automethod:: ost.helpers.asf_wget.check_connection
+.. autofunction:: ost.helpers.asf_wget.check_connection
 
-.. automethod:: ost.helpers.asf_wget.s1_download
+.. autofunction:: ost.helpers.asf_wget.s1_download
    
    
 

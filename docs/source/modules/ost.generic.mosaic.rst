@@ -14,15 +14,15 @@ ost.generic.mosaic
       mosaic
       mosaic_slc_acquisition
 
-.. automethod:: ost.generic.mosaic.create_timeseries_mosaic_vrt
+.. autofunction:: ost.generic.mosaic.create_timeseries_mosaic_vrt
 
-.. automethod:: ost.generic.mosaic.gd_mosaic
+.. autofunction:: ost.generic.mosaic.gd_mosaic
 
-.. automethod:: ost.generic.mosaic.gd_mosaic_slc_acquisition
+.. autofunction:: ost.generic.mosaic.gd_mosaic_slc_acquisition
 
-.. automethod:: ost.generic.mosaic.mosaic
+.. autofunction:: ost.generic.mosaic.mosaic
 
-.. automethod:: ost.generic.mosaic.mosaic_slc_acquisition
+.. autofunction:: ost.generic.mosaic.mosaic_slc_acquisition
    
    
 

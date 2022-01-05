@@ -14,15 +14,15 @@ ost.helpers.onda
       connect
       onda_download
 
-.. automethod:: ost.helpers.onda.ask_credentials
+.. autofunction:: ost.helpers.onda.ask_credentials
 
-.. automethod:: ost.helpers.onda.batch_download
+.. autofunction:: ost.helpers.onda.batch_download
 
-.. automethod:: ost.helpers.onda.check_connection
+.. autofunction:: ost.helpers.onda.check_connection
 
-.. automethod:: ost.helpers.onda.connect
+.. autofunction:: ost.helpers.onda.connect
 
-.. automethod:: ost.helpers.onda.onda_download
+.. autofunction:: ost.helpers.onda.onda_download
    
    
 

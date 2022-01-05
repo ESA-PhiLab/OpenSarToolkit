@@ -13,13 +13,13 @@ ost.s1.burst\_inventory
       prepare_burst_inventory
       refine_burst_inventory
 
-.. automethod:: ost.s1.burst_inventory.burst_extract
+.. autofunction:: ost.s1.burst_inventory.burst_extract
 
-.. automethod:: ost.s1.burst_inventory.burst_inventory
+.. autofunction:: ost.s1.burst_inventory.burst_inventory
 
-.. automethod:: ost.s1.burst_inventory.prepare_burst_inventory
+.. autofunction:: ost.s1.burst_inventory.prepare_burst_inventory
 
-.. automethod:: ost.s1.burst_inventory.refine_burst_inventory
+.. autofunction:: ost.s1.burst_inventory.refine_burst_inventory
    
    
 

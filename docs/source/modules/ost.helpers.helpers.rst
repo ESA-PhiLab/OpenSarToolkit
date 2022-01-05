@@ -19,25 +19,25 @@ ost.helpers.helpers
       run_command
       timer
 
-.. automethod:: ost.helpers.helpers.check_out_dimap
+.. autofunction:: ost.helpers.helpers.check_out_dimap
 
-.. automethod:: ost.helpers.helpers.check_out_tiff
+.. autofunction:: ost.helpers.helpers.check_out_tiff
 
-.. automethod:: ost.helpers.helpers.check_zipfile
+.. autofunction:: ost.helpers.helpers.check_zipfile
 
-.. automethod:: ost.helpers.helpers.delete_dimap
+.. autofunction:: ost.helpers.helpers.delete_dimap
 
-.. automethod:: ost.helpers.helpers.delete_shapefile
+.. autofunction:: ost.helpers.helpers.delete_shapefile
 
-.. automethod:: ost.helpers.helpers.move_dimap
+.. autofunction:: ost.helpers.helpers.move_dimap
 
-.. automethod:: ost.helpers.helpers.remove_folder_content
+.. autofunction:: ost.helpers.helpers.remove_folder_content
 
-.. automethod:: ost.helpers.helpers.resolution_in_degree
+.. autofunction:: ost.helpers.helpers.resolution_in_degree
 
-.. automethod:: ost.helpers.helpers.run_command
+.. autofunction:: ost.helpers.helpers.run_command
 
-.. automethod:: ost.helpers.helpers.timer
+.. autofunction:: ost.helpers.helpers.timer
    
    
 
