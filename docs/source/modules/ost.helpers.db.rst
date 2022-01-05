@@ -18,7 +18,7 @@ ost.helpers.db
 
       pgConnect
 
-.. automethod:: ost.helpers.db.pgHandler
+.. autofunction:: ost.helpers.db.pgHandler
 
 
 

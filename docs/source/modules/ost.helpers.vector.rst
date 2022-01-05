@@ -26,37 +26,37 @@ ost.helpers.vector
       wkt_manipulations
       wkt_to_gdf
 
-.. automethod:: ost.helpers.vector.aoi_to_wkt
+.. autofunction:: ost.helpers.vector.aoi_to_wkt
 
-.. automethod:: ost.helpers.vector.buffer_shape
+.. autofunction:: ost.helpers.vector.buffer_shape
 
-.. automethod:: ost.helpers.vector.difference
+.. autofunction:: ost.helpers.vector.difference
 
-.. automethod:: ost.helpers.vector.epsg_to_wkt_projection
+.. autofunction:: ost.helpers.vector.epsg_to_wkt_projection
 
-.. automethod:: ost.helpers.vector.exterior
+.. autofunction:: ost.helpers.vector.exterior
 
-.. automethod:: ost.helpers.vector.gdf_to_json_geometry
+.. autofunction:: ost.helpers.vector.gdf_to_json_geometry
 
-.. automethod:: ost.helpers.vector.geodesic_point_buffer
+.. autofunction:: ost.helpers.vector.geodesic_point_buffer
 
-.. automethod:: ost.helpers.vector.get_epsg
+.. autofunction:: ost.helpers.vector.get_epsg
 
-.. automethod:: ost.helpers.vector.get_proj4
+.. autofunction:: ost.helpers.vector.get_proj4
 
-.. automethod:: ost.helpers.vector.latlon_to_shp
+.. autofunction:: ost.helpers.vector.latlon_to_shp
 
-.. automethod:: ost.helpers.vector.plot_inventory
+.. autofunction:: ost.helpers.vector.plot_inventory
 
-.. automethod:: ost.helpers.vector.reproject_geometry
+.. autofunction:: ost.helpers.vector.reproject_geometry
 
-.. automethod:: ost.helpers.vector.set_subset
+.. autofunction:: ost.helpers.vector.set_subset
 
-.. automethod:: ost.helpers.vector.shp_to_wkt
+.. autofunction:: ost.helpers.vector.shp_to_wkt
 
-.. automethod:: ost.helpers.vector.wkt_manipulations
+.. autofunction:: ost.helpers.vector.wkt_manipulations
 
-.. automethod:: ost.helpers.vector.wkt_to_gdf
+.. autofunction:: ost.helpers.vector.wkt_to_gdf
    
    
 

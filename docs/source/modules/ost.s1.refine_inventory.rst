@@ -10,7 +10,7 @@ ost.s1.refine\_inventory
    
       search_refinement
 
-.. automethod:: ost.s1.refine_inventory.search_refinement
+.. autofunction:: ost.s1.refine_inventory.search_refinement
    
    
 

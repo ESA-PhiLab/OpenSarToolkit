@@ -10,7 +10,7 @@ ost.generic.ts\_extent
    
       mt_extent
 
-.. automethod:: ost.generic.ts_extent.mt_extent
+.. autofunction:: ost.generic.ts_extent.mt_extent
    
    
 

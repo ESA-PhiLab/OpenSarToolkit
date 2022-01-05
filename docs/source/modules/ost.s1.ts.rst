@@ -11,9 +11,9 @@ ost.s1.ts
       create_datelist
       create_ts_animation
 
-.. automethod:: ost.s1.ts.create_datelist
+.. autofunction:: ost.s1.ts.create_datelist
 
-.. automethod:: ost.s1.ts.create_ts_animation
+.. autofunction:: ost.s1.ts.create_ts_animation
 
 
    

@@ -11,9 +11,9 @@ ost.generic.ard\_to\_ts
       ard_to_ts
       gd_ard_to_ts
 
-.. automethod:: ost.generic.ard_to_ts.ard_to_ts
+.. autofunction:: ost.generic.ard_to_ts.ard_to_ts
 
-.. automethod:: ost.generic.ard_to_ts.gd_ard_to_ts
+.. autofunction:: ost.generic.ard_to_ts.gd_ard_to_ts
 
 
    

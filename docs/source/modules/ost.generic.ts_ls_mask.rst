@@ -10,4 +10,4 @@ ost.generic.ts\_ls\_mask
    
       mt_layover
 
-.. automethod:: ost.generic.ts_ls_mask.mt_layover
+.. autofunction:: ost.generic.ts_ls_mask.mt_layover

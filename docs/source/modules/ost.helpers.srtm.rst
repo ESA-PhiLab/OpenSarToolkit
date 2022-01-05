@@ -11,9 +11,9 @@ ost.helpers.srtm
       download_srtm
       download_srtm_tile
 
-.. automethod:: ost.helpers.srtm.download_srtm
+.. autofunction:: ost.helpers.srtm.download_srtm
 
-.. automethod:: ost.helpers.srtm.download_srtm_tile
+.. autofunction:: ost.helpers.srtm.download_srtm_tile
    
    
 

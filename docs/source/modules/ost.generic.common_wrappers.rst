@@ -16,19 +16,19 @@ ost.generic.common\_wrappers
       terrain_correction
       terrain_flattening
 
-.. automethod:: ost.generic.common_wrappers.create_stack
+.. autofunction:: ost.generic.common_wrappers.create_stack
 
-.. automethod:: ost.generic.common_wrappers.linear_to_db
+.. autofunction:: ost.generic.common_wrappers.linear_to_db
 
-.. automethod:: ost.generic.common_wrappers.ls_mask
+.. autofunction:: ost.generic.common_wrappers.ls_mask
 
-.. automethod:: ost.generic.common_wrappers.mt_speckle_filter
+.. autofunction:: ost.generic.common_wrappers.mt_speckle_filter
 
-.. automethod:: ost.generic.common_wrappers.speckle_filter
+.. autofunction:: ost.generic.common_wrappers.speckle_filter
 
-.. automethod:: ost.generic.common_wrappers.terrain_correction
+.. autofunction:: ost.generic.common_wrappers.terrain_correction
 
-.. automethod:: ost.generic.common_wrappers.terrain_flattening
+.. autofunction:: ost.generic.common_wrappers.terrain_flattening
 
    
    
