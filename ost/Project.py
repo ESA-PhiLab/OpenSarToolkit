@@ -40,6 +40,40 @@ OST_INVENTORY_FILE = "full.inventory.gpkg"
 
 
 class Generic:
+    """
+    TBD
+    """
+
+    project_dir = None
+    "pathlib.Path: absolute path to project directory"
+
+    download_dir = None
+    "pathlib.Path: absolute path to the download directory"
+
+    inventory_dir = None
+    "pathlib.Path: absolute path to the inventory directory"
+
+    processing_dir = None
+    "pathlib.Path: absolute path to the process directory"
+
+    temp_dir = None
+    "pathlib.Path: absolute path to the temp directory"
+
+    aoi = None
+    "TBD"
+
+    start = None
+    "TBD"
+
+    end = None
+    "TBD"
+
+    data_mount = None
+    "TBD"
+
+    config_dict = None
+    "TBD"
+
     def __init__(
         self,
         project_dir,
@@ -58,7 +92,7 @@ class Generic:
         # ------------------------------------------
         # 2 Handle directories
 
-        # get absolute path to project directory
+        # set absolute path to project directory
         self.project_dir = Path(project_dir).resolve()
 
         # create project directory if not existent
@@ -141,9 +175,61 @@ class Generic:
 
 
 class Sentinel1(Generic):
-    """A Sentinel-1 specific subclass of the Generic OST class
+    """
+    A Sentinel-1 specific subclass of the Generic OST class
     This subclass creates a Sentinel-1 specific
     """
+
+    product_type = None
+    "TBD"
+
+    beam_mode = None
+    "TBD"
+
+    polarisation = None
+    "TBD"
+
+    inventory_file = None
+    "TBD"
+
+    inventory = None
+    "TBD"
+
+    refined_inventory_dict = None
+    "TBD"
+
+    coverages = None
+    "TBD"
+
+    burst_inventory = None
+    "TBD"
+
+    burst_inventory_file = None
+    "TBD"
+
+    scihub_uname = None
+    "str: the scihub username"
+
+    scihub_pword = None
+    "str: the scihub password"
+
+    asf_uname = None
+    "TBD"
+
+    asf_pword = None
+    "TBD"
+
+    peps_uname = None
+    "TBD"
+
+    peps_pword = None
+    "TBD"
+
+    onda_uname = None
+    "TBD"
+
+    onda_pword = None
+    "TBD"
 
     def __init__(
         self,
@@ -484,9 +570,16 @@ class Sentinel1(Generic):
 
 
 class Sentinel1Batch(Sentinel1):
-    """A Sentinel-1 specific subclass of the Generic OST class
+    """
+    A Sentinel-1 specific subclass of the Generic OST class
     This subclass creates a Sentinel-1 specific
     """
+
+    ard_type = None
+    "TBD"
+
+    ard_parameters = None
+    "TBD"
 
     def __init__(
         self,
@@ -661,11 +754,9 @@ class Sentinel1Batch(Sentinel1):
         :type timeseries: bool, optional
         :param timescan: if True, Timescans will be generated for each burst id
         type: timescan: bool, optional
-        :param mosaic: if True, Mosaics will be generated from the
-                       Time-Series/Timescans of each burst id
+        :param mosaic: if True, Mosaics will be generated from the Time-Series Timescans of each burst id
         :type mosaic: bool, optional
-        :param overwrite: (if True, the processing folder will be
-        emptied
+        :param overwrite: (if True, the processing folder will be emptied
         :type overwrite: bool, optional
         :param max_workers: number of parallel burst
         :type max_workers: int, default=1

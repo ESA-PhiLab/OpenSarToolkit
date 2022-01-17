@@ -49,6 +49,97 @@ CONNECTION_ERROR_2 = "The server couldn't fulfill the request. Error code: "
 
 
 class Sentinel1Scene:
+    """
+    TBD
+    """
+
+    scene_id = None
+    "TBD"
+
+    mission_id = None
+    "TBD"
+
+    mode_beam = None
+    "TBD"
+
+    product_type = None
+    "TBD"
+
+    resolution_class = None
+    "TBD"
+
+    proc_level = None
+    "TBD"
+
+    pol_mode = None
+    "TBD"
+
+    start_date = None
+    "TBD"
+
+    start_time = None
+    "TBD"
+
+    stop_date = None
+    "TBD"
+
+    stop_time = None
+    "TBD"
+
+    abs_orbit = None
+    "TBD"
+
+    data_take_id = None
+    "TBD"
+
+    unique_id = None
+    "TBD"
+
+    year = None
+    "TBD"
+
+    month = None
+    "TBD"
+
+    day = None
+    "TBD"
+
+    onda_class = None
+    "TBD"
+
+    orbit_offset = None
+    "TBD"
+
+    satellite = None
+    "TBD"
+
+    rel_orbit = None
+    "TBD"
+
+    acq_mode = None
+    "TBD"
+
+    p_type = None
+    "TBD"
+
+    product_dl_path = None
+    "TBD"
+
+    ard_dimap = None
+    "TBD"
+
+    ard_rgb = None
+    "TBD"
+
+    rgb_thumbnail = None
+    "TBD"
+
+    config_dict = None
+    "TBD"
+
+    config_file = None
+    "TBD"
+
     def __init__(self, scene_id, ard_type="OST_GTC", log_level=logging.INFO):
 
         # set log level
