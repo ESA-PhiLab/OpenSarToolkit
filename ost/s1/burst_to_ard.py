@@ -248,7 +248,8 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
 def create_coherence_layers(
     master_import, slave_import, out_dir, master_prefix, config_dict
 ):
-    """Pipeline for Dual-polarimetric decomposition
+    """
+    Pipeline for Dual-polarimetric decomposition
 
     :param master_import:
     :param slave_import:
