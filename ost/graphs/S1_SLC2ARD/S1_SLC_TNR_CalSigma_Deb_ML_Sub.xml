@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources/>
+    <sources />
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,10 +10,10 @@
   <node id="ThermalNoiseRemoval">
     <operator>ThermalNoiseRemoval</operator>
     <sources>
-      <sourceProduct refid="Read"/>
+      <sourceProduct refid="Read" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations />
       <removeThermalNoise>true</removeThermalNoise>
       <reIntroduceThermalNoise>false</reIntroduceThermalNoise>
     </parameters>
@@ -21,17 +21,17 @@
   <node id="Calibration">
     <operator>Calibration</operator>
     <sources>
-      <sourceProduct refid="ThermalNoiseRemoval"/>
+      <sourceProduct refid="ThermalNoiseRemoval" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <auxFile>Latest Auxiliary File</auxFile>
-      <externalAuxFile/>
+      <externalAuxFile />
       <outputImageInComplex>false</outputImageInComplex>
       <outputImageScaleInDb>false</outputImageScaleInDb>
       <createGammaBand>false</createGammaBand>
       <createBetaBand>false</createBetaBand>
-      <selectedPolarisations/>
+      <selectedPolarisations />
       <outputSigmaBand>true</outputSigmaBand>
       <outputGammaBand>false</outputGammaBand>
       <outputBetaBand>false</outputBetaBand>
@@ -40,19 +40,19 @@
   <node id="TOPSAR-Deburst">
     <operator>TOPSAR-Deburst</operator>
     <sources>
-      <sourceProduct refid="Calibration"/>
+      <sourceProduct refid="Calibration" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations />
     </parameters>
   </node>
    <node id="Multilook">
     <operator>Multilook</operator>
     <sources>
-      <sourceProduct refid="TOPSAR-Deburst"/>
+      <sourceProduct refid="TOPSAR-Deburst" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <nRgLooks>${range_looks}</nRgLooks>
       <nAzLooks>${azimuth_looks}</nAzLooks>
       <outputIntensity>false</outputIntensity>
@@ -62,23 +62,23 @@
   <node id="Subset">
     <operator>Subset</operator>
     <sources>
-       <sourceProduct refid="Multilook"/>
+       <sourceProduct refid="Multilook" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <region>0, 0, 0, 0</region>
       <geoRegion>${region}</geoRegion>
       <subSamplingX>1</subSamplingX>
       <subSamplingY>1</subSamplingY>
       <fullSwath>false</fullSwath>
-      <tiePointGridNames/>
+      <tiePointGridNames />
       <copyMetadata>true</copyMetadata>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Subset"/>
+      <sourceProduct refid="Subset" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -86,21 +86,21 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description/>
+    <Description />
     <node id="Read">
-            <displayPosition x="37.0" y="28.0"/>
+            <displayPosition x="37.0" y="28.0" />
     </node>
     <node id="ThermalNoiseRemoval">
-      <displayPosition x="115.0" y="89.0"/>
+      <displayPosition x="115.0" y="89.0" />
     </node>
     <node id="Calibration">
-      <displayPosition x="308.0" y="147.0"/>
+      <displayPosition x="308.0" y="147.0" />
     </node>
     <node id="TOPSAR-Deburst">
-      <displayPosition x="402.0" y="206.0"/>
+      <displayPosition x="402.0" y="206.0" />
     </node>
     <node id="Write">
-            <displayPosition x="548.0" y="252.0"/>
+            <displayPosition x="548.0" y="252.0" />
     </node>
   </applicationData>
 </graph>
