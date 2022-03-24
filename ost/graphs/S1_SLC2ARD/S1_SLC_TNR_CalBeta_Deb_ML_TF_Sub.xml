@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources/>
+    <sources />
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,10 +10,10 @@
   <node id="ThermalNoiseRemoval">
     <operator>ThermalNoiseRemoval</operator>
     <sources>
-      <sourceProduct refid="Read"/>
+      <sourceProduct refid="Read" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations />
       <removeThermalNoise>true</removeThermalNoise>
       <reIntroduceThermalNoise>false</reIntroduceThermalNoise>
     </parameters>
@@ -21,17 +21,17 @@
   <node id="Calibration">
     <operator>Calibration</operator>
     <sources>
-      <sourceProduct refid="ThermalNoiseRemoval"/>
+      <sourceProduct refid="ThermalNoiseRemoval" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <auxFile>Latest Auxiliary File</auxFile>
-      <externalAuxFile/>
+      <externalAuxFile />
       <outputImageInComplex>false</outputImageInComplex>
       <outputImageScaleInDb>false</outputImageScaleInDb>
       <createGammaBand>false</createGammaBand>
       <createBetaBand>false</createBetaBand>
-      <selectedPolarisations/>
+      <selectedPolarisations />
       <outputSigmaBand>false</outputSigmaBand>
       <outputGammaBand>false</outputGammaBand>
       <outputBetaBand>true</outputBetaBand>
@@ -40,19 +40,19 @@
   <node id="TOPSAR-Deburst">
     <operator>TOPSAR-Deburst</operator>
     <sources>
-      <sourceProduct refid="Calibration"/>
+      <sourceProduct refid="Calibration" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations />
     </parameters>
   </node>
   <node id="Multilook">
     <operator>Multilook</operator>
     <sources>
-      <sourceProduct refid="TOPSAR-Deburst"/>
+      <sourceProduct refid="TOPSAR-Deburst" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <nRgLooks>${range_looks}</nRgLooks>
       <nAzLooks>${azimuth_looks}</nAzLooks>
       <outputIntensity>false</outputIntensity>
@@ -62,10 +62,10 @@
   <node id="Terrain-Flattening">
     <operator>Terrain-Flattening</operator>
     <sources>
-      <sourceProduct refid="Multilook"/>
+      <sourceProduct refid="Multilook" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <demName>${dem}</demName>
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
@@ -79,23 +79,23 @@
   <node id="Subset">
     <operator>Subset</operator>
     <sources>
-      <sourceProduct refid="Terrain-Flattening"/>
+      <sourceProduct refid="Terrain-Flattening" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <region>0, 0, 0, 0</region>
       <geoRegion>${region}</geoRegion>
       <subSamplingX>1</subSamplingX>
       <subSamplingY>1</subSamplingY>
       <fullSwath>false</fullSwath>
-      <tiePointGridNames/>
+      <tiePointGridNames />
       <copyMetadata>true</copyMetadata>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Subset"/>
+      <sourceProduct refid="Subset" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -103,21 +103,21 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description/>
+    <Description />
     <node id="Read">
-            <displayPosition x="31.0" y="56.0"/>
+            <displayPosition x="31.0" y="56.0" />
     </node>
     <node id="ThermalNoiseRemoval">
-      <displayPosition x="122.0" y="116.0"/>
+      <displayPosition x="122.0" y="116.0" />
     </node>
     <node id="Calibration">
-      <displayPosition x="282.0" y="177.0"/>
+      <displayPosition x="282.0" y="177.0" />
     </node>
     <node id="TOPSAR-Deburst">
-      <displayPosition x="379.0" y="234.0"/>
+      <displayPosition x="379.0" y="234.0" />
     </node>
     <node id="Write">
-            <displayPosition x="536.0" y="287.0"/>
+            <displayPosition x="536.0" y="287.0" />
     </node>
   </applicationData>
 </graph>

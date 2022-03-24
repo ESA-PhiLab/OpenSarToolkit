@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources/>
+    <sources />
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,25 +10,25 @@
    <node id="Terrain-Correction">
     <operator>Terrain-Correction</operator>
     <sources>
-      <sourceProduct refid="Multilook"/>
+      <sourceProduct refid="Multilook" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <demName>${dem}</demName>
-      <externalDEMFile/>
+      <externalDEMFile />
       <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
       <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
       <imgResamplingMethod>BILINEAR_INTERPOLATION</imgResamplingMethod>
       <pixelSpacingInMeter>0.0</pixelSpacingInMeter>
       <pixelSpacingInDegree>${resol}</pixelSpacingInDegree>
-      <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,
-  DATUM[&quot;WGS84&quot;,
-    SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]],
-  PRIMEM[&quot;Greenwich&quot;, 0.0],
-  UNIT[&quot;degree&quot;, 0.017453292519943295],
-  AXIS[&quot;Geodetic longitude&quot;, EAST],
-  AXIS[&quot;Geodetic latitude&quot;, NORTH]]</mapProjection>
+      <mapProjection>GEOGCS["WGS84(DD)",
+  DATUM["WGS84",
+    SPHEROID["WGS84", 6378137.0, 298.257223563]],
+  PRIMEM["Greenwich", 0.0],
+  UNIT["degree", 0.017453292519943295],
+  AXIS["Geodetic longitude", EAST],
+  AXIS["Geodetic latitude", NORTH]]</mapProjection>
       <alignToStandardGrid>false</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>
       <standardGridOriginY>0.0</standardGridOriginY>
@@ -39,7 +39,6 @@
       <saveLocalIncidenceAngle>false</saveLocalIncidenceAngle>
       <saveProjectedLocalIncidenceAngle>false</saveProjectedLocalIncidenceAngle>
       <saveSelectedSourceBand>true</saveSelectedSourceBand>
-      <outputComplex>false</outputComplex>
       <applyRadiometricNormalization>false</applyRadiometricNormalization>
       <saveSigmaNought>false</saveSigmaNought>
       <saveGammaNought>false</saveGammaNought>
@@ -47,16 +46,16 @@
       <incidenceAngleForSigma0>Use projected local incidence angle from DEM</incidenceAngleForSigma0>
       <incidenceAngleForGamma0>Use projected local incidence angle from DEM</incidenceAngleForGamma0>
       <auxFile>Latest Auxiliary File</auxFile>
-      <externalAuxFile/>
+      <externalAuxFile />
     </parameters>
   </node>
   <node id="Multilook">
     <operator>Multilook</operator>
     <sources>
-      <sourceProduct refid="Read"/>
+      <sourceProduct refid="Read" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
+      <sourceBands />
       <nRgLooks>${ml}</nRgLooks>
       <nAzLooks>${ml}</nAzLooks>
       <outputIntensity>false</outputIntensity>
@@ -66,7 +65,7 @@
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Terrain-Correction"/>
+      <sourceProduct refid="Terrain-Correction" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -74,21 +73,21 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description/>
+    <Description />
     <node id="Read">
-            <displayPosition x="31.0" y="44.0"/>
+            <displayPosition x="31.0" y="44.0" />
     </node>
     <node id="Calibration">
-      <displayPosition x="103.0" y="87.0"/>
+      <displayPosition x="103.0" y="87.0" />
     </node>
     <node id="Terrain-Correction">
-      <displayPosition x="402.0" y="212.0"/>
+      <displayPosition x="402.0" y="212.0" />
     </node>
     <node id="Multilook">
-      <displayPosition x="242.0" y="159.0"/>
+      <displayPosition x="242.0" y="159.0" />
     </node>
     <node id="Write">
-            <displayPosition x="519.0" y="259.0"/>
+            <displayPosition x="519.0" y="259.0" />
     </node>
   </applicationData>
 </graph>

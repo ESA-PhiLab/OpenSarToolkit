@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources/>
+    <sources />
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,16 +10,16 @@
   <node id="TOPSAR-Deburst">
     <operator>TOPSAR-Deburst</operator>
     <sources>
-      <sourceProduct refid="Read"/>
+      <sourceProduct refid="Read" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations/>
+      <selectedPolarisations />
     </parameters>
   </node>
   <node id="Polarimetric-Decomposition">
     <operator>Polarimetric-Decomposition</operator>
     <sources>
-      <sourceProduct refid="TOPSAR-Deburst"/>
+      <sourceProduct refid="TOPSAR-Deburst" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <decomposition>H-Alpha Dual Pol Decomposition</decomposition>
@@ -37,7 +37,7 @@
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Polarimetric-Decomposition"/>
+      <sourceProduct refid="Polarimetric-Decomposition" />
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -45,18 +45,18 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description/>
+    <Description />
     <node id="Read">
-            <displayPosition x="29.0" y="46.0"/>
+            <displayPosition x="29.0" y="46.0" />
     </node>
     <node id="TOPSAR-Deburst">
-      <displayPosition x="126.0" y="81.0"/>
+      <displayPosition x="126.0" y="81.0" />
     </node>
     <node id="Polarimetric-Decomposition">
-      <displayPosition x="278.0" y="146.0"/>
+      <displayPosition x="278.0" y="146.0" />
     </node>
     <node id="Write">
-            <displayPosition x="474.0" y="209.0"/>
+            <displayPosition x="474.0" y="209.0" />
     </node>
   </applicationData>
 </graph>
