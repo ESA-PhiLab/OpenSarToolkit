@@ -48,7 +48,8 @@ The Open SAR Toolkit (OST) bundles the full workflow for the generation of Analy
 
 The Open SAR Toolkit realises this by using an object-oriented approach, providing classes for single scene processing, GRD and SLC batch processing routines. The SAR processing itself relies on ESA's Sentinel-1 Toolbox as well as some geospatial python libraries and the Orfeo Toolbox for mosaicking.
 
-Please refer to our `documentation <https://opensartoolkit.readthedocs.io/en/build/>`__ to get started.
+Please refer to our `documentation <https://opensartoolkit.readthedocs.io/en/latest/>`__ to get started.
+
 
 Examples
 --------
