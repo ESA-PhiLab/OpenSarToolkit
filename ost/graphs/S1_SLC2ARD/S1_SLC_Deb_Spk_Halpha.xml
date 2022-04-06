@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources />
+    <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,16 +10,16 @@
   <node id="TOPSAR-Deburst">
     <operator>TOPSAR-Deburst</operator>
     <sources>
-      <sourceProduct refid="Read" />
+      <sourceProduct refid="Read"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <selectedPolarisations />
+      <selectedPolarisations/>
     </parameters>
   </node>
   <node id="Polarimetric-Speckle-Filter">
     <operator>Polarimetric-Speckle-Filter</operator>
     <sources>
-      <sourceProduct refid="TOPSAR-Deburst" />
+      <sourceProduct refid="TOPSAR-Deburst"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <filter>${filter}</filter>
@@ -34,7 +34,7 @@
   <node id="Polarimetric-Decomposition">
     <operator>Polarimetric-Decomposition</operator>
     <sources>
-      <sourceProduct refid="Polarimetric-Speckle-Filter" />
+      <sourceProduct refid="Polarimetric-Speckle-Filter"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <decomposition>H-Alpha Dual Pol Decomposition</decomposition>
@@ -52,7 +52,7 @@
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Polarimetric-Decomposition" />
+      <sourceProduct refid="Polarimetric-Decomposition"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -60,21 +60,21 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description />
+    <Description/>
     <node id="Read">
-            <displayPosition x="46.0" y="62.0" />
+            <displayPosition x="46.0" y="62.0"/>
     </node>
     <node id="TOPSAR-Deburst">
-      <displayPosition x="133.0" y="106.0" />
+      <displayPosition x="133.0" y="106.0"/>
     </node>
     <node id="Polarimetric-Speckle-Filter">
-      <displayPosition x="225.0" y="144.0" />
+      <displayPosition x="225.0" y="144.0"/>
     </node>
     <node id="Polarimetric-Decomposition">
-      <displayPosition x="343.0" y="205.0" />
+      <displayPosition x="343.0" y="205.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="495.0" y="245.0" />
+            <displayPosition x="495.0" y="245.0"/>
     </node>
   </applicationData>
 </graph>

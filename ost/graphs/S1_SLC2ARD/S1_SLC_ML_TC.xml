@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources />
+    <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>/${input}</file>
     </parameters>
@@ -10,10 +10,10 @@
   <node id="Multilook">
     <operator>Multilook</operator>
     <sources>
-      <sourceProduct refid="Read" />
+      <sourceProduct refid="Read"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands />
+      <sourceBands/>
       <nRgLooks>5</nRgLooks>
       <nAzLooks>1</nAzLooks>
       <outputIntensity>false</outputIntensity>
@@ -23,10 +23,10 @@
   <node id="Terrain-Correction">
     <operator>Terrain-Correction</operator>
     <sources>
-      <sourceProduct refid="Multilook" />
+      <sourceProduct refid="Multilook"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands />
+      <sourceBands/>
       <demName>${dem}</demName>
       <externalDEMFile>${dem_file}</externalDEMFile>
       <externalDEMNoDataValue>${dem_nodata}</externalDEMNoDataValue>
@@ -35,13 +35,13 @@
       <imgResamplingMethod>${image_resampling}</imgResamplingMethod>
       <pixelSpacingInMeter>${resol}</pixelSpacingInMeter>
       <pixelSpacingInDegree>0</pixelSpacingInDegree>
-      <mapProjection>GEOGCS["WGS84(DD)",
-  DATUM["WGS84",
-    SPHEROID["WGS84", 6378137.0, 298.257223563]],
-  PRIMEM["Greenwich", 0.0],
-  UNIT["degree", 0.017453292519943295],
-  AXIS["Geodetic longitude", EAST],
-  AXIS["Geodetic latitude", NORTH]]</mapProjection>
+      <mapProjection>GEOGCS[&quot;WGS84(DD)&quot;,
+  DATUM[&quot;WGS84&quot;,
+    SPHEROID[&quot;WGS84&quot;, 6378137.0, 298.257223563]],
+  PRIMEM[&quot;Greenwich&quot;, 0.0],
+  UNIT[&quot;degree&quot;, 0.017453292519943295],
+  AXIS[&quot;Geodetic longitude&quot;, EAST],
+  AXIS[&quot;Geodetic latitude&quot;, NORTH]]</mapProjection>
       <alignToStandardGrid>false</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>
       <standardGridOriginY>0.0</standardGridOriginY>
@@ -59,13 +59,13 @@
       <incidenceAngleForSigma0>Use projected local incidence angle from DEM</incidenceAngleForSigma0>
       <incidenceAngleForGamma0>Use projected local incidence angle from DEM</incidenceAngleForGamma0>
       <auxFile>Latest Auxiliary File</auxFile>
-      <externalAuxFile />
+      <externalAuxFile/>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Terrain-Correction" />
+      <sourceProduct refid="Terrain-Correction"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -73,18 +73,18 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description />
+    <Description/>
     <node id="Read">
-            <displayPosition x="37.0" y="56.0" />
+            <displayPosition x="37.0" y="56.0"/>
     </node>
     <node id="Multilook">
-      <displayPosition x="136.0" y="109.0" />
+      <displayPosition x="136.0" y="109.0"/>
     </node>
     <node id="Terrain-Correction">
-      <displayPosition x="249.0" y="180.0" />
+      <displayPosition x="249.0" y="180.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="463.0" y="218.0" />
+            <displayPosition x="463.0" y="218.0"/>
     </node>
   </applicationData>
 </graph>

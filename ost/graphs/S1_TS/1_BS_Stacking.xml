@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="ProductSet-Reader">
     <operator>ProductSet-Reader</operator>
-    <sources />
+    <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <fileList>${filelist}</fileList>
     </parameters>
@@ -10,11 +10,11 @@
   <node id="CreateStack">
     <operator>CreateStack</operator>
     <sources>
-      <sourceProduct refid="ProductSet-Reader" />
+      <sourceProduct refid="ProductSet-Reader"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <masterBands />
-      <sourceBands />
+      <masterBands/>
+      <sourceBands/>
       <resamplingType>BICUBIC_INTERPOLATION</resamplingType>
       <extent>Minimum</extent>
       <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
@@ -23,18 +23,18 @@
   <node id="BandSelect">
     <operator>BandSelect</operator>
     <sources>
-      <sourceProduct refid="CreateStack" />
+      <sourceProduct refid="CreateStack"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <selectedPolarisations>${pol}</selectedPolarisations>
-      <sourceBands />
-      <bandNamePattern />
+      <sourceBands/>
+      <bandNamePattern/>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="BandSelect" />
+      <sourceProduct refid="BandSelect"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -42,18 +42,18 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description />
+    <Description/>
     <node id="ProductSet-Reader">
-      <displayPosition x="28.0" y="35.0" />
+      <displayPosition x="28.0" y="35.0"/>
     </node>
     <node id="BandSelect">
-      <displayPosition x="168.0" y="102.0" />
+      <displayPosition x="168.0" y="102.0"/>
     </node>
     <node id="CreateStack">
-      <displayPosition x="261.0" y="163.0" />
+      <displayPosition x="261.0" y="163.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="455.0" y="135.0" />
+            <displayPosition x="455.0" y="135.0"/>
     </node>
   </applicationData>
 </graph>

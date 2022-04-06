@@ -2,7 +2,7 @@
   <version>1.0</version>
   <node id="Read">
     <operator>Read</operator>
-    <sources />
+    <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${input}</file>
     </parameters>
@@ -10,10 +10,10 @@
   <node id="SAR-Simulation">
     <operator>SAR-Simulation</operator>
     <sources>
-      <sourceProduct refid="Read" />
+      <sourceProduct refid="Read"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands />
+      <sourceBands/>
       <demName>${dem}</demName>
       <demResamplingMethod>${dem_resampling}</demResamplingMethod>
       <externalDEMFile>${dem_file}</externalDEMFile>
@@ -25,7 +25,7 @@
   <node id="Terrain-Correction">
     <operator>Terrain-Correction</operator>
     <sources>
-      <sourceProduct refid="SAR-Simulation" />
+      <sourceProduct refid="SAR-Simulation"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands>layover_shadow_mask</sourceBands>
@@ -55,13 +55,13 @@
       <incidenceAngleForSigma0>Use projected local incidence angle from DEM</incidenceAngleForSigma0>
       <incidenceAngleForGamma0>Use projected local incidence angle from DEM</incidenceAngleForGamma0>
       <auxFile>Latest Auxiliary File</auxFile>
-      <externalAuxFile />
+      <externalAuxFile/>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Terrain-Correction" />
+      <sourceProduct refid="Terrain-Correction"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -69,18 +69,18 @@
     </parameters>
   </node>
   <applicationData id="Presentation">
-    <Description />
+    <Description/>
     <node id="Read">
-            <displayPosition x="37.0" y="134.0" />
+            <displayPosition x="37.0" y="134.0"/>
     </node>
     <node id="SAR-Simulation">
-      <displayPosition x="138.0" y="184.0" />
+      <displayPosition x="138.0" y="184.0"/>
     </node>
     <node id="Terrain-Correction">
-      <displayPosition x="309.0" y="192.0" />
+      <displayPosition x="309.0" y="192.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="455.0" y="135.0" />
+            <displayPosition x="455.0" y="135.0"/>
     </node>
   </applicationData>
 </graph>
