@@ -138,7 +138,7 @@ class Generic:
             self.start = start
         except ValueError:
             raise ValueError(
-                "Incorrect date format for start date. " "It should be YYYY-MM-DD"
+                "Incorrect date format for start date. It should be YYYY-MM-DD"
             )
 
         try:
@@ -146,7 +146,7 @@ class Generic:
             self.end = end
         except ValueError:
             raise ValueError(
-                "Incorrect date format for end date. " "It should be YYYY-MM-DD"
+                "Incorrect date format for end date. It should be YYYY-MM-DD"
             )
 
         # ------------------------------------------
@@ -253,7 +253,9 @@ class Sentinel1(Generic):
         if product_type in ["*", "RAW", "SLC", "GRD"]:
             self.product_type = product_type
         else:
-            raise ValueError("Product type must be one out of '*', 'RAW', 'SLC', 'GRD'")
+            raise ValueError(
+                "Product type must be one out of '*', 'RAW', 'SLC', 'GRD'"
+            )
 
         # ------------------------------------------
         # 3 Check and set beam mode
@@ -413,11 +415,11 @@ class Sentinel1(Generic):
         """
         if inventory_df is None:
             download_size = (
-                self.inventory["size"].str.replace(" GB", "").astype("float32").sum()
+                self.inventory["size"].str.replace(" GB", "").replace(" MB", "").astype("float32").sum()
             )
         else:
             download_size = (
-                inventory_df["size"].str.replace(" GB", "").astype("float32").sum()
+                inventory_df["size"].str.replace(" GB", "").replace(" MB", "").astype("float32").sum()
             )
 
         logger.info(f"There are about {download_size} GB need to be downloaded.")
