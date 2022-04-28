@@ -23,7 +23,7 @@ import geopandas as gpd
 from shapely.wkt import loads
 
 from ost.helpers import vector as vec, raster as ras
-from ost.helpers import scihub, helpers as h, srtm
+from ost.helpers import scihub, helpers as h, srtm, copdem
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters
 
@@ -744,6 +744,11 @@ class Sentinel1Batch(Sentinel1):
         logger.info("Pre-downloading SRTM tiles")
         srtm.download_srtm(self.aoi)
 
+    def pre_download_copdem(self):
+
+        logger.info("Pre-downloading Copernicus DEM tiles")
+        copdem.download_copdem(self.aoi)
+
     def bursts_to_ards(
         self, timeseries=False, timescan=False, mosaic=False, overwrite=False
     ):
@@ -836,9 +841,11 @@ class Sentinel1Batch(Sentinel1):
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        # if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
-        #    self.pre_download_srtm()
+        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
+            self.pre_download_srtm()
 
+        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == "Copernicus 30m Global DEM":
+            self.pre_download_copdem()
         # --------------------------------------------
         # 6 run the burst to ard batch routine (up to 3 times if needed)
         i = 1
