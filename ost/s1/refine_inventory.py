@@ -1,8 +1,9 @@
 import itertools
-import geopandas as gpd
 import logging
 import warnings
 
+import pandas as pd
+import geopandas as gpd
 from shapely.ops import unary_union
 
 # import internal modules
@@ -430,7 +431,7 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                     union = track_gdf.geometry.unary_union
 
                     # add to overall union and to out_frame
-                    temp_df = temp_df.append(track_gdf)
+                    temp_df = pd.concat([temp_df, track_gdf])
 
                     # just for first loop
                     if gdf_union is None:

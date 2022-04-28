@@ -7,6 +7,7 @@ import logging
 import warnings
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
 import geopandas as gpd
 from shapely.wkt import loads
@@ -211,7 +212,7 @@ def burst_inventory(
         single_gdf["Direction"] = orbit_direction
 
         # append
-        gdf_full = gdf_full.append(single_gdf, sort=True)
+        gdf_full = pd.concat([gdf_full, single_gdf])
 
     gdf_full = gdf_full.reset_index(drop=True)
 
@@ -372,6 +373,6 @@ def prepare_burst_inventory(burst_gdf, config_file):
                 burst_row["slave_file"], burst_row["slave_burst_nr"] = None, None
                 burst_row["slave_prefix"] = None
 
-            proc_burst_gdf = proc_burst_gdf.append(burst_row, sort=False)
+            proc_burst_gdf = pd.concat([proc_burst_gdf, burst_row])
 
     return proc_burst_gdf

@@ -64,6 +64,7 @@ import dateutil.parser
 from pathlib import Path
 
 # import external modules
+import pandas as pd
 import geopandas as gpd
 from shapely.wkt import dumps, loads
 
@@ -209,7 +210,7 @@ def _query_scihub(opener, query):
             gdf = gpd.GeoDataFrame(acq_list, columns=columns, crs=crs)
 
             # append the gdf to the full gdf
-            geo_df = geo_df.append(gdf)
+            geo_df = pd.concat([geo_df, gdf])
 
         # retrieve next page and set index up by 99 entries
         next_page = scihub.next_page(dom)
@@ -452,6 +453,7 @@ def scihub_catalogue(
     :param append:
     :param uname:
     :param pword:
+    :param base_url:
     :return:
     """
 

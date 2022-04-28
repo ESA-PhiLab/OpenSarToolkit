@@ -83,7 +83,7 @@ def create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error):
         temp_df["error"] = error
 
         # append to final df and delete temp_df for next loop
-        df = df.append(temp_df)
+        df = pd.concat([df, temp_df])
         del temp_df
 
     return df
@@ -134,7 +134,7 @@ def grd_to_ard_batch(inventory_df, config_file):
             inventory_df, list_of_scenes, outfile, out_ls, error
         )
 
-        processing_df = processing_df.append(temp_df)
+        processing_df = pd.concat([processing_df, temp_df])
 
     return processing_df
 

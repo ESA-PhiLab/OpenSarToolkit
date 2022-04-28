@@ -591,7 +591,7 @@ class Sentinel1Scene:
                     self.scene_id, self.rel_orbit, self.start_date, eTree.parse(et_root)
                 )
 
-                gdf_final = gdf_final.append(gdf)
+                gdf_final = pd.concat([gdf_final, gdf])
 
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
 
@@ -634,7 +634,7 @@ class Sentinel1Scene:
                 self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_string)
             )
 
-            gdf_final = gdf_final.append(gdf)
+            gdf_final = pd.concat([gdf_final, gdf])
 
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
 
@@ -660,7 +660,7 @@ class Sentinel1Scene:
             gdf = burst_extract(
                 self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_file)
             )
-            gdf_final = gdf_final.append(gdf)
+            gdf_final = pd.concat([gdf_final, gdf])
 
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
 
