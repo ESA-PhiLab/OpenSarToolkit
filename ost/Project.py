@@ -10,6 +10,7 @@ if "PROJ_LIB" in list(os.environ.keys()):
     del os.environ["PROJ_LIB"]
 # ------ bug of rasterio --------
 
+import re
 import json
 import urllib.request
 import urllib.parse
@@ -414,15 +415,15 @@ class Sentinel1(Generic):
         :return:
         """
         if inventory_df is None:
-            download_size = (
-                self.inventory["size"].str.replace(" GB", "").replace(" MB", "").astype("float32").sum()
-            )
+            size = self.inventory["size"]
         else:
-            download_size = (
-                inventory_df["size"].str.replace(" GB", "").replace(" MB", "").astype("float32").sum()
-            )
+            size = inventory_df["size"]
 
-        logger.info(f"There are about {download_size} GB need to be downloaded.")
+        size = size.apply(
+            lambda x: re.sub(' GB', '', x) if re.search(' GB', str(x)) else re.sub(' MB', '', x) / 1024
+        ).astype('float32')
+
+        logger.info(f"There are about {size} GB need to be downloaded.")
 
     def refine_inventory(
         self,
