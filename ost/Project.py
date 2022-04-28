@@ -411,16 +411,31 @@ class Sentinel1(Generic):
         :param inventory_df:
         :return:
         """
+        download_size = 0.0
         if inventory_df is None:
-            download_size = (
-                self.inventory["size"].str.replace(" GB", "").astype("float32").sum()
-            )
+            inventory_size = self.inventory["size"]
+            for size in inventory_size:
+                size_gb = re.search(' GB', str(size))
+                if size_gb:
+                    size_gb_n = re.sub(' GB', '' , (size))
+                    download_size = (float(size_gb_n)) + download_size
+                else:
+                    size_mb_n = re.sub(' MB', '', (size))
+                    size_mb_togb = float(size_mb_n)/1024
+                    download_size = size_mb_togb + download_size
         else:
-            download_size = (
-                inventory_df["size"].str.replace(" GB", "").astype("float32").sum()
-            )
+            inventory_size = inventory["size"]
+            for size in inventory_size:
+                size_gb = re.search(' GB', str(size))
+                if size_gb:
+                    size_gb_n = re.sub(' GB', '' , (size))
+                    download_size = (float(size_gb_n)) + download_size
+                else:
+                    size_mb_n = re.sub(' MB', '', (size))
+                    size_mb_togb = float(size_mb_n)/1024
+                    download_size = size_mb_togb + download_size
 
-        logger.info(f"There are about {download_size} GB need to be downloaded.")
+        logger.info(f"There are about {round(download_size, 3)} GB need to be downloaded.")
 
     def refine_inventory(
         self,
