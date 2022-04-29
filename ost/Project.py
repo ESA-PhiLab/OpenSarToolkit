@@ -254,9 +254,8 @@ class Sentinel1(Generic):
         if product_type in ["*", "RAW", "SLC", "GRD"]:
             self.product_type = product_type
         else:
-            raise ValueError(
-                "Product type must be one out of '*', 'RAW', 'SLC', 'GRD'"
-            )
+            raise ValueError("Product type must be one out of '*', 'RAW', "
+                             "'SLC', 'GRD'")
 
         # ------------------------------------------
         # 3 Check and set beam mode

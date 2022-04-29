@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 def download_copdem_tile(tile_id):
+
     # path to snaps aux folder
-    #snap_aux = Path.home() / "bucket" / "snap_aux" / "auxdata" / "dem" / "Copernicus 30m Global DEM"
+    # snap_aux = Path.home() / "bucket" / "snap_aux" / "auxdata" / "dem" / "Copernicus 30m Global DEM"
     snap_aux = Path.home() / ".snap" / "auxdata" / "dem" / "Copernicus 30m Global DEM"
 
     if not snap_aux.exists():
@@ -83,13 +84,13 @@ def download_copdem(aoi):
                             UserWarning)
 
     copdem = gpd.read_file(OST_ROOT / "auxdata" / "copdem30tiles.gpkg")
-    copdem['tile_id'] = copdem['id']
+    copdem["tile_id"] = copdem["id"]
     aoi_gdf = vec.wkt_to_gdf(aoi)
     aoi_gdf["geometry"] = aoi_gdf.geometry.buffer(1)
     overlap_df = gpd.overlay(copdem, aoi_gdf, how="intersection")
 
     iter_list = []
-    for file in overlap_df['tile_id'].values:
+    for file in overlap_df["tile_id"].values:
         iter_list.append(file)
         # download_copdem_tile(file)### fro debugging
 

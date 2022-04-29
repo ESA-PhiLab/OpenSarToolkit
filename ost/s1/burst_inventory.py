@@ -121,16 +121,16 @@ def burst_extract(scene_id, track, acq_date, et_root):
         )
 
         geo_dict = {
-            "SceneID": scene_id,
-            "Track": track,
-            "Date": acq_date,
-            "SwathID": swath,
-            "AnxTime": azi_anx_time,
-            "BurstNr": i + 1,
-            "geometry": loads(wkt),
+            "SceneID": [scene_id],
+            "Track": [track],
+            "Date": [acq_date],
+            "SwathID": [swath],
+            "AnxTime": [azi_anx_time],
+            "BurstNr": [i + 1],
+            "geometry": [loads(wkt)],
         }
 
-        gdf = gdf.append(geo_dict, ignore_index=True)
+        gdf = pd.concat([gdf, pd.DataFrame.from_dict(geo_dict)])
 
     return gdf
 
