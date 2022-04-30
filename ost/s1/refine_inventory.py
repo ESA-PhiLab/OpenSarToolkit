@@ -350,7 +350,7 @@ def _forward_search(aoi_gdf, inventory_df, area_reduce=0):
             union = gdf.geometry.unary_union
 
             # add to overall union and to out_frame
-            out_frame = out_frame.append(gdf)
+            out_frame = pd.concat([out_frame, gdf])
 
             # just for first loop
             if gdf_union is None:
@@ -449,7 +449,7 @@ def _backward_search(aoi_gdf, inventory_df, datelist, area_reduce=0):
                     # we break the loop if we found enough
                     if intersect_area >= aoi_area - area_reduce:
                         # cleanup scenes
-                        out_frame = out_frame.append(temp_df)
+                        out_frame = pd.concat([out_frame, temp_df])
                         temp_df = gpd.GeoDataFrame(columns=inventory_df.columns)
                         gdf_union = None
 
