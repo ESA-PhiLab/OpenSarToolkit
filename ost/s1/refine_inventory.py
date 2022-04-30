@@ -244,7 +244,7 @@ def _remove_incomplete_tracks(aoi_gdf, inventory_df):
             intersect_date = aoi_gdf.geometry.intersection(date_union).area.sum()
 
             if intersect_track <= intersect_date + 0.15:
-                out_frame = out_frame.append(gdf_date)
+                out_frame = pd.concat([out_frame, gdf_date])
 
     logger.info(
         f" {len(out_frame)} frames remain after" f" removal of non-full AOI crossing"
