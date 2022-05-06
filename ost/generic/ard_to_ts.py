@@ -46,10 +46,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
     # in case some processing has been done before, check if already processed
     check_file = out_dir / f".{product}.{pol}.processed"
     if Path.exists(check_file):
-        logger.info(
-            f"Timeseries of {burst} for {product} in {pol} "
-            f"polarisation already processed."
-        )
+        logger.info(f"Timeseries of {burst} for {product} in {pol} " f"polarisation already processed.")
 
         out_files = "already_processed"
         out_vrt = "already_processed"
@@ -92,9 +89,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 f"H-A-Alpha decomposition."
             )
             try:
-                create_stack(
-                    list_of_files, temp_stack, stack_log, config_dict, pattern=pol
-                )
+                create_stack(list_of_files, temp_stack, stack_log, config_dict, pattern=pol)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, None, None, None, error
@@ -104,9 +99,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
                 f"{burst} for {product} product in {pol} polarization."
             )
             try:
-                create_stack(
-                    list_of_files, temp_stack, stack_log, config_dict, polarisation=pol
-                )
+                create_stack(list_of_files, temp_stack, stack_log, config_dict, polarisation=pol)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, None, None, None, error
@@ -118,9 +111,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
 
             logger.debug("Applying multi-temporal speckle filter")
             try:
-                mt_speckle_filter(
-                    temp_stack.with_suffix(".dim"), out_stack, speckle_log, config_dict
-                )
+                mt_speckle_filter(temp_stack.with_suffix(".dim"), out_stack, speckle_log, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, None, None, None, error
@@ -168,9 +159,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
             for i, (mst, slv) in enumerate(zip(mst_dates, slv_dates)):
 
                 # re-construct namespace for input file
-                infile = list(
-                    out_stack.with_suffix(".data").glob(f"*{pol}*{mst}_{slv}*img")
-                )[0]
+                infile = list(out_stack.with_suffix(".data").glob(f"*{pol}*{mst}_{slv}*img"))[0]
 
                 # rename dates to YYYYMMDD format
                 mst = dt.strftime(dt.strptime(mst, SNAP_DATEFORMAT), "%y%m%d")
@@ -221,9 +210,7 @@ def ard_to_ts(list_of_files, burst, product, pol, config_file):
             for i, date in enumerate(dates):
 
                 # re-construct namespace for input file
-                infile = list(
-                    out_stack.with_suffix(".data").glob(f"*{pol}*{date}*img")
-                )[0]
+                infile = list(out_stack.with_suffix(".data").glob(f"*{pol}*{date}*img"))[0]
 
                 # restructure date to YYMMDD
                 date = dt.strftime(dt.strptime(date, SNAP_DATEFORMAT), "%y%m%d")

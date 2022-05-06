@@ -57,11 +57,7 @@ def _closure_procedure(geojson_shape, buffer):
     """
 
     # close islands
-    s = (
-        shape(geojson_shape)
-        .buffer(-buffer, 1, join_style=2)
-        .buffer(buffer, 1, join_style=2)
-    )
+    s = shape(geojson_shape).buffer(-buffer, 1, join_style=2).buffer(buffer, 1, join_style=2)
 
     # do negative buffering to reduce border issues due to resampling
     s = s.buffer(buffer, 1, join_style=2)
@@ -102,9 +98,7 @@ def polygonize_bounds(infile, outfile, mask_value=1, driver="GeoJSON"):
                 "properties": {"raster_val": v},
                 "geometry": _closure_procedure(s, neg_buffer),
             }
-            for i, (s, v) in enumerate(
-                shapes(image, mask=mask, transform=src.transform)
-            )
+            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
 
         with fiona.open(
@@ -587,9 +581,7 @@ def calc_min(band, stretch="minmax"):
     elif stretch == "minmax":
         band_min = np.nanmin(band)
     else:
-        raise ValueError(
-            "Please select one of percentile or minmax " "for the stretch parameter."
-        )
+        raise ValueError("Please select one of percentile or minmax " "for the stretch parameter.")
 
     return band_min
 
@@ -601,9 +593,7 @@ def calc_max(band, stretch="minmax"):
     elif stretch == "minmax":
         band_max = np.nanmax(band)
     else:
-        raise ValueError(
-            "Please select one of percentile or minmax " "for the stretch parameter."
-        )
+        raise ValueError("Please select one of percentile or minmax " "for the stretch parameter.")
     return band_max
 
 
@@ -657,9 +647,7 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
             datelist = sorted([file.name.split(".")[1] for file in filelist])
 
             for i, date in enumerate(datelist):
-                file = list(
-                    processing_dir.glob(f"*/Timeseries/*{date}*{product_type}.tif")
-                )
+                file = list(processing_dir.glob(f"*/Timeseries/*{date}*{product_type}.tif"))
                 outfile = tseries_dir / f"{i+1:02d}.{date}.{product_type}.tif"
 
                 shutil.copy(file[0], str(outfile))
@@ -681,9 +669,7 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
                 if ard["to_db"] or ard_mt["to_db"]:
                     to_db = True
 
-                dtype_conversion = (
-                    True if ard_mt["dtype_output"] != "float32" else False
-                )
+                dtype_conversion = True if ard_mt["dtype_output"] != "float32" else False
 
                 tscan_dir = comb_dir / "Timescan"
                 tscan_dir.mkdir(parents=True, exist_ok=True)
@@ -695,9 +681,7 @@ def combine_timeseries(processing_dir, config_dict, timescan=True):
                     continue
 
                 # create a datelist for harmonics
-                scene_list = [
-                    str(file) for file in list(tseries_dir.glob(f"*{product_type}.tif"))
-                ]
+                scene_list = [str(file) for file in list(tseries_dir.glob(f"*{product_type}.tif"))]
 
                 # create a datelist for harmonics calculation
                 datelist = []
@@ -776,9 +760,7 @@ def create_rgb_jpeg(
         out_meta.update(height=new_height, width=new_width)
         count = 1
 
-        layer1 = src.read(
-            out_shape=(src.count, new_height, new_width), resampling=resampling_factor
-        )[0]
+        layer1 = src.read(out_shape=(src.count, new_height, new_width), resampling=resampling_factor)[0]
 
     if len(filelist) > 1:
         with rio.open(filelist[1]) as src:
@@ -794,9 +776,7 @@ def create_rgb_jpeg(
             layer3 = scale_to_int(np.subtract(layer1, layer2), 1, 15, "uint8")
         else:
             layer3 = scale_to_int(
-                np.subtract(
-                    rescale_to_float(layer1, dtype), rescale_to_float(layer2, dtype)
-                ),
+                np.subtract(rescale_to_float(layer1, dtype), rescale_to_float(layer2, dtype)),
                 1,
                 15,
                 "uint8",
@@ -901,10 +881,7 @@ def create_timeseries_animation(
     outfiles = []
     for i in range(nr_of_products):
 
-        filelist = [
-            list(timeseries_folder.glob(f"{i+1:02d}.*.{product}.tif"))[0]
-            for product in product_list
-        ]
+        filelist = [list(timeseries_folder.glob(f"{i+1:02d}.*.{product}.tif"))[0] for product in product_list]
 
         dates = filelist[0].name.split(".")[1]
 
@@ -928,9 +905,7 @@ def create_timeseries_animation(
         gif_name = f"{prefix}_{product_list[0]}_ts_animation.gif"
     else:
         gif_name = f"{product_list[0]}_ts_animation.gif"
-    with imageio.get_writer(
-        out_folder / gif_name, mode="I", duration=duration
-    ) as writer:
+    with imageio.get_writer(out_folder / gif_name, mode="I", duration=duration) as writer:
 
         for file in outfiles:
             image = imageio.imread(file)

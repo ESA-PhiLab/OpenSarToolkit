@@ -112,14 +112,8 @@ def get_proj4(prjfile):
             " ERROR: It seems you used an ESRI generated shapefile"
             " with Lambert Conformal Conic projection. "
         )
-        print(
-            " This one is not compatible with Open Standard OGR/GDAL"
-            " tools used here. "
-        )
-        print(
-            " Reproject your shapefile to a standard Lat/Long projection"
-            " and try again"
-        )
+        print(" This one is not compatible with Open Standard OGR/GDAL" " tools used here. ")
+        print(" Reproject your shapefile to a standard Lat/Long projection" " and try again")
         exit(1)
 
     srs = osr.SpatialReference()
@@ -178,9 +172,7 @@ def geodesic_point_buffer(lon, lat, meters, envelope=False):
     :return:
     """
 
-    proj_crs = ProjectedCRS(
-        conversion=AzimuthalEquidistantConversion(float(lat), float(lon))
-    )
+    proj_crs = ProjectedCRS(conversion=AzimuthalEquidistantConversion(float(lat), float(lon)))
 
     proj_wgs84 = pyproj.Proj("EPSG:4326")
 
@@ -321,9 +313,7 @@ def latlon_to_shp(lon, lat, shapefile):
 
     wkt = loads("POINT ({} {})".format(lon, lat))
 
-    with collection(
-        shapefile, "w", crs=from_epsg(4326), driver="ESRI Shapefile", schema=schema
-    ) as output:
+    with collection(shapefile, "w", crs=from_epsg(4326), driver="ESRI Shapefile", schema=schema) as output:
 
         output.write({"geometry": mapping(wkt), "properties": {"id": "1"}})
 
@@ -350,9 +340,7 @@ def wkt_to_gdf(wkt):
 
     # geometry collection of single multiploygon
     elif (
-        geometry.geom_type == "GeometryCollection"
-        and len(geometry) == 1
-        and "MULTIPOLYGON" in str(geometry)
+        geometry.geom_type == "GeometryCollection" and len(geometry) == 1 and "MULTIPOLYGON" in str(geometry)
     ):
 
         data = {"id": ["1"], "geometry": geometry}
@@ -363,9 +351,7 @@ def wkt_to_gdf(wkt):
             ids.append(i)
             feats.append(feat)
 
-        gdf = gpd.GeoDataFrame(
-            {"id": ids, "geometry": feats}, geometry="geometry", crs=gdf.crs
-        )
+        gdf = gpd.GeoDataFrame({"id": ids, "geometry": feats}, geometry="geometry", crs=gdf.crs)
 
     # geometry collection of single polygon
     elif geometry.geom_type == "GeometryCollection" and len(geometry) == 1:
@@ -392,9 +378,7 @@ def gdf_to_json_geometry(gdf):
     that rasterio wants them"""
 
     geojson = json.loads(gdf.to_json())
-    return [
-        feature["geometry"] for feature in geojson["features"] if feature["geometry"]
-    ]
+    return [feature["geometry"] for feature in geojson["features"] if feature["geometry"]]
 
 
 def exterior(infile, outfile, buffer=None):
@@ -452,9 +436,7 @@ def set_subset(aoi, inventory_df):
     # grd inventory case
     else:
         for track in inventory_df.relativeorbit.unique():
-            track_geom = inventory_df.geometry[
-                inventory_df.relativeorbit == track
-            ].unary_union
+            track_geom = inventory_df.geometry[inventory_df.relativeorbit == track].unary_union
             subset = True if aoi.within(track_geom) else False
             if not subset:
                 return subset

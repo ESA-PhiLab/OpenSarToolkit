@@ -34,9 +34,7 @@ def test_burst_import(s1_slc_master, s1_slc_ost_master, slc_project_class):
             burst=burst.BurstNr,
             config_dict=CONFIG_DICT,
         )
-        assert return_code == str(
-            slc_project_class.processing_dir / f"{scene_id}_{burst.bid}_import.dim"
-        )
+        assert return_code == str(slc_project_class.processing_dir / f"{scene_id}_{burst.bid}_import.dim")
 
 
 @pytest.mark.skip(reason="not running in pip build")
@@ -47,15 +45,12 @@ def test_burst_calibration(s1_slc_ost_master, slc_project_class):
         if idx > 2 or burst.SwathID != "IW1":
             continue
         return_code = sw.calibration(
-            infile=slc_project_class.processing_dir
-            / f"{scene_id}_{burst.bid}_import.dim",
+            infile=slc_project_class.processing_dir / f"{scene_id}_{burst.bid}_import.dim",
             outfile=slc_project_class.processing_dir / f"{scene_id}_BS",
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
-        assert return_code == str(
-            slc_project_class.processing_dir / f"{scene_id}_BS.dim"
-        )
+        assert return_code == str(slc_project_class.processing_dir / f"{scene_id}_BS.dim")
 
 
 @pytest.mark.skip(reason="not running in pip build")
@@ -74,6 +69,4 @@ def test_burst_ha_alpha(
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
-        assert return_code == str(
-            slc_project_class.processing_dir / f"{scene_id}_ha_alpha.dim"
-        )
+        assert return_code == str(slc_project_class.processing_dir / f"{scene_id}_ha_alpha.dim")

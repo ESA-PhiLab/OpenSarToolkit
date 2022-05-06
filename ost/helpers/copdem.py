@@ -80,8 +80,7 @@ def download_copdem_tile(tile_id):
 
 
 def download_copdem(aoi):
-    warnings.filterwarnings("ignore", "Geometry is in a geographic CRS",
-                            UserWarning)
+    warnings.filterwarnings("ignore", "Geometry is in a geographic CRS", UserWarning)
 
     copdem = gpd.read_file(OST_ROOT / "auxdata" / "copdem30tiles.gpkg")
     copdem["tile_id"] = copdem["id"]
@@ -97,6 +96,5 @@ def download_copdem(aoi):
     # now we run with godale, which works also with 1 worker
     executor = Executor(executor="concurrent_processes", max_workers=10)
 
-    for task in executor.as_completed(func=download_copdem_tile,
-                                      iterable=iter_list):
+    for task in executor.as_completed(func=download_copdem_tile, iterable=iter_list):
         task.result()

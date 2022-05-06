@@ -137,9 +137,7 @@ def _create_extents(burst_gdf, config_file):
             iter_list.append(list_of_extents)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=os.cpu_count()
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=os.cpu_count())
 
     out_dict = {"burst": [], "list_of_scenes": [], "extent": []}
     for task in executor.as_completed(
@@ -188,9 +186,7 @@ def _create_extents_old(burst_gdf, config_file):
             iter_list.append(list_of_bursts)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     for task in executor.as_completed(
         func=ts_extent.mt_extent,
@@ -231,9 +227,7 @@ def _create_mt_ls_mask(burst_gdf, config_file):
             iter_list.append(list_of_masks)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=os.cpu_count()
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=os.cpu_count())
 
     for task in executor.as_completed(func=ts_ls_mask.mt_layover, iterable=iter_list):
         task.result()
@@ -278,9 +272,7 @@ def _create_mt_ls_mask_old(burst_gdf, config_file):
             iter_list.append(list_of_layover)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     for task in executor.as_completed(
         func=ts_ls_mask.mt_layover,
@@ -328,24 +320,18 @@ def _create_timeseries(burst_gdf, config_file):
             else:
                 # see if there is actually any imagery for this
                 # combination of product and polarisation
-                list_of_files = sorted(
-                    list(burst_dir.glob(f"20*/*data*/*{product_name}*{pol}*img"))
-                )
+                list_of_files = sorted(list(burst_dir.glob(f"20*/*data*/*{product_name}*{pol}*img")))
 
             if len(list_of_files) <= 1:
                 continue
 
             # create list of dims if polarisation is present
-            list_of_dims = sorted(
-                str(dim) for dim in list(burst_dir.glob(f"20*/*{product}*dim"))
-            )
+            list_of_dims = sorted(str(dim) for dim in list(burst_dir.glob(f"20*/*{product}*dim")))
 
             iter_list.append([list_of_dims, burst, product, pol])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     out_dict = {
         "burst": [],
@@ -475,9 +461,7 @@ def timeseries_to_timescan(burst_gdf, config_file):
         vrt_iter_list.append(timescan_dir)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run timescan creation
     out_dict = {"burst": [], "prefix": [], "metrics": [], "error": []}
@@ -531,10 +515,7 @@ def mosaic_timeseries(burst_inventory, config_file):
         for track in burst_inventory.Track.unique():
 
             dates = [
-                date[2:]
-                for date in sorted(
-                    burst_inventory.Date[burst_inventory.Track == track].unique()
-                )
+                date[2:] for date in sorted(burst_inventory.Date[burst_inventory.Track == track].unique())
             ]
 
             for i, date in enumerate(dates):
@@ -543,10 +524,7 @@ def mosaic_timeseries(burst_inventory, config_file):
                     # we do the try, since for the last date
                     # there is no dates[i+1] for coherence
                     try:
-                        temp_acq = (
-                            temp_mosaic
-                            / f"{i}.{date}.{dates[i + 1]}.{track}.{product}.tif"
-                        )
+                        temp_acq = temp_mosaic / f"{i}.{date}.{dates[i + 1]}.{track}.{product}.tif"
                     except IndexError:
                         temp_acq = None
                 else:
@@ -556,14 +534,10 @@ def mosaic_timeseries(burst_inventory, config_file):
                     iter_list.append([track, date, product, temp_acq, config_file])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run vrt creation
-    for task in executor.as_completed(
-        func=mosaic.gd_mosaic_slc_acquisition, iterable=iter_list
-    ):
+    for task in executor.as_completed(func=mosaic.gd_mosaic_slc_acquisition, iterable=iter_list):
         task.result()
 
     # mosaic the acquisitions
@@ -581,9 +555,7 @@ def mosaic_timeseries(burst_inventory, config_file):
             datelist = []
             for file in list_of_files:
                 if "coh" in product:
-                    datelist.append(
-                        f"{file.name.split('.')[2]}_{file.name.split('.')[1]}"
-                    )
+                    datelist.append(f"{file.name.split('.')[2]}_{file.name.split('.')[1]}")
                 else:
                     datelist.append(file.name.split(".")[1])
 
@@ -618,18 +590,14 @@ def mosaic_timeseries(burst_inventory, config_file):
         vrt_iter_list.append([ts_dir, product, outfiles])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run mosaicking
     for task in executor.as_completed(func=mosaic.gd_mosaic, iterable=iter_list):
         task.result()
 
     # run mosaicking vrts
-    for task in executor.as_completed(
-        func=mosaic.create_timeseries_mosaic_vrt, iterable=vrt_iter_list
-    ):
+    for task in executor.as_completed(func=mosaic.create_timeseries_mosaic_vrt, iterable=vrt_iter_list):
         task.result()
 
     # remove temp folder
@@ -677,11 +645,7 @@ def mosaic_timescan(burst_inventory, config_file):
 
         for track in burst_inventory.Track.unique():
 
-            filelist = list(
-                processing_dir.glob(
-                    f"[A,D]{track}_IW*/Timescan/*{product}.{metric}.tif"
-                )
-            )
+            filelist = list(processing_dir.glob(f"[A,D]{track}_IW*/Timescan/*{product}.{metric}.tif"))
 
             if not len(filelist) >= 1:
                 continue
@@ -692,14 +656,10 @@ def mosaic_timescan(burst_inventory, config_file):
                 iter_list.append([track, metric, product, temp_acq, config_file])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run vrt creation
-    for task in executor.as_completed(
-        func=mosaic.gd_mosaic_slc_acquisition, iterable=iter_list
-    ):
+    for task in executor.as_completed(func=mosaic.gd_mosaic_slc_acquisition, iterable=iter_list):
         task.result()
 
     iter_list = []
@@ -726,9 +686,7 @@ def mosaic_timescan(burst_inventory, config_file):
         iter_list.append([list_of_files, outfile, config_file])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run mosaicking
     for task in executor.as_completed(func=mosaic.gd_mosaic, iterable=iter_list):
@@ -783,9 +741,7 @@ def mosaic_timescan_old(config_file):
         iter_list.append([filelist, outfile, config_file])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run mosaicking
     for task in executor.as_completed(func=mosaic.gd_mosaic, iterable=iter_list):

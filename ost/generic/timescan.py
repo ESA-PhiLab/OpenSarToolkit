@@ -33,9 +33,7 @@ def remove_outliers(arrayin, stddev=2, z_threshold=None):
         perc5 = np.percentile(arrayin, 5, axis=0)
 
         # we mask out the percentile outliers for std dev calculation
-        masked_array = np.ma.MaskedArray(
-            arrayin, mask=np.logical_or(arrayin > perc95, arrayin < perc5)
-        )
+        masked_array = np.ma.MaskedArray(arrayin, mask=np.logical_or(arrayin > perc95, arrayin < perc5))
 
         # we calculate new std and mean
         masked_std = np.std(masked_array, axis=0)
@@ -61,11 +59,7 @@ def date_as_float(date):
     if not isleap(date.year) and days_from_jan1.days >= 31 + 28:
         days_from_jan1 += timedelta(1)
 
-    return (
-        date.year
-        + days_from_jan1.days * size_of_day
-        + days_from_jan1.seconds * size_of_second
-    )
+    return date.year + days_from_jan1.days * size_of_day + days_from_jan1.seconds * size_of_second
 
 
 def difference_in_years(start, end):
@@ -74,9 +68,7 @@ def difference_in_years(start, end):
 
 def deseasonalize(stack):
     percentiles = np.percentile(stack, 95, axis=[1, 2])
-    deseasoned = np.subtract(
-        percentiles[:, np.newaxis], stack.reshape(stack.shape[0], -1)
-    )
+    deseasoned = np.subtract(percentiles[:, np.newaxis], stack.reshape(stack.shape[0], -1))
     return deseasoned.reshape(stack.shape)
 
 
@@ -136,9 +128,7 @@ def nan_percentile(arr, q):
         ceil_val = _zvalue_from_index(arr=arr, ind=c_arr) * (k_arr - f_arr)
 
         quant_arr = floor_val + ceil_val
-        quant_arr[fc_equal_k_mask] = _zvalue_from_index(
-            arr=arr, ind=k_arr.astype(np.int32)
-        )[fc_equal_k_mask]
+        quant_arr[fc_equal_k_mask] = _zvalue_from_index(arr=arr, ind=k_arr.astype(np.int32))[fc_equal_k_mask]
 
         result.append(quant_arr)
 
@@ -146,9 +136,7 @@ def nan_percentile(arr, q):
 
 
 @retry(stop_max_attempt_number=3, wait_fixed=1)
-def mt_metrics(
-    stack, out_prefix, metrics, rescale_to_datatype, to_power, outlier_removal, datelist
-):
+def mt_metrics(stack, out_prefix, metrics, rescale_to_datatype, to_power, outlier_removal, datelist):
     """
 
     :param stack:
@@ -173,9 +161,7 @@ def mt_metrics(
     if "harmonics" in metrics:
         logger.info("Calculating harmonics")
         if not datelist:
-            raise RuntimeWarning(
-                "Harmonics need the datelist. " "Harmonics will not be calculated"
-            )
+            raise RuntimeWarning("Harmonics need the datelist. " "Harmonics will not be calculated")
         else:
             metrics.remove("harmonics")
             metrics.extend(["amplitude", "phase", "residuals", "trend", "model_mean"])
@@ -269,19 +255,9 @@ def mt_metrics(
 
             # get stats
             arr = {
-                "p95": (
-                    nan_percentile(stack, [95, 5])
-                    if "p95" in metrics
-                    else (False, False)
-                )[0],
-                "p5": (
-                    nan_percentile(stack, [95, 5])
-                    if "p95" in metrics
-                    else (False, False)
-                )[1],
-                "median": (
-                    np.nanmedian(stack, axis=0) if "median" in metrics else False
-                ),
+                "p95": (nan_percentile(stack, [95, 5]) if "p95" in metrics else (False, False))[0],
+                "p5": (nan_percentile(stack, [95, 5]) if "p95" in metrics else (False, False))[1],
+                "median": (np.nanmedian(stack, axis=0) if "median" in metrics else False),
                 "avg": (np.nanmean(stack, axis=0) if "avg" in metrics else False),
                 "max": (np.nanmax(stack, axis=0) if "max" in metrics else False),
                 "min": (np.nanmin(stack, axis=0) if "min" in metrics else False),
@@ -307,9 +283,7 @@ def mt_metrics(
                 arr["phase"] = np.arctan2(x[2], x[1]).reshape(stack_size)
                 arr["trend"] = x[0].reshape(stack_size)
                 arr["model_mean"] = x[3].reshape(stack_size)
-                arr["residuals"] = np.sqrt(
-                    np.divide(residuals, stack.shape[0])
-                ).reshape(stack_size)
+                arr["residuals"] = np.sqrt(np.divide(residuals, stack.shape[0])).reshape(stack_size)
 
             # the metrics to be re-turned to dB, in case to_power is True
             metrics_to_convert = ["avg", "min", "max", "p95", "p5", "median"]
@@ -333,12 +307,8 @@ def mt_metrics(
                     window=window,
                     indexes=1,
                 )
-                metric_dict[metric].update_tags(
-                    1, BAND_NAME=f"{Path(out_prefix).name}_{metric}"
-                )
-                metric_dict[metric].set_band_description(
-                    1, f"{Path(out_prefix).name}_{metric}"
-                )
+                metric_dict[metric].update_tags(1, BAND_NAME=f"{Path(out_prefix).name}_{metric}")
+                metric_dict[metric].set_band_description(1, f"{Path(out_prefix).name}_{metric}")
 
     # close the output files
     for metric in metrics:

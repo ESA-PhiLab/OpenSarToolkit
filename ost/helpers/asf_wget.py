@@ -183,9 +183,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
             pool = multiprocessing.Pool(processes=concurrent)
             pool.map(s1_download, asf_list)
 
-        downloaded_scenes = glob.glob(
-            opj(download_dir, "SAR", "*", "20*", "*", "*", "*.zip.downloaded")
-        )
+        downloaded_scenes = glob.glob(opj(download_dir, "SAR", "*", "20*", "*", "*", "*.zip.downloaded"))
 
         if len(inventory_df["identifier"].tolist()) == len(downloaded_scenes):
             check = True

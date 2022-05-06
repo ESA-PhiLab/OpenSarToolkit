@@ -51,10 +51,7 @@ def connect(uname=None, pword=None, base_url="https://apihub.copernicus.eu/apihu
     """
 
     if not uname:
-        print(
-            " If you do not have a Copernicus Scihub user"
-            " account go to: https://scihub.copernicus.eu"
-        )
+        print(" If you do not have a Copernicus Scihub user" " account go to: https://scihub.copernicus.eu")
         uname = input(" Your Copernicus Scihub Username:")
 
     if not pword:
@@ -139,9 +136,7 @@ def create_aoi_str(aoi):
         return f'( footprint:"Intersects({aoi_convex})")'
 
 
-def create_toi_str(
-    start="2014-10-01", end=datetime.datetime.now().strftime("%Y-%m-%d")
-):
+def create_toi_str(start="2014-10-01", end=datetime.datetime.now().strftime("%Y-%m-%d")):
     """Convert start and end date to scihub's search url time period attribute
 
     :param start: start date as a YYYY-MM-DD formatted string,
@@ -196,10 +191,7 @@ def check_connection(uname, pword, base_url="https://apihub.copernicus.eu/apihub
     """
 
     # we use some random url for checking (also for czech mirror)
-    url = (
-        f"{base_url}/odata/v1/Products("
-        "'8f30a536-c01c-4ef4-ac74-be3378dc44c4')/$value"
-    )
+    url = f"{base_url}/odata/v1/Products(" "'8f30a536-c01c-4ef4-ac74-be3378dc44c4')/$value"
 
     response = requests.get(url, auth=(uname, pword), stream=True)
     return response.status_code
@@ -212,9 +204,7 @@ def s1_download_parallel(argument_list):
     s1_download(uuid, filename, uname, pword, base_url)
 
 
-def s1_download(
-    uuid, filename, uname, pword, base_url="https://apihub.copernicus.eu/apihub"
-):
+def s1_download(uuid, filename, uname, pword, base_url="https://apihub.copernicus.eu/apihub"):
     """Single scene download function for Copernicus scihub/apihub
 
     :param uuid: product's uuid
@@ -268,9 +258,7 @@ def s1_download(
             header = {"Range": f"bytes={first_byte}-{total_length}"}
 
             logger.info(f"Downloading scene to: {filename.name}")
-            response = requests.get(
-                url, headers=header, stream=True, auth=(uname, pword)
-            )
+            response = requests.get(url, headers=header, stream=True, auth=(uname, pword))
 
             # actual download
             with open(filename, "ab") as file:
@@ -298,10 +286,7 @@ def s1_download(
         # if it did not pass the test, remove the file
         # in the while loop it will be downloaded again
         if zip_test is not None:
-            logger.info(
-                f"{filename.name} did not pass the zip test. Re-downloading "
-                f"the full scene."
-            )
+            logger.info(f"{filename.name} did not pass the zip test. Re-downloading " f"the full scene.")
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
@@ -347,15 +332,9 @@ def batch_download(
             filepath = scene.download_path(download_dir, True)
 
             try:
-                uuid = inventory_df["uuid"][
-                    inventory_df["identifier"] == scene_id
-                ].tolist()
+                uuid = inventory_df["uuid"][inventory_df["identifier"] == scene_id].tolist()
             except KeyError:
-                uuid = [
-                    scene.scihub_uuid(
-                        connect(uname=uname, pword=pword, base_url=base_url)
-                    )
-                ]
+                uuid = [scene.scihub_uuid(connect(uname=uname, pword=pword, base_url=base_url))]
 
             if Path(f"{filepath}.downloaded").exists():
                 logger.debug(f"{scene.scene_id} is already downloaded.")

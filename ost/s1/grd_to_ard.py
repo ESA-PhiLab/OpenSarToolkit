@@ -67,10 +67,7 @@ def grd_to_ard(filelist, config_file):
     # ----------------------------------------------------
     # 3 check if already processed
     if (out_dir / ".processed").exists() and out_final.with_suffix(suf).exists():
-        logger.info(
-            f"Acquisition from {acquisition_date} of track {track} "
-            f"already processed"
-        )
+        logger.info(f"Acquisition from {acquisition_date} of track {track} " f"already processed")
 
         if out_ls_mask.with_suffix(suf).exists():
             out_ls = out_ls_mask.with_suffix(suf)
@@ -134,9 +131,7 @@ def grd_to_ard(filelist, config_file):
 
             # create list of scenes for full acquisition in
             # preparation of slice assembly
-            scenelist = " ".join(
-                [str(file) for file in list(temp.glob("*imported.dim"))]
-            )
+            scenelist = " ".join([str(file) for file in list(temp.glob("*imported.dim"))])
 
             # create namespace for temporary slice assembled import product
             grd_import = temp / f"{file_id}_imported"
@@ -166,9 +161,7 @@ def grd_to_ard(filelist, config_file):
 
                 # run subset routine
                 try:
-                    grd.grd_subset_georegion(
-                        grd_import.with_suffix(".dim"), grd_subset, logfile, config_dict
-                    )
+                    grd.grd_subset_georegion(grd_import.with_suffix(".dim"), grd_subset, logfile, config_dict)
                 except (GPTRuntimeError, NotValidFileError) as error:
                     logger.info(error)
                     return filelist, None, None, error
@@ -221,9 +214,7 @@ def grd_to_ard(filelist, config_file):
             for polarisation in ["VV", "VH", "HH", "HV"]:
 
                 # get input file
-                file = list(
-                    temp.glob(f"{file_id}_imported*data/Intensity_{polarisation}.img")
-                )
+                file = list(temp.glob(f"{file_id}_imported*data/Intensity_{polarisation}.img"))
 
                 # remove border noise
                 if len(file) == 1:
@@ -397,9 +388,7 @@ def grd_to_ard(filelist, config_file):
         # 4.11 Copy LS Mask vector to data dir
         if ard["create_ls_mask"] is True:
             ls_mask.with_suffix(".json").rename(
-                geocoded.with_suffix(".data")
-                .joinpath(ls_mask.name)
-                .with_suffix(".json")
+                geocoded.with_suffix(".data").joinpath(ls_mask.name).with_suffix(".json")
             )
 
         # ---------------------------------------------------------------------
@@ -447,9 +436,7 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
             with rasterio.open(cross_pol) as cr:
 
                 if co.shape != cr.shape:
-                    raise RuntimeError(
-                        "Dimensions of co- and cross-polarised bands " "do not match"
-                    )
+                    raise RuntimeError("Dimensions of co- and cross-polarised bands " "do not match")
 
                 new_height = int(co.height / shrink_factor)
                 new_width = int(co.width / shrink_factor)

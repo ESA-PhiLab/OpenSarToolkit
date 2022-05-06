@@ -57,8 +57,7 @@ def speckle_filter(infile, outfile, logfile, config_dict):
         logger.debug("Successfully applied speckle filtering.")
     else:
         raise GPTRuntimeError(
-            f"Speckle filtering exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Speckle filtering exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -89,10 +88,7 @@ def linear_to_db(infile, outfile, logfile, config_dict):
     logger.debug("Converting calibrated power image to dB scale.")
 
     # construct command string
-    command = (
-        f"{GPT_FILE} LinearToFromdB -x -q {2*cpus} "
-        f"-t '{str(outfile)}' {str(infile)}"
-    )
+    command = f"{GPT_FILE} LinearToFromdB -x -q {2*cpus} " f"-t '{str(outfile)}' {str(infile)}"
 
     # run command and get return code
     return_code = h.run_command(command, logfile)
@@ -102,8 +98,7 @@ def linear_to_db(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully converted product to dB-scale.")
     else:
         raise GPTRuntimeError(
-            f"dB Scaling exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"dB Scaling exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -148,8 +143,7 @@ def terrain_flattening(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully terrain flattened product")
     else:
         raise GPTRuntimeError(
-            f"Terrain Flattening exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Terrain Flattening exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -233,8 +227,7 @@ def terrain_correction(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully geocoded product")
     else:
         raise GPTRuntimeError(
-            f"Geocoding exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Geocoding exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine

@@ -35,9 +35,7 @@ def test_default_scihub_catalogue():
         )
 
         # construct the final query
-        query = urllib.parse.quote(
-            f"Sentinel-1 AND {product_specs} AND {aoi} AND {toi}"
-        )
+        query = urllib.parse.quote(f"Sentinel-1 AND {product_specs} AND {aoi} AND {toi}")
 
         scihub_catalogue(
             query,

@@ -112,22 +112,16 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
 
         # move them
         try:
-            infile_prefix.with_suffix(".data").rename(
-                outfile_prefix.with_suffix(".data")
-            )
+            infile_prefix.with_suffix(".data").rename(outfile_prefix.with_suffix(".data"))
         except OSError:
 
-            shutil.copytree(
-                infile_prefix.with_suffix(".data"), outfile_prefix.with_suffix(".data")
-            )
+            shutil.copytree(infile_prefix.with_suffix(".data"), outfile_prefix.with_suffix(".data"))
             shutil.rmtree(infile_prefix.with_suffix(".data"))
 
         try:
             infile_prefix.with_suffix(".dim").rename(outfile_prefix.with_suffix(".dim"))
         except OSError:
-            shutil.move(
-                infile_prefix.with_suffix(".dim"), outfile_prefix.with_suffix(".dim")
-            )
+            shutil.move(infile_prefix.with_suffix(".dim"), outfile_prefix.with_suffix(".dim"))
 
 
 def check_out_dimap(dimap_prefix, test_stats=True):
@@ -162,10 +156,7 @@ def check_out_dimap(dimap_prefix, test_stats=True):
 
             # if difference of min and max is 0 and mean are all 0
             if stats[1] - stats[0] == 0 and stats[2] == 0:
-                return (
-                    f"Data file {file.name} in {dimap_prefix}.data only "
-                    f"contains no data values."
-                )
+                return f"Data file {file.name} in {dimap_prefix}.data only " f"contains no data values."
 
     return 0
 

@@ -7,10 +7,7 @@ from ost.helpers.settings import config_check
 def test_update_ard_param(slc_project_class):
 
     slc_project_class.update_ard_parameters(ard_type="OST-GTC")
-    assert (
-        slc_project_class.config_dict["processing"]["single_ARD"]["ard_type"]
-        == "OST-GTC"
-    )
+    assert slc_project_class.config_dict["processing"]["single_ARD"]["ard_type"] == "OST-GTC"
 
 
 # Test GRDs to ARD kind of batch

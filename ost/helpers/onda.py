@@ -25,10 +25,7 @@ def ask_credentials():
     """
 
     # SciHub account details (will be asked by execution)
-    print(
-        " If you do not have a ONDA DIAS user account"
-        " go to: https://www.onda-dias.eu/cms/ and register"
-    )
+    print(" If you do not have a ONDA DIAS user account" " go to: https://www.onda-dias.eu/cms/ and register")
     uname = input(" Your ONDA DIAS Username:")
     pword = getpass.getpass(" Your ONDA DIAS Password:")
 
@@ -47,10 +44,7 @@ def connect(uname=None, pword=None):
     """
 
     if not uname:
-        print(
-            " If you do not have a ONDA DIAS user"
-            " account go to: https://www.onda-dias.eu/cms/"
-        )
+        print(" If you do not have a ONDA DIAS user" " account go to: https://www.onda-dias.eu/cms/")
         uname = input(" Your ONDA DIAS Username:")
 
     if not pword:
@@ -102,10 +96,7 @@ def onda_download(argument_list):
 
     # ask for username and password in case you have not defined as input
     if not uname:
-        print(
-            " If you do not have a ONDA DIAS user"
-            " account go to: https://www.onda-dias.eu/cms/"
-        )
+        print(" If you do not have a ONDA DIAS user" " account go to: https://www.onda-dias.eu/cms/")
         uname = input(" Your ONDA DIAS Username:")
 
     if not pword:
@@ -149,9 +140,7 @@ def onda_download(argument_list):
             header = {"Range": f"bytes={first_byte}-{total_length}"}
 
             logger.info(f"Downloading scene to: {filename.resolve()}")
-            response = requests.get(
-                url, headers=header, stream=True, auth=(uname, pword)
-            )
+            response = requests.get(url, headers=header, stream=True, auth=(uname, pword))
 
             # actual download
             with open(filename, "ab") as file:
@@ -182,10 +171,7 @@ def onda_download(argument_list):
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            logger.info(
-                f"{filename.name} did not pass the zip test. "
-                f"Re-downloading the full scene."
-            )
+            logger.info(f"{filename.name} did not pass the zip test. " f"Re-downloading the full scene.")
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
@@ -214,13 +200,9 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=2):
             file_path = scene.download_path(download_dir, True)
 
             try:
-                uuid = inventory_df["uuid"][
-                    inventory_df["identifier"] == scene_id
-                ].tolist()
+                uuid = inventory_df["uuid"][inventory_df["identifier"] == scene_id].tolist()
             except KeyError:
-                uuid = scene.ondadias_uuid(
-                    opener=onda.connect(uname=uname, pword=pword)
-                )
+                uuid = scene.ondadias_uuid(opener=onda.connect(uname=uname, pword=pword))
 
             if file_path.with_suffix(".downloaded").exists():
                 logger.info(f"{scene.scene_id} is already downloaded.")

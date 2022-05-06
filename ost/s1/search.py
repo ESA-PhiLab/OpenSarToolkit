@@ -87,24 +87,16 @@ def _read_xml(dom):
 
         # we get all the date entries
         dict_date = {
-            s.getAttribute("name"): dateutil.parser.parse(s.firstChild.data).astimezone(
-                dateutil.tz.tzutc()
-            )
+            s.getAttribute("name"): dateutil.parser.parse(s.firstChild.data).astimezone(dateutil.tz.tzutc())
             for s in node.getElementsByTagName("date")
         }
 
         # we get all the int entries
-        dict_int = {
-            s.getAttribute("name"): s.firstChild.data
-            for s in node.getElementsByTagName("int")
-        }
+        dict_int = {s.getAttribute("name"): s.firstChild.data for s in node.getElementsByTagName("int")}
 
         # we create a filter for the str entries (we do not want all)
         # and get them
-        dict_str = {
-            s.getAttribute("name"): s.firstChild.data
-            for s in node.getElementsByTagName("str")
-        }
+        dict_str = {s.getAttribute("name"): s.firstChild.data for s in node.getElementsByTagName("str")}
 
         # merge the dicts and append to the catalogue list
         acq = dict(dict_date, **dict_int, **dict_str)
@@ -363,15 +355,12 @@ def _to_postgis(gdf, db_connect, outtable):
             maxid = maxid + 1
         except Exception:
             raise RuntimeError(
-                f"Existent table {outtable} does not seem to be compatible "
-                f"with Sentinel-1 data."
+                f"Existent table {outtable} does not seem to be compatible " f"with Sentinel-1 data."
             )
 
     # add an index as first column
     gdf.insert(loc=0, column="id", value=range(maxid, maxid + len(gdf)))
-    db_connect.pgSQLnoResp(
-        f"SELECT UpdateGeometrySRID('{outtable.lower()}', 'geometry', 0);"
-    )
+    db_connect.pgSQLnoResp(f"SELECT UpdateGeometrySRID('{outtable.lower()}', 'geometry', 0);")
 
     # construct the SQL INSERT line
     for _index, row in gdf.iterrows():
@@ -383,9 +372,7 @@ def _to_postgis(gdf, db_connect, outtable):
         line = tuple(row.tolist())
 
         # first check if scene is already in the table
-        result = db_connect.pgSQL(
-            "SELECT uuid FROM {} WHERE " "uuid = '{}'".format(outtable, uuid)
-        )
+        result = db_connect.pgSQL("SELECT uuid FROM {} WHERE " "uuid = '{}'".format(outtable, uuid))
         try:
             result[0][0]
         except IndexError:
@@ -408,12 +395,9 @@ def _to_postgis(gdf, db_connect, outtable):
         pass
 
     # create geometry index and vacuum analyze
+    db_connect.pgSQLnoResp("SELECT UpdateGeometrySRID('{}', " "'geometry', 4326);".format(outtable.lower()))
     db_connect.pgSQLnoResp(
-        "SELECT UpdateGeometrySRID('{}', " "'geometry', 4326);".format(outtable.lower())
-    )
-    db_connect.pgSQLnoResp(
-        "CREATE INDEX {}_gix ON {} USING GIST "
-        "(geometry);".format(outtable, outtable.lower())
+        "CREATE INDEX {}_gix ON {} USING GIST " "(geometry);".format(outtable, outtable.lower())
     )
     db_connect.pgSQLnoResp("VACUUM ANALYZE {};".format(outtable.lower()))
 
@@ -509,9 +493,7 @@ if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(description=DESCRIPT, epilog=EPILOG)
 
     # username/password scihub
-    PARSER.add_argument(
-        "-u", "--username", help=" Your username of scihub.copernicus.eu ", default=None
-    )
+    PARSER.add_argument("-u", "--username", help=" Your username of scihub.copernicus.eu ", default=None)
     PARSER.add_argument(
         "-p",
         "--password",
@@ -540,18 +522,14 @@ if __name__ == "__main__":
         default=NOW,
         type=lambda x: helpers.is_valid_date(PARSER, x),
     )
-    PARSER.add_argument(
-        "-t", "--producttype", help=" The Product Type (RAW, SLC, GRD, *) ", default="*"
-    )
+    PARSER.add_argument("-t", "--producttype", help=" The Product Type (RAW, SLC, GRD, *) ", default="*")
     PARSER.add_argument(
         "-m",
         "--polarisation",
         help=" The Polarisation Mode (VV, VH, HH, HV, *) ",
         default="*",
     )
-    PARSER.add_argument(
-        "-b", "--beammode", help=" The Beam Mode (IW, EW, SM, *) ", default="*"
-    )
+    PARSER.add_argument("-b", "--beammode", help=" The Beam Mode (IW, EW, SM, *) ", default="*")
 
     # output parameters
     PARSER.add_argument(
@@ -577,9 +555,7 @@ if __name__ == "__main__":
     # construct the search command (do not change)
     AOI = scihub.create_aoi_str(AOI)
     TOI = scihub.create_toi_str(ARGS.begindate, ARGS.enddate)
-    PRODUCT_SPECS = scihub.create_s1_product_specs(
-        ARGS.producttype, ARGS.polarisation, ARGS.beam
-    )
+    PRODUCT_SPECS = scihub.create_s1_product_specs(ARGS.producttype, ARGS.polarisation, ARGS.beam)
 
     QUERY = urllib.parse.quote(f"Sentinel-1 AND {PRODUCT_SPECS} AND {AOI} AND {TOI}")
     # execute full search

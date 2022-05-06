@@ -252,10 +252,7 @@ class Sentinel1Scene:
             print(" (1) Copernicus Apihub (ESA, rolling archive)")
             print(" (2) Alaska Satellite Facility (NASA, full archive)")
             print(" (3) PEPS (CNES, 1 year rolling archive)")
-            print(
-                " (4) ONDA DIAS (ONDA DIAS full archive for"
-                " SLC - or GRD from 30 June 2019)"
-            )
+            print(" (4) ONDA DIAS (ONDA DIAS full archive for" " SLC - or GRD from 30 June 2019)")
             # print(' (5) Alaska Satellite Facility (using WGET'
             #      ' - unstable - use only if 2 fails)')
             mirror = input(" Type 1, 2, 3, or 4: ")
@@ -268,9 +265,7 @@ class Sentinel1Scene:
         if mirror == "1":
             uname, pword = scihub.ask_credentials()
             opener = scihub.connect(uname=uname, pword=pword)
-            df = pd.DataFrame(
-                {"identifier": [self.scene_id], "uuid": [self.scihub_uuid(opener)]}
-            )
+            df = pd.DataFrame({"identifier": [self.scene_id], "uuid": [self.scihub_uuid(opener)]})
 
         elif mirror == "2":
             uname, pword = asf.ask_credentials()
@@ -287,9 +282,7 @@ class Sentinel1Scene:
         elif mirror == "4":
             uname, pword = onda.ask_credentials()
             opener = onda.connect(uname=uname, pword=pword)
-            df = pd.DataFrame(
-                {"identifier": [self.scene_id], "uuid": [self.ondadias_uuid(opener)]}
-            )
+            df = pd.DataFrame({"identifier": [self.scene_id], "uuid": [self.ondadias_uuid(opener)]})
         else:
             raise ValueError("You entered the wrong mirror.")
         # else:  # ASF
@@ -431,9 +424,7 @@ class Sentinel1Scene:
     def scihub_md5(self, opener):
 
         # return the md5 checksum
-        return (
-            f"{APIHUB_BASEURL}('{self.scihub_uuid(opener)}')" f"/Checksum/Value/$value"
-        )
+        return f"{APIHUB_BASEURL}('{self.scihub_uuid(opener)}')" f"/Checksum/Value/$value"
 
     def scihub_online_status(self, opener):
 
@@ -502,13 +493,9 @@ class Sentinel1Scene:
         # get uuid for product
         uuid = self.scihub_uuid(opener)
 
-        logger.info(
-            f"Retrieving URLs of annotation files for S1 product: " f"{self.scene_id}."
-        )
+        logger.info(f"Retrieving URLs of annotation files for S1 product: " f"{self.scene_id}.")
         scihub_url = "https://apihub.copernicus.eu/apihub/odata/v1/Products"
-        anno_path = (
-            f"('{uuid}')/Nodes('{self.scene_id}.SAFE')" f"/Nodes('annotation')/Nodes"
-        )
+        anno_path = f"('{uuid}')/Nodes('{self.scene_id}.SAFE')" f"/Nodes('annotation')/Nodes"
 
         # construct anno url path
         url = scihub_url + anno_path
@@ -587,9 +574,7 @@ class Sentinel1Scene:
                 et_root = eTree.fromstring(response)
 
                 # parse the xml page from the response
-                gdf = burst_extract(
-                    self.scene_id, self.rel_orbit, self.start_date, eTree.parse(et_root)
-                )
+                gdf = burst_extract(self.scene_id, self.rel_orbit, self.start_date, eTree.parse(et_root))
 
                 gdf_final = pd.concat([gdf_final, gdf])
 
@@ -630,9 +615,7 @@ class Sentinel1Scene:
         for anno_file in anno_files:
             anno_string = archive.open(anno_file)
 
-            gdf = burst_extract(
-                self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_string)
-            )
+            gdf = burst_extract(self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_string))
 
             gdf_final = pd.concat([gdf_final, gdf])
 
@@ -657,9 +640,7 @@ class Sentinel1Scene:
 
         for anno_file in list(file_path.glob("annotation/*xml")):
             # parse the xml page from the response
-            gdf = burst_extract(
-                self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_file)
-            )
+            gdf = burst_extract(self.scene_id, self.rel_orbit, self.start_date, eTree.parse(anno_file))
             gdf_final = pd.concat([gdf_final, gdf])
 
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
@@ -729,10 +710,7 @@ class Sentinel1Scene:
         :return:
         """
         # construct product url
-        url = (
-            f"https://peps.cnes.fr/resto/api/collections/S1/search.json?q="
-            f"{self.scene_id}"
-        )
+        url = f"https://peps.cnes.fr/resto/api/collections/S1/search.json?q=" f"{self.scene_id}"
 
         # get response
         response = requests.get(url, stream=True, auth=(uname, pword))
@@ -862,8 +840,7 @@ class Sentinel1Scene:
 
         if self.product_type != "GRD":
             raise ValueError(
-                "The create_ard method for single products is currently "
-                "only available for GRD products"
+                "The create_ard method for single products is currently " "only available for GRD products"
             )
 
         if isinstance(infile, str):
@@ -905,9 +882,7 @@ class Sentinel1Scene:
                     "the Copernicus 30m Global DEM. "
                 )
 
-                self.ard_parameters["single_ARD"]["dem"][
-                    "dem_name"
-                ] = "Copernicus 30m Global DEM"
+                self.ard_parameters["single_ARD"]["dem"]["dem_name"] = "Copernicus 30m Global DEM"
 
             if self.ard_parameters["single_ARD"]["dem"]["out_projection"] == 4326:
 
@@ -1009,12 +984,8 @@ class Sentinel1Scene:
             for meta in metadata:
                 for wrap in meta.findall("metadataWrap"):
                     for data in wrap.findall("xmlData"):
-                        for frame_set in data.findall(
-                            "{http://www.esa.int/safe/sentinel-1.0}" "frameSet"
-                        ):
-                            for frame in frame_set.findall(
-                                "{http://www.esa.int/safe/sentinel-1.0}" "frame"
-                            ):
+                        for frame_set in data.findall("{http://www.esa.int/safe/sentinel-1.0}" "frameSet"):
+                            for frame in frame_set.findall("{http://www.esa.int/safe/sentinel-1.0}" "frame"):
                                 for footprint in frame.findall(
                                     "{http://www.esa.int/" "safe/sentinel-1.0}footPrint"
                                 ):
@@ -1030,6 +1001,4 @@ class Sentinel1Scene:
 
             return sums / (i + 1)
         else:
-            raise RuntimeError(
-                "Could not find any coordinates within the metadata file"
-            )
+            raise RuntimeError("Could not find any coordinates within the metadata file")

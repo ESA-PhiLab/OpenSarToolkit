@@ -26,10 +26,7 @@ def ask_credentials():
     :rtype: tuple
     """
     # SciHub account details (will be asked by execution)
-    print(
-        " If you do not have a CNES Peps user account"
-        " go to: https://peps.cnes.fr/ and register"
-    )
+    print(" If you do not have a CNES Peps user account" " go to: https://peps.cnes.fr/ and register")
     uname = input(" Your CNES Peps Username:")
     pword = getpass.getpass(" Your CNES Peps Password:")
 
@@ -48,10 +45,7 @@ def connect(uname=None, pword=None):
     """
 
     if not uname:
-        print(
-            " If you do not have a CNES Peps user account"
-            " go to: https://peps.cnes.fr/ and register"
-        )
+        print(" If you do not have a CNES Peps user account" " go to: https://peps.cnes.fr/ and register")
         uname = input(" Your CNES Peps Username:")
 
     if not pword:
@@ -131,9 +125,7 @@ def peps_download(argument_list):
 
             # get byte offset for already downloaded file
             header = {"Range": f"bytes={first_byte}-{total_length}"}
-            response = requests.get(
-                url, headers=header, stream=True, auth=(uname, pword)
-            )
+            response = requests.get(url, headers=header, stream=True, auth=(uname, pword))
 
             # actual download
             with open(filename, "ab") as file:
@@ -163,10 +155,7 @@ def peps_download(argument_list):
         # if it did not pass the test, remove the file
         # in the while loop it will be downlaoded again
         if zip_test is not None:
-            logger.info(
-                f"{filename.name} did not pass the zip test. "
-                f"Re-downloading the full scene."
-            )
+            logger.info(f"{filename.name} did not pass the zip test. " f"Re-downloading the full scene.")
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True
@@ -186,10 +175,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
     # this function does not just check,
     # but it already triggers the production of the S1 scene
     inventory_df["pepsStatus"], inventory_df["pepsUrl"] = zip(
-        *[
-            S1Scene(product).peps_online_status(uname, pword)
-            for product in inventory_df.identifier.tolist()
-        ]
+        *[S1Scene(product).peps_online_status(uname, pword) for product in inventory_df.identifier.tolist()]
     )
 
     # as long as there are any scenes left for downloading, loop
@@ -208,9 +194,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
         # if all scenes to download are on Tape, we wait for a minute
         if len(inventory_df[inventory_df["pepsStatus"] == "online"]) == 0:
-            logger.info(
-                "Imagery still on tape, we will wait for 1 minute " "and try again."
-            )
+            logger.info("Imagery still on tape, we will wait for 1 minute " "and try again.")
             time.sleep(60)
 
         # else we start downloading
@@ -218,9 +202,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
 
             # create the peps_list for parallel download
             peps_list = []
-            for index, row in inventory_df[
-                inventory_df["pepsStatus"] == "online"
-            ].iterrows():
+            for index, row in inventory_df[inventory_df["pepsStatus"] == "online"].iterrows():
 
                 # get scene identifier
                 scene_id = row.identifier
@@ -230,9 +212,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                 # put all info to the peps_list for parallelised download
                 peps_list.append(
                     [
-                        inventory_df.pepsUrl[
-                            inventory_df.identifier == scene_id
-                        ].tolist()[0],
+                        inventory_df.pepsUrl[inventory_df.identifier == scene_id].tolist()[0],
                         download_path,
                         uname,
                         pword,
@@ -244,9 +224,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
             pool.map(peps_download, peps_list)
 
             # routine to check if the file has been downloaded
-            for index, row in inventory_df[
-                inventory_df["pepsStatus"] == "online"
-            ].iterrows():
+            for index, row in inventory_df[inventory_df["pepsStatus"] == "online"].iterrows():
 
                 # get scene identifier
                 scene_id = row.identifier

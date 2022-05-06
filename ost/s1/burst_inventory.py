@@ -172,16 +172,12 @@ def burst_inventory(
         logger.info("Getting burst info from {}.".format(scene.scene_id))
 
         # get orbit direction
-        orbit_direction = inventory_df[
-            inventory_df.identifier == scene_id
-        ].orbitdirection.values[0]
+        orbit_direction = inventory_df[inventory_df.identifier == scene_id].orbitdirection.values[0]
 
         file_path = scene.get_path(download_dir, data_mount)
         if not file_path:
 
-            logger.info(
-                "Retrieving burst info from scihub" " (need to download xml files)"
-            )
+            logger.info("Retrieving burst info from scihub" " (need to download xml files)")
             if not uname and not pword:
                 uname, pword = scihub.ask_credentials()
 
@@ -221,9 +217,7 @@ def burst_inventory(
         # get similar burst times
         idx = (
             gdf_full.index[
-                (gdf_full.AnxTime >= i - 6)
-                & (gdf_full.AnxTime <= i + 6)
-                & (gdf_full.AnxTime != i)
+                (gdf_full.AnxTime >= i - 6) & (gdf_full.AnxTime <= i + 6) & (gdf_full.AnxTime != i)
             ]
             .unique()
             .values
@@ -311,9 +305,7 @@ def prepare_burst_inventory(burst_gdf, config_file):
     ]
 
     # create empty geodataframe
-    proc_burst_gdf = gpd.GeoDataFrame(
-        columns=cols, geometry="geometry", crs="epsg:4326"
-    )
+    proc_burst_gdf = gpd.GeoDataFrame(columns=cols, geometry="geometry", crs="epsg:4326")
 
     # load relevant config parameters
     with open(config_file, "r") as file:
@@ -332,9 +324,7 @@ def prepare_burst_inventory(burst_gdf, config_file):
         for idx, date in enumerate(dates):
 
             # get master date
-            burst_row = burst_gdf[
-                (burst_gdf.Date == date) & (burst_gdf.bid == burst)
-            ].copy()
+            burst_row = burst_gdf[(burst_gdf.Date == date) & (burst_gdf.bid == burst)].copy()
 
             # get parameters for master
             master_scene = S1Scene(burst_row.SceneID.values[0])
@@ -349,18 +339,14 @@ def prepare_burst_inventory(burst_gdf, config_file):
                 burst_row["slave_date"] = slave_date
 
                 # read slave burst line
-                slave_burst = burst_gdf[
-                    (burst_gdf.Date == slave_date) & (burst_gdf.bid == burst)
-                ]
+                slave_burst = burst_gdf[(burst_gdf.Date == slave_date) & (burst_gdf.bid == burst)]
 
                 # get scene id and add into master row
                 slave_scene_id = S1Scene(slave_burst.SceneID.values[0])
                 burst_row["slave_scene_id"] = slave_scene_id.scene_id
 
                 # get path to slave file
-                burst_row["slave_file"] = slave_scene_id.get_path(
-                    download_dir, data_mount
-                )
+                burst_row["slave_file"] = slave_scene_id.get_path(download_dir, data_mount)
 
                 # burst number in slave file (subswath is same)
                 burst_row["slave_burst_nr"] = slave_burst.BurstNr.values[0]
