@@ -63,9 +63,7 @@ def restore_download_dir(input_directory, download_dir):
             logger.info(f"File {str(scene)} is corrupted and will not be moved.")
 
 
-def download_sentinel1(
-    inventory_df, download_dir, mirror=None, concurrent=2, uname=None, pword=None
-):
+def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, uname=None, pword=None):
     """Function to download Sentinel-1 with choice of data repository
 
     :param inventory_df: OST inventory dataframe
@@ -91,10 +89,7 @@ def download_sentinel1(
         print(" (1) Copernicus Apihub (ESA, rolling archive)")
         print(" (2) Alaska Satellite Facility (NASA, full archive)")
         print(" (3) PEPS (CNES, 1 year rolling archive)")
-        print(
-            " (4) ONDA DIAS (ONDA DIAS full archive for SLC -"
-            " or GRD from 30 June 2019)"
-        )
+        print(" (4) ONDA DIAS (ONDA DIAS full archive for SLC -" " or GRD from 30 June 2019)")
         # print(' (5) Alaska Satellite Facility (using WGET - '
         # 'unstable - use only if 2 does not work)')
         mirror = input(" Type 1, 2, 3, or 4: ")
@@ -115,8 +110,7 @@ def download_sentinel1(
 
         if concurrent > 10:
             logger.info(
-                "Maximum allowed parallel downloads from Earthdata are 10. "
-                "Setting concurrent accordingly."
+                "Maximum allowed parallel downloads from Earthdata are 10. " "Setting concurrent accordingly."
             )
             concurrent = 10
 
@@ -128,9 +122,7 @@ def download_sentinel1(
     #    error_code = asf_wget.check_connection(uname, pword)
     # hidden option for downloading from czech mirror
     elif int(mirror) == 321:
-        error_code = scihub.check_connection(
-            uname, pword, base_url="https://dhr1.cesnet.cz/"
-        )
+        error_code = scihub.check_connection(uname, pword, base_url="https://dhr1.cesnet.cz/")
     else:
         raise ValueError("No valid mirror selected")
 

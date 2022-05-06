@@ -33,9 +33,7 @@ def test_grd_import_subset(s1_grd_notnr, s1_grd_notnr_ost_product, grd_project_c
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
-    assert return_code == str(
-        grd_project_class.processing_dir / f"{scene_id}_import.dim"
-    )
+    assert return_code == str(grd_project_class.processing_dir / f"{scene_id}_import.dim")
 
 
 @pytest.mark.skip(reason="not running in pip build")
@@ -73,9 +71,7 @@ def test_grd_calibration(s1_grd_notnr_ost_product, grd_project_class):
             logfile=logger,
             config_dict=CONFIG_DICT,
         )
-        assert return_code == str(
-            grd_project_class.processing_dir / f"{scene_id}_BS.dim"
-        )
+        assert return_code == str(grd_project_class.processing_dir / f"{scene_id}_BS.dim")
 
 
 @pytest.mark.skip(reason="not running in pip build")
@@ -89,9 +85,7 @@ def test_grd_speckle_filter(s1_grd_notnr_ost_product, grd_project_class):
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
-    assert return_code == str(
-        grd_project_class.processing_dir / f"{scene_id}_BS_Spk.dim"
-    )
+    assert return_code == str(grd_project_class.processing_dir / f"{scene_id}_BS_Spk.dim")
 
 
 @pytest.mark.skip(reason="not running in pip build")
@@ -104,6 +98,4 @@ def test_grd_tc(s1_grd_notnr_ost_product, grd_project_class):
         logfile=logger,
         config_dict=CONFIG_DICT,
     )
-    assert return_code == str(
-        grd_project_class.processing_dir / f"{scene_id}_BS_Spk_TC.dim"
-    )
+    assert return_code == str(grd_project_class.processing_dir / f"{scene_id}_BS_Spk_TC.dim")

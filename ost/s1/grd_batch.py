@@ -46,9 +46,7 @@ def _create_processing_dict(inventory_df):
     for track in track_list:
 
         # get acquisition dates and loop through each
-        acquisition_dates = inventory_df["acquisitiondate"][
-            inventory_df["relativeorbit"] == track
-        ].unique()
+        acquisition_dates = inventory_df["acquisitiondate"][inventory_df["relativeorbit"] == track].unique()
 
         # loop through dates
         for i, acquisition_date in enumerate(acquisition_dates):
@@ -74,9 +72,7 @@ def create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error):
 
         temp_df = pd.DataFrame()
         # get scene_id
-        temp_df["identifier"] = inventory_df.identifier[
-            inventory_df.identifier == scene
-        ].values
+        temp_df["identifier"] = inventory_df.identifier[inventory_df.identifier == scene].values
         # fill outfiles/error
         temp_df["outfile"] = outfile
         temp_df["out_ls"] = out_ls
@@ -105,17 +101,12 @@ def grd_to_ard_batch(inventory_df, config_file):
     for _, list_of_scenes in processing_dict.items():
 
         # get the paths to the file
-        scene_paths = [
-            Sentinel1Scene(scene).get_path(download_dir, data_mount)
-            for scene in list_of_scenes
-        ]
+        scene_paths = [Sentinel1Scene(scene).get_path(download_dir, data_mount) for scene in list_of_scenes]
 
         iter_list.append(scene_paths)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     for task in executor.as_completed(
         func=grd_to_ard.grd_to_ard,
@@ -130,9 +121,7 @@ def grd_to_ard_batch(inventory_df, config_file):
         list_of_scenes, outfile, out_ls, error = task.result()
 
         # return the info of processing as dataframe
-        temp_df = create_processed_df(
-            inventory_df, list_of_scenes, outfile, out_ls, error
-        )
+        temp_df = create_processed_df(inventory_df, list_of_scenes, outfile, out_ls, error)
 
         processing_df = pd.concat([processing_df, temp_df])
 
@@ -176,9 +165,7 @@ def _create_extents(inventory_df, config_file):
             iter_list.append(list_of_extents)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=os.cpu_count()
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=os.cpu_count())
 
     out_dict = {"track": [], "list_of_scenes": [], "extent": []}
     for task in executor.as_completed(
@@ -220,9 +207,7 @@ def _create_extents_old(inventory_df, config_file):
             iter_list.append(list_of_scenes)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     out_dict = {"track": [], "list_of_scenes": [], "extent": []}
     for task in executor.as_completed(
@@ -269,9 +254,7 @@ def _create_mt_ls_mask(inventory_df, config_file):
             iter_list.append(list_of_masks)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=os.cpu_count()
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=os.cpu_count())
 
     for task in executor.as_completed(func=ts_ls_mask.mt_layover, iterable=iter_list):
         task.result()
@@ -297,9 +280,7 @@ def _create_mt_ls_mask_old(inventory_df, config_file):
         iter_list.append(list_of_layover)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     out_dict = {"track": [], "list_of_layover": [], "ls_mask": [], "ls_extent": []}
     for task in executor.as_completed(
@@ -363,23 +344,17 @@ def _create_timeseries(inventory_df, config_file):
         for pol in ["VV", "VH", "HH", "HV"]:
 
             # see if there is actually any imagery in thi polarisation
-            list_of_files = sorted(
-                str(file) for file in list(track_dir.glob(f"20*/*data*/*ma0*{pol}*img"))
-            )
+            list_of_files = sorted(str(file) for file in list(track_dir.glob(f"20*/*data*/*ma0*{pol}*img")))
 
             if len(list_of_files) <= 1:
                 continue
 
             # create list of dims if polarisation is present
-            list_of_dims = sorted(
-                str(dim) for dim in list(track_dir.glob("20*/*bs*dim"))
-            )
+            list_of_dims = sorted(str(dim) for dim in list(track_dir.glob("20*/*bs*dim")))
 
             iter_list.append([list_of_dims, track, "bs", pol])
 
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     out_dict = {
         "track": [],
@@ -474,9 +449,7 @@ def timeseries_to_timescan(inventory_df, config_file):
         vrt_iter_list.append(timescan_dir)
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run timescan creation
     out_dict = {"track": [], "prefix": [], "metrics": [], "error": []}
@@ -525,9 +498,7 @@ def mosaic_timeseries(inventory_df, config_file):
     for p in ["VV", "VH", "HH", "HV"]:
 
         tracks = inventory_df.relativeorbit.unique()
-        nr_of_ts = len(
-            list((processing_dir / f"{tracks[0]}" / "Timeseries").glob(f"*.{p}.tif"))
-        )
+        nr_of_ts = len(list((processing_dir / f"{tracks[0]}" / "Timeseries").glob(f"*.{p}.tif")))
 
         if not nr_of_ts >= 1:
             continue
@@ -565,18 +536,14 @@ def mosaic_timeseries(inventory_df, config_file):
         vrt_iter_list.append([ts_dir, p, outfiles])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run mosaicking
     for task in executor.as_completed(func=mosaic.gd_mosaic, iterable=iter_list):
         task.result()
 
     # run mosaicking vrts
-    for task in executor.as_completed(
-        func=mosaic.create_timeseries_mosaic_vrt, iterable=vrt_iter_list
-    ):
+    for task in executor.as_completed(func=mosaic.create_timeseries_mosaic_vrt, iterable=vrt_iter_list):
         task.result()
 
 
@@ -623,9 +590,7 @@ def mosaic_timescan(config_file):
         iter_list.append([filelist, outfile, config_file])
 
     # now we run with godale, which works also with 1 worker
-    executor = Executor(
-        executor=config_dict["executor_type"], max_workers=config_dict["max_workers"]
-    )
+    executor = Executor(executor=config_dict["executor_type"], max_workers=config_dict["max_workers"])
 
     # run mosaicking
     for task in executor.as_completed(func=mosaic.gd_mosaic, iterable=iter_list):

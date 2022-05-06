@@ -48,10 +48,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     except KeyError:
         aoi = ""
 
-    logger.debug(
-        f"Importing {infile.name} by applying precise orbit file and "
-        f"removing thermal noise"
-    )
+    logger.debug(f"Importing {infile.name} by applying precise orbit file and " f"removing thermal noise")
 
     # get path to graph
     if subset:
@@ -85,8 +82,7 @@ def grd_frame_import(infile, outfile, logfile, config_dict):
     else:
         # read logfile
         raise GPTRuntimeError(
-            f"GRD frame import exited with error {return_code}. "
-            f"See {logfile} for Snap's error output."
+            f"GRD frame import exited with error {return_code}. " f"See {logfile} for Snap's error output."
         )
 
     # do check routine
@@ -146,8 +142,7 @@ def slice_assembly(filelist, outfile, logfile, config_dict):
         logger.debug("Succesfully assembled products")
     else:
         raise GPTRuntimeError(
-            f"ERROR: Slice Assembly exited with error {return_code}. "
-            f"See {logfile} for Snap Error output"
+            f"ERROR: Slice Assembly exited with error {return_code}. " f"See {logfile} for Snap Error output"
         )
 
     # do check routine
@@ -199,8 +194,7 @@ def grd_subset_georegion(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully subsetted product.")
     else:
         raise GPTRuntimeError(
-            f"Subsetting exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Subsetting exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -266,9 +260,7 @@ def grd_remove_border(infile):
 
     # create 2d array for the right part of the image (3000 columns and rows)
     cols_last = cols - 3000
-    array_right = np.array(
-        raster.GetRasterBand(1).ReadAsArray(cols_last, 0, 3000, rows)
-    )
+    array_right = np.array(raster.GetRasterBand(1).ReadAsArray(cols_last, 0, 3000, rows))
 
     # loop through the array_right columns in opposite direction
     cols_right = 3000
@@ -339,8 +331,7 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug(f"Calibration to {product_type} successful.")
     else:
         raise GPTRuntimeError(
-            f"Calibration exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Calibration exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -366,10 +357,7 @@ def multi_look(infile, outfile, logfile, config_dict):
     cpus = config_dict["snap_cpu_parallelism"]
     ml_factor = int(int(ard["resolution"]) / 10)
 
-    logger.debug(
-        "Multi-looking the image with {az_looks} looks in "
-        "azimuth and {rg_looks} looks in range."
-    )
+    logger.debug("Multi-looking the image with {az_looks} looks in " "azimuth and {rg_looks} looks in range.")
 
     # construct command string
     command = (
@@ -387,8 +375,7 @@ def multi_look(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully multi-looked product.")
     else:
         raise GPTRuntimeError(
-            f" ERROR: Multi-look exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f" ERROR: Multi-look exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine

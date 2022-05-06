@@ -81,10 +81,7 @@ def download_srtm_tile(url):
         logger.info(f"Checking zip archive {filename.name} for inconsistency")
         zip_test = h.check_zipfile(filename)
         if zip_test is not None:
-            logger.info(
-                f"{filename.name} did not pass the zip test. Re-downloading "
-                f"the full scene."
-            )
+            logger.info(f"{filename.name} did not pass the zip test. Re-downloading " f"the full scene.")
             filename.unlink()
             first_byte = 0
         # otherwise we change the status to True

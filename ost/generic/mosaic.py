@@ -145,18 +145,14 @@ def _burst_list(track, date, product, subswath, config_dict):
 
     # search for all bursts within subswath(s) in time-series
     list_of_files = list(
-        processing_dir.glob(
-            f"[A,D]{track}_{subswath}*/Timeseries/" f"*.{date}.{search_last}"
-        )
+        processing_dir.glob(f"[A,D]{track}_{subswath}*/Timeseries/" f"*.{date}.{search_last}")
     )
 
     # search for timescans (in case timeseries not found)
     if not list_of_files:
 
         list_of_files = list(
-            processing_dir.glob(
-                f"[A,D]{track}_{subswath}*/Timescan/" f"*.{product}.{date}.tif"
-            )
+            processing_dir.glob(f"[A,D]{track}_{subswath}*/Timescan/" f"*.{product}.{date}.tif")
         )
 
     if not list_of_files:
@@ -164,13 +160,9 @@ def _burst_list(track, date, product, subswath, config_dict):
 
     # get a list of all extent files to check for real AOI overlap
     if config_dict["processing"]["time-series_ARD"]["apply_ls_mask"]:
-        list_of_extents = processing_dir.glob(
-            f"*{track}_{subswath}*/*{track}*.valid.json"
-        )
+        list_of_extents = processing_dir.glob(f"*{track}_{subswath}*/*{track}*.valid.json")
     else:
-        list_of_extents = processing_dir.glob(
-            f"*{track}_{subswath}*/*{track}*.min_bounds.json"
-        )
+        list_of_extents = processing_dir.glob(f"*{track}_{subswath}*/*{track}*.min_bounds.json")
 
     list_of_actual_extents = []
     for burst_extent in list_of_extents:
@@ -183,10 +175,7 @@ def _burst_list(track, date, product, subswath, config_dict):
 
     # filter the bursts for real AOI overlap
     list_of_files = [
-        file
-        for file in list_of_files
-        for pattern in list_of_actual_extents
-        if pattern in str(file)
+        file for file in list_of_files for pattern in list_of_actual_extents if pattern in str(file)
     ]
 
     # and join them into a otb readable list
@@ -208,17 +197,13 @@ def mosaic_slc_acquisition(track, date, product, outfile, config_file):
 
     if list_of_iw12:
         logger.info(
-            f"Pre-mosaicking {product} acquisition's IW1 and IW2 subswaths "
-            f"from {track} taken at {date}."
+            f"Pre-mosaicking {product} acquisition's IW1 and IW2 subswaths " f"from {track} taken at {date}."
         )
         temp_iw12 = temp_dir / f"{date}_{track}_{product}_IW1_2.tif"
         mosaic(list_of_iw12, temp_iw12, config_file, harm=False)
 
     if list_of_iw3:
-        logger.info(
-            f"Pre-mosaicking {product} acquisition's IW3 subswath "
-            f"from {track} taken at {date}."
-        )
+        logger.info(f"Pre-mosaicking {product} acquisition's IW3 subswath " f"from {track} taken at {date}.")
         temp_iw3 = temp_dir / f"{date}_{track}_{product}_IW3.tif"
         mosaic(list_of_iw3, temp_iw3, config_file, harm=False)
 

@@ -138,10 +138,7 @@ def asf_download(url, filename, uname, pword):
     if zip_test is not None:
         if filename.exists():
             filename.unlink()
-        raise DownloadError(
-            f"{filename.name} did not pass the zip test. "
-            f"Re-downloading the full scene."
-        )
+        raise DownloadError(f"{filename.name} did not pass the zip test. " f"Re-downloading the full scene.")
     else:
         logger.info(f"{filename.name} passed the zip test.")
         with open(filename.with_suffix(".downloaded"), "w+") as file:
@@ -175,9 +172,7 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
     if asf_list:
         executor = Executor(max_workers=concurrent, executor="concurrent_processes")
 
-        for task in executor.as_completed(
-            func=asf_download_parallel, iterable=asf_list, fargs=[]
-        ):
+        for task in executor.as_completed(func=asf_download_parallel, iterable=asf_list, fargs=[]):
             task.result()
             check_counter += 1
 
@@ -194,6 +189,4 @@ def batch_download(inventory_df, download_dir, uname, pword, concurrent=10):
                 # ...and remove from list of scenes to download
                 scenes.remove(scene.scene_id)
             else:
-                raise DownloadError(
-                    "ASF download is incomplete or has failed. Try to re-run."
-                )
+                raise DownloadError("ASF download is incomplete or has failed. Try to re-run.")

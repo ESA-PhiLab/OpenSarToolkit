@@ -27,10 +27,7 @@ def create_datelist(path_to_timeseries):
 
     with open("{}/datelist.txt".format(path_to_timeseries), "w") as file:
         for date in dates:
-            file.write(
-                str(datetime.strftime(datetime.strptime(date, "%y%m%d"), "%Y-%m-%d"))
-                + " \n"
-            )
+            file.write(str(datetime.strftime(datetime.strptime(date, "%y%m%d"), "%Y-%m-%d")) + " \n")
 
 
 def create_ts_animation(ts_dir, temp_dir, outfile, shrink_factor):

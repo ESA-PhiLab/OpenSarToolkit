@@ -138,17 +138,13 @@ class Generic:
             datetime.strptime(start, OST_DATEFORMAT)
             self.start = start
         except ValueError:
-            raise ValueError(
-                "Incorrect date format for start date. It should be YYYY-MM-DD"
-            )
+            raise ValueError("Incorrect date format for start date. It should be YYYY-MM-DD")
 
         try:
             datetime.strptime(end, OST_DATEFORMAT)
             self.end = end
         except ValueError:
-            raise ValueError(
-                "Incorrect date format for end date. It should be YYYY-MM-DD"
-            )
+            raise ValueError("Incorrect date format for end date. It should be YYYY-MM-DD")
 
         # ------------------------------------------
         # 6 Check data mount
@@ -254,8 +250,7 @@ class Sentinel1(Generic):
         if product_type in ["*", "RAW", "SLC", "GRD"]:
             self.product_type = product_type
         else:
-            raise ValueError("Product type must be one out of '*', 'RAW', "
-                             "'SLC', 'GRD'")
+            raise ValueError("Product type must be one out of '*', 'RAW', " "'SLC', 'GRD'")
 
         # ------------------------------------------
         # 3 Check and set beam mode
@@ -278,8 +273,7 @@ class Sentinel1(Generic):
         if inventory_file.exists():
             self.inventory_file = inventory_file
             logging.info(
-                "Found an existing inventory file. This can be overwritten "
-                "by re-executing the search."
+                "Found an existing inventory file. This can be overwritten " "by re-executing the search."
             )
             self.read_inventory()
         else:
@@ -333,14 +327,10 @@ class Sentinel1(Generic):
         toi = scihub.create_toi_str(self.start, self.end)
 
         # create scihub conform product specification
-        product_specs = scihub.create_s1_product_specs(
-            self.product_type, self.polarisation, self.beam_mode
-        )
+        product_specs = scihub.create_s1_product_specs(self.product_type, self.polarisation, self.beam_mode)
 
         # construct the final query
-        query = urllib.parse.quote(
-            f"Sentinel-1 AND {product_specs} AND {aoi} AND {toi}"
-        )
+        query = urllib.parse.quote(f"Sentinel-1 AND {product_specs} AND {aoi} AND {toi}")
 
         if not self.scihub_uname or not self.scihub_pword:
             # ask for username and password
@@ -403,9 +393,7 @@ class Sentinel1(Generic):
 
         # add download_path to inventory, so we can check if data needs to be
         # downloaded
-        self.inventory = search.check_availability(
-            geodataframe, self.download_dir, self.data_mount
-        )
+        self.inventory = search.check_availability(geodataframe, self.download_dir, self.data_mount)
 
     def download_size(self, inventory_df=None):
         """Function to get the total size of all products when extracted in GB
@@ -419,8 +407,8 @@ class Sentinel1(Generic):
             size = inventory_df["size"]
 
         size = size.apply(
-            lambda x: re.sub(' GB', '', x) if re.search(' GB', str(x)) else re.sub(' MB', '', x) / 1024
-        ).astype('float32')
+            lambda x: re.sub(" GB", "", x) if re.search(" GB", str(x)) else re.sub(" MB", "", x) / 1024
+        ).astype("float32")
 
         logger.info(f"There are about {size} GB need to be downloaded.")
 
@@ -433,10 +421,7 @@ class Sentinel1(Generic):
         complete_coverage=True,
     ):
 
-        (
-            self.refined_inventory_dict,
-            self.coverages,
-        ) = refine_inventory.search_refinement(
+        (self.refined_inventory_dict, self.coverages,) = refine_inventory.search_refinement(
             self.aoi,
             self.inventory,
             self.inventory_dir,
@@ -462,9 +447,7 @@ class Sentinel1(Generic):
             inventory_df.drop("download_path", axis=1)
 
         # check if scenes exist
-        inventory_df = search.check_availability(
-            inventory_df, self.download_dir, self.data_mount
-        )
+        inventory_df = search.check_availability(inventory_df, self.download_dir, self.data_mount)
 
         # extract only those scenes that need to be downloaded
         download_df = inventory_df[inventory_df.download_path == "None"]
@@ -483,15 +466,11 @@ class Sentinel1(Generic):
                 pword=pword,
             )
 
-    def create_burst_inventory(
-        self, inventory_df=None, refine=True, outfile=None, uname=None, pword=None
-    ):
+    def create_burst_inventory(self, inventory_df=None, refine=True, outfile=None, uname=None, pword=None):
 
         # assert SLC product type
         if not self.product_type == "SLC":
-            raise ValueError(
-                "Burst inventory is only possible for the SLC product type"
-            )
+            raise ValueError("Burst inventory is only possible for the SLC product type")
 
         # in case a custom inventory is given (e.g. a refined inventory)
         if inventory_df is None:
@@ -500,8 +479,7 @@ class Sentinel1(Generic):
             # assert that all products are SLCs
             if not inventory_df.product_type.unique() == "SLC":
                 raise ValueError(
-                    "The inventory dataframe can only contain SLC products "
-                    "for the burst inventory "
+                    "The inventory dataframe can only contain SLC products " "for the burst inventory "
                 )
 
         if not outfile:
@@ -541,9 +519,7 @@ class Sentinel1(Generic):
                 logger.info(f"Importing refined burst inventory file {str(non_ref)}.")
                 burst_file = non_ref
             else:
-                raise FileNotFoundError(
-                    "No previously created burst inventory file " "has been found."
-                )
+                raise FileNotFoundError("No previously created burst inventory file " "has been found.")
         # define column names of file (since in shp they are truncated)
         # create column names for empty data frame
         column_names = [
@@ -621,10 +597,7 @@ class Sentinel1Batch(Sentinel1):
             if ard_type in ard_types_grd:
                 self.ard_type = ard_type
             else:
-                raise ValueError(
-                    "No valid ARD type for product type GRD."
-                    f"Select from {ard_types_grd}"
-                )
+                raise ValueError("No valid ARD type for product type GRD." f"Select from {ard_types_grd}")
 
         # possible ard types to select from for GRD
         elif product_type == "SLC":
@@ -641,10 +614,7 @@ class Sentinel1Batch(Sentinel1):
             if ard_type in ard_types_slc:
                 self.ard_type = ard_type
             else:
-                raise ValueError(
-                    "No valid ARD type for product type GRD."
-                    f"Select from {ard_types_slc}"
-                )
+                raise ValueError("No valid ARD type for product type GRD." f"Select from {ard_types_slc}")
 
         # otherwise the product type is not supported
         else:
@@ -749,9 +719,7 @@ class Sentinel1Batch(Sentinel1):
         logger.info("Pre-downloading Copernicus DEM tiles")
         copdem.download_copdem(self.aoi)
 
-    def bursts_to_ards(
-        self, timeseries=False, timescan=False, mosaic=False, overwrite=False
-    ):
+    def bursts_to_ards(self, timeseries=False, timescan=False, mosaic=False, overwrite=False):
         """Batch processing function for full burst pre-processing workflow
 
         This function allows for the generation of the
@@ -784,9 +752,7 @@ class Sentinel1Batch(Sentinel1):
                     "the Copernicus 30m Global DEM. "
                 )
 
-                self.ard_parameters["single_ARD"]["dem"][
-                    "dem_name"
-                ] = "Copernicus 30m Global DEM"
+                self.ard_parameters["single_ARD"]["dem"]["dem_name"] = "Copernicus 30m Global DEM"
 
             if self.ard_parameters["single_ARD"]["dem"]["out_projection"] == 4326:
 
@@ -841,18 +807,22 @@ class Sentinel1Batch(Sentinel1):
         # self.ard_parameters['resolution'] = h.resolution_in_degree(
         #    self.center_lat, self.ard_parameters['resolution'])
 
-        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == 'SRTM 1Sec HGT':
+        if (
+            self.config_dict["max_workers"] > 1
+            and self.ard_parameters["single_ARD"]["dem"]["dem_name"] == "SRTM 1Sec HGT"
+        ):
             self.pre_download_srtm()
 
-        if self.config_dict['max_workers'] > 1 and self.ard_parameters['single_ARD']['dem']['dem_name'] == "Copernicus 30m Global DEM":
+        if (
+            self.config_dict["max_workers"] > 1
+            and self.ard_parameters["single_ARD"]["dem"]["dem_name"] == "Copernicus 30m Global DEM"
+        ):
             self.pre_download_copdem()
         # --------------------------------------------
         # 6 run the burst to ard batch routine (up to 3 times if needed)
         i = 1
         while i < 4:
-            processed_bursts_df = burst_batch.bursts_to_ards(
-                self.burst_inventory, self.config_file
-            )
+            processed_bursts_df = burst_batch.bursts_to_ards(self.burst_inventory, self.config_file)
 
             if False in processed_bursts_df.error.isnull().tolist():
                 i += 1
@@ -945,9 +915,7 @@ class Sentinel1Batch(Sentinel1):
                     "the Copernicus 30m Global DEM. "
                 )
 
-                self.ard_parameters["single_ARD"]["dem"][
-                    "dem_name"
-                ] = "Copernicus 30m Global DEM"
+                self.ard_parameters["single_ARD"]["dem"]["dem_name"] = "Copernicus 30m Global DEM"
 
             if self.ard_parameters["single_ARD"]["dem"]["out_projection"] == 4326:
 

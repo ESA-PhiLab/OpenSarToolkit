@@ -57,9 +57,7 @@ def create_polarimetric_layers(import_file, out_dir, burst_prefix, config_dict):
 
         # run geocoding
         try:
-            common.terrain_correction(
-                out_haa.with_suffix(".dim"), out_htc, haa_tc_log, config_dict
-            )
+            common.terrain_correction(out_haa.with_suffix(".dim"), out_htc, haa_tc_log, config_dict)
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             return None, error
@@ -165,9 +163,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
 
             # run db scaling on calibrated/speckle filtered input
             try:
-                common.linear_to_db(
-                    out_cal.with_suffix(".dim"), out_db, db_log, config_dict
-                )
+                common.linear_to_db(out_cal.with_suffix(".dim"), out_db, db_log, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, error
@@ -189,9 +185,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
 
         # run terrain correction on calibrated/speckle filtered/db  input
         try:
-            common.terrain_correction(
-                out_cal.with_suffix(".dim"), out_tc, tc_log, config_dict
-            )
+            common.terrain_correction(out_cal.with_suffix(".dim"), out_tc, tc_log, config_dict)
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             return None, None, error
@@ -213,9 +207,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
 
             # run ls mask routine
             try:
-                common.ls_mask(
-                    out_cal.with_suffix(".dim"), ls_mask, logfile, config_dict
-                )
+                common.ls_mask(out_cal.with_suffix(".dim"), ls_mask, logfile, config_dict)
             except (GPTRuntimeError, NotValidFileError) as error:
                 logger.info(error)
                 return None, None, error
@@ -224,9 +216,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
             ls_raster = list(ls_mask.with_suffix(".data").glob("*img"))[0]
             ras.polygonize_ls(ls_raster, ls_mask.with_suffix(".json"))
 
-            out_ls = (
-                out_tc.with_suffix(".data").joinpath(ls_mask.name).with_suffix(".json")
-            )
+            out_ls = out_tc.with_suffix(".data").joinpath(ls_mask.name).with_suffix(".json")
 
             # move to product folder
             ls_mask.with_suffix(".json").rename(out_ls)
@@ -245,9 +235,7 @@ def create_backscatter_layers(import_file, out_dir, burst_prefix, config_dict):
         )
 
 
-def create_coherence_layers(
-    master_import, slave_import, out_dir, master_prefix, config_dict
-):
+def create_coherence_layers(master_import, slave_import, out_dir, master_prefix, config_dict):
     """
     Pipeline for Dual-polarimetric decomposition
 
@@ -318,9 +306,7 @@ def create_coherence_layers(
 
         # run geocoding
         try:
-            common.terrain_correction(
-                out_coh.with_suffix(".dim"), out_tc, tc_log, config_dict
-            )
+            common.terrain_correction(out_coh.with_suffix(".dim"), out_tc, tc_log, config_dict)
         except (GPTRuntimeError, NotValidFileError) as error:
             logger.info(error)
             return None, error

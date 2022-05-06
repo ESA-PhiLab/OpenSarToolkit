@@ -69,8 +69,7 @@ def burst_import(infile, outfile, logfile, swath, burst, config_dict):
         logger.debug("Succesfully imported burst.")
     else:
         raise GPTRuntimeError(
-            f"Frame import exited with error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Frame import exited with error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -105,8 +104,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
     if remove_pol_speckle:
         graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_Deb_Spk_Halpha.xml"
         logger.debug(
-            "Applying the polarimetric speckle filter and"
-            " calculating the H-alpha dual-pol decomposition"
+            "Applying the polarimetric speckle filter and" " calculating the H-alpha dual-pol decomposition"
         )
 
         command = (
@@ -126,9 +124,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
 
         logger.debug("Calculating the H-alpha dual polarisation")
         command = (
-            f"{GPT_FILE} {graph} -x -q {2 * cpus} "
-            f'-Pinput="{str(infile)}" '
-            f'-Poutput="{str(outfile)}"'
+            f"{GPT_FILE} {graph} -x -q {2 * cpus} " f'-Pinput="{str(infile)}" ' f'-Poutput="{str(outfile)}"'
         )
 
     logger.debug(f"Executing command: {command}")
@@ -138,8 +134,7 @@ def ha_alpha(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully created H/A/Alpha product")
     else:
         raise GPTRuntimeError(
-            f"H/Alpha exited with an error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"H/Alpha exited with an error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -185,9 +180,7 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a RTC product.")
 
         # get graph for RTC generation
-        graph = (
-            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml"
-        )
+        graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalBeta_Deb_ML_TF_Sub.xml"
 
         # construct command
         command = (
@@ -208,9 +201,7 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a GTC product (Gamma0).")
 
         # get graph for GTC-gammao0 generation
-        graph = (
-            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalGamma_Deb_ML_Sub.xml"
-        )
+        graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalGamma_Deb_ML_Sub.xml"
 
         # construct command
         command = (
@@ -226,9 +217,7 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Calibrating the product to a GTC product (Sigma0).")
 
         # get graph for GTC-sigma0 generation
-        graph = (
-            OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalSigma_Deb_ML_Sub.xml"
-        )
+        graph = OST_ROOT / "graphs" / "S1_SLC2ARD" / "S1_SLC_TNR_CalSigma_Deb_ML_Sub.xml"
 
         # construct command
         command = (
@@ -249,8 +238,7 @@ def calibration(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully calibrated product")
     else:
         raise GPTRuntimeError(
-            f"Calibration exited with an error {return_code}. "
-            f"See {logfile} for Snap's error output."
+            f"Calibration exited with an error {return_code}. " f"See {logfile} for Snap's error output."
         )
 
     # do check routine
@@ -304,8 +292,7 @@ def coreg(master, slave, outfile, logfile, config_dict):
         logger.debug("Succesfully coregistered product.")
     else:
         raise GPTRuntimeError(
-            f"Co-registration exited with an error {return_code}. "
-            f"See {logfile} for Snap error output."
+            f"Co-registration exited with an error {return_code}. " f"See {logfile} for Snap error output."
         )
 
     # do check routine
@@ -358,8 +345,7 @@ def coreg2(master, slave, outfile, logfile, config_dict):
         logger.debug("Successfully co-registered product.")
     else:
         raise GPTRuntimeError(
-            f"Co-registration exited with an error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Co-registration exited with an error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine
@@ -410,8 +396,7 @@ def coherence(infile, outfile, logfile, config_dict):
         logger.debug("Succesfully created coherence product.")
     else:
         raise GPTRuntimeError(
-            f"Coherence exited with an error {return_code}. "
-            f"See {logfile} for Snap's error message."
+            f"Coherence exited with an error {return_code}. " f"See {logfile} for Snap's error message."
         )
 
     # do check routine

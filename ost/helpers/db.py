@@ -57,9 +57,7 @@ def pgHandler(dbConnectFile="{}/.phiSAR/pgdb".format(os.getenv("HOME"))):
 
 
 class pgConnect:
-    def __init__(
-        self, uname=None, pword=None, dbname="sat", host="localhost", port="5432"
-    ):
+    def __init__(self, uname=None, pword=None, dbname="sat", host="localhost", port="5432"):
         """
         Establish a connection to the Scihub-catalogue db
         """
@@ -72,9 +70,7 @@ class pgConnect:
 
         # try connecting
         try:
-            self.connection = pg.connect(
-                dbname=dbname, user=uname, host=host, password=pword, port=port
-            )
+            self.connection = pg.connect(dbname=dbname, user=uname, host=host, password=pword, port=port)
             self.connection.autocommit = True
             self.cursor = self.connection.cursor()
         except Exception:
@@ -99,9 +95,7 @@ class pgConnect:
 
     def pgGetUUID(self, sceneID, tablename):
 
-        sql_cmd = "SELECT uuid FROM {} WHERE identifier = '{}'".format(
-            tablename, sceneID
-        )
+        sql_cmd = "SELECT uuid FROM {} WHERE identifier = '{}'".format(tablename, sceneID)
         self.cursor.execute(sql_cmd)
         uuid = self.cursor.fetchall()[0][0]
         return uuid

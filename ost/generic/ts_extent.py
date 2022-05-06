@@ -39,9 +39,7 @@ def mt_extent(list_of_extents, config_file):
             df2 = df2[~(df2.geometry.is_empty | df2.geometry.isna())]
 
             # do intersect
-            df1 = gpd.overlay(df1, df2, how="intersection")[
-                ["raster_val_1", "geometry"]
-            ]
+            df1 = gpd.overlay(df1, df2, how="intersection")[["raster_val_1", "geometry"]]
 
             # rename columns
             df1.columns = ["raster_val", "geometry"]
