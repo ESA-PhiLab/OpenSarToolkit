@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 
-LABEL maintainer="Andreas Vollrath, FAO"
+LABEL maintainer="Andreas Vollrath, FAO. Modified Evan Koester, for AtlasAI PBC"
 LABEL OpenSARToolkit='0.12.3'
 
 # set work directory to home and download snap
@@ -19,26 +19,33 @@ ENV TBX="esa-snap_sentinel_unix_${TBX_VERSION}_${TBX_SUBVERSION}.sh" \
     HOME=/home/ost \
     PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
 
+# https://www.orfeo-toolbox.org/packages/OTB-7.3.0-Linux64.run
+# Trying 8.1.2
+
 # install all dependencies
-RUN groupadd -r ost && \
-    useradd -r -g ost ost && \
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
+# RUN groupadd -r ost && \
+#     useradd -r -g ost ost && \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq \
         python3 \
         python3-pip \
         git \
+        gdal-bin \
         libgdal-dev \
         python3-gdal \
         libspatialindex-dev \
-        libgfortran3 \
+        libgfortran5 \
         wget \
         unzip \
         imagemagick \
         nodejs \
         npm
 
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+
 RUN alias python=python3 && \
     rm -rf /var/lib/apt/lists/*  && \
-    python3 -m pip install jupyterlab && \
+    python3 -m pip install jupyterlab GDAL && \
     mkdir /home/ost/programs && \
     wget $SNAP_URL/$TBX && \    
     chmod +x $TBX && \
@@ -46,7 +53,7 @@ RUN alias python=python3 && \
     rm $TBX && \
     rm snap.varfile && \
     cd /home/ost/programs && \
-    wget https://www.orfeo-toolbox.org/packages/${OTB} && \ 
+    wget https://www.orfeo-toolbox.org/packages/archives/OTB/${OTB} && \ 
     chmod +x $OTB && \
     ./${OTB} && \
     rm -f OTB-${OTB_VERSION}-Linux64.run 
@@ -61,10 +68,9 @@ RUN /home/ost/programs/snap/bin/snap --nosplash --nogui --modules --update-all 2
 RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
-RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
+RUN python3 -m pip install git+https://github.com/AtlasAIPBC/OpenSarToolkit.git && \
     git clone https://github.com/ESA-PhiLab/OST_Notebooks && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
-    jupyter nbextension enable --py widgetsnbextension
+    pip install numpy --upgrade
 
-EXPOSE 8888
-CMD jupyter lab --ip='0.0.0.0' --port=8888 --no-browser --allow-root
+#     # jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
+#     # jupyter nbextension enable --py widgetsnbextension
