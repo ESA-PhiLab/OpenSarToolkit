@@ -3,17 +3,6 @@ from setuptools import setup, find_packages
 from setuptools.command.develop import develop
 from subprocess import check_call
 
-# check that gdal has already been installed prior to ost
-try:
-    from osgeo import gdal
-except ModuleNotFoundError:
-    raise ImportError(
-        "please install a GDAL distribution>=1.7 prior to install OpenSarTollkit, we recommand using the pygdal packages"
-    )
-
-# to make flake8 happy
-gdal.__version__
-
 # the version number
 version = "0.12.15"
 
