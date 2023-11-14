@@ -69,6 +69,8 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 # get OST and tutorials
 RUN python3 -m pip install git+https://github.com/AtlasAIPBC/OpenSarToolkit.git && \
-    git clone https://github.com/ESA-PhiLab/OST_Notebooks 
+    git clone https://github.com/ESA-PhiLab/OST_Notebooks && \
+    pip install numpy --upgrade
+
 #     # jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
 #     # jupyter nbextension enable --py widgetsnbextension
