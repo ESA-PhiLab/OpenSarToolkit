@@ -16,6 +16,7 @@ dev_requires = [
     "pytest",
     "coverage",
     "flake8",
+    "ipdb",
 ]
 
 
