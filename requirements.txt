@@ -1,14 +1,14 @@
 descartes
 fiona
-gdal>=2
+#gdal>=2
 godale
 pyproj>=2.1
 geopandas>=0.8
-jupyterlab
+#jupyterlab
 matplotlib
 numpy
 pandas
-psycopg2-binary
+psycopg2
 rasterio
 requests
 scipy
@@ -17,6 +17,6 @@ tqdm
 imageio
 rtree
 retrying
-pytest
-pytest-cov
-pytest-runner
+#pytest
+#pytest-cov
+#pytest-runner

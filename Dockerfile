@@ -20,7 +20,7 @@ ENV OTB_VERSION="7.3.0"
 ENV TBX_VERSION="8"
 ENV TBX_SUBVERSION="0"
 ENV TBX="esa-snap_sentinel_unix_${TBX_VERSION}_${TBX_SUBVERSION}.sh"
-ENV SNAP_URL="http://step.esa.int/downloads/${TBX_VERSION}.${TBX_SUBVERSION}/installers"
+ENV SNAP_URL="https://download.esa.int/step/snap/${TBX_VERSION}.${TBX_SUBVERSION}/installers"
 ENV OTB=OTB-${OTB_VERSION}-Linux64.run
 ENV HOME=/home/${OST_USER}
 ENV PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
@@ -43,6 +43,14 @@ RUN add-apt-repository -y ppa:ubuntugis/ubuntugis-unstable && \
     apt-get install -y build-essential gdal-bin gdal-data libgdal-dev
 
 RUN apt-get install -y imagemagick
+
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    apt-get update && \
+    apt-get -y install postgresql-client-16
+
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # add user
 RUN useradd -ms /bin/bash ${OST_USER} && \
