@@ -13,13 +13,9 @@ DESCRIPTION = "High-level functionality for the inventory, download and pre-proc
 LONG_DESCRIPTION = (HERE / "README.rst").read_text()
 
 dev_requires = [
-    "pre-commit",
     "pytest",
     "coverage",
-    "nbsphinx",
-    "pydata-sphinx-theme",
-    "sphinx-copybutton",
-    "Commitizen",
+    "flake8",
 ]
 
 
