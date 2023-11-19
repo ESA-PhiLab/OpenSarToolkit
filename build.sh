@@ -68,7 +68,7 @@ fi
 echo
 
 for registry in "${DOCKER_REGISTRIES[@]}"; do
-	REMOTE_DOCKER_TAG="${registry}/base:${TAG}"
+	REMOTE_DOCKER_TAG="${registry}/ost:${TAG}"
 
 	echo
 	echo "Tagging remote docker image: \"${DOCKER_IMAGE}\" => \"${REMOTE_DOCKER_TAG}\""
