@@ -423,6 +423,16 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
     else:
         cross_pol = Path("/no/foo/no")
 
+    extra_meta = dict()
+    if driver == "GTiff":
+        extra_meta.update(
+            dict(
+                tiled=True,
+                compress='DEFLATE',
+                bigtiff='YES',
+            )
+        )
+
     if cross_pol.exists():
 
         with rasterio.open(co_pol) as co:
@@ -432,6 +442,7 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
 
             # update meta
             meta.update(driver=driver, count=3, nodata=0)
+            meta.update(extra_meta)
 
             with rasterio.open(cross_pol) as cr:
 
@@ -487,6 +498,7 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
 
             # update meta
             meta.update(driver=driver, count=1, nodata=0)
+            meta.update(extra_meta)
 
             new_height = int(co.height / shrink_factor)
             new_width = int(co.width / shrink_factor)
