@@ -112,18 +112,12 @@ def get_gpt():
 
     # on Windows
     if os.name == "nt":
-        if Path(r"c:/Program Files/snap/bin/gpt.exe").is_file() is True:
-            gpt_file = Path(r"c:/Program Files/snap/bin/gpt.exe")
-        else:
-            gpt_file = input(
-                r" Please provide the full path to the"
-                r" SNAP gpt command line executable"
-                r" (e.g. C:\path\to\snap\bin\gpt.exe)"
-            )
-            gpt_file = Path(gpt_file)
-
-            if not gpt_file.exists():
-                raise FileNotFoundError("Given path to gpt does not exist.")
+        # possible Windows paths
+        paths = [
+            Path.home() / ".ost" / "gpt",
+            Path(os.path.expandvars(r"%ProgramFiles%\snap\bin\gpt.exe")),
+            Path(os.path.expandvars(r"%LocalAppData%\Programs\snap\bin\gpt.exe"))
+        ]
 
     # Unix systems (Mac, Linux)
     else:
@@ -141,19 +135,17 @@ def get_gpt():
             Path("/Applications/snap/bin/gpt"),
         ]
 
-        # loop trough possible paths and see if we find it
-        for path in paths:
-            if path.exists():
-                gpt_file = path
-                break
-            else:
-                gpt_file = None
+    # loop trough possible paths and see if we find it
+    for path in paths:
+        if path.exists():
+            gpt_file = path
+            break
 
     # check if we have an environmental variable that contains the path to gpt
     if not gpt_file:
         gpt_file = os.getenv("GPT_PATH")
 
-    # we search with bash's which
+    # we search with shutil's which
     if not gpt_file:
         try:
             gpt_file = Path(shutil.which("gpt"))
@@ -163,22 +155,26 @@ def get_gpt():
             gpt_file = input(
                 " Please provide the full path to the SNAP"
                 " gpt command line executable"
-                " (e.g. /path/to/snap/bin/gpt) or leave empty"
+                r" (e.g. unix: /path/to/snap/bin/gpt, Windows: C:\path\to\snap\bin\gpt.exe) or leave empty"
                 " if you just want to use the"
                 " OST inventory and download routines."
             )
 
-        if not gpt_file:
-            gpt_file = ""
-        elif not Path(gpt_file).exists():
+        # Raise if no gpt_file was found, or file does not exist
+        if not gpt_file or not Path(gpt_file).exists():
             raise FileNotFoundError("Given path to gpt does not exist.")
-        else:
-            # if file exists we copy to one of the possible paths, so next time
-            # we will find it right away
+
+        # if file exists we copy to one of the possible paths, so next time
+        # we will find it right away
+        try:
             (Path.home() / ".ost").mkdir(exist_ok=True)
             if not (Path.home() / ".ost" / "gpt").exists():
                 os.symlink(gpt_file, Path.home() / ".ost" / "gpt")
             gpt_file = Path.home() / ".ost" / "gpt"
+
+        # Windows may not always support symlinks, so we pass in case of errors
+        except Exception:
+            pass
 
     return str(gpt_file)
 
