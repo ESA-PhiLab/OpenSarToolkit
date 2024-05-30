@@ -43,9 +43,9 @@ def burst_extract(scene_id, track, acq_date, et_root):
 
     # pol = root.find('adsHeader').find('polarisation').text
     swath = et_root.find("adsHeader").find("swath").text
-    burst_lines = np.int(et_root.find("swathTiming").find("linesPerBurst").text)
+    burst_lines = int(et_root.find("swathTiming").find("linesPerBurst").text)
 
-    burst_samples = np.int(et_root.find("swathTiming").find("samplesPerBurst").text)
+    burst_samples = int(et_root.find("swathTiming").find("samplesPerBurst").text)
 
     list_of_bursts = et_root.find("swathTiming").find("burstList")
     geolocation_grid = et_root.find("geolocationGrid")[0]
@@ -252,9 +252,11 @@ def refine_burst_inventory(aoi, burst_gdf, outfile, coverages=None):
     warnings.filterwarnings("ignore", "Geometry is in a geographic CRS", UserWarning)
 
     # turn aoi into a geodataframe
-    aoi_gdf = gpd.GeoDataFrame(vec.wkt_to_gdf(aoi).buffer(0.05))
-    aoi_gdf.columns = ["geometry"]
-    aoi_gdf.crs = "epsg:4326"
+    aoi_gdf = gpd.GeoDataFrame(
+        vec.wkt_to_gdf(aoi).buffer(0.05),
+        columns=['geometry'],
+        crs='epsg:4326'
+    )
 
     # get columns of input dataframe for later return function
     cols = burst_gdf.columns

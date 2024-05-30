@@ -1,2 +1,114 @@
-[tool.black]
-line-length = 110
+[build-system]
+requires = ["setuptools>=61.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opensartoolkit"
+version = "0.13.1"
+description = "python module"
+keywords = ["skeleton", "Python"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.6.9"
+
+dependencies = [
+    "descartes",
+    "fiona",
+    "gdal==3.6.4",
+    "godale",
+    "pyproj",
+    "geopandas",
+    "jupyterlab",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "psycopg2-binary",
+    "rasterio",
+    "requests",
+    "scipy",
+    "shapely",
+    "tqdm",
+    "imageio",
+    "rtree",
+    "retrying",
+    "pytest",
+    "pytest-cov",
+    "pytest-runner"
+]
+
+[[project.authors]]
+name = "Andreas Vollrath"
+email = "andreas.vollrath@fao.org"
+
+[project.license]
+text = "MIT"
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://github.com/ESA-PhiLab/OpenSarToolkit/"
+
+[project.optional-dependencies]
+dev = ["pre-commit", "commitizen", "nox", "mypy"]
+test = ["pytest", "pytest-sugar", "pytest-cov", "pytest-deadfixtures"]
+doc = ["sphinx", "pydata-sphinx-theme", "sphinx-copybutton", "sphinx-design", "sphinx-icon", "sphinx-btn"]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+include = ["ost*"]
+exclude = ["docs*", "tests*"]
+
+[tool.commitizen]
+tag_format = "v$major.$minor.$patch$prerelease"
+update_changelog_on_bump = false
+version = "0.0.0"
+version_files = [
+    "pyproject.toml:version",
+    "sampling_handler/__init__.py:__version__",
+    "docs/conf.py:release"
+]
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+
+[tool.ruff]
+ignore-init-module-imports = true
+fix = true
+select = ["E", "F", "W", "I", "D", "RUF"]
+ignore = ["E501"]  # line too long | Black take care of it
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.coverage.run]
+source = ["ost"]
+
+[tool.doc8]
+ignore = ["D001"] # we follow a 1 line = 1 paragraph style
+
+[tool.mypy]
+scripts_are_modules = true
+ignore_missing_imports = true
+install_types = true
+non_interactive = true
+warn_redundant_casts = true
+
+[tool.licensecheck]
+using = "PEP631:test;dev;doc"

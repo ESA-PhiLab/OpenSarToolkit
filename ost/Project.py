@@ -25,10 +25,12 @@ from shapely.wkt import loads
 
 from ost.helpers import vector as vec, raster as ras
 from ost.helpers import scihub, helpers as h, srtm, copdem
+from ost.helpers import copernicus as cop
 from ost.helpers.settings import set_log_level, setup_logfile, OST_ROOT
 from ost.helpers.settings import check_ard_parameters
 
-from ost.s1 import search, refine_inventory, download
+from ost.s1 import search_data as search
+from ost.s1 import refine_inventory, download
 from ost.s1 import burst_inventory, burst_batch
 from ost.s1 import grd_batch
 
@@ -178,55 +180,23 @@ class Sentinel1(Generic):
     """
 
     product_type = None
-    "TBD"
-
     beam_mode = None
-    "TBD"
-
     polarisation = None
-    "TBD"
-
     inventory_file = None
-    "TBD"
-
     inventory = None
-    "TBD"
-
     refined_inventory_dict = None
-    "TBD"
-
     coverages = None
-    "TBD"
-
     burst_inventory = None
-    "TBD"
-
     burst_inventory_file = None
-    "TBD"
-
-    scihub_uname = None
-    "str: the scihub username"
-
-    scihub_pword = None
-    "str: the scihub password"
-
+    dataspace_uname = None
+    dataspace_pword = None
     asf_uname = None
-    "TBD"
-
     asf_pword = None
-    "TBD"
-
     peps_uname = None
-    "TBD"
-
     peps_pword = None
-    "TBD"
-
     onda_uname = None
-    "TBD"
-
     onda_pword = None
-    "TBD"
+
 
     def __init__(
         self,
@@ -235,9 +205,9 @@ class Sentinel1(Generic):
         start="2014-10-01",
         end=datetime.today().strftime(OST_DATEFORMAT),
         data_mount=None,
-        product_type="*",
-        beam_mode="*",
-        polarisation="*",
+        product_type=None,
+        beam_mode=None,
+        polarisation=None,
         log_level=logging.INFO,
     ):
 
@@ -247,21 +217,21 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 2 Check and set product type
-        if product_type in ["*", "RAW", "SLC", "GRD"]:
+        if product_type in [None, "RAW", "SLC", "GRD"]:
             self.product_type = product_type
         else:
-            raise ValueError("Product type must be one out of '*', 'RAW', " "'SLC', 'GRD'")
+            raise ValueError("Product type must be one out of None, 'RAW', " "'SLC', 'GRD'")
 
         # ------------------------------------------
         # 3 Check and set beam mode
-        if beam_mode in ["*", "IW", "EW", "SM"]:
+        if beam_mode in [None, "IW", "EW", "SM"]:
             self.beam_mode = beam_mode
         else:
-            raise ValueError("Beam mode must be one out of 'IW', 'EW', 'SM'")
+            raise ValueError("Beam mode must be one out of None, 'IW', 'EW', 'SM'")
 
         # ------------------------------------------
         # 4 Check and set polarisations
-        possible_pols = ["*", "VV", "VH", "HV", "HH", "VV VH", "HH HV"]
+        possible_pols = [None, "VV", "VH", "HV", "HH", "VV VH", "HH HV", "*"]
         if polarisation in possible_pols:
             self.polarisation = polarisation
         else:
@@ -292,8 +262,8 @@ class Sentinel1(Generic):
 
         # ------------------------------------------
         # 7 Initialize uname and pword to None
-        self.scihub_uname = None
-        self.scihub_pword = None
+        self.dataspace_uname = None
+        self.dataspace_pword = None
 
         self.asf_uname = None
         self.asf_pword = None
@@ -310,7 +280,7 @@ class Sentinel1(Generic):
         self,
         outfile=OST_INVENTORY_FILE,
         append=False,
-        base_url="https://apihub.copernicus.eu/apihub",
+        base_url="https://catalogue.dataspace.copernicus.eu/resto/api/",
     ):
         """High Level search function
 
@@ -332,9 +302,17 @@ class Sentinel1(Generic):
         # construct the final query
         query = urllib.parse.quote(f"Sentinel-1 AND {product_specs} AND {aoi} AND {toi}")
 
-        if not self.scihub_uname or not self.scihub_pword:
+        # create query
+        aoi = cop.create_aoi_str(self.aoi)
+        toi = cop.create_toi_str(self.start, self.end)
+        specs = cop.create_s1_product_specs(
+            self.product_type, self.polarisation, self.beam_mode
+        )
+        query = aoi + toi + specs + '&maxRecords=100'
+
+        if not self.dataspace_uname or not self.dataspace_pword:
             # ask for username and password
-            self.scihub_uname, self.scihub_pword = scihub.ask_credentials()
+            self.dataspace_uname, self.dataspace_pword = cop.ask_credentials()
 
         # do the search
         if outfile == OST_INVENTORY_FILE:
@@ -342,12 +320,13 @@ class Sentinel1(Generic):
         else:
             self.inventory_file = outfile
 
-        search.scihub_catalogue(
+        base_url = base_url + 'collections/Sentinel1/search.json?'
+        search.dataspace_catalogue(
             query,
             self.inventory_file,
             append,
-            self.scihub_uname,
-            self.scihub_pword,
+            self.dataspace_uname,
+            self.dataspace_pword,
             base_url,
         )
 
@@ -355,7 +334,7 @@ class Sentinel1(Generic):
             # read inventory into the inventory attribute
             self.read_inventory()
         else:
-            logger.info("No images found in the AOI for this date range")
+            logger.info("No matching scenes found for the specified search parameters")
 
     def read_inventory(self):
         """Read the Sentinel-1 data inventory from a OST invetory shapefile
@@ -568,7 +547,7 @@ class Sentinel1Batch(Sentinel1):
         data_mount=None,
         product_type="SLC",
         beam_mode="IW",
-        polarisation="*",
+        polarisation="VV VH",
         ard_type="OST-GTC",
         snap_cpu_parallelism=cpu_count(),
         max_workers=1,

@@ -66,6 +66,7 @@ def bursts_to_ards(burst_gdf, config_file):
 
     logger.info("Preparing the processing pipeline. This may take a moment.")
     proc_inventory = prepare_burst_inventory(burst_gdf, config_file)
+    #print(proc_inventory)
 
     with open(config_file, "r") as file:
         config_dict = json.load(file)

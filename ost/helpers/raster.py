@@ -42,7 +42,7 @@ def polygonize_ls(infile, outfile, driver="GeoJSON"):
         outfile,
         "w",
         driver=driver,
-        crs=pyproj.Proj(src.crs).srs,
+        crs=src.crs,
         schema={"properties": [("raster_val", "int")], "geometry": "Polygon"},
     ) as dst:
         dst.writerecords(results)
@@ -105,7 +105,7 @@ def polygonize_bounds(infile, outfile, mask_value=1, driver="GeoJSON"):
             outfile,
             "w",
             driver=driver,
-            crs=pyproj.Proj(src.crs).srs,
+            crs=src.crs,
             schema={"properties": [("raster_val", "int")], "geometry": "MultiPolygon"},
         ) as dst:
             dst.writerecords(results)
