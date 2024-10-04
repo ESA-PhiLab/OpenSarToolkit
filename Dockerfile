@@ -19,6 +19,13 @@ ENV TBX="esa-snap_sentinel_unix_${TBX_VERSION}_${TBX_SUBVERSION}.sh" \
     HOME=/home/ost \
     PATH=$PATH:/home/ost/programs/snap/bin:/home/ost/programs/OTB-${OTB_VERSION}-Linux64/bin
 
+RUN apt-get update && apt-get install -yq wget libquadmath0
+
+RUN wget http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-6/gcc-6-base_6.4.0-17ubuntu1_amd64.deb && \
+  dpkg -i gcc-6-base_6.4.0-17ubuntu1_amd64.deb && \
+  wget http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-6/libgfortran3_6.4.0-17ubuntu1_amd64.deb && \
+  dpkg -i libgfortran3_6.4.0-17ubuntu1_amd64.deb
+
 # install all dependencies
 RUN groupadd -r ost && \
     useradd -r -g ost ost && \
@@ -29,7 +36,6 @@ RUN groupadd -r ost && \
         libgdal-dev \
         python3-gdal \
         libspatialindex-dev \
-        libgfortran3 \
         wget \
         unzip \
         imagemagick \
@@ -46,7 +52,7 @@ RUN alias python=python3 && \
     rm $TBX && \
     rm snap.varfile && \
     cd /home/ost/programs && \
-    wget https://www.orfeo-toolbox.org/packages/${OTB} && \ 
+    wget https://www.orfeo-toolbox.org/packages/archives/OTB/${OTB} && \ 
     chmod +x $OTB && \
     ./${OTB} && \
     rm -f OTB-${OTB_VERSION}-Linux64.run 
@@ -60,11 +66,15 @@ RUN /home/ost/programs/snap/bin/snap --nosplash --nogui --modules --update-all 2
 # set usable memory to 12G
 RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
+COPY requirements.txt $HOME
+
 # get OST and tutorials
-RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git && \
-    git clone https://github.com/ESA-PhiLab/OST_Notebooks && \
-    jupyter labextension install @jupyter-widgets/jupyterlab-manager && \
-    jupyter nbextension enable --py widgetsnbextension
+RUN python3 -m pip install git+https://github.com/ESA-PhiLab/OpenSarToolkit.git -c requirements.txt && \
+    git clone https://github.com/ESA-PhiLab/OST_Notebooks
+
+#RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
+#RUN jupyter nbextension enable --py widgetsnbextension
+RUN pip install widgetsnbextension
 
 EXPOSE 8888
 CMD jupyter lab --ip='0.0.0.0' --port=8888 --no-browser --allow-root
