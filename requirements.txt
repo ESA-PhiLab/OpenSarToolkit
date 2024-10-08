@@ -1,3 +1,4 @@
+click>=8.0
 descartes==1.1.0
 fiona==1.9.6
 gdal==3.0.4
