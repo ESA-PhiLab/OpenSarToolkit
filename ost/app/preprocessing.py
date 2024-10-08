@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from pprint import pprint
 from ost import Sentinel1Scene
+import click
+
 @click.command()
 @click.argument("input")
 @click.argument("output-dir")
