@@ -38,6 +38,7 @@ def run(
     #output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
     #output_dir.mkdir(parents=True, exist_ok=True)
     #print(str(output_dir))
+    output_path = Path(output_dir)
 
     # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
 
@@ -106,15 +107,15 @@ def run(
     print('-----------------------------------------------------------------------------------------------------------')
 
     s1.create_ard(
-        infile=s1.get_path(output_dir),
-        out_dir=output_dir,
+        infile=s1.get_path(output_path),
+        out_dir=output_path,
         overwrite=True
     )
 
     print(' The path to our newly created ARD product can be obtained the following way:')
     print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_dimap}")
 
-    s1.create_rgb(outfile = output_dir.joinpath(f'{s1.start_date}.tif'))
+    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
 
     print(' The path to our newly created RGB product can be obtained the following way:')
     print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
