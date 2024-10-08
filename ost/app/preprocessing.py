@@ -10,8 +10,8 @@ import click
 @click.option("--resolution",
               default=100)
 @click.option("--ard-type",
-              type=click.Choice(['OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine']),
-              default='Earth Engine')
+              type=click.Choice(['OST_GTC', 'OST-RTC', 'CEOS', 'Earth-Engine']),
+              default='Earth-Engine')
 @click.option("--with-speckle-filter",
               default=False)
 @click.option("--resampling-method",
