@@ -17,13 +17,18 @@ import click
 @click.option("--resampling-method",
               type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
               default="BILINEAR_INTERPOLATION")
+@click.option("--cdse-user")
+@click.option("--cdse-password")
+
 def run(
     input: str,
     output_dir: str,
     resolution: int,
     ard_type: str,
     with_speckle_filter: bool,
-    resampling_method: str
+    resampling_method: str,
+    cdse_user: str,
+    cdse_password: str,
 ):
     # get home folder
     #home = Path.home()
@@ -68,7 +73,7 @@ def run(
     # print summarising infos about the scene
     s1.info()
 
-    s1.download(output_dir, mirror="5", uname='martin.boettcher@brockmann-consult.de', pword='...')
+    s1.download(output_dir, mirror="5", uname=cdse_user, pword=cdse_password)
 
     # Template ARD parameters
 
