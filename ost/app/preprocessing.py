@@ -2,14 +2,11 @@ import sys
 from pathlib import Path
 from pprint import pprint
 from ost import Sentinel1Scene
-import click
-
-#from ost.helpers.settings import set_log_level
-#import logging
-#set_log_level(logging.DEBUG)
-
 @click.command()
 @click.argument("input")
+@click.argument("output-dir")
+@click.option("--resolution",
+              default=100)
 @click.option("--ard-type",
               type=click.Choice(['OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine']),
               default='Earth Engine')
@@ -18,11 +15,11 @@ import click
 @click.option("--resampling-method",
               type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
               default="BILINEAR_INTERPOLATION")
-@click.option("--resolution",
-              default=100)
 def run(
     input: str,
+    output_dir: str,
     resolution: int,
+    ard_type: str,
     with_speckle_filter: bool,
     resampling_method: str
 ):
@@ -34,7 +31,6 @@ def run(
     #output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
     #output_dir.mkdir(parents=True, exist_ok=True)
     #print(str(output_dir))
-    output_dir = "."
 
     # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
 
@@ -115,6 +111,12 @@ def run(
 
     print(' The path to our newly created RGB product can be obtained the following way:')
     print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
+
+#from ost.helpers.settings import set_log_level
+#import logging
+#set_log_level(logging.DEBUG)
+
+import click
 
 if __name__ == "__main__":
     sys.exit(run())
