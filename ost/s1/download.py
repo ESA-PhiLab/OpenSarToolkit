@@ -122,7 +122,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, un
     elif int(mirror) == 5:
         # we avoid checking the connection, all products may be downloaded already
         #error_code = copernicus.check_connection(uname, pword)
-        pass
+        error_code = 200
     #    error_code = asf_wget.check_connection(uname, pword)
     # hidden option for downloading from czech mirror
     elif int(mirror) == 321:

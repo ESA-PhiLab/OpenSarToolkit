@@ -17,8 +17,8 @@ import click
 @click.option("--resampling-method",
               type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
               default="BILINEAR_INTERPOLATION")
-@click.option("--cdse-user")
-@click.option("--cdse-password")
+@click.option("--cdse-user", default="dummy")
+@click.option("--cdse-password", default="dummy")
 
 def run(
     input: str,
