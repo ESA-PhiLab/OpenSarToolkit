@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from pprint import pprint
 from ost import Sentinel1Scene
@@ -6,7 +7,6 @@ import click
 
 @click.command()
 @click.argument("input")
-@click.argument("output-dir")
 @click.option("--resolution",
               default=100)
 @click.option("--ard-type",
@@ -22,7 +22,6 @@ import click
 
 def run(
     input: str,
-    output_dir: str,
     resolution: int,
     ard_type: str,
     with_speckle_filter: bool,
@@ -32,13 +31,13 @@ def run(
 ):
     # get home folder
     #home = Path.home()
-    home = "."
+    home = Path(".")
 
     # create a processing directory
     #output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
     #output_dir.mkdir(parents=True, exist_ok=True)
     #print(str(output_dir))
-    output_path = Path(output_dir)
+    output_path = Path("/home/ost/shared")
 
     # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
 
@@ -50,6 +49,16 @@ def run(
     #scene_id = 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
     #scene_id = 'S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB'
     scene_id = input[input.rfind("/")+1:input.rfind(".")]
+    year = scene_id[17:21]
+    month = scene_id[21:23]
+    day = scene_id[23:25]
+    os.makedirs(f"SAR/GRD/{year}/{month}/{day}", exist_ok=True)
+    try:
+        os.link(input, f"SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
+        with open(f"SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded", mode="w") as f:
+            f.write("successfully found here")
+    except:
+        pass
 
     # other scenes with different scene types to process (uncomment)
     # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
@@ -74,7 +83,7 @@ def run(
     # print summarising infos about the scene
     s1.info()
 
-    s1.download(output_dir, mirror="5", uname=cdse_user, pword=cdse_password)
+    s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
 
     # Template ARD parameters
 
@@ -95,6 +104,7 @@ def run(
     s1.ard_parameters['single_ARD']['resolution'] = resolution  # set output resolution to 100m
     s1.ard_parameters['single_ARD']['remove_speckle'] = with_speckle_filter # apply a speckle filter
     s1.ard_parameters['single_ARD']['dem']['image_resampling'] = resampling_method # BICUBIC_INTERPOLATION is default
+    s1.ard_parameters['single_ARD']['to_tif'] = True
 
     # s1.ard_parameters['single_ARD']['product_type'] = 'RTC-gamma0'
 
@@ -115,10 +125,10 @@ def run(
     print(' The path to our newly created ARD product can be obtained the following way:')
     print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_dimap}")
 
-    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
+#    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
 
-    print(' The path to our newly created RGB product can be obtained the following way:')
-    print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
+#    print(' The path to our newly created RGB product can be obtained the following way:')
+#    print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
 
 #from ost.helpers.settings import set_log_level
 #import logging
