@@ -124,7 +124,7 @@ def run(
     )
 
     print(' The path to our newly created ARD product can be obtained the following way:')
-    print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_dimap}")
+    print(f"{s1.ard_dimap}")
 
 #    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
 
