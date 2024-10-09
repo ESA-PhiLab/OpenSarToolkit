@@ -102,7 +102,8 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
 
     if to_tif:
 
-        gdal.Warp(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
+        #gdal.Warp(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
+        gdal.Translate(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
 
     else:
 
