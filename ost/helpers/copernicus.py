@@ -326,7 +326,8 @@ def batch_download(
         for scene_id in scenes:
             scene = S1Scene(scene_id)
             filepath = scene.download_path(download_dir, True)
-            if Path(f"{filepath}.downloaded").exists():
+            logger.info(f"checking path {filepath}")
+            if Path(f"{filepath[:-4]}.downloaded").exists():
                 logger.debug(f"{scene.scene_id} is already downloaded.")
             else:
                 try:

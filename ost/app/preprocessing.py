@@ -37,7 +37,8 @@ def run(
     #output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
     #output_dir.mkdir(parents=True, exist_ok=True)
     #print(str(output_dir))
-    output_path = Path("/home/ost/shared")
+    output_dir = "/home/ost/shared"
+    output_path = Path(output_dir)
 
     # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
 
@@ -52,10 +53,10 @@ def run(
     year = scene_id[17:21]
     month = scene_id[21:23]
     day = scene_id[23:25]
-    os.makedirs(f"SAR/GRD/{year}/{month}/{day}", exist_ok=True)
+    os.makedirs(f"{output_dir}/SAR/GRD/{year}/{month}/{day}", exist_ok=True)
     try:
-        os.link(input, f"SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
-        with open(f"SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded", mode="w") as f:
+        os.link(input, f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
+        with open(f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded", mode="w") as f:
             f.write("successfully found here")
     except:
         pass
