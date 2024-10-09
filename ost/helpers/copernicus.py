@@ -326,17 +326,15 @@ def batch_download(
         for scene_id in scenes:
             scene = S1Scene(scene_id)
             filepath = scene.download_path(download_dir, True)
-
-            try:
-                uuid = inventory_df["uuid"][inventory_df["identifier"] == scene_id].tolist()
-            except KeyError:
-                #uuid = [scene.scihub_uuid(connect(uname=uname, pword=pword, base_url=base_url))]
-                print("cannot find uuid in inventory " + str(inventory_df))
-                raise
-
             if Path(f"{filepath}.downloaded").exists():
                 logger.debug(f"{scene.scene_id} is already downloaded.")
             else:
+                try:
+                    uuid = inventory_df["uuid"][inventory_df["identifier"] == scene_id].tolist()
+                except KeyError:
+                    #uuid = [scene.scihub_uuid(connect(uname=uname, pword=pword, base_url=base_url))]
+                    print("cannot find uuid in inventory " + str(inventory_df))
+                    raise
                 # create list objects for download
                 download_list.append([uuid[0], filepath, uname, pword, base_url])
 
