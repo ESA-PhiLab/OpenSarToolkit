@@ -104,6 +104,10 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
 
         #gdal.Warp(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
         gdal.Translate(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
+        image = gdal.Open(outfile_prefix.with_suffix(".tif"), 1)  # 0 = read-only, 1 = read-write.
+        gdal.SetConfigOption('COMPRESS_OVERVIEW', 'DEFLATE')
+        image.BuildOverviews('NEAREST', [4, 8, 16, 32, 64, 128], gdal.TermProgress_nocb)
+        del image
 
     else:
 
