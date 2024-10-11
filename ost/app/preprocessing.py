@@ -1,9 +1,12 @@
+from datetime import datetime
 import sys
 import os
+import pathlib
 from pathlib import Path
 from pprint import pprint
 from ost import Sentinel1Scene
 import click
+import pystac
 
 @click.command()
 @click.argument("input")
@@ -49,13 +52,18 @@ def run(
     # NOTE:only available via ASF data mirror
     #scene_id = 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
     #scene_id = 'S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB'
-    scene_id = input[input.rfind("/")+1:input.rfind(".")]
+
+    # We expect input to be the path to a directory containing a STAC catalog
+    # which will lead us to the actual input zip.
+    input_path = get_zip_from_stac(input)
+
+    scene_id = input_path[input_path.rfind("/")+1:input_path.rfind(".")]
     year = scene_id[17:21]
     month = scene_id[21:23]
     day = scene_id[23:25]
     os.makedirs(f"{output_dir}/SAR/GRD/{year}/{month}/{day}", exist_ok=True)
     try:
-        os.link(input, f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
+        os.link(input_path, f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
         with open(f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded", mode="w") as f:
             f.write("successfully found here")
     except:
@@ -126,6 +134,9 @@ def run(
     print(' The path to our newly created ARD product can be obtained the following way:')
     print(f"{s1.ard_dimap}")
 
+    # Write a STAC catalog and item pointing to the output product.
+    write_stac_for_dimap(input, str(s1.ard_dimap))
+
 #    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
 
 #    print(' The path to our newly created RGB product can be obtained the following way:')
@@ -134,6 +145,48 @@ def run(
 #from ost.helpers.settings import set_log_level
 #import logging
 #set_log_level(logging.DEBUG)
+
+
+def get_zip_from_stac(stac_root: str) -> str:
+    stac_path = pathlib.Path(stac_root)
+    catalog = pystac.Catalog.from_file(str(stac_path / "catalog.json"))
+    item_links = [link for link in catalog.links if link.rel == "item"]
+    assert(len(item_links) == 1)
+    item_link = item_links[0]
+    item = pystac.Item.from_file(str(stac_path / item_link.href))
+    zip_assets = [
+      asset for asset in item.assets.values()
+      if asset.media_type == "application/zip"
+    ]
+    assert(len(zip_assets) == 1)
+    zip_asset = zip_assets[0]
+    zip_path = stac_path / zip_asset.href
+    return str(zip_path)
+
+
+def write_stac_for_dimap(stac_root: str, dimap_path: str) -> None:
+    asset = pystac.Asset(
+        roles=["data"],
+        href=dimap_path,
+        media_type="application/dimap"
+    )
+    item = pystac.Item(
+        id="result-item",
+        # TODO use actual geometry and datetime
+        geometry=None,
+        bbox=None,
+        datetime=datetime.fromisoformat("2000-01-01T00:00:00+00:00"),
+        properties={},  # datetime will be filled in automatically
+        assets={"DIMAP": asset}
+    )
+    catalog = pystac.Catalog(
+        id="catalog",
+        description="Root catalog",
+        href=f"{stac_root}/catalog.json"
+    )
+    catalog.add_item(item)
+    catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
+
 
 import click
 
