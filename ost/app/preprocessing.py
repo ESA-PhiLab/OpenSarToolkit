@@ -34,12 +34,13 @@ def run(
     cdse_user: str,
     cdse_password: str,
 ):
-    horizontal_line = "-" * 80
+    horizontal_line = "-" * 79
 
     scene_presets = {
         # very first IW (VV/VH) S1 image available over Istanbul/Turkey
         # NOTE:only available via ASF data mirror
         "istanbul": "S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04",
+        # ???
         "unknown": "S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB",
         # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
         "spitzbergen": "S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85",
@@ -115,31 +116,26 @@ def run(
 
     # uncomment this for the Azores EW scene
     # s1.ard_parameters['single_ARD']['dem']['dem_name'] = 'GETASSE30'
-    print(horizontal_line)
+
     print(
-        "Dictionary of our customised ARD parameters for the final scene processing:"
+        f"{horizontal_line}\n",
+        "Dictionary of customized ARD parameters for final scene processing:\n"
+        f"{horizontal_line}\n",
+        f"{pprint.pformat(single_ard)}\n",
+        f"{horizontal_line}",
     )
-    print(horizontal_line)
-    pprint.pprint(single_ard)
-    print(horizontal_line)
 
     s1.create_ard(
         infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
     )
-
-    print(
-        "The path to our newly created ARD product can be obtained the following way:"
-    )
-    print(f"{s1.ard_dimap}")
+    print(f"Path to newly created ARD product: {s1.ard_dimap}")
+    # s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
+    # print("Path to newly created RGB product:")
+    # print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
 
     # Write a STAC catalog and item pointing to the output product.
     write_stac_for_dimap(".", str(s1.ard_dimap))  # TODO change to .tif
 
-
-#    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
-
-#    print(' The path to our newly created RGB product can be obtained the following way:')
-#    print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
 
 # from ost.helpers.settings import set_log_level
 # import logging
