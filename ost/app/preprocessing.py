@@ -3,7 +3,7 @@ import sys
 import os
 import pathlib
 from pathlib import Path
-from pprint import pprint
+import pprint
 from ost import Sentinel1Scene
 import click
 import pystac
@@ -34,9 +34,24 @@ def run(
     cdse_user: str,
     cdse_password: str,
 ):
-    # get home folder
-    # home = Path.home()
-    home = Path(".")
+    horizontal_line = "-" * 80
+
+    scene_presets = {
+        # very first IW (VV/VH) S1 image available over Istanbul/Turkey
+        # NOTE:only available via ASF data mirror
+        "istanbul": "S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04",
+        "unknown": "S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB",
+        # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
+        "spitzbergen": "S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85",
+        # IW scene (single-polarised VV) over Ecuadorian Amazon
+        "ecuador": "S1A_IW_GRDH_1SSV_20150205T232009_20150205T232034_004494_00583A_1C80",
+        # EW scene (dual-polarised VV/VH) over Azores (needs a different DEM, see ARD parameters below)
+        "azores": "S1B_EW_GRDM_1SDV_20200303T193150_20200303T193250_020532_026E82_5CE9",
+        # EW scene (dual-polarised HH/HV) over Greenland
+        "greenland": "S1B_EW_GRDM_1SDH_20200511T205319_20200511T205419_021539_028E4E_697E",
+        # Stripmap mode S5 scene (dual-polarised VV/VH) over Germany
+        "germany": "S1B_S5_GRDH_1SDV_20170104T052519_20170104T052548_003694_006587_86AB",
+    }
 
     # create a processing directory
     # output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
@@ -44,16 +59,6 @@ def run(
     # print(str(output_dir))
     output_dir = "/home/ost/shared"
     output_path = Path(output_dir)
-
-    # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
-
-    # ---------------------------------------------------
-    # Some scenes to choose from
-
-    # very first IW (VV/VH) S1 image available over Istanbul/Turkey
-    # NOTE:only available via ASF data mirror
-    # scene_id = 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
-    # scene_id = 'S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB'
 
     # We expect input to be the path to a directory containing a STAC catalog
     # which will lead us to the actual input zip.
@@ -77,24 +82,7 @@ def run(
     except:
         pass
 
-    # other scenes with different scene types to process (uncomment)
-    # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
-    # scene_id = 'S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85'
-
-    # IW scene (single-polarised VV) over Ecuadorian Amazon
-    # scene_id = 'S1A_IW_GRDH_1SSV_20150205T232009_20150205T232034_004494_00583A_1C80'
-
-    # EW scene (dual-polarised VV/VH) over Azores (needs a different DEM, see cell of ARD parameters below)
-    # scene_id = 'S1B_EW_GRDM_1SDV_20200303T193150_20200303T193250_020532_026E82_5CE9'
-
-    # EW scene (dual-polarised HH/HV) over Greenland
-    # scene_id = 'S1B_EW_GRDM_1SDH_20200511T205319_20200511T205419_021539_028E4E_697E'
-
-    # Stripmap mode S5 scene (dual-polarised VV/VH) over Germany
-    # scene_id = 'S1B_S5_GRDH_1SDV_20170104T052519_20170104T052548_003694_006587_86AB'
-    # ---------------------------------------------------
-
-    # create an S1Scene instance
+    # create a S1Scene class instance based on the specified scene identifier
     s1 = Sentinel1Scene(scene_id)
 
     # print summarising infos about the scene
@@ -102,63 +90,45 @@ def run(
 
     s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
 
+    single_ard = s1.ard_parameters["single_ARD"]
+
     # Template ARD parameters
 
-    # we change ARD type
-    # possible choices are:
-    # 'OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine'
-    # s1.update_ard_parameters('Earth-Engine')
+    # Set ARD type. Choices: 'OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine'
     s1.update_ard_parameters(ard_type)
     print(
-        "-----------------------------------------------------------------------------------------------------------"
-    )
-    print("Dictionary of Earth Engine ARD parameters:")
-    print(
-        "-----------------------------------------------------------------------------------------------------------"
-    )
-    pprint(s1.ard_parameters["single_ARD"])
-    print(
-        "-----------------------------------------------------------------------------------------------------------"
+        f"{horizontal_line}\n"
+        f"Dictionary of Earth Engine ARD parameters:\n"
+        f"{horizontal_line}\n"
+        f"{pprint.pformat(single_ard)}\n"
+        f"{horizontal_line}"
     )
 
-    # Customised ARD parameters
-
-    # we cusomize the resolution and image resampling
-    s1.ard_parameters["single_ARD"][
-        "resolution"
-    ] = resolution  # set output resolution to 100m
-    s1.ard_parameters["single_ARD"][
-        "remove_speckle"
-    ] = with_speckle_filter  # apply a speckle filter
-    s1.ard_parameters["single_ARD"]["dem"][
+    # Customize ARD parameters
+    single_ard["resolution"] = resolution
+    single_ard["remove_speckle"] = with_speckle_filter
+    single_ard["dem"][
         "image_resampling"
-    ] = resampling_method  # BICUBIC_INTERPOLATION is default
-    s1.ard_parameters["single_ARD"]["to_tif"] = True
-
-    # s1.ard_parameters['single_ARD']['product_type'] = 'RTC-gamma0'
+    ] = resampling_method  # default: BICUBIC_INTERPOLATION
+    single_ard["to_tif"] = True
+    # single_ard['product_type'] = 'RTC-gamma0'
 
     # uncomment this for the Azores EW scene
     # s1.ard_parameters['single_ARD']['dem']['dem_name'] = 'GETASSE30'
-    print(
-        "-----------------------------------------------------------------------------------------------------------"
-    )
+    print(horizontal_line)
     print(
         "Dictionary of our customised ARD parameters for the final scene processing:"
     )
-    print(
-        "-----------------------------------------------------------------------------------------------------------"
-    )
-    pprint(s1.ard_parameters["single_ARD"])
-    print(
-        "-----------------------------------------------------------------------------------------------------------"
-    )
+    print(horizontal_line)
+    pprint.pprint(single_ard)
+    print(horizontal_line)
 
     s1.create_ard(
         infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
     )
 
     print(
-        " The path to our newly created ARD product can be obtained the following way:"
+        "The path to our newly created ARD product can be obtained the following way:"
     )
     print(f"{s1.ard_dimap}")
 
@@ -215,8 +185,6 @@ def write_stac_for_dimap(stac_root: str, dimap_path: str) -> None:
     catalog.add_item(item)
     catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
 
-
-import click
 
 if __name__ == "__main__":
     sys.exit(run())
