@@ -4,9 +4,13 @@ import os
 import pathlib
 from pathlib import Path
 import pprint
+import logging
+
 from ost import Sentinel1Scene
 import click
 import pystac
+
+LOGGER = logging.getLogger(__name__)
 
 
 @click.command()
@@ -35,6 +39,12 @@ def run(
     cdse_password: str,
 ):
     horizontal_line = "-" * 79
+
+    logging.basicConfig(level=logging.INFO)
+
+    # from ost.helpers.settings import set_log_level
+    # import logging
+    # set_log_level(logging.DEBUG)
 
     scene_presets = {
         # very first IW (VV/VH) S1 image available over Istanbul/Turkey
@@ -80,24 +90,20 @@ def run(
             mode="w",
         ) as f:
             f.write("successfully found here")
-    except:
-        pass
+    except Exception as e:
+        LOGGER.warning("Exception linking input data", exc_info=e)
 
-    # create a S1Scene class instance based on the specified scene identifier
+    # Instantiate a Sentinel1Scene from the specified scene identifier
     s1 = Sentinel1Scene(scene_id)
 
-    # print summarising infos about the scene
-    s1.info()
+    s1.info()  # write scene summary information to stdout
 
     s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
 
     single_ard = s1.ard_parameters["single_ARD"]
-
-    # Template ARD parameters
-
-    # Set ARD type. Choices: 'OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine'
+    # Set ARD type. Choices: "OST_GTC", "OST-RTC", "CEOS", "Earth Engine"
     s1.update_ard_parameters(ard_type)
-    print(
+    LOGGER.info(
         f"{horizontal_line}\n"
         f"Dictionary of Earth Engine ARD parameters:\n"
         f"{horizontal_line}\n"
@@ -117,29 +123,24 @@ def run(
     # uncomment this for the Azores EW scene
     # s1.ard_parameters['single_ARD']['dem']['dem_name'] = 'GETASSE30'
 
-    print(
-        f"{horizontal_line}\n",
+    LOGGER.info(
+        f"{horizontal_line}\n"
         "Dictionary of customized ARD parameters for final scene processing:\n"
-        f"{horizontal_line}\n",
-        f"{pprint.pformat(single_ard)}\n",
-        f"{horizontal_line}",
+        f"{horizontal_line}\n"
+        f"{pprint.pformat(single_ard)}\n"
+        f"{horizontal_line}"
     )
 
     s1.create_ard(
         infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
     )
-    print(f"Path to newly created ARD product: {s1.ard_dimap}")
+    LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
     # s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
     # print("Path to newly created RGB product:")
     # print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
 
     # Write a STAC catalog and item pointing to the output product.
     write_stac_for_dimap(".", str(s1.ard_dimap))  # TODO change to .tif
-
-
-# from ost.helpers.settings import set_log_level
-# import logging
-# set_log_level(logging.DEBUG)
 
 
 def get_zip_from_stac(stac_root: str) -> str:
