@@ -38,7 +38,7 @@ def run(
     cdse_user: str,
     cdse_password: str,
 ):
-    horizontal_line = "-" * 79
+    horizontal_line = "-" * 79  # Used in log output
 
     logging.basicConfig(level=logging.INFO)
 
@@ -65,14 +65,17 @@ def run(
     }
 
     # create a processing directory
-    # output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
     # output_dir.mkdir(parents=True, exist_ok=True)
     # print(str(output_dir))
-    output_dir = "/home/ost/shared"
+
+    # "When executed, the Application working directory is also the Application
+    # output directory. Any file created by the Application should be added
+    # under that directory." -- https://docs.ogc.org/bp/20-089r1.html#toc20
+    output_dir = os.getcwd()
     output_path = Path(output_dir)
 
     # We expect input to be the path to a directory containing a STAC catalog
-    # which will lead us to the actual input zip.
+    # containing an item which links to the input zip as an asset.
     input_path = get_zip_from_stac(input)
 
     scene_id = input_path[input_path.rfind("/") + 1 : input_path.rfind(".")]
