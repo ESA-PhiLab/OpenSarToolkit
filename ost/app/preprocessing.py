@@ -41,7 +41,6 @@ def run(
     horizontal_line = "-" * 79  # Used in log output
 
     logging.basicConfig(level=logging.INFO)
-
     # from ost.helpers.settings import set_log_level
     # import logging
     # set_log_level(logging.DEBUG)
@@ -63,10 +62,6 @@ def run(
         # Stripmap mode S5 scene (dual-polarised VV/VH) over Germany
         "germany": "S1B_S5_GRDH_1SDV_20170104T052519_20170104T052548_003694_006587_86AB",
     }
-
-    # create a processing directory
-    # output_dir.mkdir(parents=True, exist_ok=True)
-    # print(str(output_dir))
 
     # "When executed, the Application working directory is also the Application
     # output directory. Any file created by the Application should be added
@@ -98,9 +93,7 @@ def run(
 
     # Instantiate a Sentinel1Scene from the specified scene identifier
     s1 = Sentinel1Scene(scene_id)
-
     s1.info()  # write scene summary information to stdout
-
     s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
 
     single_ard = s1.ard_parameters["single_ARD"]
@@ -134,16 +127,16 @@ def run(
         f"{horizontal_line}"
     )
 
+    # This seems to be a prerequisite for create_rgb.
     s1.create_ard(
         infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
     )
+    s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
     LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
-    # s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
-    # print("Path to newly created RGB product:")
-    # print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
+    print(f"Path to newly created RGB product: {s1.ard_rgb}")
 
     # Write a STAC catalog and item pointing to the output product.
-    write_stac_for_dimap(".", str(s1.ard_dimap))  # TODO change to .tif
+    write_stac_for_tiff(".", str(s1.ard_rgb))
 
 
 def get_zip_from_stac(stac_root: str) -> str:
@@ -161,12 +154,15 @@ def get_zip_from_stac(stac_root: str) -> str:
     assert len(zip_assets) == 1
     zip_asset = zip_assets[0]
     zip_path = stac_path / zip_asset.href
+    LOGGER.info(f"Found input zip at {zip_path}")
     return str(zip_path)
 
 
-def write_stac_for_dimap(stac_root: str, dimap_path: str) -> None:
+def write_stac_for_tiff(stac_root: str, asset_path: str) -> None:
     asset = pystac.Asset(
-        roles=["data"], href=dimap_path, media_type="application/dimap"
+        roles=["data"],
+        href=asset_path,
+        media_type="image/tiff; application=geotiff;",
     )
     item = pystac.Item(
         id="result-item",
