@@ -180,7 +180,7 @@ def create_dummy_tiff(path: Path) -> None:
             crs="+proj=latlong",
             transform=rasterio.transform.Affine.scale(0.1, 0.1),
     ) as dst:
-        dst.write(d, 1)
+        dst.write(data, 1)
 
 def get_zip_from_stac(stac_root: str) -> str:
     stac_path = pathlib.Path(stac_root)
