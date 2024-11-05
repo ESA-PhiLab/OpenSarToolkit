@@ -10,6 +10,7 @@ import shutil
 from ost import Sentinel1Scene
 import click
 import pystac
+import rasterio
 
 LOGGER = logging.getLogger(__name__)
 
@@ -145,7 +146,7 @@ def run(
 
     if dry_run:
         tiff_path = output_path / f"{s1.start_date}.tif"
-        LOGGER.info("Dry run -- creating dummy output at {tiff_path}")
+        LOGGER.info(f"Dry run -- creating dummy output at {tiff_path}")
         create_dummy_tiff(tiff_path)
     else:
         LOGGER.info(f"Creating ARD at {output_path}")
@@ -161,7 +162,7 @@ def run(
 
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
-    write_stac_for_tiff(".", str(tiff_path))
+    write_stac_for_tiff(".", str(tiff_path), scene_id)
 
 
 def create_dummy_tiff(path: Path) -> None:
@@ -201,20 +202,32 @@ def get_zip_from_stac(stac_root: str) -> str:
     return str(zip_path)
 
 
-def write_stac_for_tiff(stac_root: str, asset_path: str) -> None:
+def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:
+    ds = rasterio.open(asset_path)
     asset = pystac.Asset(
         roles=["data"],
         href=asset_path,
         media_type="image/tiff; application=geotiff;",
     )
+    bb = ds.bounds
+    s = scene_id
     item = pystac.Item(
         id="result-item",
-        # TODO use actual geometry and datetime
-        geometry=None,
-        bbox=None,
-        datetime=datetime.fromisoformat("2000-01-01T00:00:00+00:00"),
-        properties={},  # datetime will be filled in automatically
-        assets={"DIMAP": asset},
+        geometry=[
+            [bb.left, bb.bottom],
+            [bb.left, bb.top],
+            [bb.right, bb.top],
+            [bb.right, bb.bottom],
+            [bb.left, bb.bottom]
+        ],
+        bbox=[bb.left, bb.bottom, bb.right, bb.top],
+        datetime=None,
+        start_datetime=datetime(*map(int, (
+            s[17:21], s[21:23], s[23:25], s[26:28], s[28:30], s[30:32]))),
+        end_datetime=datetime(*map(int, (
+            s[33:37], s[37:39], s[39:41], s[42:44], s[44:46], s[46:48]))),
+        properties={},  # datetime values will be filled in automatically
+        assets={"TIFF": asset},
     )
     catalog = pystac.Catalog(
         id="catalog",
@@ -222,6 +235,7 @@ def write_stac_for_tiff(stac_root: str, asset_path: str) -> None:
         href=f"{stac_root}/catalog.json",
     )
     catalog.add_item(item)
+    catalog.make_all_asset_hrefs_relative()
     catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
 
 
