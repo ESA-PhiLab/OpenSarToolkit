@@ -30,6 +30,11 @@ LOGGER = logging.getLogger(__name__)
 )
 @click.option("--cdse-user", default="dummy")
 @click.option("--cdse-password", default="dummy")
+@click.option(
+    "--dry-run", default=False,
+    help="Skip processing and write a placeholder output file instead. "
+    "Useful for testing."
+)
 def run(
     input: str,
     resolution: int,
@@ -38,6 +43,7 @@ def run(
     resampling_method: str,
     cdse_user: str,
     cdse_password: str,
+    dry_run: bool
 ):
     horizontal_line = "-" * 79  # Used in log output
 
@@ -137,17 +143,44 @@ def run(
         f"{horizontal_line}"
     )
 
-    # This seems to be a prerequisite for create_rgb.
-    s1.create_ard(
-        infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
-    )
-    s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
-    LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
-    print(f"Path to newly created RGB product: {s1.ard_rgb}")
+    if dry_run:
+        tiff_path = output_path / f"{s1.start_date}.tif"
+        LOGGER.info("Dry run -- creating dummy output at {tiff_path}")
+        create_dummy_tiff(tiff_path)
+    else:
+        LOGGER.info(f"Creating ARD at {output_path}")
+        # This seems to be a prerequisite for create_rgb.
+        s1.create_ard(
+            infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
+        )
+        LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
+        LOGGER.info(f"Creating RGB at {output_path}")
+        s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
+        tiff_path = s1.ard_rgb
+        LOGGER.info(f"Path to newly created RGB product: {tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
-    write_stac_for_tiff(".", str(s1.ard_rgb))
+    LOGGER.info("Writing STAC catalogue and item")
+    write_stac_for_tiff(".", str(tiff_path))
 
+
+def create_dummy_tiff(path: Path) -> None:
+    import numpy as np
+    import rasterio
+
+    data = np.linspace(np.arange(100), 50 * np.sin(np.arange(100)), 100)
+    with rasterio.open(
+            str(path),
+            'w',
+            driver='GTiff',
+            height=data.shape[0],
+            width=data.shape[1],
+            count=1,
+            dtype=data.dtype,
+            crs="+proj=latlong",
+            transform=rasterio.transform.Affine.scale(0.1, 0.1),
+    ) as dst:
+        dst.write(d, 1)
 
 def get_zip_from_stac(stac_root: str) -> str:
     stac_path = pathlib.Path(stac_root)
