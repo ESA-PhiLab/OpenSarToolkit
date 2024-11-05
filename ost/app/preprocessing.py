@@ -162,7 +162,7 @@ def run(
 
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
-    write_stac_for_tiff(".", str(tiff_path), scene_id)
+    write_stac_for_tiff(str(output_path), str(tiff_path), scene_id)
 
 
 def create_dummy_tiff(path: Path) -> None:
@@ -203,6 +203,7 @@ def get_zip_from_stac(stac_root: str) -> str:
 
 
 def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:
+    LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
     asset = pystac.Asset(
         roles=["data"],
