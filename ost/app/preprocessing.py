@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
     type=click.Choice(["OST_GTC", "OST-RTC", "CEOS", "Earth-Engine"]),
     default="Earth-Engine",
 )
-@click.option("--with-speckle-filter", default=False)
+@click.option("--with-speckle-filter", is_flag=True, default=False)
 @click.option(
     "--resampling-method",
     type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
@@ -31,7 +31,7 @@ LOGGER = logging.getLogger(__name__)
 @click.option("--cdse-user", default="dummy")
 @click.option("--cdse-password", default="dummy")
 @click.option(
-    "--dry-run", default=False,
+    "--dry-run", is_flag=True, default=False,
     help="Skip processing and write a placeholder output file instead. "
     "Useful for testing."
 )
