@@ -5,6 +5,7 @@ import pathlib
 from pathlib import Path
 import pprint
 import logging
+import shutil
 
 from ost import Sentinel1Scene
 import click
@@ -55,7 +56,8 @@ def run(
         "spitzbergen": "S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85",
         # IW scene (single-polarised VV) over Ecuadorian Amazon
         "ecuador": "S1A_IW_GRDH_1SSV_20150205T232009_20150205T232034_004494_00583A_1C80",
-        # EW scene (dual-polarised VV/VH) over Azores (needs a different DEM, see ARD parameters below)
+        # EW scene (dual-polarised VV/VH) over Azores
+        # (needs a different DEM,see ARD parameters below)
         "azores": "S1B_EW_GRDM_1SDV_20200303T193150_20200303T193250_020532_026E82_5CE9",
         # EW scene (dual-polarised HH/HV) over Greenland
         "greenland": "S1B_EW_GRDM_1SDH_20200511T205319_20200511T205419_021539_028E4E_697E",
@@ -79,10 +81,18 @@ def run(
     day = scene_id[23:25]
     os.makedirs(f"{output_dir}/SAR/GRD/{year}/{month}/{day}", exist_ok=True)
     try:
-        os.link(
-            input_path,
-            f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
-        )
+        try:
+            os.link(
+                input_path,
+                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
+            )
+        except OSError as e:
+            LOGGER.warning("Exception linking input data", exc_info=e)
+            LOGGER.warning("Attempting to copy instead.")
+            shutil.copy2(
+                input_path,
+                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
+            )
         with open(
             f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded",
             mode="w",
