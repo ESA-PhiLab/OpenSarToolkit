@@ -1,0 +1,11 @@
+---
+input:
+  class: Directory
+  path: /data/opensar/SAR/GRD/2022/10/04
+resolution: 100
+ard-type: Earth-Engine
+with-speckle-filter: false
+resampling-method: BILINEAR_INTERPOLATION
+cdse-user: <USERNAME>
+cdse-password: <PASSWORD>
+dry-run: true
