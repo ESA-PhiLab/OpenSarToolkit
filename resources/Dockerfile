@@ -55,6 +55,7 @@ RUN alias python=python3 && \
     rm snap.varfile && \
     cd /home/ost/programs && \
     wget https://www.orfeo-toolbox.org/packages/archives/OTB/${OTB} \
+      --progress=dot:giga \
       --referer="https://www.orfeo-toolbox.org/packages/archives/OTB/" \
       --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0" && \
     chmod +x $OTB && \
