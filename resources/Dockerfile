@@ -42,6 +42,8 @@ RUN groupadd -r ost && \
         nodejs \
         npm
 
+# Install OTB. Use some custom headers when fetching package, since otherwise
+# the download speed is heavily throttled.
 RUN alias python=python3 && \
     rm -rf /var/lib/apt/lists/*  && \
     python3 -m pip install jupyterlab && \
@@ -52,7 +54,10 @@ RUN alias python=python3 && \
     rm $TBX && \
     rm snap.varfile && \
     cd /home/ost/programs && \
-    wget https://www.orfeo-toolbox.org/packages/archives/OTB/${OTB} && \ 
+    wget https://www.orfeo-toolbox.org/packages/archives/OTB/${OTB} \
+      --progress=dot:giga \
+      --referer="https://www.orfeo-toolbox.org/packages/archives/OTB/" \
+      --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0" && \
     chmod +x $OTB && \
     ./${OTB} && \
     rm -f OTB-${OTB_VERSION}-Linux64.run 
@@ -68,8 +73,11 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 COPY constraints.txt $HOME
 
-# get OST and tutorials
-RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git -c constraints.txt
+# Invalidate Docker cache if there have been new commits to the repository
+ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=version2&per_page=1" last_commit
+
+# Install OST and tutorials
+RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git@version2 -c constraints.txt
 
 #RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
 #RUN jupyter nbextension enable --py widgetsnbextension

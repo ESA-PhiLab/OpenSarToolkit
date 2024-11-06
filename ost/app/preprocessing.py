@@ -3,26 +3,39 @@ import sys
 import os
 import pathlib
 from pathlib import Path
-from pprint import pprint
+import pprint
+import logging
+import shutil
+
 from ost import Sentinel1Scene
 import click
 import pystac
+import rasterio
+
+LOGGER = logging.getLogger(__name__)
+
 
 @click.command()
 @click.argument("input")
-@click.option("--resolution",
-              default=100)
-@click.option("--ard-type",
-              type=click.Choice(['OST_GTC', 'OST-RTC', 'CEOS', 'Earth-Engine']),
-              default='Earth-Engine')
-@click.option("--with-speckle-filter",
-              default=False)
-@click.option("--resampling-method",
-              type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
-              default="BILINEAR_INTERPOLATION")
+@click.option("--resolution", default=100)
+@click.option(
+    "--ard-type",
+    type=click.Choice(["OST_GTC", "OST-RTC", "CEOS", "Earth-Engine"]),
+    default="Earth-Engine",
+)
+@click.option("--with-speckle-filter", is_flag=True, default=False)
+@click.option(
+    "--resampling-method",
+    type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
+    default="BILINEAR_INTERPOLATION",
+)
 @click.option("--cdse-user", default="dummy")
 @click.option("--cdse-password", default="dummy")
-
+@click.option(
+    "--dry-run", is_flag=True, default=False,
+    help="Skip processing and write a placeholder output file instead. "
+    "Useful for testing."
+)
 def run(
     input: str,
     resolution: int,
@@ -31,165 +44,201 @@ def run(
     resampling_method: str,
     cdse_user: str,
     cdse_password: str,
+    dry_run: bool
 ):
-    # get home folder
-    #home = Path.home()
-    home = Path(".")
+    horizontal_line = "-" * 79  # Used in log output
 
-    # create a processing directory
-    #output_dir = home.joinpath('OST_Tutorials', 'Tutorial_1')
-    #output_dir.mkdir(parents=True, exist_ok=True)
-    #print(str(output_dir))
-    output_dir = "/home/ost/shared"
+    logging.basicConfig(level=logging.INFO)
+    # from ost.helpers.settings import set_log_level
+    # import logging
+    # set_log_level(logging.DEBUG)
+
+    scene_presets = {
+        # very first IW (VV/VH) S1 image available over Istanbul/Turkey
+        # NOTE:only available via ASF data mirror
+        "istanbul": "S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04",
+        # ???
+        "unknown": "S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB",
+        # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
+        "spitzbergen": "S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85",
+        # IW scene (single-polarised VV) over Ecuadorian Amazon
+        "ecuador": "S1A_IW_GRDH_1SSV_20150205T232009_20150205T232034_004494_00583A_1C80",
+        # EW scene (dual-polarised VV/VH) over Azores
+        # (needs a different DEM,see ARD parameters below)
+        "azores": "S1B_EW_GRDM_1SDV_20200303T193150_20200303T193250_020532_026E82_5CE9",
+        # EW scene (dual-polarised HH/HV) over Greenland
+        "greenland": "S1B_EW_GRDM_1SDH_20200511T205319_20200511T205419_021539_028E4E_697E",
+        # Stripmap mode S5 scene (dual-polarised VV/VH) over Germany
+        "germany": "S1B_S5_GRDH_1SDV_20170104T052519_20170104T052548_003694_006587_86AB",
+    }
+
+    # "When executed, the Application working directory is also the Application
+    # output directory. Any file created by the Application should be added
+    # under that directory." -- https://docs.ogc.org/bp/20-089r1.html#toc20
+    output_dir = os.getcwd()
     output_path = Path(output_dir)
 
-    # create a S1Scene class instance based on the scene identifier of the first ever Dual-Pol Sentinel-1 IW product
-
-    #---------------------------------------------------
-    # Some scenes to choose from
-
-    # very first IW (VV/VH) S1 image available over Istanbul/Turkey
-    # NOTE:only available via ASF data mirror
-    #scene_id = 'S1A_IW_GRDH_1SDV_20141003T040550_20141003T040619_002660_002F64_EC04'
-    #scene_id = 'S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB'
-
     # We expect input to be the path to a directory containing a STAC catalog
-    # which will lead us to the actual input zip.
+    # containing an item which links to the input zip as an asset.
     input_path = get_zip_from_stac(input)
 
-    scene_id = input_path[input_path.rfind("/")+1:input_path.rfind(".")]
+    scene_id = input_path[input_path.rfind("/") + 1 : input_path.rfind(".")]
     year = scene_id[17:21]
     month = scene_id[21:23]
     day = scene_id[23:25]
     os.makedirs(f"{output_dir}/SAR/GRD/{year}/{month}/{day}", exist_ok=True)
     try:
-        os.link(input_path, f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip")
-        with open(f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded", mode="w") as f:
+        try:
+            os.link(
+                input_path,
+                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
+            )
+        except OSError as e:
+            LOGGER.warning("Exception linking input data", exc_info=e)
+            LOGGER.warning("Attempting to copy instead.")
+            shutil.copy2(
+                input_path,
+                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
+            )
+        with open(
+            f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded",
+            mode="w",
+        ) as f:
             f.write("successfully found here")
-    except:
-        pass
+    except Exception as e:
+        LOGGER.warning("Exception linking input data", exc_info=e)
 
-    # other scenes with different scene types to process (uncomment)
-    # IW scene (dual-polarised HH/HV) over Norway/Spitzbergen
-    # scene_id = 'S1B_IW_GRDH_1SDH_20200325T150411_20200325T150436_020850_02789D_2B85'
-
-    # IW scene (single-polarised VV) over Ecuadorian Amazon
-    # scene_id = 'S1A_IW_GRDH_1SSV_20150205T232009_20150205T232034_004494_00583A_1C80'
-
-    # EW scene (dual-polarised VV/VH) over Azores (needs a different DEM, see cell of ARD parameters below)
-    # scene_id = 'S1B_EW_GRDM_1SDV_20200303T193150_20200303T193250_020532_026E82_5CE9'
-
-    # EW scene (dual-polarised HH/HV) over Greenland
-    # scene_id = 'S1B_EW_GRDM_1SDH_20200511T205319_20200511T205419_021539_028E4E_697E'
-
-    # Stripmap mode S5 scene (dual-polarised VV/VH) over Germany
-    # scene_id = 'S1B_S5_GRDH_1SDV_20170104T052519_20170104T052548_003694_006587_86AB'
-    #---------------------------------------------------
-
-    # create an S1Scene instance
+    # Instantiate a Sentinel1Scene from the specified scene identifier
     s1 = Sentinel1Scene(scene_id)
-
-    # print summarising infos about the scene
-    s1.info()
-
+    s1.info()  # write scene summary information to stdout
     s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
 
-    # Template ARD parameters
-
-    # we change ARD type
-    # possible choices are:
-    # 'OST_GTC', 'OST-RTC', 'CEOS', 'Earth Engine'
-    #s1.update_ard_parameters('Earth-Engine')
+    single_ard = s1.ard_parameters["single_ARD"]
+    # Set ARD type. Choices: "OST_GTC", "OST-RTC", "CEOS", "Earth Engine"
     s1.update_ard_parameters(ard_type)
-    print('-----------------------------------------------------------------------------------------------------------')
-    print('Dictionary of Earth Engine ARD parameters:')
-    print('-----------------------------------------------------------------------------------------------------------')
-    pprint(s1.ard_parameters['single_ARD'])
-    print('-----------------------------------------------------------------------------------------------------------')
+    LOGGER.info(
+        f"{horizontal_line}\n"
+        f"Dictionary of Earth Engine ARD parameters:\n"
+        f"{horizontal_line}\n"
+        f"{pprint.pformat(single_ard)}\n"
+        f"{horizontal_line}"
+    )
 
-    # Customised ARD parameters
-
-    # we cusomize the resolution and image resampling
-    s1.ard_parameters['single_ARD']['resolution'] = resolution  # set output resolution to 100m
-    s1.ard_parameters['single_ARD']['remove_speckle'] = with_speckle_filter # apply a speckle filter
-    s1.ard_parameters['single_ARD']['dem']['image_resampling'] = resampling_method # BICUBIC_INTERPOLATION is default
-    s1.ard_parameters['single_ARD']['to_tif'] = True
-
-    # s1.ard_parameters['single_ARD']['product_type'] = 'RTC-gamma0'
+    # Customize ARD parameters
+    single_ard["resolution"] = resolution
+    single_ard["remove_speckle"] = with_speckle_filter
+    single_ard["dem"][
+        "image_resampling"
+    ] = resampling_method  # default: BICUBIC_INTERPOLATION
+    single_ard["to_tif"] = True
+    # single_ard['product_type'] = 'RTC-gamma0'
 
     # uncomment this for the Azores EW scene
     # s1.ard_parameters['single_ARD']['dem']['dem_name'] = 'GETASSE30'
-    print('-----------------------------------------------------------------------------------------------------------')
-    print('Dictionary of our customised ARD parameters for the final scene processing:')
-    print('-----------------------------------------------------------------------------------------------------------')
-    pprint(s1.ard_parameters['single_ARD'])
-    print('-----------------------------------------------------------------------------------------------------------')
 
-    s1.create_ard(
-        infile=s1.get_path(output_path),
-        out_dir=output_path,
-        overwrite=True
+    LOGGER.info(
+        f"{horizontal_line}\n"
+        "Dictionary of customized ARD parameters for final scene processing:\n"
+        f"{horizontal_line}\n"
+        f"{pprint.pformat(single_ard)}\n"
+        f"{horizontal_line}"
     )
 
-    print(' The path to our newly created ARD product can be obtained the following way:')
-    print(f"{s1.ard_dimap}")
+    if dry_run:
+        tiff_path = output_path / f"{s1.start_date}.tif"
+        LOGGER.info(f"Dry run -- creating dummy output at {tiff_path}")
+        create_dummy_tiff(tiff_path)
+    else:
+        LOGGER.info(f"Creating ARD at {output_path}")
+        # This seems to be a prerequisite for create_rgb.
+        s1.create_ard(
+            infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
+        )
+        LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
+        LOGGER.info(f"Creating RGB at {output_path}")
+        s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
+        tiff_path = s1.ard_rgb
+        LOGGER.info(f"Path to newly created RGB product: {tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
-    write_stac_for_dimap(input, str(s1.ard_dimap))
+    LOGGER.info("Writing STAC catalogue and item")
+    write_stac_for_tiff(str(output_path), str(tiff_path), scene_id)
 
-#    s1.create_rgb(outfile = output_path.joinpath(f'{s1.start_date}.tif'))
 
-#    print(' The path to our newly created RGB product can be obtained the following way:')
-#    print(f"CALVALUS_OUTPUT_PRODUCT {s1.ard_rgb}")
+def create_dummy_tiff(path: Path) -> None:
+    import numpy as np
+    import rasterio
 
-#from ost.helpers.settings import set_log_level
-#import logging
-#set_log_level(logging.DEBUG)
-
+    data = np.linspace(np.arange(100), 50 * np.sin(np.arange(100)), 100)
+    with rasterio.open(
+            str(path),
+            'w',
+            driver='GTiff',
+            height=data.shape[0],
+            width=data.shape[1],
+            count=1,
+            dtype=data.dtype,
+            crs="+proj=latlong",
+            transform=rasterio.transform.Affine.scale(0.1, 0.1),
+    ) as dst:
+        dst.write(data, 1)
 
 def get_zip_from_stac(stac_root: str) -> str:
     stac_path = pathlib.Path(stac_root)
     catalog = pystac.Catalog.from_file(str(stac_path / "catalog.json"))
     item_links = [link for link in catalog.links if link.rel == "item"]
-    assert(len(item_links) == 1)
+    assert len(item_links) == 1
     item_link = item_links[0]
     item = pystac.Item.from_file(str(stac_path / item_link.href))
     zip_assets = [
-      asset for asset in item.assets.values()
-      if asset.media_type == "application/zip"
+        asset
+        for asset in item.assets.values()
+        if asset.media_type == "application/zip"
     ]
-    assert(len(zip_assets) == 1)
+    assert len(zip_assets) == 1
     zip_asset = zip_assets[0]
     zip_path = stac_path / zip_asset.href
+    LOGGER.info(f"Found input zip at {zip_path}")
     return str(zip_path)
 
 
-def write_stac_for_dimap(stac_root: str, dimap_path: str) -> None:
+def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:
+    LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
+    ds = rasterio.open(asset_path)
     asset = pystac.Asset(
         roles=["data"],
-        href=dimap_path,
-        media_type="application/dimap"
+        href=asset_path,
+        media_type="image/tiff; application=geotiff;",
     )
+    bb = ds.bounds
+    s = scene_id
     item = pystac.Item(
         id="result-item",
-        # TODO use actual geometry and datetime
-        geometry=None,
-        bbox=None,
-        datetime=datetime.fromisoformat("2000-01-01T00:00:00+00:00"),
-        properties={},  # datetime will be filled in automatically
-        assets={"DIMAP": asset}
+        geometry=[
+            [bb.left, bb.bottom],
+            [bb.left, bb.top],
+            [bb.right, bb.top],
+            [bb.right, bb.bottom],
+            [bb.left, bb.bottom]
+        ],
+        bbox=[bb.left, bb.bottom, bb.right, bb.top],
+        datetime=None,
+        start_datetime=datetime(*map(int, (
+            s[17:21], s[21:23], s[23:25], s[26:28], s[28:30], s[30:32]))),
+        end_datetime=datetime(*map(int, (
+            s[33:37], s[37:39], s[39:41], s[42:44], s[44:46], s[46:48]))),
+        properties={},  # datetime values will be filled in automatically
+        assets={"TIFF": asset},
     )
     catalog = pystac.Catalog(
         id="catalog",
         description="Root catalog",
-        href=f"{stac_root}/catalog.json"
+        href=f"{stac_root}/catalog.json",
     )
     catalog.add_item(item)
+    catalog.make_all_asset_hrefs_relative()
     catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
 
 
-import click
-
 if __name__ == "__main__":
     sys.exit(run())
-

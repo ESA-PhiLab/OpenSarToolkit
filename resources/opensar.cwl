@@ -48,6 +48,10 @@ $graph:
         type: string
         label: CDSE password
         doc: Password for the specified CDSE user
+      dry-run:
+        type: boolean
+        label: Dry run
+        doc: Skip processing and write a placeholder output file instead
 
     outputs:
       - id: stac_catalog
@@ -66,6 +70,7 @@ $graph:
           resampling-method: resampling-method
           cdse-user: cdse-user
           cdse-password: cdse-password
+          dry-run: dry-run
         out:
           - ost_ard
 
@@ -73,7 +78,7 @@ $graph:
     id: ost_script_1
     requirements:
       DockerRequirement:
-        dockerPull: ost:v1
+        dockerPull: quay.io/bcdev/opensartoolkit:latest
 
     baseCommand:
       - python3
@@ -118,6 +123,10 @@ $graph:
         type: string
         inputBinding:
           prefix: --cdse-password
+      dry-run:
+        type: boolean
+        inputBinding:
+          prefix: --dry-run
 
     outputs:
       ost_ard:
