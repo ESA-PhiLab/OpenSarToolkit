@@ -77,7 +77,7 @@ COPY constraints.txt $HOME
 ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=version2&per_page=1" last_commit
 
 # Install OST and tutorials
-RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git@version2 -c constraints.txt
+RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git -c constraints.txt
 
 #RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
 #RUN jupyter nbextension enable --py widgetsnbextension
