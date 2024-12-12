@@ -79,8 +79,10 @@ def run(
     output_path = Path(output_dir)
 
     # We expect input to be the path to a directory containing a STAC catalog
-    # containing an item which links to the input zip as an asset.
-    input_path = get_zip_from_stac(input)
+    # containing an item which contains an asset for either a zip file
+    # (zipped SAFE archive) or a SAFE manifest (which is used to determine
+    # the location of a non-zipped SAFE directory)
+    input_path = get_input_path_from_stac(input)
 
     scene_id = input_path[input_path.rfind("/") + 1 : input_path.rfind(".")]
     year = scene_id[17:21]
@@ -183,23 +185,45 @@ def create_dummy_tiff(path: Path) -> None:
     ) as dst:
         dst.write(data, 1)
 
-def get_zip_from_stac(stac_root: str) -> str:
+def get_input_path_from_stac(stac_root: str) -> str:
     stac_path = pathlib.Path(stac_root)
     catalog = pystac.Catalog.from_file(str(stac_path / "catalog.json"))
     item_links = [link for link in catalog.links if link.rel == "item"]
     assert len(item_links) == 1
     item_link = item_links[0]
     item = pystac.Item.from_file(str(stac_path / item_link.href))
-    zip_assets = [
-        asset
-        for asset in item.assets.values()
-        if asset.media_type == "application/zip"
-    ]
-    assert len(zip_assets) == 1
-    zip_asset = zip_assets[0]
-    zip_path = stac_path / zip_asset.href
-    LOGGER.info(f"Found input zip at {zip_path}")
-    return str(zip_path)
+    if "manifest" in item.assets:
+        LOGGER.info(f"Found manifest asset in {catalog}")
+        manifest_asset = item.assets["manifest"]
+        if "filename" in manifest_asset.extra_fields:
+            filename = pathlib.Path(manifest_asset.extra_fields["filename"])
+            safe_dir = stac_path / filename.parent
+            LOGGER.info(f"Found SAFE directory at {safe_dir}")
+            return str(safe_dir)
+        else:
+            raise RuntimeError(
+                f"No filename for manifest asset in {catalog}"
+            )
+    else:
+        LOGGER.info("No manifest asset found; looking for zip asset")
+        zip_assets = [
+            asset
+            for asset in item.assets.values()
+            if asset.media_type == "application/zip"
+        ]
+        if len(zip_assets) < 1:
+            raise RuntimeError(
+                f"No manifest assets or zip assets found in {catalog}"
+            )
+        elif len(zip_assets) > 1:
+            raise RuntimeError(
+                f"No manifest assets and multiple zip assets found in "
+                f"{stac_root}, so it's not clear which zip asset to use."
+            )
+        else:
+            zip_path = stac_path / zip_assets[0].href
+            LOGGER.info(f"Found input zip at {zip_path}")
+            return str(zip_path)
 
 
 def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:

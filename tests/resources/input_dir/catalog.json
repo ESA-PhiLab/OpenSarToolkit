@@ -1,0 +1,13 @@
+{
+  "stac_version": "1.1.0",
+  "id": "catalog",
+  "type": "Catalog",
+  "description": "Root catalog",
+  "links": [
+    {
+      "type": "application/json",
+      "rel": "item",
+      "href": "./S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE.json"
+    }
+  ]
+}
