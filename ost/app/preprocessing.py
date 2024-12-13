@@ -81,31 +81,26 @@ def run(
     # We expect input to be the path to a directory containing a STAC catalog
     # containing an item which contains an asset for either a zip file
     # (zipped SAFE archive) or a SAFE manifest (which is used to determine
-    # the location of a non-zipped SAFE directory)
+    # the location of a non-zipped SAFE directory). The returned path is
+    # either the zip file or the SAFE directory
     input_path = get_input_path_from_stac(input)
 
     scene_id = input_path[input_path.rfind("/") + 1 : input_path.rfind(".")]
     year = scene_id[17:21]
     month = scene_id[21:23]
     day = scene_id[23:25]
-    os.makedirs(f"{output_dir}/SAR/GRD/{year}/{month}/{day}", exist_ok=True)
+
+    output_subdir = f"{output_dir}/SAR/GRD/{year}/{month}/{day}"
+    os.makedirs(output_subdir, exist_ok=True)
     try:
+        scene_path = f"{output_subdir}/{scene_id}"
         try:
-            os.link(
-                input_path,
-                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
-            )
+            os.link(input_path, f"{scene_path}.zip")
         except OSError as e:
             LOGGER.warning("Exception linking input data", exc_info=e)
             LOGGER.warning("Attempting to copy instead.")
-            shutil.copy2(
-                input_path,
-                f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.zip",
-            )
-        with open(
-            f"{output_dir}/SAR/GRD/{year}/{month}/{day}/{scene_id}.downloaded",
-            mode="w",
-        ) as f:
+            shutil.copy2(input_path, f"{scene_path}.zip")
+        with open(f"{scene_path}.downloaded", mode="w") as f:
             f.write("successfully found here")
     except Exception as e:
         LOGGER.warning("Exception linking input data", exc_info=e)
