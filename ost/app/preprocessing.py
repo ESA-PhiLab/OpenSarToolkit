@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("input")
+@click.argument("input_", metavar="input")
 @click.option("--resolution", default=100)
 @click.option(
     "--ard-type",
@@ -37,7 +37,7 @@ LOGGER = logging.getLogger(__name__)
     "Useful for testing."
 )
 def run(
-    input: str,
+    input_: str,
     resolution: int,
     ard_type: str,
     with_speckle_filter: bool,
@@ -83,32 +83,24 @@ def run(
     # (zipped SAFE archive) or a SAFE manifest (which is used to determine
     # the location of a non-zipped SAFE directory). The returned path is
     # either the zip file or the SAFE directory
-    input_path = get_input_path_from_stac(input)
+    input_path = get_input_path_from_stac(input_)
+
+    # We assume that any file input path is a zip, and any non-file input
+    # path is a SAFE directory.
+    zip_input = pathlib.Path(input_path).is_file()
+    LOGGER.info(f"Input is {'zip' if zip_input else 'SAFE directory'}")
 
     scene_id = input_path[input_path.rfind("/") + 1 : input_path.rfind(".")]
-    year = scene_id[17:21]
-    month = scene_id[21:23]
-    day = scene_id[23:25]
-
-    output_subdir = f"{output_dir}/SAR/GRD/{year}/{month}/{day}"
-    os.makedirs(output_subdir, exist_ok=True)
-    try:
-        scene_path = f"{output_subdir}/{scene_id}"
-        try:
-            os.link(input_path, f"{scene_path}.zip")
-        except OSError as e:
-            LOGGER.warning("Exception linking input data", exc_info=e)
-            LOGGER.warning("Attempting to copy instead.")
-            shutil.copy2(input_path, f"{scene_path}.zip")
-        with open(f"{scene_path}.downloaded", mode="w") as f:
-            f.write("successfully found here")
-    except Exception as e:
-        LOGGER.warning("Exception linking input data", exc_info=e)
+    if zip_input:
+        copy_zip_input(input_path, output_dir, scene_id)
 
     # Instantiate a Sentinel1Scene from the specified scene identifier
     s1 = Sentinel1Scene(scene_id)
     s1.info()  # write scene summary information to stdout
-    s1.download(output_path, mirror="5", uname=cdse_user, pword=cdse_password)
+    if zip_input:
+        s1.download(
+            output_path, mirror="5", uname=cdse_user, pword=cdse_password
+        )
 
     single_ard = s1.ard_parameters["single_ARD"]
     # Set ARD type. Choices: "OST_GTC", "OST-RTC", "CEOS", "Earth Engine"
@@ -147,10 +139,16 @@ def run(
         create_dummy_tiff(tiff_path)
     else:
         LOGGER.info(f"Creating ARD at {output_path}")
-        # This seems to be a prerequisite for create_rgb.
-        s1.create_ard(
-            infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
-        )
+        # create_ard seems to be a prerequisite for create_rgb.
+        if zip_input:
+            s1.create_ard(
+                infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
+            )
+        else:
+            s1.create_ard(
+                infile=input_path, out_dir=output_path, overwrite=True
+            )
+
         LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
         LOGGER.info(f"Creating RGB at {output_path}")
         s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
@@ -160,6 +158,26 @@ def run(
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
     write_stac_for_tiff(str(output_path), str(tiff_path), scene_id)
+
+
+def copy_zip_input(input_path, output_dir, scene_id):
+    year = scene_id[17:21]
+    month = scene_id[21:23]
+    day = scene_id[23:25]
+    output_subdir = f"{output_dir}/SAR/GRD/{year}/{month}/{day}"
+    os.makedirs(output_subdir, exist_ok=True)
+    try:
+        scene_path = f"{output_subdir}/{scene_id}"
+        try:
+            os.link(input_path, f"{scene_path}.zip")
+        except OSError as e:
+            LOGGER.warning("Exception linking input data", exc_info=e)
+            LOGGER.warning("Attempting to copy instead.")
+            shutil.copy2(input_path, f"{scene_path}.zip")
+        with open(f"{scene_path}.downloaded", mode="w") as f:
+            f.write("successfully found here")
+    except Exception as e:
+        LOGGER.warning("Exception linking/copying input data", exc_info=e)
 
 
 def create_dummy_tiff(path: Path) -> None:
