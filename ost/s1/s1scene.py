@@ -668,6 +668,8 @@ class Sentinel1Scene:
         # construct the download url
         url = base_url + action
 
+        logger.info("Fetching " + url)
+
         try:
             # get the request
             req = opener.open(url)
