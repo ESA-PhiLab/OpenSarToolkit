@@ -78,7 +78,7 @@ $graph:
     id: ost_script_1
     requirements:
       DockerRequirement:
-        dockerPull: quay.io/bcdev/opensartoolkit:latest
+        dockerPull: quay.io/bcdev/opensartoolkit:version3
 
     baseCommand:
       - python3
