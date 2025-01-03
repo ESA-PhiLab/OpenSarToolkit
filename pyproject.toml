@@ -32,6 +32,7 @@ dependencies = [
     "numpy",
     "pandas",
     "psycopg2-binary",
+    "pystac",
     "rasterio",
     "requests",
     "scipy",

@@ -37,7 +37,7 @@ import requests
 import pandas as pd
 import geopandas as gpd
 
-from ost.helpers import scihub, peps, onda, asf, raster as ras, helpers as h
+from ost.helpers import scihub, peps, onda, asf, raster as ras, helpers as h, copernicus
 from ost.helpers.settings import APIHUB_BASEURL, OST_ROOT
 from ost.helpers.settings import set_log_level, check_ard_parameters
 from ost.s1.grd_to_ard import grd_to_ard, ard_to_rgb
@@ -244,7 +244,7 @@ class Sentinel1Scene:
 
         return inf_dict
 
-    def download(self, download_dir, mirror=None):
+    def download(self, download_dir, mirror=None, uname=None, pword=None):
 
         if not mirror:
             logger.info("One or more of your scenes need to be downloaded.")
@@ -253,9 +253,10 @@ class Sentinel1Scene:
             print(" (2) Alaska Satellite Facility (NASA, full archive)")
             print(" (3) PEPS (CNES, 1 year rolling archive)")
             print(" (4) ONDA DIAS (ONDA DIAS full archive for" " SLC - or GRD from 30 June 2019)")
+            print(" (5) CDSE")
             # print(' (5) Alaska Satellite Facility (using WGET'
             #      ' - unstable - use only if 2 fails)')
-            mirror = input(" Type 1, 2, 3, or 4: ")
+            mirror = input(" Type 1, 2, 3, 4, or 5: ")
 
         from ost.s1 import download
 
@@ -263,16 +264,19 @@ class Sentinel1Scene:
             download_dir = Path(download_dir)
 
         if mirror == "1":
-            uname, pword = scihub.ask_credentials()
+            if uname is None or pword is None:
+                uname, pword = scihub.ask_credentials()
             opener = scihub.connect(uname=uname, pword=pword)
             df = pd.DataFrame({"identifier": [self.scene_id], "uuid": [self.scihub_uuid(opener)]})
 
         elif mirror == "2":
-            uname, pword = asf.ask_credentials()
+            if uname is None or pword is None:
+                uname, pword = asf.ask_credentials()
             df = pd.DataFrame({"identifier": [self.scene_id]})
 
         elif mirror == "3":
-            uname, pword = peps.ask_credentials()
+            if uname is None or pword is None:
+                uname, pword = peps.ask_credentials()
             df = pd.DataFrame(
                 {
                     "identifier": [self.scene_id],
@@ -280,9 +284,16 @@ class Sentinel1Scene:
                 }
             )
         elif mirror == "4":
-            uname, pword = onda.ask_credentials()
+            if uname is None or pword is None:
+                uname, pword = onda.ask_credentials()
             opener = onda.connect(uname=uname, pword=pword)
             df = pd.DataFrame({"identifier": [self.scene_id], "uuid": [self.ondadias_uuid(opener)]})
+        elif mirror == "5":
+            if uname is None or pword is None:
+                uname, pword = copernicus.ask_credentials()
+            opener = copernicus.connect(uname=uname, pword=pword)
+            df = pd.DataFrame({"identifier": [self.scene_id], "uuid": [self.copernicus_uuid(opener)]})
+
         else:
             raise ValueError("You entered the wrong mirror.")
         # else:  # ASF
@@ -644,6 +655,39 @@ class Sentinel1Scene:
             gdf_final = pd.concat([gdf_final, gdf])
 
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
+
+    def copernicus_uuid(self, opener):
+        logger.info("Getting Copernicus UUID")
+
+        # construct the basic the url
+        base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter="
+
+        # request
+        action = urllib.parse.quote(f"Name eq '{self.scene_id}.SAFE'")
+
+        # construct the download url
+        url = base_url + action
+
+        logger.info("Fetching " + url)
+
+        try:
+            # get the request
+            req = opener.open(url)
+        except URLError as error:
+            if hasattr(error, "reason"):
+                logger.info(f"{CONNECTION_ERROR}{error.reason}")
+                sys.exit()
+            elif hasattr(error, "code"):
+                logger.info(f"{CONNECTION_ERROR_2}{error.reason}")
+                sys.exit()
+        else:
+            # write the request to to the response variable
+            # (i.e. the xml coming back from scihub)
+            response = req.read().decode("utf-8")
+
+            # return uuid from response
+            # "Id":"1b64f9bb-2e8e-58ec-abac-45f4f5b61d22","Name":"S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB.SAFE"
+            return response.split('"Id":"')[1].split('","Name":')[0]
 
     # onda dias uuid extractor
     def ondadias_uuid(self, opener):

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ost.s1.s1scene import Sentinel1Scene as S1Scene
 from ost.helpers import helpers as h
-from ost.helpers import scihub, peps, asf, onda  # , asf_wget
+from ost.helpers import scihub, peps, asf, onda, copernicus  # , asf_wget
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +90,10 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, un
         print(" (2) Alaska Satellite Facility (NASA, full archive)")
         print(" (3) PEPS (CNES, 1 year rolling archive)")
         print(" (4) ONDA DIAS (ONDA DIAS full archive for SLC -" " or GRD from 30 June 2019)")
+        print(" (5) CDSE")
         # print(' (5) Alaska Satellite Facility (using WGET - '
         # 'unstable - use only if 2 does not work)')
-        mirror = input(" Type 1, 2, 3, or 4: ")
+        mirror = input(" Type 1, 2, 3, 4, or 5: ")
 
     if not uname:
         print(" Please provide username for the selected server")
@@ -118,7 +119,10 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, un
         error_code = peps.check_connection(uname, pword)
     elif int(mirror) == 4:
         error_code = onda.check_connection(uname, pword)
-    # elif int(mirror) == 5:
+    elif int(mirror) == 5:
+        # we avoid checking the connection, all products may be downloaded already
+        #error_code = copernicus.check_connection(uname, pword)
+        error_code = 200
     #    error_code = asf_wget.check_connection(uname, pword)
     # hidden option for downloading from czech mirror
     elif int(mirror) == 321:
@@ -128,7 +132,7 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, un
 
     if error_code == 401:
         raise ValueError("Username/Password are incorrect")
-    elif error_code != 200:
+    elif error_code != 200 and error_code != 301 and error_code != 404:
         raise ValueError(f"Some connection error. Error code {error_code}.")
 
     # download in parallel
@@ -140,6 +144,8 @@ def download_sentinel1(inventory_df, download_dir, mirror=None, concurrent=2, un
         peps.batch_download(inventory_df, download_dir, uname, pword, concurrent)
     elif int(mirror) == 4:  # ONDA DIAS
         onda.batch_download(inventory_df, download_dir, uname, pword, concurrent)
+    elif int(mirror) == 5:  # CDSE
+        copernicus.batch_download(inventory_df, download_dir, uname, pword, concurrent)
     if int(mirror) == 321:  # scihub czech mirror
         scihub.batch_download(
             inventory_df,

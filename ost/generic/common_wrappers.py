@@ -7,6 +7,7 @@ from retrying import retry
 from ost.helpers import helpers as h
 from ost.helpers.settings import GPT_FILE, OST_ROOT
 from ost.helpers.errors import GPTRuntimeError, NotValidFileError
+from multiprocessing import cpu_count
 
 
 logger = logging.getLogger(__name__)
@@ -416,3 +417,48 @@ def mt_speckle_filter(in_stack, out_stack, logfile, config_dict):
         return str(out_stack.with_suffix(".dim"))
     else:
         raise NotValidFileError(f"Product did not pass file check: {return_code}")
+
+
+@retry(stop_max_attempt_number=3, wait_fixed=1)
+def convert_to_tiff(
+    input,
+    output,
+    logfile,
+):
+    """
+    Converts product into TIFF format
+    :param input: path to a product in BEAM-DIMAP format
+    :param output: path to the target TIFF file
+    :param logfile: SNAP logfile
+    :param config_dict:
+    :return:
+    """
+
+    # get relevant config parameters
+    cpus = cpu_count()  # config_dict["snap_cpu_parallelism"]
+
+    logger.debug("Converting to GeoTIFF")
+
+    command = (
+            f"{GPT_FILE} Subset "
+            f"-t {output} "
+            f"-f GeoTIFF "
+            f"-x -q {cpus} "
+            f"{input}"
+    )
+    return_code = h.run_command(command, logfile)
+
+    if return_code == 0:
+        logger.debug(f"Successfully created TIFF file {output}")
+    else:
+        raise GPTRuntimeError(
+            f"TIFF conversion of {input} exited with error {return_code}. "
+            f"See {logfile} for Snap's error message."
+        )
+
+    # do check routine
+    return_msg = h.check_out_tiff(output)
+    if return_msg == 0:
+        logger.debug("Product passed validity check.")
+    else:
+        raise NotValidFileError(f"Product did not pass file check: {return_msg}")

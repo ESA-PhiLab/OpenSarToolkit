@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from datetime import timedelta
 from osgeo import gdal
+from ost.generic.common_wrappers import convert_to_tiff
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,27 @@ def move_dimap(infile_prefix, outfile_prefix, to_tif):
 
     if to_tif:
 
-        gdal.Warp(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
+        #gdal.Warp(outfile_prefix.with_suffix(".tif"), infile_prefix.with_suffix(".dim"))
+        convert_to_tiff(
+            infile_prefix.with_suffix(".dim"),
+            infile_prefix.with_suffix(".uncompressed.tif"),
+            outfile_prefix.with_suffix(".log"),
+        )
+        # TODO use COG output format instead of writing GTiff and update afterwards
+        gdal.Translate(
+            str(outfile_prefix.with_suffix(".tif")),
+            str(infile_prefix.with_suffix(".uncompressed.tif")),
+            creationOptions={
+                "TILED": "YES",
+                "BLOCKXSIZE": "512",
+                "BLOCKYSIZE": "512",
+                "COMPRESS": "DEFLATE",
+            }
+        )
+        image = gdal.Open(str(outfile_prefix.with_suffix(".tif")), 1)  # 0 = read-only, 1 = read-write.
+        gdal.SetConfigOption('COMPRESS_OVERVIEW', 'DEFLATE')
+        image.BuildOverviews('NEAREST', [4, 8, 16, 32, 64, 128], gdal.TermProgress_nocb)
+        del image
 
     else:
 
@@ -180,7 +201,7 @@ def check_out_tiff(file, test_stats=True):
     if test_stats:
         # open the file
         ds = gdal.Open(str(file))
-        stats = ds.GetRasterBand(1).GetStatistics(0, 1)
+        stats = ds.GetRasterBand(1).ComputeStatistics(False)
 
         # if difference of min and max is 0 and mean are all 0
         if stats[1] - stats[0] == 0 and stats[2] == 0:

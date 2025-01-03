@@ -1,0 +1,24 @@
+{
+  "stac_version": "1.1.0",
+  "type": "Feature",
+  "id": "S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB",
+  "geometry": null,
+  "properties": {
+    "datetime": "2022-10-04T16:43:16Z",
+    "platform": "sentinel-1a",
+    "constellation": "sentinel-1"
+  },
+  "assets": {
+    "GRD": {
+      "type": "application/zip",
+      "roles": [ "data" ],
+      "href": "S1A_IW_GRDH_1SDV_20221004T164316_20221004T164341_045295_056A44_13CB.zip"
+    }
+  },
+  "links": [
+    {
+      "rel": "parent",
+      "href": "../catalog.json"
+    }
+  ]
+}
