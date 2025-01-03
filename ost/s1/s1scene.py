@@ -657,6 +657,7 @@ class Sentinel1Scene:
         return gdf_final.drop_duplicates(["AnxTime"], keep="first")
 
     def copernicus_uuid(self, opener):
+        logger.info("Getting Copernicus UUID")
 
         # construct the basic the url
         base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter="
@@ -666,6 +667,8 @@ class Sentinel1Scene:
 
         # construct the download url
         url = base_url + action
+
+        logger.info("Fetching " + url)
 
         try:
             # get the request

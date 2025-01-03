@@ -1,0 +1,376 @@
+{
+    "stac_version": "1.0.0",
+    "stac_extensions": [
+        "https://stac-extensions.github.io/processing/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/sar/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/sat/v1.0.0/schema.json"
+    ],
+    "type": "Feature",
+    "id": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145",
+    "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    10.710614,
+                    42.433846
+                ],
+                [
+                    11.100653,
+                    40.9328
+                ],
+                [
+                    14.189954,
+                    41.339962
+                ],
+                [
+                    13.873197,
+                    42.840092
+                ],
+                [
+                    10.710614,
+                    42.433846
+                ]
+            ]
+        ]
+    },
+    "properties": {
+        "datetime": "2024-11-13T17:06:07.293807Z",
+        "start_datetime": "2024-11-13T17:06:07.293807Z",
+        "end_datetime": "2024-11-13T17:06:32.292309Z",
+        "created": "2024-11-13T17:44:24Z",
+        "updated": "2024-12-06T11:59:58.0279394Z",
+        "platform": "sentinel-1a",
+        "constellation": "sentinel-1",
+        "mission": "sentinel-1",
+        "instruments": [
+            "c-sar"
+        ],
+        "sensor_type": "radar",
+        "gsd": 22.0,
+        "sat:orbit_state": "ascending",
+        "sat:anx_datetime": "2024-11-13T16:55:00.601119Z",
+        "sat:absolute_orbit": 56539,
+        "sat:relative_orbit": 117,
+        "sat:platform_international_designator": "2014-016A",
+        "processing:level": "L1",
+        "processing:lineage": "GRD Post Processing",
+        "processing:facility": "Copernicus Ground Segment",
+        "processing:software": {
+            "Sentinel-1 IPF": "003.80"
+        },
+        "proj:epsg": null,
+        "title": "SENTINEL-1A GRD VV/VH 117 2024-11-13 17:06:07",
+        "sar:instrument_mode": "IW",
+        "sar:frequency_band": "C",
+        "sar:polarizations": [
+            "VV",
+            "VH"
+        ],
+        "sar:product_type": "GRD",
+        "providers": [
+            {
+                "name": "ESA/EC (Copernicus)",
+                "description": "The Sentinel-1 mission comprises a constellation of two polar-orbiting satellites, operating day and night performing C-band synthetic aperture radar imaging, enabling them to acquire imagery regardless of the weather.",
+                "roles": [
+                    "producer",
+                    "processor",
+                    "licensor"
+                ],
+                "url": "https://sentinel.esa.int/web/sentinel/missions/sentinel-1"
+            }
+        ]
+    },
+    "bbox": [
+        10.710614,
+        40.9328,
+        14.189954,
+        42.840092
+    ],
+    "assets": {
+        "amplitude-vh-iw-002": {
+            "type": "image/x.geotiff",
+            "roles": [
+                "amplitude",
+                "data"
+            ],
+            "title": "IW VH Amplitude pixel values",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/measurement/s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.tiff",
+            "file:size": 878507832,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/measurement/s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.tiff",
+            "sar:polarizations": [
+                "VH"
+            ],
+            "proj:epsg": null,
+            "proj:shape": [
+                26329,
+                16678
+            ]
+        },
+        "annotation-vh-iw-002": {
+            "type": "text/xml",
+            "roles": [
+                "metadata"
+            ],
+            "title": "Annotation VH IW 002",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "file:size": 1842824,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "sar:polarizations": [
+                "VH"
+            ]
+        },
+        "amplitude-vv-iw-001": {
+            "type": "image/x.geotiff",
+            "roles": [
+                "amplitude",
+                "data"
+            ],
+            "title": "IW VV Amplitude pixel values",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/measurement/s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.tiff",
+            "file:size": 878507832,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/measurement/s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.tiff",
+            "sar:polarizations": [
+                "VV"
+            ],
+            "proj:epsg": null,
+            "proj:shape": [
+                26329,
+                16678
+            ]
+        },
+        "annotation-vv-iw-001": {
+            "type": "text/xml",
+            "roles": [
+                "metadata"
+            ],
+            "title": "Annotation VV IW 001",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "file:size": 1842846,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "sar:polarizations": [
+                "VV"
+            ]
+        },
+        "calibration-vh-iw-002": {
+            "type": "text/xml",
+            "roles": [
+                "calibration",
+                "data"
+            ],
+            "title": "Calibration VH IW",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/calibration-s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "file:size": 1035193,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/calibration-s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "sar:polarizations": [
+                "VH"
+            ]
+        },
+        "calibration-vv-iw-001": {
+            "type": "text/xml",
+            "roles": [
+                "calibration",
+                "data"
+            ],
+            "title": "Calibration VV IW",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/calibration-s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "file:size": 1035193,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/calibration-s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "sar:polarizations": [
+                "VV"
+            ]
+        },
+        "noise-vh-iw-002": {
+            "type": "text/xml",
+            "roles": [
+                "data",
+                "noise"
+            ],
+            "title": "Noise VH IW",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/noise-s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "file:size": 432157,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/noise-s1a-iw-grd-vh-20241113t170607-20241113t170632-056539-06eea8-002.xml",
+            "sar:polarizations": [
+                "VH"
+            ]
+        },
+        "noise-vv-iw-001": {
+            "type": "text/xml",
+            "roles": [
+                "data",
+                "noise"
+            ],
+            "title": "Noise VV IW",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/noise-s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "file:size": 432157,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/annotation/calibration/noise-s1a-iw-grd-vv-20241113t170607-20241113t170632-056539-06eea8-001.xml",
+            "sar:polarizations": [
+                "VV"
+            ]
+        },
+        "support-s1-level-1-calibration": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-calibration",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-calibration.xsd",
+            "file:size": 6427,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-calibration.xsd"
+        },
+        "support-s1-level-1-measurement": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-measurement",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-measurement.xsd",
+            "file:size": 471,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-measurement.xsd"
+        },
+        "support-s1-level-1-noise": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-noise",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-noise.xsd",
+            "file:size": 7290,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-noise.xsd"
+        },
+        "support-s1-level-1-product": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-product",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-product.xsd",
+            "file:size": 149999,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-product.xsd"
+        },
+        "support-s1-level-1-quicklook": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-quicklook",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-quicklook.xsd",
+            "file:size": 469,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-quicklook.xsd"
+        },
+        "support-s1-level-1-rfi": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-level-1-rfi",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-rfi.xsd",
+            "file:size": 16595,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-level-1-rfi.xsd"
+        },
+        "support-s1-map-overlay": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-map-overlay",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-map-overlay.xsd",
+            "file:size": 450,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-map-overlay.xsd"
+        },
+        "support-s1-object-types": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-object-types",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-object-types.xsd",
+            "file:size": 62179,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-object-types.xsd"
+        },
+        "support-s1-product-preview": {
+            "type": "text/xml",
+            "roles": [
+                "metadata",
+                "support"
+            ],
+            "title": "Support file support-s1-product-preview",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-product-preview.xsd",
+            "file:size": 440,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/support/s1-product-preview.xsd"
+        },
+        "preview-logo": {
+            "type": "image/png",
+            "roles": [
+                "data",
+                "logo"
+            ],
+            "title": "Preview file preview-logo",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/icons/logo.png",
+            "file:size": 95280,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/icons/logo.png"
+        },
+        "preview-map-overlay": {
+            "type": "application/vnd.google-earth.kml+xml",
+            "roles": [
+                "data",
+                "kml"
+            ],
+            "title": "Preview file preview-map-overlay",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/map-overlay.kml",
+            "file:size": 1018,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/map-overlay.kml"
+        },
+        "preview-product-preview": {
+            "type": "application/octet-stream",
+            "roles": [
+                "data"
+            ],
+            "title": "Preview file preview-product-preview",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/product-preview.html",
+            "file:size": 3673,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/product-preview.html"
+        },
+        "preview-quick-look": {
+            "type": "image/png",
+            "roles": [
+                "data",
+                "thumbnail"
+            ],
+            "title": "Preview file preview-quick-look",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/quick-look.png",
+            "file:size": 301151,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/quick-look.png"
+        },
+        "preview-thumbnail": {
+            "type": "application/octet-stream",
+            "roles": [
+                "data"
+            ],
+            "title": "Preview file preview-thumbnail",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/thumbnail.png",
+            "file:size": 100892,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/preview/thumbnail.png"
+        },
+        "manifest": {
+            "type": "text/xml",
+            "roles": [
+                "metadata"
+            ],
+            "title": "SAFE Manifest",
+            "href": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/manifest.safe",
+            "file:size": 24532,
+            "filename": "S1A_IW_GRDH_1SDV_20241113T170607_20241113T170632_056539_06EEA8_B145.SAFE/manifest.safe"
+        }
+    },
+    "links": []
+}
