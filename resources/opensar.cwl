@@ -1,4 +1,4 @@
-cwlVersion: v1.0
+cwlVersion: v1.2
 $namespaces:
   s: https://schema.org/
 s:softwareVersion: 1.0.0
@@ -14,6 +14,7 @@ $graph:
       input:
         type: Directory
         label: Input S1 GRD
+        loadListing: no_listing
       resolution:
         type: int
         label: Resolution
@@ -79,6 +80,8 @@ $graph:
     requirements:
       DockerRequirement:
         dockerPull: quay.io/bcdev/opensartoolkit:latest
+      NetworkAccess:
+        networkAccess: true
 
     baseCommand:
       - python3

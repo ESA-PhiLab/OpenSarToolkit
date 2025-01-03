@@ -73,11 +73,13 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 COPY constraints.txt $HOME
 
+ARG ost_branch=main
+
 # Invalidate Docker cache if there have been new commits to the repository
-ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=version2&per_page=1" last_commit
+ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=${ost_branch}&per_page=1" last_commit
 
 # Install OST and tutorials
-RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git -c constraints.txt
+RUN python3 -m pip install git+https://github.com/bcdev/OpenSarToolkit.git@${ost_branch} -c constraints.txt
 
 #RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
 #RUN jupyter nbextension enable --py widgetsnbextension
