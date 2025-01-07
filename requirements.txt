@@ -3,7 +3,7 @@ fiona
 gdal>=2
 godale
 pyproj>=2.1
-geopandas>=0.8
+geopandas==0.14.4
 jupyterlab
 matplotlib
 numpy
