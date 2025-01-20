@@ -8,7 +8,7 @@ $graph:
   - class: Workflow
     label: OST Notebook 1
     doc: Preprocessing an S1 image with OST
-    id: main
+    id: opensartoolkit
     requirements: []
     inputs:
       input:
@@ -41,14 +41,6 @@ $graph:
             - BICUBIC_INTERPOLATION
         label: Resampling method
         doc: Resampling method to use
-      cdse-user:
-        type: string
-        label: CDSE user
-        doc: CDSE user name
-      cdse-password:
-        type: string
-        label: CDSE password
-        doc: Password for the specified CDSE user
       dry-run:
         type: boolean
         label: Dry run
@@ -69,8 +61,6 @@ $graph:
           ard-type: ard-type
           with-speckle-filter: with-speckle-filter
           resampling-method: resampling-method
-          cdse-user: cdse-user
-          cdse-password: cdse-password
           dry-run: dry-run
         out:
           - ost_ard
@@ -119,11 +109,11 @@ $graph:
         inputBinding:
           prefix: --resampling-method
       cdse-user:
-        type: string
+        type: string?
         inputBinding:
           prefix: --cdse-user
       cdse-password:
-        type: string
+        type: string?
         inputBinding:
           prefix: --cdse-password
       dry-run:
