@@ -42,7 +42,7 @@ RUN groupadd -r ost && \
         nodejs \
         npm
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -yq jq
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -yq jq
 
 # Install OTB. Use some custom headers when fetching package, since otherwise
 # the download speed is heavily throttled.
