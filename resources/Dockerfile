@@ -40,7 +40,8 @@ RUN groupadd -r ost && \
         unzip \
         imagemagick \
         nodejs \
-        npm
+        npm \
+        jq
 
 # Install OTB. Use some custom headers when fetching package, since otherwise
 # the download speed is heavily throttled.
