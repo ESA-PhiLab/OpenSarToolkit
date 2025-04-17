@@ -248,7 +248,7 @@ def write_stac_for_tiff(
     LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
     asset = pystac.Asset(
-        roles=["data"],
+        roles=["data", "visual"],
         href=asset_path,
         media_type="image/tiff; application=geotiff;",
     )
