@@ -465,7 +465,7 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
                     ratio_array = ras.scale_to_int(ratio_array, 1, 15, "uint8")
                     meta.update(dtype="uint8")
 
-                with rasterio.open(outfile, "w", **meta) as dst:
+                with rasterio.open(outfile, "w", tiled=True, **meta) as dst:
 
                     # write file
                     for k, arr in [(1, co_array), (2, cr_array), (3, ratio_array)]:
@@ -504,5 +504,5 @@ def ard_to_rgb(infile, outfile, driver="GTiff", to_db=True, shrink_factor=1):
                 co_array = ras.scale_to_int(co_array, -20, 0, "uint8")
                 meta.update(dtype="uint8")
 
-            with rasterio.open(outfile, "w", **meta) as dst:
+            with rasterio.open(outfile, "w", tiled=True, **meta) as dst:
                 dst.write(co_array)
