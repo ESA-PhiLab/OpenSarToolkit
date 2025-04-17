@@ -32,9 +32,11 @@ LOGGER = logging.getLogger(__name__)
 @click.option("--cdse-user", default="dummy")
 @click.option("--cdse-password", default="dummy")
 @click.option(
-    "--dry-run", is_flag=True, default=False,
+    "--dry-run",
+    is_flag=True,
+    default=False,
     help="Skip processing and write a placeholder output file instead. "
-    "Useful for testing."
+    "Useful for testing.",
 )
 def run(
     input_: str,
@@ -44,7 +46,7 @@ def run(
     resampling_method: str,
     cdse_user: str,
     cdse_password: str,
-    dry_run: bool
+    dry_run: bool,
 ):
     horizontal_line = "-" * 79  # Used in log output
 
@@ -142,7 +144,9 @@ def run(
         # create_ard seems to be a prerequisite for create_rgb.
         if zip_input:
             s1.create_ard(
-                infile=s1.get_path(output_path), out_dir=output_path, overwrite=True
+                infile=s1.get_path(output_path),
+                out_dir=output_path,
+                overwrite=True,
             )
         else:
             s1.create_ard(
@@ -186,17 +190,18 @@ def create_dummy_tiff(path: Path) -> None:
 
     data = np.linspace(np.arange(100), 50 * np.sin(np.arange(100)), 100)
     with rasterio.open(
-            str(path),
-            'w',
-            driver='GTiff',
-            height=data.shape[0],
-            width=data.shape[1],
-            count=1,
-            dtype=data.dtype,
-            crs="+proj=latlong",
-            transform=rasterio.transform.Affine.scale(0.1, 0.1),
+        str(path),
+        "w",
+        driver="GTiff",
+        height=data.shape[0],
+        width=data.shape[1],
+        count=1,
+        dtype=data.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine.scale(0.1, 0.1),
     ) as dst:
         dst.write(data, 1)
+
 
 def get_input_path_from_stac(stac_root: str) -> str:
     stac_path = pathlib.Path(stac_root)
@@ -214,9 +219,7 @@ def get_input_path_from_stac(stac_root: str) -> str:
             LOGGER.info(f"Found SAFE directory at {safe_dir}")
             return str(safe_dir)
         else:
-            raise RuntimeError(
-                f"No filename for manifest asset in {catalog}"
-            )
+            raise RuntimeError(f"No filename for manifest asset in {catalog}")
     else:
         LOGGER.info("No manifest asset found; looking for zip asset")
         zip_assets = [
@@ -239,7 +242,9 @@ def get_input_path_from_stac(stac_root: str) -> str:
             return str(zip_path)
 
 
-def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:
+def write_stac_for_tiff(
+    stac_root: str, asset_path: str, scene_id: str
+) -> None:
     LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
     asset = pystac.Asset(
@@ -251,19 +256,30 @@ def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str) -> None:
     s = scene_id
     item = pystac.Item(
         id="result-item",
-        geometry=[
-            [bb.left, bb.bottom],
-            [bb.left, bb.top],
-            [bb.right, bb.top],
-            [bb.right, bb.bottom],
-            [bb.left, bb.bottom]
-        ],
+        geometry={
+            "type": "Polygon",
+            "coordinates": [
+                [bb.left, bb.bottom],
+                [bb.left, bb.top],
+                [bb.right, bb.top],
+                [bb.right, bb.bottom],
+                [bb.left, bb.bottom],
+            ],
+        },
         bbox=[bb.left, bb.bottom, bb.right, bb.top],
         datetime=None,
-        start_datetime=datetime(*map(int, (
-            s[17:21], s[21:23], s[23:25], s[26:28], s[28:30], s[30:32]))),
-        end_datetime=datetime(*map(int, (
-            s[33:37], s[37:39], s[39:41], s[42:44], s[44:46], s[46:48]))),
+        start_datetime=datetime(
+            *map(
+                int,
+                (s[17:21], s[21:23], s[23:25], s[26:28], s[28:30], s[30:32]),
+            )
+        ),
+        end_datetime=datetime(
+            *map(
+                int,
+                (s[33:37], s[37:39], s[39:41], s[42:44], s[44:46], s[46:48]),
+            )
+        ),
         properties={},  # datetime values will be filled in automatically
         assets={"TIFF": asset},
     )
