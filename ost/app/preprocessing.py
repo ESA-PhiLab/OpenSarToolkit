@@ -191,7 +191,9 @@ def create_dummy_tiff(path: Path) -> None:
     import numpy as np
     import rasterio
 
-    data = np.linspace(np.arange(2000), 50 * np.sin(np.arange(2000)), 2000)
+    data = np.fromfunction(
+        lambda x, y: x / 2000 + np.sin(y / 50), (2000, 2000)
+    )
     with rasterio.open(
         str(path),
         "w",
@@ -202,7 +204,7 @@ def create_dummy_tiff(path: Path) -> None:
         dtype=data.dtype,
         crs="+proj=latlong",
         transform=rasterio.transform.Affine.scale(0.1, 0.1),
-        tiled=True
+        tiled=True,
     ) as dst:
         dst.write(data, 1)
 
@@ -246,7 +248,9 @@ def get_input_path_from_stac(stac_root: str) -> str:
             return str(zip_path)
 
 
-def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str, gsd: int) -> None:
+def write_stac_for_tiff(
+    stac_root: str, asset_path: str, scene_id: str, gsd: int
+) -> None:
     LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
     asset = pystac.Asset(
@@ -254,7 +258,7 @@ def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str, gsd: int
         href=asset_path,
         media_type="image/tiff; application=geotiff;",
         title="OST-processed",
-        gsd=gsd
+        extra_fields=dict(gsd=gsd),
     )
     bb = ds.bounds
     s = scene_id
