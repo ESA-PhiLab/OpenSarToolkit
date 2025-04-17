@@ -164,7 +164,7 @@ def run(
 
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
-    write_stac_for_tiff(str(output_path), str(tiff_path), scene_id)
+    write_stac_for_tiff(str(output_path), str(tiff_path), scene_id, resolution)
 
 
 def copy_zip_input(input_path, output_dir, scene_id):
@@ -191,7 +191,7 @@ def create_dummy_tiff(path: Path) -> None:
     import numpy as np
     import rasterio
 
-    data = np.linspace(np.arange(100), 50 * np.sin(np.arange(100)), 100)
+    data = np.linspace(np.arange(2000), 50 * np.sin(np.arange(2000)), 2000)
     with rasterio.open(
         str(path),
         "w",
@@ -202,6 +202,7 @@ def create_dummy_tiff(path: Path) -> None:
         dtype=data.dtype,
         crs="+proj=latlong",
         transform=rasterio.transform.Affine.scale(0.1, 0.1),
+        tiled=True
     ) as dst:
         dst.write(data, 1)
 
@@ -245,15 +246,15 @@ def get_input_path_from_stac(stac_root: str) -> str:
             return str(zip_path)
 
 
-def write_stac_for_tiff(
-    stac_root: str, asset_path: str, scene_id: str
-) -> None:
+def write_stac_for_tiff(stac_root: str, asset_path: str, scene_id: str, gsd: int) -> None:
     LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
     asset = pystac.Asset(
         roles=["data", "visual"],
         href=asset_path,
         media_type="image/tiff; application=geotiff;",
+        title="OST-processed",
+        gsd=gsd
     )
     bb = ds.bounds
     s = scene_id
