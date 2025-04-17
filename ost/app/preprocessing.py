@@ -12,7 +12,9 @@ import click
 import pystac
 import rasterio
 
+
 LOGGER = logging.getLogger(__name__)
+ITEM_ID = "result-item"
 
 
 @click.command()
@@ -135,8 +137,10 @@ def run(
         f"{horizontal_line}"
     )
 
+    tiff_dir = output_path / ITEM_ID
+    tiff_dir.mkdir(exist_ok=True)
+    tiff_path = tiff_dir / f"{s1.start_date}.tif"
     if dry_run:
-        tiff_path = output_path / f"{s1.start_date}.tif"
         LOGGER.info(f"Dry run -- creating dummy output at {tiff_path}")
         create_dummy_tiff(tiff_path)
     else:
@@ -155,8 +159,7 @@ def run(
 
         LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
         LOGGER.info(f"Creating RGB at {output_path}")
-        s1.create_rgb(outfile=output_path.joinpath(f"{s1.start_date}.tif"))
-        tiff_path = s1.ard_rgb
+        s1.create_rgb(outfile=tiff_path)
         LOGGER.info(f"Path to newly created RGB product: {tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
@@ -255,7 +258,7 @@ def write_stac_for_tiff(
     bb = ds.bounds
     s = scene_id
     item = pystac.Item(
-        id="result-item",
+        id=ITEM_ID,
         geometry={
             "type": "Polygon",
             "coordinates": [
@@ -267,6 +270,9 @@ def write_stac_for_tiff(
             ],
         },
         bbox=[bb.left, bb.bottom, bb.right, bb.top],
+        # Datetime is required by the STAC specification and schema, even
+        # when there is no reasonable value for it to take. In such cases
+        # it is permitted to set datetime to null, but not to omit it.
         datetime=None,
         start_datetime=datetime(
             *map(
