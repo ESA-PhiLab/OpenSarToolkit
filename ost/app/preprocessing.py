@@ -14,6 +14,7 @@ import rasterio
 
 
 LOGGER = logging.getLogger(__name__)
+CATALOG_FILENAME = "catalog.json"
 ITEM_ID = "result-item"
 
 
@@ -40,6 +41,14 @@ ITEM_ID = "result-item"
     help="Skip processing and write a placeholder output file instead. "
     "Useful for testing.",
 )
+@click.option(
+    "--wipe-cwd",
+    is_flag=True,
+    default=False,
+    help="After processing, delete everything in the current working directory "
+    "except for the output data and STAC entries. Dangerous, but can be useful "
+    "when executing as an application package.",
+)
 def run(
     input_: str,
     resolution: int,
@@ -49,6 +58,7 @@ def run(
     cdse_user: str,
     cdse_password: str,
     dry_run: bool,
+    wipe_cwd: bool,
 ):
     horizontal_line = "-" * 79  # Used in log output
 
@@ -86,7 +96,7 @@ def run(
     # containing an item which contains an asset for either a zip file
     # (zipped SAFE archive) or a SAFE manifest (which is used to determine
     # the location of a non-zipped SAFE directory). The returned path is
-    # either the zip file or the SAFE directory
+    # either the zip file or the SAFE directory.
     input_path = get_input_path_from_stac(input_)
 
     # We assume that any file input path is a zip, and any non-file input
@@ -165,7 +175,9 @@ def run(
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
     write_stac_for_tiff(str(output_path), str(tiff_path), scene_id, resolution)
-
+    if wipe_cwd:
+        LOGGER.info("Removing everything except output from CWD")
+        delete_cwd_contents()
 
 def copy_zip_input(input_path, output_dir, scene_id):
     year = scene_id[17:21]
@@ -297,11 +309,23 @@ def write_stac_for_tiff(
     catalog = pystac.Catalog(
         id="catalog",
         description="Root catalog",
-        href=f"{stac_root}/catalog.json",
+        href=f"{stac_root}/{CATALOG_FILENAME}",
     )
     catalog.add_item(item)
     catalog.make_all_asset_hrefs_relative()
     catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
+
+
+def delete_cwd_contents():
+    """Delete everything except the output data and STAC files"""
+
+    cwd = Path.cwd()
+    for member in cwd.iterdir():
+        if member.name not in {CATALOG_FILENAME, ITEM_ID}:
+            if member.is_dir():
+                shutil.rmtree(member)
+            if member.is_file():
+                member.unlink()
 
 
 if __name__ == "__main__":
