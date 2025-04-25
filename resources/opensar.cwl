@@ -69,14 +69,15 @@ $graph:
     id: ost_script_1
     requirements:
       DockerRequirement:
-        dockerPull: quay.io/bcdev/opensartoolkit:version4
+        dockerPull: quay.io/bcdev/opensartoolkit:version5
       NetworkAccess:
         networkAccess: true
 
     baseCommand:
       - python3
       - /usr/local/lib/python3.8/dist-packages/ost/app/preprocessing.py
-    arguments: []
+    arguments:
+      - --wipe-cwd
     inputs:
       input:
         type: Directory

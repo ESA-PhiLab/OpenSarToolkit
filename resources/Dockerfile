@@ -3,6 +3,8 @@ FROM ubuntu:20.04
 LABEL maintainer="Andreas Vollrath, FAO"
 LABEL OpenSARToolkit='0.12.3'
 
+ENV HOME=/home/ost
+
 # set work directory to home and download snap
 WORKDIR /home/ost
 
@@ -75,7 +77,7 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 COPY constraints.txt $HOME
 
-ARG ost_branch=main
+ARG ost_branch=version5
 
 # Invalidate Docker cache if there have been new commits to the repository
 ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=${ost_branch}&per_page=1" last_commit
