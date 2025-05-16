@@ -227,14 +227,18 @@ def get_input_path_from_stac(stac_root: str) -> str:
     item_links = [link for link in catalog.links if link.rel == "item"]
     assert len(item_links) == 1
     item_link = item_links[0]
-    item = pystac.Item.from_file(str(stac_path / item_link.href))
+    item_path = stac_path / item_link.href
+    item = pystac.Item.from_file(str(item_path))
     if "manifest" in item.assets:
-        LOGGER.info(f"Found manifest asset in {catalog}")
+        LOGGER.info(f"Found manifest asset in {str(item_path)}")
         manifest_asset = item.assets["manifest"]
         if "filename" in manifest_asset.extra_fields:
             filename = pathlib.Path(manifest_asset.extra_fields["filename"])
-            safe_dir = stac_path / filename.parent
-            LOGGER.info(f"Found SAFE directory at {safe_dir}")
+            LOGGER.info(f"Asset path in item: {str(filename)}")
+            safe_dir = item_path / filename.parent
+            LOGGER.info(f"Resolved SAFE directory path to {safe_dir}")
+            assert safe_dir.exists(), "SAFE directory does not exist"
+            assert safe_dir.is_dir(), "SAFE directory is not a directory"
             return str(safe_dir)
         else:
             raise RuntimeError(f"No filename for manifest asset in {catalog}")
