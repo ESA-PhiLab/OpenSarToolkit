@@ -235,7 +235,10 @@ def get_input_path_from_stac(stac_root: str) -> str:
         if "filename" in manifest_asset.extra_fields:
             filename = pathlib.Path(manifest_asset.extra_fields["filename"])
             LOGGER.info(f"Asset path in item: {str(filename)}")
-            safe_dir = item_path / filename.parent
+            # The SAFE directory is the direct parent of the manifest file,
+            # and we resolve it relative to the parent directory of the STAC
+            # item.
+            safe_dir = item_path.parent / filename.parent
             LOGGER.info(f"Resolved SAFE directory path to {safe_dir}")
             assert safe_dir.exists(), "SAFE directory does not exist"
             assert safe_dir.is_dir(), "SAFE directory is not a directory"
