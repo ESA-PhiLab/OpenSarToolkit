@@ -77,7 +77,7 @@ RUN echo "-Xmx12G" > /home/ost/programs/snap/bin/gpt.vmoptions
 
 COPY constraints.txt $HOME
 
-ARG ost_branch=version5
+ARG ost_branch=version6
 
 # Invalidate Docker cache if there have been new commits to the repository
 ADD "https://api.github.com/repos/bcdev/OpenSarToolkit/commits?sha=${ost_branch}&per_page=1" last_commit
