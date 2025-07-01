@@ -285,13 +285,13 @@ def write_stac_for_tiff(
         id=ITEM_ID,
         geometry={
             "type": "Polygon",
-            "coordinates": [
+            "coordinates": [[
                 [bb.left, bb.bottom],
                 [bb.left, bb.top],
                 [bb.right, bb.top],
                 [bb.right, bb.bottom],
                 [bb.left, bb.bottom],
-            ],
+            ]],
         },
         bbox=[bb.left, bb.bottom, bb.right, bb.top],
         # Datetime is required by the STAC specification and schema, even
@@ -321,6 +321,11 @@ def write_stac_for_tiff(
     catalog.add_item(item)
     catalog.make_all_asset_hrefs_relative()
     catalog.save(catalog_type=pystac.CatalogType.SELF_CONTAINED)
+
+    # We validate after saving, so if validation fails the invalid STAC output
+    # is available for debugging.
+    n_validated = catalog.validate_all()
+    LOGGER.info(f"{n_validated} STAC item(s) successfully validated.")
 
 
 def delete_cwd_contents():
