@@ -184,6 +184,8 @@ def run(
     save_as_cog(array, profile, str(tiff_path), transparency_indexes,
                   dtype=profile["dtype"])
     LOGGER.info(f"COG file saved: {tiff_path}")
+    non_cog_tiff_path.unlink()
+    LOGGER.info(f"Non-COG TIFF deleted: {non_cog_tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
