@@ -179,10 +179,10 @@ def run(
         array = src.read()  # Read array
         profile = src.profile  # Get the metadata profile
 
-    tiff_path = pathlib.Path(str(non_cog_tiff_path[:-4]) + '_cog.tif')
+    tiff_path = pathlib.Path(str(non_cog_tiff_path)[:-4] + "_cog.tif")
     transparency_indexes = np.isnan(array)
     save_as_cog(array, profile, tiff_path, transparency_indexes,
-                  dtype=profile['dtype'])
+                  dtype=profile["dtype"])
     LOGGER.info(f"COG file saved: {tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
