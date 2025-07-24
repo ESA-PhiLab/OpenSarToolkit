@@ -181,7 +181,7 @@ def run(
 
     tiff_path = pathlib.Path(str(non_cog_tiff_path)[:-4] + "_cog.tif")
     transparency_indexes = np.isnan(array)
-    save_as_cog(array, profile, tiff_path, transparency_indexes,
+    save_as_cog(array, profile, str(tiff_path), transparency_indexes,
                   dtype=profile["dtype"])
     LOGGER.info(f"COG file saved: {tiff_path}")
 
