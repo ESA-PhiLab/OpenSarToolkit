@@ -9,8 +9,11 @@ import shutil
 
 from ost import Sentinel1Scene
 import click
+import numpy as np
 import pystac
 import rasterio
+from rasterio.enums import Resampling
+from rasterio.shutil import copy
 
 
 LOGGER = logging.getLogger(__name__)
@@ -149,10 +152,10 @@ def run(
 
     tiff_dir = output_path / ITEM_ID
     tiff_dir.mkdir(exist_ok=True)
-    tiff_path = tiff_dir / f"{s1.start_date}.tif"
+    non_cog_tiff_path = tiff_dir / f"{s1.start_date}.tif"
     if dry_run:
-        LOGGER.info(f"Dry run -- creating dummy output at {tiff_path}")
-        create_dummy_tiff(tiff_path)
+        LOGGER.info(f"Dry run -- creating dummy output at {non_cog_tiff_path}")
+        create_dummy_tiff(non_cog_tiff_path)
     else:
         LOGGER.info(f"Creating ARD at {output_path}")
         # create_ard seems to be a prerequisite for create_rgb.
@@ -169,8 +172,18 @@ def run(
 
         LOGGER.info(f"Path to newly created ARD product: {s1.ard_dimap}")
         LOGGER.info(f"Creating RGB at {output_path}")
-        s1.create_rgb(outfile=tiff_path)
-        LOGGER.info(f"Path to newly created RGB product: {tiff_path}")
+        s1.create_rgb(outfile=non_cog_tiff_path)
+        LOGGER.info(f"Path to newly created RGB product: {non_cog_tiff_path}")
+
+    with rasterio.open(non_cog_tiff_path) as src:
+        array = src.read()  # Read array
+        profile = src.profile  # Get the metadata profile
+
+    tiff_path = pathlib.Path(str(non_cog_tiff_path[:-4]) + '_cog.tif')
+    transparency_indexes = np.isnan(array)
+    save_as_cog(array, profile, tiff_path, transparency_indexes,
+                  dtype=profile['dtype'])
+    LOGGER.info(f"COG file saved: {tiff_path}")
 
     # Write a STAC catalog and item pointing to the output product.
     LOGGER.info("Writing STAC catalogue and item")
@@ -338,6 +351,42 @@ def delete_cwd_contents():
                 shutil.rmtree(member)
             if member.is_file():
                 member.unlink()
+
+
+def save_as_cog(result_array: np.ndarray, profile, outfile_name,
+                  transparency_indexes=None, dtype=rasterio.uint8):
+    """
+    Saves an array as a Cloud-Optimized GeoTIFF (COG) using rasterio.
+    """
+    factors = [2, 4, 8, 16, 32, 64]
+
+    if transparency_indexes is not None:
+        result_array[transparency_indexes] = 0
+
+    with rasterio.Env():
+        profile.update(dtype=dtype,
+                       count=result_array.shape[0],
+                       compress="deflate",
+                       tiled=True,
+                       blockxsize=256,
+                       blockysize=256,
+                       driver='GTiff',
+                       BIGTIFF='IF_NEEDED',
+                       nodata=0)
+
+        temp_file = outfile_name.replace('.tif', '_temp.tif')
+
+        try:
+            with rasterio.open(temp_file, "w", **profile) as dst:
+                dst.write(result_array.astype(dtype))  # writes all bands
+                dst.build_overviews(factors, Resampling.nearest)
+                dst.update_tags(ns='rio_overview', resampling='nearest')
+
+            copy(temp_file, outfile_name, copy_src_overviews=True, driver='COG',
+                 compress="deflate")
+        finally:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
 
 
 if __name__ == "__main__":
