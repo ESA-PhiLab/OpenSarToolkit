@@ -69,7 +69,7 @@ $graph:
     id: ost_script_1
     requirements:
       DockerRequirement:
-        dockerPull: quay.io/bcdev/opensartoolkit:version7
+        dockerPull: quay.io/bcdev/opensartoolkit:version8
       NetworkAccess:
         networkAccess: true
 
