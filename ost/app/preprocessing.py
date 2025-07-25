@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import sys
 import os
 import pathlib
@@ -6,6 +7,7 @@ from pathlib import Path
 import pprint
 import logging
 import shutil
+import subprocess
 
 from ost import Sentinel1Scene
 import click
@@ -181,8 +183,13 @@ def run(
 
     tiff_path = pathlib.Path(str(non_cog_tiff_path)[:-4] + "_cog.tif")
     transparency_indexes = np.isnan(array)
-    save_as_cog(array, profile, str(tiff_path), transparency_indexes,
-                  dtype=profile["dtype"])
+    save_as_cog(
+        array,
+        profile,
+        str(tiff_path),
+        transparency_indexes,
+        dtype=profile["dtype"],
+    )
     LOGGER.info(f"COG file saved: {tiff_path}")
     non_cog_tiff_path.unlink()
     LOGGER.info(f"Non-COG TIFF deleted: {non_cog_tiff_path}")
@@ -193,6 +200,7 @@ def run(
     if wipe_cwd:
         LOGGER.info("Removing everything except output from CWD")
         delete_cwd_contents()
+
 
 def copy_zip_input(input_path, output_dir, scene_id):
     year = scene_id[17:21]
@@ -292,7 +300,10 @@ def write_stac_for_tiff(
         href=asset_path,
         media_type="image/tiff; application=geotiff; profile=cloud-optimized",
         title="OST-processed",
-        extra_fields=dict(gsd=gsd),
+        extra_fields={
+            "gsd": gsd,
+            "raster:bands": bands_data(asset_path, gsd),
+        },
     )
     bb = ds.bounds
     s = scene_id
@@ -300,13 +311,15 @@ def write_stac_for_tiff(
         id=ITEM_ID,
         geometry={
             "type": "Polygon",
-            "coordinates": [[
-                [bb.left, bb.bottom],
-                [bb.left, bb.top],
-                [bb.right, bb.top],
-                [bb.right, bb.bottom],
-                [bb.left, bb.bottom],
-            ]],
+            "coordinates": [
+                [
+                    [bb.left, bb.bottom],
+                    [bb.left, bb.top],
+                    [bb.right, bb.top],
+                    [bb.right, bb.bottom],
+                    [bb.left, bb.bottom],
+                ]
+            ],
         },
         bbox=[bb.left, bb.bottom, bb.right, bb.top],
         # Datetime is required by the STAC specification and schema, even
@@ -327,6 +340,9 @@ def write_stac_for_tiff(
         ),
         properties={},  # datetime values will be filled in automatically
         assets={"TIFF": asset},
+        stac_extensions=[
+            "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+        ],
     )
     catalog = pystac.Catalog(
         id="catalog",
@@ -355,8 +371,13 @@ def delete_cwd_contents():
                 member.unlink()
 
 
-def save_as_cog(result_array: np.ndarray, profile, outfile_name,
-                  transparency_indexes=None, dtype=rasterio.uint8):
+def save_as_cog(
+    result_array: np.ndarray,
+    profile,
+    outfile_name,
+    transparency_indexes=None,
+    dtype=rasterio.uint8,
+):
     """
     Saves an array as a Cloud-Optimized GeoTIFF (COG) using rasterio.
     """
@@ -366,29 +387,62 @@ def save_as_cog(result_array: np.ndarray, profile, outfile_name,
         result_array[transparency_indexes] = 0
 
     with rasterio.Env():
-        profile.update(dtype=dtype,
-                       count=result_array.shape[0],
-                       compress="deflate",
-                       tiled=True,
-                       blockxsize=256,
-                       blockysize=256,
-                       driver='GTiff',
-                       BIGTIFF='IF_NEEDED',
-                       nodata=0)
+        profile.update(
+            dtype=dtype,
+            count=result_array.shape[0],
+            compress="deflate",
+            tiled=True,
+            blockxsize=256,
+            blockysize=256,
+            driver="GTiff",
+            BIGTIFF="IF_NEEDED",
+            nodata=0,
+        )
 
-        temp_file = outfile_name.replace('.tif', '_temp.tif')
+        temp_file = outfile_name.replace(".tif", "_temp.tif")
 
         try:
             with rasterio.open(temp_file, "w", **profile) as dst:
                 dst.write(result_array.astype(dtype))  # writes all bands
                 dst.build_overviews(factors, Resampling.nearest)
-                dst.update_tags(ns='rio_overview', resampling='nearest')
+                dst.update_tags(ns="rio_overview", resampling="nearest")
 
-            copy(temp_file, outfile_name, copy_src_overviews=True, driver='COG',
-                 compress="deflate")
+            copy(
+                temp_file,
+                outfile_name,
+                copy_src_overviews=True,
+                driver="COG",
+                compress="deflate",
+            )
         finally:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
+
+
+def bands_data(filename, resolution):
+    process = subprocess.run(
+        ["gdalinfo", "-json", "-stats", "-hist", filename], capture_output=True
+    )
+    result = process.stdout
+    gdal_data = json.loads(result)
+    stac_data = [band_data(band, resolution) for band in gdal_data["bands"]]
+    return stac_data
+
+
+def band_data(gdal_band, resolution):
+    return {
+        "histogram": gdal_band["histogram"],
+        "statistics": {
+            "mean": gdal_band["mean"],
+            "stddev": gdal_band["stdDev"],
+            "maximum": gdal_band["maximum"],
+            "minimum": gdal_band["minimum"],
+            "valid_percent": float(
+                gdal_band["metadata"][""]["STATISTICS_VALID_PERCENT"]
+            ),
+        },
+        "spatial_resolution": resolution,
+    }
 
 
 if __name__ == "__main__":
