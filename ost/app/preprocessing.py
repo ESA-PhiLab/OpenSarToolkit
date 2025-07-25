@@ -290,7 +290,7 @@ def write_stac_for_tiff(
     asset = pystac.Asset(
         roles=["data", "visual"],
         href=asset_path,
-        media_type="image/tiff; application=geotiff;",
+        media_type="image/tiff; application=geotiff; profile=cloud-optimized",
         title="OST-processed",
         extra_fields=dict(gsd=gsd),
     )
