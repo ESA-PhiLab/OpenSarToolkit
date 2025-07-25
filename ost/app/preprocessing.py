@@ -295,6 +295,7 @@ def write_stac_for_tiff(
 ) -> None:
     LOGGER.info(f"Writing STAC for asset {asset_path} to {stac_root}")
     ds = rasterio.open(asset_path)
+    bands = bands_data(asset_path, gsd)
     asset = pystac.Asset(
         roles=["data", "visual"],
         href=asset_path,
@@ -302,7 +303,7 @@ def write_stac_for_tiff(
         title="OST-processed",
         extra_fields={
             "gsd": gsd,
-            "raster:bands": bands_data(asset_path, gsd),
+            "raster:bands": bands,
         },
     )
     bb = ds.bounds
@@ -338,10 +339,26 @@ def write_stac_for_tiff(
                 (s[33:37], s[37:39], s[39:41], s[42:44], s[44:46], s[46:48]),
             )
         ),
-        properties={},  # datetime values will be filled in automatically
+        properties={
+            # datetime values will be filled in automatically
+            "title": "Open Sar Toolkit ARD Processing",
+            "renders": {
+                "render-tiff": {
+                    "title": "ARD-processed",
+                    "assets": ["TIFF"],
+                    "nodata": "NaN",
+                    "rescale": [
+                        [b["statistics"]["minimum"], b["statistics"]["maximum"]] for b in bands
+                    ],
+                    "resampling": "nearest",
+                    "colormap_name": "ylorrd",
+                }
+            },
+        },
         assets={"TIFF": asset},
         stac_extensions=[
             "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+            "https://stac-extensions.github.io/render/v2.0.0/schema.json",
         ],
     )
     catalog = pystac.Catalog(
