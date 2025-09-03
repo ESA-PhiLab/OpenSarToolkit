@@ -121,9 +121,9 @@ def run(
             output_path, mirror="5", uname=cdse_user, pword=cdse_password
         )
 
-    single_ard = s1.ard_parameters["single_ARD"]
     # Set ARD type. Choices: "OST_GTC", "OST-RTC", "CEOS", "Earth Engine"
     s1.update_ard_parameters(ard_type)
+    single_ard = s1.ard_parameters["single_ARD"]
     LOGGER.info(
         f"{horizontal_line}\n"
         f"Dictionary of Earth Engine ARD parameters:\n"
