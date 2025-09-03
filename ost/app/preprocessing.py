@@ -37,6 +37,11 @@ ITEM_ID = "result-item"
     type=click.Choice(["BILINEAR_INTERPOLATION", "BICUBIC_INTERPOLATION"]),
     default="BILINEAR_INTERPOLATION",
 )
+@click.option(
+    "--output-projection",    
+    default=42001,
+    help="The EPSG code (integer) of the output projection. The default is 42001, which allows SNAP to select the appropriate UTM projection for the given product or AOI."
+)
 @click.option("--cdse-user", default="dummy")
 @click.option("--cdse-password", default="dummy")
 @click.option(
@@ -64,6 +69,7 @@ def run(
     cdse_password: str,
     dry_run: bool,
     wipe_cwd: bool,
+    output_projection: int
 ):
     horizontal_line = "-" * 79  # Used in log output
 
@@ -138,6 +144,9 @@ def run(
     single_ard["dem"][
         "image_resampling"
     ] = resampling_method  # default: BICUBIC_INTERPOLATION
+    single_ard["dem"][
+        "out_projection"
+    ] = output_projection
     single_ard["to_tif"] = True
     # single_ard['product_type'] = 'RTC-gamma0'
 

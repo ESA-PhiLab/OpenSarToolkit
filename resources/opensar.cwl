@@ -19,6 +19,10 @@ $graph:
         type: int
         label: Resolution
         doc: Resolution in metres
+      output-projection:
+        type: int
+        label: Projection
+        doc: Output projection as EPSG code (integer), default is 42001 which selects the appropriate UTM projection.
       ard-type:
         type:
           type: enum
@@ -86,7 +90,11 @@ $graph:
       resolution:
         type: int
         inputBinding:
-          prefix: --resolution
+          prefix: --resolution      
+      output-projection:
+        type: int
+        inputBinding:
+          prefix: --output-projection
       ard-type:
         type:
           type: enum
