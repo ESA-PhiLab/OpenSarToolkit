@@ -89,7 +89,7 @@ Origin of the project
 ---------------------
 
 Open SAR Toolkit was initially developed at the Food and Agriculture Organization of the United Nations under the `SEPAL <https://github.com/openforis/sepal>`__ project between 2016-2018. It is still available `there <https://github.com/openforis/opensarkit>`__, but has been completely re-factored and transferred into a simpler and less-dependency rich **Python 3** version, which can be found on this page here. 
-Instead of using R-Shiny as a GUI, the main interface are now `Jupyter notebooks <https://github.com/ESA-PhiLab/OST_Notebooks>`__ that are developed in parallel to this core package and should help to get started.
+Instead of using R-Shiny as a GUI, the main interface are now `Jupyter notebooks <https://opensartoolkit.readthedocs.io/en/latest/example/index.html>`__ that are developed in parallel to this core package and should help to get started.
 
 Authors
 -------
