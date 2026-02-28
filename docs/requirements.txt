@@ -6,7 +6,7 @@ geopandas==0.10.2
 jupyterlab==3.2.5
 psycopg2-binary==2.9.2
 rasterio==1.2.10
-scipy==1.7.3
+scipy==1.10.0
 tqdm==4.62.3
 imageio==2.13.3
 Rtree==0.9.7
